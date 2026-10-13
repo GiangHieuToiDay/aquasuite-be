@@ -1,0 +1,13 @@
+package com.aquasuite.ims;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class AquasuiteBeApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(AquasuiteBeApplication.class, args);
+    }
+
+}
