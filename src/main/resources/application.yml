@@ -1,0 +1,37 @@
+spring:
+
+  application:
+   name: aquasuite-be
+
+  jpa:
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 500
+        order_inserts: true
+        order_updates: true
+        batch_versioned_data: true
+
+  data:
+    redis:
+      host: \${REDIS_HOST:localhost}
+      port: \${REDIS_PORT:6379}
+      timeout: 5000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
+
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
