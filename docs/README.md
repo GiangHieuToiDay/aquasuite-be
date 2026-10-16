@@ -16,8 +16,8 @@ Hệ thống tài liệu backend bao gồm các tài liệu chuyên đề sau:
 
 ### 1. Architecture and Design
 - [`architecture/Architecture-Aquasuite.md`](architecture/Architecture-Aquasuite.md):
-  - Phân định giữa mã nguồn hiện trạng (`com.aquasuite.ims`) và kiến trúc đích (`com.aquasuite.be`).
-  - Cấu trúc Package-by-Feature (Modular Monolith), quy tắc đóng gói `api` và `internal`.
+  - Cấu trúc kiến trúc module hóa chuẩn đặt trực tiếp dưới `com.aquasuite.ims.module` với base package duy nhất `com.aquasuite.ims`.
+  - Cấu trúc Modular Monolith chuẩn hóa, quy tắc đóng gói giữa hợp đồng công khai (`api`) và triển khai nội bộ (`internal`).
   - Bảng ánh xạ 11 miền nghiệp vụ ứng viên gắn với 14 mã tính năng (FE-01 đến FE-14).
   - Ma trận giao tiếp đồng bộ và sự kiện phân tách (decoupled events), loại bỏ vòng lặp phụ thuộc `sales <-> crm`.
 - [`architecture/module-contracts.md`](architecture/module-contracts.md):
@@ -41,7 +41,7 @@ Hệ thống tài liệu backend bao gồm các tài liệu chuyên đề sau:
 
 ### 4. Development Workflow
 - [`workflow/feature-delivery.md`](workflow/feature-delivery.md):
-  - Quy trình phát triển 4 giai đoạn: Spec Review -> Plan Review -> Implementation & Handoff -> Final Gate.
+  - Quy trình quản trị phân tầng: Tiền điều kiện cấp dự án (Spec Review) trước khi lập kế hoạch, tiếp nối bởi chuỗi cổng kiểm duyệt của Global Workflow v2 (Plan Review -> Implementation & Handoff -> Code Review -> Final Gate).
   - Quy định thẩm quyền triển khai, cổng bàn giao thực thi (Implementation Handoff Gate) và quản lý thay đổi hợp đồng.
   - Quy tắc an toàn Git: Nghiêm cấm Agent tự ý commit, push, reset hoặc clean mã nguồn.
 

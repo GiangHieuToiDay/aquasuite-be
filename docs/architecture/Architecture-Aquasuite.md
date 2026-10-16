@@ -8,6 +8,7 @@ Tài liệu này xác lập tiêu chuẩn kiến trúc backend cho hệ thống 
 
 - **Runtime & Framework**: Java 21, Spring Boot 3.5.16 (quản lý qua `pom.xml`, BOM quản lý Spring Framework 6.2.x và Spring Security 6.5.x).
 - **Base Package**: Toàn bộ mã nguồn hiện tại nằm dưới gói `com.aquasuite.ims`.
+- **Database Baseline**: PostgreSQL là hệ thống cơ sở dữ liệu chuẩn duy nhất.
 - **Existing Components**:
   - `com.aquasuite.ims.AquasuiteBeApplication`: Main class khởi chạy ứng dụng.
   - `com.aquasuite.ims.share.dto.ApiResponse<T>`: Cấu trúc response chuẩn cho HTTP API (`success`, `code`, `message`, `data`, `errors`, `timestamp`).
@@ -15,55 +16,54 @@ Tài liệu này xác lập tiêu chuẩn kiến trúc backend cho hệ thống 
   - `com.aquasuite.ims.share.exception.GlobalExceptionHandler`: Bộ xử lý lỗi tập trung qua `@RestControllerAdvice` (`AppException`, `MethodArgumentNotValidException`, `AccessDeniedException`, `DataIntegrityViolationException`, `Exception`).
   - `com.aquasuite.ims.share.exception.AppException`: Ngoại lệ nghiệp vụ kế thừa `RuntimeException`, mang theo `BaseErrorCode`.
   - `com.aquasuite.ims.share.exception.CommonErrorCode`: Enum mã lỗi hệ thống (`SYS_001` đến `SYS_004`, `AUTH_001`, `AUTH_002`, `DB_001`).
-- **Implementation Gap**: Hiện tại trong mã nguồn chưa có gói `com.aquasuite.be`, chưa có cấu trúc `common/` hay `features/`, và chưa có entity nghiệp vụ hay public facade nào được hiện thực hóa. Mọi khẳng định về sự tồn tại của gói `com.aquasuite.backend` hoặc các module nghiệp vụ đã chạy là không chính xác với hiện trạng (hệ thống hiện chuẩn hóa trên Spring Boot 3.5.16 theo migration FEATURE-004).
+- **Implementation State**: Các module nghiệp vụ được cấu trúc dưới `com.aquasuite.ims.module.<module_name>`. Hiện tại các skeleton (ví dụ IAM) đang ở giai đoạn khởi tạo ban đầu, chưa triển khai trọn vẹn nghiệp vụ.
 
 ### Target Architecture
 
-Kiến trúc mục tiêu cho các đợt phát triển tiếp theo là **Package-by-Feature (Modular Monolith)** với cấu trúc gói chuẩn:
+Kiến trúc mục tiêu chuẩn hóa là **Modular Monolith** đặt trực tiếp dưới base package `com.aquasuite.ims`:
 
 ```text
-com.aquasuite.be                         # Package đích (chưa áp dụng vào mã nguồn hiện tại)
-├── common/                             # Cấu hình kỹ thuật và giao ước hạ tầng dùng chung
+com.aquasuite.ims
+├── share/                              # Cấu hình kỹ thuật và giao ước hạ tầng dùng chung (com.aquasuite.ims.share)
 │   ├── config/                         # Cấu hình framework (Security, OpenAPI, Jackson)
 │   ├── exception/                      # Quản lý lỗi hệ thống và base exceptions
 │   ├── dto/                            # Response envelopes kỹ thuật dùng chung
 │   └── util/                           # Tiện ích kỹ thuật thuần túy
-└── features/                           # Các feature/module nghiệp vụ độc lập
-    └── <feature_name>/
-        ├── api/                        # PUBLIC CONTRACT: Interface, DTO, Event công khai cho feature khác
-        │   ├── <Feature>Api.java       # Interface giao tiếp đồng bộ
+└── module/                             # Các module nghiệp vụ chuẩn hóa (com.aquasuite.ims.module)
+    └── <module_name>/
+        ├── api/                        # PUBLIC CONTRACT: Interface, DTO, Event công khai cho module khác
+        │   ├── <Module>Api.java        # Interface giao tiếp đồng bộ
         │   ├── dto/                    # DTO công khai dùng làm tham số hoặc kết quả trả về
         │   └── event/                  # Domain Events công khai (Java Record)
-        └── internal/                   # PRIVATE IMPLEMENTATION: Cấm feature khác import trực tiếp
+        └── internal/                   # PRIVATE IMPLEMENTATION: Cấm module khác import trực tiếp
             ├── controller/             # REST Controller tiếp nhận HTTP request từ client
-            ├── service/                # Business logic và hiện thực của <Feature>Api
-            ├── listener/               # Event listeners xử lý domain events (mặc định cùng luồng trừ khi cấu hình async riêng)
+            ├── service/                # Business logic và hiện thực của <Module>Api
+            │   └── impl/
+            ├── listener/               # Event listeners xử lý domain events
             ├── repository/             # Spring Data JPA Repositories
             ├── entity/                 # JPA Entities nội bộ
             ├── mapper/                 # Bộ chuyển đổi Entity <-> DTO nội bộ
             └── payload/                # Request/Response body phục vụ riêng REST Controller
 ```
 
-> [!IMPORTANT]
-> Gói `com.aquasuite.be` là định hướng kiến trúc mục tiêu. Việc di chuyển mã nguồn từ `com.aquasuite.ims` sang `com.aquasuite.be` đòi hỏi một kế hoạch thực thi mã nguồn riêng biệt đã được phê duyệt, không thực hiện trong phạm vi tài liệu này.
-
 ---
 
 ## Package Structure and Visibility Rules
 
-### Common Layer Boundaries
+### Share Layer Boundaries (`com.aquasuite.ims.share`)
 
-- Gói `common` chỉ chứa các thành phần kỹ thuật dùng chung không phụ thuộc nghiệp vụ.
-- **Tuyệt đối cấm** đặt business logic, domain entities, repository hoặc rule nghiệp vụ của bất kỳ feature nào vào `common`.
-- Nếu hai feature có nhu cầu chia sẻ dữ liệu hoặc gọi logic của nhau, việc trao đổi phải thông qua public contract tại `features/<feature>/api/`, không chuyển dữ liệu đó thành đối tượng dùng chung trong `common`.
+- Gói `com.aquasuite.ims.share` chỉ chứa các thành phần hạ tầng kỹ thuật dùng chung không phụ thuộc nghiệp vụ.
+- **Tuyệt đối cấm** đặt business logic, domain entities, repository hoặc rule nghiệp vụ của bất kỳ module nào vào `share`.
+- Nếu hai module có nhu cầu chia sẻ dữ liệu hoặc gọi logic của nhau, việc trao đổi phải thông qua public contract tại `module/<module_name>/api/`, không chuyển dữ liệu đó thành đối tượng dùng chung trong `share`.
 
-### Feature Encapsulation and Import Rules
+### Module Encapsulation and Import Rules
 
-1. **Ranh giới Public Contract**: Feature A chỉ được phép import các class nằm trong gói `features/<feature_B>/api/` của Feature B.
-2. **Cấm truy cập Internal**: Tuyệt đối cấm Feature A import bất kỳ class nào nằm trong gói `features/<feature_B>/internal/` của Feature B (bao gồm controller, service nội bộ, repository, entity, mapper, payload).
-3. **Cấm liên kết JPA Entity chéo Module**: Không sử dụng `@ManyToOne`, `@OneToMany`, `@OneToOne`, `@ManyToMany` trực tiếp giữa hai `@Entity` thuộc hai feature khác nhau. Quan hệ chéo feature trong mô hình đối tượng Java chỉ được lưu dưới dạng ID thuần (`UUID`, `Long` hoặc `String`).
-4. **Ràng buộc khóa ngoại ở mức Database**: Việc cấm JPA entity relationship chéo module không đồng nghĩa với việc cấm Foreign Key ở mức database schema. Việc thiết lập khóa ngoại, chỉ mục (index) hoặc trigger toàn vẹn dữ liệu trong cơ sở dữ liệu sẽ do schema design của từng use case quyết định để đảm bảo toàn vẹn dữ liệu vật lý.
-5. **Kiểm tra ranh giới**: Do phạm vi truy cập `package-private` trong Java không tự động áp dụng qua các subpackage con, việc bảo vệ ranh giới kiến trúc cần được bảo đảm thông qua công cụ kiểm tra tự động (như ArchUnit) khi triển khai mã nguồn.
+1. **Ranh giới Public Contract**: Module A chỉ được phép import các class nằm trong gói `module/<module_b>/api/` của Module B.
+2. **Cấm truy cập Internal**: Tuyệt đối cấm Module A import bất kỳ class nào nằm trong gói `module/<module_b>/internal/` của Module B (bao gồm controller, service nội bộ, repository, entity, mapper, payload). Các type trong `internal/` mang tính private về mặt kiến trúc; dù có khai báo `public` theo yêu cầu của Spring/JPA thì vẫn không phải là public contract.
+3. **Cấm liên kết JPA Entity chéo Module**: Không sử dụng `@ManyToOne`, `@OneToMany`, `@OneToOne`, `@ManyToMany` trực tiếp giữa hai `@Entity` thuộc hai module khác nhau. Quan hệ chéo module trong mô hình đối tượng Java chỉ được lưu dưới dạng ID thuần (`UUID`, `Long` hoặc `String`).
+4. **Hợp đồng không dùng Entity**: Public contract không được nhận vào hoặc trả về JPA Entity; chỉ sử dụng primitive/scalar types, public DTOs hoặc event records thuộc `api/`.
+5. **Ràng buộc khóa ngoại ở mức Database**: Việc cấm JPA entity relationship chéo module không đồng nghĩa với việc cấm Foreign Key ở mức database schema trên PostgreSQL. Việc thiết lập khóa ngoại, chỉ mục (index) hoặc trigger toàn vẹn dữ liệu trong cơ sở dữ liệu sẽ do schema design của từng use case quyết định để đảm bảo toàn vẹn dữ liệu vật lý.
+6. **Kiểm tra ranh giới bằng ArchUnit (Kế hoạch tương lai - Future Roadmap)**: ArchUnit được định hướng là công cụ kiểm tra tự động các vi phạm ranh giới module (cấm truy cập `internal`, chống phụ thuộc vòng lặp, kiểm tra liên kết entity). Việc thêm dependency và triển khai test suite ArchUnit sẽ được thực hiện trong một feature riêng biệt được phê duyệt; hệ thống hiện tại chưa cài đặt ArchUnit dependency hoặc test.
 
 ---
 
@@ -92,7 +92,7 @@ Hệ thống AquaSuite bao gồm 11 module nghiệp vụ ứng viên, ánh xạ 
 
 ## Inter-Module Communication Matrix
 
-### Synchronous Communication (`features/<feature>/api`)
+### Synchronous Communication (`module/<module_name>/api`)
 
 Giao tiếp đồng bộ thông qua Interface trong `api/` chỉ được sử dụng khi use case của Caller đòi hỏi **kết quả trả về tức thời** để tiếp tục xử lý nghiệp vụ:
 
@@ -170,8 +170,8 @@ inventory (Xác nhận Phiếu nhập kho - GRN)
 ## Coding Guardrails and Invariants
 
 1. **Guardrail 1 - Package Visibility**:
-   - Chỉ các Interface, DTO, Event đặt trong `features/<feature>/api/` mới được khai báo `public`.
-   - Các class trong `internal/` (Entity, Repository, Service Implementation, Mapper, Controller) phải được thiết kế để không cho phép bên ngoài truy cập. Khi triển khai các subpackage trong `internal/`, lập trình viên phải duy trì tính đóng gói và không mở rộng quyền truy cập cho feature khác.
+   - Chỉ các Interface, DTO, Event đặt trong `module/<module_name>/api/` mới được xem là public module contract.
+   - Các class trong `internal/` (Entity, Repository, Service Implementation, Mapper, Controller) phải được thiết kế để không cho phép bên ngoài truy cập. Khi triển khai các subpackage trong `internal/`, lập trình viên phải duy trì tính đóng gói và không mở rộng quyền truy cập cho module khác.
 2. **Guardrail 2 - Transaction Boundaries & Event Handling**:
    - Khi phát Domain Event, Publisher phải bảo đảm payload chứa thông tin tối thiểu cần thiết và mã định danh nghiệp vụ.
    - Khi Consumer nhận Event qua `@TransactionalEventListener(phase = AFTER_COMMIT)`, tác vụ ghi dữ liệu phải mở transaction mới (`@Transactional(propagation = Propagation.REQUIRES_NEW)`) và có cơ chế bắt lỗi để không làm treo luồng chính.

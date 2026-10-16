@@ -8,31 +8,34 @@ Tài liệu này xác lập quy trình chuẩn từ khâu đặc tả yêu cầu
 
 ## Delivery Stages and Quality Gates
 
-Quy trình triển khai mỗi tính năng phải trải qua 4 giai đoạn tuần tự với các cổng kiểm duyệt (Gates) tương ứng:
+Quy trình triển khai mỗi tính năng phân tách rõ ràng giữa tiền điều kiện cấp dự án (project-level precondition) và chuỗi cổng kiểm soát chất lượng của Global Workflow v2:
 
 ```text
-[Giai đoạn 1: Spec Creation & Review]
+[Tiền điều kiện dự án: Lập Feature Spec]
          │
-         ▼ (Gate 1: SPEC REVIEW APPROVED)
-[Giai đoạn 2: Implementation Plan & Review]
+         ▼ (Thẩm quyền dự án: Spec Review Được Phê Duyệt)
+[Khởi tạo Kế hoạch: $plan-feature]
          │
-         ▼ (Gate 2: PLAN REVIEW APPROVED)
-[Giai đoạn 3: Implementation & Local Verification]
+         ▼ (Cổng kiểm duyệt: PLAN_REVIEW: APPROVED)
+[Thực thi Kỹ thuật & Kiểm thử: ANTI_DEV]
          │
-         ▼ (Handoff Gate: IMPLEMENTATION_STATUS: READY_FOR_REVIEW)
-         ▼ (Gate 3: CODE REVIEW APPROVED)
-[Giai đoạn 4: Final Gate & Integration]
+         ▼ (Cổng bàn giao: IMPLEMENTATION_STATUS: READY_FOR_REVIEW)
+         ▼ (Cổng duyệt mã: CODE_REVIEW: APPROVED)
+         │
+         ▼ (Cổng nghiệm thu cuối: FINAL_GATE: PASS)
 ```
 
-### Stage 1: Specification Creation and Review
+### Stage 1: Specification Creation and Spec Review (Project Precondition)
 1. **Lập đặc tả**: Tác giả (Kỹ sư hoặc AI) khởi tạo Feature Spec theo mẫu `docs/templates/feature-spec.md`.
 2. **Nội dung trọng yếu**: Phải xác định rõ Owning Module, ranh giới package, mô hình dữ liệu, hợp đồng API/Event, các tiêu chí nghiệm thu (AC) và ma trận kiểm thử (AC-to-Test).
-3. **Cổng kiểm duyệt (Spec Review Gate)**:
-   - Đánh giá tính khả thi, sự phù hợp với ranh giới kiến trúc trong `docs/architecture/Architecture-Aquasuite.md`.
-   - Kết quả: `APPROVED` hoặc `CHANGES_REQUESTED`. Chỉ khi được phê duyệt mới được chuyển sang Giai đoạn 2.
+3. **Tiền điều kiện cấp dự án (project-level precondition)**:
+   - Đánh giá tính khả thi và sự phù hợp với ranh giới kiến trúc trong `docs/architecture/Architecture-Aquasuite.md`.
+   - Thẩm quyền đánh giá và xác nhận hoàn thành Spec Review thuộc về Product Owner hoặc Lead Architect cấp dự án.
+   - Vai trò CODEX_PLAN hoàn toàn không quản lý hay xác nhận thẩm định Spec Review; vai trò này chỉ tiếp nhận bản đặc tả đã được dự án đồng thuận làm căn cứ đầu vào.
+   - Chỉ khi tiền điều kiện Spec Review đã hoàn tất ở cấp dự án, quy trình kỹ thuật mới được phép kích hoạt bước lập kế hoạch thông qua lệnh `$plan-feature`.
 
-### Stage 2: Implementation Planning and Review
-1. **Lập kế hoạch thực thi**: Khởi tạo kế hoạch chi tiết (Active Plan) xác định rõ:
+### Stage 2: Implementation Planning and Plan Review (Global Workflow v2)
+1. **Lập kế hoạch thực thi qua `$plan-feature`**: Khởi tạo kế hoạch chi tiết (Active Plan) xác định rõ:
    - `PLAN_ID`, `PLAN_VERSION`, `SCOPE`.
    - Repository Map và ranh giới Git root.
    - Danh sách file cụ thể sẽ thay đổi hoặc tạo mới.
@@ -43,13 +46,13 @@ Quy trình triển khai mỗi tính năng phải trải qua 4 giai đoạn tuầ
 
 ### Stage 3: Implementation, Verification, and Handoff
 1. **Thẩm quyền triển khai (Authorization Gate)**:
-   - Agent hoặc kỹ sư chỉ được phép sửa mã nguồn khi có đúng một active plan kèm phê duyệt `APPROVED` còn hiệu lực và mã băm SHA-256 khớp tuyệt đối.
+   - Agent hoặc kỹ sư chỉ được phép sửa mã nguồn khi có đúng một active plan kèm phê duyệt `PLAN_REVIEW: APPROVED` còn hiệu lực và mã băm SHA-256 khớp tuyệt đối.
 2. **Quy tắc thực thi (Implementation Rules)**:
    - Chỉ chỉnh sửa trong phạm vi file đã đăng ký trong plan.
    - Tuân thủ coding guardrails và package visibility.
    - Chạy đầy đủ các bước kiểm thử tự động, build và verification được nêu trong plan.
 3. **Cổng bàn giao thực thi (Implementation Handoff Gate)**:
-   - Sau khi hoàn thành các lane và bước kiểm tra thực tế, Agent/kỹ sư triển khai bắt buộc phải xuất artifact bàn giao tổng hợp (Handoff Artifact) lưu tại `<PROJECT_ROOT>/.agent/handoff.md` (hoặc `.agent/handoffs/<PLAN_ID>.md`).
+   - Sau khi hoàn thành các lane và bước kiểm tra thực tế, Agent/kỹ sư triển khai bắt buộc phải xuất artifact bàn giao tổng hợp (Handoff Artifact) lưu tại `<PROJECT_ROOT>/.agent/handoffs/<PLAN_ID>.md` (hiển thị `IMPLEMENTATION_STATUS: READY_FOR_REVIEW`).
    - Yêu cầu cấu trúc bắt buộc:
      - `IMPLEMENTATION_STATUS: READY_FOR_REVIEW`
      - `PLAN_ID: <PLAN_ID>`
@@ -66,11 +69,22 @@ Quy trình triển khai mỗi tính năng phải trải qua 4 giai đoạn tuầ
 4. **Cổng duyệt mã nguồn (Code Review Gate)**:
    - Kiểm tra mã nguồn thực tế so với kế hoạch đã duyệt và tiêu chuẩn kiến trúc.
    - Đánh giá kết quả kiểm thử thực tế (`PASS`, `FAIL`, `NOT_RUN`, `NOT_APPLICABLE`).
-   - Nếu có phát hiện lỗi: Đưa ra `CHANGES_REQUESTED`. Đội triển khai phải sửa chữa và bàn giao lại.
+   - Kết quả đánh giá đạt chuẩn cấp trạng thái: `CODE_REVIEW: APPROVED`. Nếu có phát hiện lỗi: Đưa ra `CHANGES_REQUESTED`. Đội triển khai phải sửa chữa và bàn giao lại.
 
 ### Stage 4: Final Gate and Integration
 - Xác nhận toàn bộ tiêu chí AC đã đạt và kiểm thử tự động vượt qua.
+- Kết quả nghiệm thu cuối cùng cấp trạng thái: `FINAL_GATE: PASS`.
 - Đóng gói tài liệu bàn giao và hoàn tất tính năng.
+
+---
+
+## Workflow State and Governance
+
+- Thư mục `.agent/` là nơi lưu trữ workflow state mang tính chất local-only tại `PROJECT_ROOT`, được loại trừ khỏi Git theo cấu hình `.gitignore`.
+- Mặc dù mang tính chất local-only trên môi trường phát triển, Agent bắt buộc phải duy trì tính toàn vẹn của Global Workflow v2:
+  - Duy trì tính duy nhất của active plan trong `.agent/plans/active/`.
+  - Tuân thủ mã băm toàn vẹn SHA-256 (`PLAN_SHA256`) và ngăn chặn stale approval.
+  - Tuyệt đối bảo toàn nguyên vẹn mọi workflow artifacts trong `archive/`, `cancelled/`, và `paused/` (không sửa đổi, không xóa, không tái cấu trúc).
 
 ---
 
@@ -78,10 +92,10 @@ Quy trình triển khai mỗi tính năng phải trải qua 4 giai đoạn tuầ
 
 Khi tính năng đã bước vào giai đoạn triển khai hoặc đã hoàn thành mà phát sinh yêu cầu thay đổi:
 
-1. **Thay đổi Hợp đồng API / Event**:
-   - Nếu thay đổi ảnh hưởng đến Consumer ở feature khác hoặc Frontend: **Bắt buộc dừng việc triển khai ngay lập tức**.
+1. **Thay đổi Hợp đồng API / Event hoặc Specification**:
+   - Nếu thay đổi ảnh hưởng đến Consumer ở module khác hoặc Frontend: **Bắt buộc dừng việc triển khai ngay lập tức**.
    - Phải báo cáo leo thang (`ESCALATION: PLAN_REVISION_REQUIRED`).
-   - Cập nhật lại Feature Spec và Active Plan, tăng số hiệu phiên bản (`VERSION`), và thực hiện kiểm duyệt lại từ Gate 1 / Gate 2.
+   - Cập nhật lại Feature Spec và được dự án xác nhận lại tiền điều kiện. Sau đó lập phiên bản mới của Active Plan, tăng số hiệu phiên bản (`PLAN_VERSION`), và thực hiện kiểm duyệt lại để nhận `PLAN_REVIEW: APPROVED` mới.
 2. **Thay đổi Logic Nội bộ trong Package `internal`**:
    - Các điều chỉnh hiện thực không làm thay đổi public contract, schema hay ranh giới module có thể được điều chỉnh trong cùng phiên bản kế hoạch nếu được Code Review chấp thuận.
 
