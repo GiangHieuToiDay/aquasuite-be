@@ -175,7 +175,7 @@ public class InventoryServiceImpl implements InventoryFacade, InventoryService {
     @Transactional
     public void manualAdjustStock(UUID variantId, BigDecimal deltaQty, String reason, Long actorUserId) {
         if (deltaQty == null || deltaQty.compareTo(BigDecimal.ZERO) == 0) {
-            return;
+            throw new AppException(InventoryErrorCode.INVALID_ADJUST_QUANTITY);
         }
         MovementType type = deltaQty.compareTo(BigDecimal.ZERO) > 0
                 ? MovementType.ADJUSTMENT_IN

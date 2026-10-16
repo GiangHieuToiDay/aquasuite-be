@@ -29,7 +29,9 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -69,6 +71,13 @@ public class StockCountServiceImpl implements StockCountService {
         List<StockCountItemResponse> itemResponses = new ArrayList<>();
 
         if (request.items() != null) {
+            Set<UUID> seenVariants = new HashSet<>();
+            for (StockCountItemRequest itemReq : request.items()) {
+                if (!seenVariants.add(itemReq.variantId())) {
+                    throw new AppException(InventoryErrorCode.DUPLICATE_STOCK_COUNT_ITEM, itemReq.variantId());
+                }
+            }
+
             for (StockCountItemRequest itemReq : request.items()) {
                 Inventory inv = inventoryRepository.findByVariantIdAndWarehouseCode(itemReq.variantId(), warehouse)
                         .orElseGet(() -> {

@@ -12,6 +12,7 @@ public record StockCountItemRequest(
         UUID variantId,
 
         @NotNull(message = "actualQty không được để trống")
+        @jakarta.validation.constraints.DecimalMin(value = "0.0", message = "Số lượng đếm thực tế không được âm")
         BigDecimal actualQty,
 
         String reason
