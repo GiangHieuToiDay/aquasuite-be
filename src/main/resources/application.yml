@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: aquasuite-be
+
+aquasuite:
+  config:
+    environment: default

@@ -43,8 +43,43 @@ logs/
 ### Claude Code ###
 .claude/
 
-### File env theo môi trường — KHÔNG commit giá trị môi trường thật.
-### Chỉ bản mẫu *.example được commit.
+# Local environment files
 .env
 .env.*
+!.env.example
 !.env.*.example
+
+# Private keys and keystores
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.ppk
+id_rsa
+id_ed25519
+
+# Credential and secret files
+credentials
+credentials.*
+*-credentials.json
+service-account*.json
+secrets.yml
+secrets.yaml
+secrets.properties
+secrets.json
+!credentials.example
+!credentials.*.example
+!secrets.*.example
+
+# Local-only Spring overrides
+/src/main/resources/application-local.yml
+/src/main/resources/application-local.yaml
+/src/main/resources/application-local.properties
+/src/main/resources/application-*.local.yml
+/src/main/resources/application-*.local.yaml
+/src/main/resources/application-*.local.properties
+
+
+.agent/
