@@ -14,8 +14,8 @@ class SpringProfileConfigDataTest {
 
     private static final String EXCLUDE_AUTOCONFIG =
             "spring.autoconfigure.exclude="
-            + "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration,"
-            + "org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration";
+            + "org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,"
+            + "org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration";
 
     @Test
     @DisplayName("defaultLoadsCommonOnly: Không truyền profile -> default marker and common app name")

@@ -45,6 +45,11 @@ Hệ thống tài liệu backend bao gồm các tài liệu chuyên đề sau:
   - Quy định thẩm quyền triển khai, cổng bàn giao thực thi (Implementation Handoff Gate) và quản lý thay đổi hợp đồng.
   - Quy tắc an toàn Git: Nghiêm cấm Agent tự ý commit, push, reset hoặc clean mã nguồn.
 
+### 5. Migrations
+- [`migrations/spring-boot-3.5.md`](migrations/spring-boot-3.5.md):
+  - Ghi nhận chi tiết đợt di chuyển baseline công nghệ từ Spring Boot 4.1.1 sang Spring Boot 3.5.16 (`FEATURE-004`).
+  - Danh mục dependency được BOM quản lý, các điều chỉnh tương thích và kết quả kiểm chứng baseline.
+
 ---
 
 ## Reading Order for Developers and Agents
