@@ -1,0 +1,3 @@
+aquasuite:
+  config:
+    environment: prod
