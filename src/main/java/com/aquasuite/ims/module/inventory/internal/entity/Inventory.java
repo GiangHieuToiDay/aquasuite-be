@@ -30,9 +30,6 @@ public class Inventory {
     @Builder.Default
     private String warehouseCode = "WH_MAIN";
 
-    @Column(name = "bin_location", length = 100)
-    private String binLocation;
-
     @Column(name = "on_hand_qty", nullable = false, precision = 12, scale = 2)
     @Builder.Default
     private BigDecimal onHandQty = BigDecimal.ZERO;

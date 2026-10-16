@@ -9,7 +9,6 @@ import java.util.UUID;
 public record StockSummaryDto(
         UUID variantId,
         String warehouseCode,
-        String binLocation,
         BigDecimal onHandQty,
         BigDecimal reservedQty,
         BigDecimal availableQty,

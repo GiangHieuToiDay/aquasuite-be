@@ -9,7 +9,7 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/aquasuite}
     username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:}
+    password: ${DB_PASSWORD:1234}
 
   jpa:
     hibernate:
@@ -42,7 +42,7 @@ spring:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
     username: ${MAIL_USERNAME:g.trung.hieu.08@gmail.com}
-    password: ${MAIL_PASSWORD:}
+    password: ${MAIL_PASSWORD:imeh vhfm vpss awbg}
     properties:
       mail:
         smtp:

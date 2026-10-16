@@ -199,7 +199,6 @@ public class InventoryServiceImpl implements InventoryFacade, InventoryService {
         return StockSummaryDto.builder()
                 .variantId(inv.getVariantId())
                 .warehouseCode(inv.getWarehouseCode())
-                .binLocation(inv.getBinLocation())
                 .onHandQty(inv.getOnHandQty())
                 .reservedQty(inv.getReservedQty())
                 .availableQty(inv.getAvailableQty())
