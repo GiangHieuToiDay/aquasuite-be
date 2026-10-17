@@ -1,0 +1,52 @@
+
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: aquasuite-be
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/aquasuite}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:root}
+
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:create}
+
+    properties:
+      hibernate:
+        format_sql: true
+
+        jdbc:
+          batch_size: 50
+          batch_versioned_data: true
+
+        order_inserts: true
+        order_updates: true
+
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 5000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
+
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:g.trung.hieu.08@gmail.com}
+    password: ${MAIL_PASSWORD:imeh vhfm vpss awbg}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
