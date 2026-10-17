@@ -1,6 +1,16 @@
 spring:
   application:
     name: aquasuite-be
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: public
+  flyway:
+    enabled: true
+    schemas: public
+    locations: classpath:db/migration
 
 aquasuite:
   config:
