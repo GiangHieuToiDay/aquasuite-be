@@ -6,7 +6,7 @@ Tài liệu này xác lập tiêu chuẩn kiến trúc backend cho hệ thống 
 
 ### Current System Baseline
 
-- **Runtime & Framework**: Java 21, Spring Boot 4.1.1 (quản lý qua `pom.xml`).
+- **Runtime & Framework**: Java 21, Spring Boot 3.5.16 (quản lý qua `pom.xml`, BOM quản lý Spring Framework 6.2.x và Spring Security 6.5.x).
 - **Base Package**: Toàn bộ mã nguồn hiện tại nằm dưới gói `com.aquasuite.ims`.
 - **Existing Components**:
   - `com.aquasuite.ims.AquasuiteBeApplication`: Main class khởi chạy ứng dụng.
@@ -15,7 +15,7 @@ Tài liệu này xác lập tiêu chuẩn kiến trúc backend cho hệ thống 
   - `com.aquasuite.ims.share.exception.GlobalExceptionHandler`: Bộ xử lý lỗi tập trung qua `@RestControllerAdvice` (`AppException`, `MethodArgumentNotValidException`, `AccessDeniedException`, `DataIntegrityViolationException`, `Exception`).
   - `com.aquasuite.ims.share.exception.AppException`: Ngoại lệ nghiệp vụ kế thừa `RuntimeException`, mang theo `BaseErrorCode`.
   - `com.aquasuite.ims.share.exception.CommonErrorCode`: Enum mã lỗi hệ thống (`SYS_001` đến `SYS_004`, `AUTH_001`, `AUTH_002`, `DB_001`).
-- **Implementation Gap**: Hiện tại trong mã nguồn chưa có gói `com.aquasuite.be`, chưa có cấu trúc `common/` hay `features/`, và chưa có entity nghiệp vụ hay public facade nào được hiện thực hóa. Mọi khẳng định về sự tồn tại của Spring Boot 3.x, gói `com.aquasuite.backend` hoặc các module nghiệp vụ đã chạy là không chính xác với hiện trạng.
+- **Implementation Gap**: Hiện tại trong mã nguồn chưa có gói `com.aquasuite.be`, chưa có cấu trúc `common/` hay `features/`, và chưa có entity nghiệp vụ hay public facade nào được hiện thực hóa. Mọi khẳng định về sự tồn tại của gói `com.aquasuite.backend` hoặc các module nghiệp vụ đã chạy là không chính xác với hiện trạng (hệ thống hiện chuẩn hóa trên Spring Boot 3.5.16 theo migration FEATURE-004).
 
 ### Target Architecture
 

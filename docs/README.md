@@ -34,6 +34,11 @@ Hệ thống tài liệu backend bao gồm các tài liệu chuyên đề sau:
   - Quy chuẩn đặt tên URI và phương thức HTTP cho các Feature Spec tương lai.
 
 ### 3. Specifications and Templates
+- [`specs/SCRUM14-UC13-product-combos.md`](specs/SCRUM14-UC13-product-combos.md):
+  - Spec dự thảo UC-13 (View and Manage Product Combos), đối chiếu Report 3, Database.pdf và code catalog hiện có.
+  - Package triển khai đã được người dùng chốt cho SCRUM14: `com.aquasuite.ims.module.catalog`; public contract mới trong `api/`.
+  - Có decision register và AC-to-Test; chưa được phê duyệt để code. Tài liệu kiến trúc chung ở trên còn mô tả baseline cũ, cần cập nhật trong phạm vi riêng.
+  - Kế hoạch chuẩn bị: [SCRUM14-UC13](../.agent/plans/SCRUM14-UC13.md), trạng thái `DRAFT - NOT_ACTIVE`.
 - [`templates/feature-spec.md`](templates/feature-spec.md):
   - Mẫu tài liệu đặc tả tính năng chuẩn hóa.
   - Phân loại độ sâu tài liệu theo mức độ rủi ro (Risk-Based Depth).
@@ -44,6 +49,11 @@ Hệ thống tài liệu backend bao gồm các tài liệu chuyên đề sau:
   - Quy trình phát triển 4 giai đoạn: Spec Review -> Plan Review -> Implementation & Handoff -> Final Gate.
   - Quy định thẩm quyền triển khai, cổng bàn giao thực thi (Implementation Handoff Gate) và quản lý thay đổi hợp đồng.
   - Quy tắc an toàn Git: Nghiêm cấm Agent tự ý commit, push, reset hoặc clean mã nguồn.
+
+### 5. Migrations
+- [`migrations/spring-boot-3.5.md`](migrations/spring-boot-3.5.md):
+  - Ghi nhận chi tiết đợt di chuyển baseline công nghệ từ Spring Boot 4.1.1 sang Spring Boot 3.5.16 (`FEATURE-004`).
+  - Danh mục dependency được BOM quản lý, các điều chỉnh tương thích và kết quả kiểm chứng baseline.
 
 ---
 

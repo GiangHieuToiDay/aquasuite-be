@@ -1,6 +1,6 @@
 package com.aquasuite.ims.config;
 
-import com.aquasuite.ims.AquasuiteBeApplication;
+import org.springframework.context.annotation.Configuration;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.WebApplicationType;
@@ -12,18 +12,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class SpringProfileConfigDataTest {
 
-    private static final String EXCLUDE_AUTOCONFIG =
-            "spring.autoconfigure.exclude="
-            + "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration,"
-            + "org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration";
+    // Exercise ConfigData without scanning business services or connecting to databases.
+    @Configuration(proxyBeanMethods = false)
+    static class ConfigOnlyApplication {
+    }
 
     @Test
     @DisplayName("defaultLoadsCommonOnly: Không truyền profile -> default marker and common app name")
     void defaultLoadsCommonOnly() {
-        try (ConfigurableApplicationContext context = new SpringApplicationBuilder(AquasuiteBeApplication.class)
+        try (ConfigurableApplicationContext context = new SpringApplicationBuilder(ConfigOnlyApplication.class)
                 .web(WebApplicationType.NONE)
                 .registerShutdownHook(false)
-                .properties(EXCLUDE_AUTOCONFIG)
                 .run()) {
             Environment env = context.getEnvironment();
             assertThat(env.getActiveProfiles()).isEmpty();
@@ -35,10 +34,9 @@ class SpringProfileConfigDataTest {
     @Test
     @DisplayName("devLoadsAndOverridesCommon: Programmatic dev profile -> dev marker overrides default")
     void devLoadsAndOverridesCommon() {
-        try (ConfigurableApplicationContext context = new SpringApplicationBuilder(AquasuiteBeApplication.class)
+        try (ConfigurableApplicationContext context = new SpringApplicationBuilder(ConfigOnlyApplication.class)
                 .web(WebApplicationType.NONE)
                 .registerShutdownHook(false)
-                .properties(EXCLUDE_AUTOCONFIG)
                 .profiles("dev")
                 .run()) {
             Environment env = context.getEnvironment();
@@ -51,10 +49,9 @@ class SpringProfileConfigDataTest {
     @Test
     @DisplayName("testLoadsAndOverridesCommon: Programmatic test profile -> test marker overrides default")
     void testLoadsAndOverridesCommon() {
-        try (ConfigurableApplicationContext context = new SpringApplicationBuilder(AquasuiteBeApplication.class)
+        try (ConfigurableApplicationContext context = new SpringApplicationBuilder(ConfigOnlyApplication.class)
                 .web(WebApplicationType.NONE)
                 .registerShutdownHook(false)
-                .properties(EXCLUDE_AUTOCONFIG)
                 .profiles("test")
                 .run()) {
             Environment env = context.getEnvironment();
@@ -67,10 +64,9 @@ class SpringProfileConfigDataTest {
     @Test
     @DisplayName("prodLoadsAndOverridesCommon: Programmatic prod profile -> prod marker overrides default")
     void prodLoadsAndOverridesCommon() {
-        try (ConfigurableApplicationContext context = new SpringApplicationBuilder(AquasuiteBeApplication.class)
+        try (ConfigurableApplicationContext context = new SpringApplicationBuilder(ConfigOnlyApplication.class)
                 .web(WebApplicationType.NONE)
                 .registerShutdownHook(false)
-                .properties(EXCLUDE_AUTOCONFIG)
                 .profiles("prod")
                 .run()) {
             Environment env = context.getEnvironment();
@@ -83,10 +79,9 @@ class SpringProfileConfigDataTest {
     @Test
     @DisplayName("externalPropertyOverridesProfile: dev with command-line arg -> command-line overrides profile")
     void externalPropertyOverridesProfile() {
-        try (ConfigurableApplicationContext context = new SpringApplicationBuilder(AquasuiteBeApplication.class)
+        try (ConfigurableApplicationContext context = new SpringApplicationBuilder(ConfigOnlyApplication.class)
                 .web(WebApplicationType.NONE)
                 .registerShutdownHook(false)
-                .properties(EXCLUDE_AUTOCONFIG)
                 .profiles("dev")
                 .run("--aquasuite.config.environment=external-override")) {
             Environment env = context.getEnvironment();
