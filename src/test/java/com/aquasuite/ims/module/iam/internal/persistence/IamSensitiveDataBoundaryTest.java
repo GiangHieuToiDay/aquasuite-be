@@ -1,10 +1,10 @@
 package com.aquasuite.ims.module.iam.internal.persistence;
 
-import com.aquasuite.ims.module.iam.api.dto.UserRequest;
-import com.aquasuite.ims.module.iam.api.dto.UserResponse;
-import com.aquasuite.ims.module.iam.internal.controller.UserController;
-import com.aquasuite.ims.module.iam.internal.entity.UserEntity;
-import com.aquasuite.ims.module.iam.internal.enums.UserStatus;
+import com.aquasuite.ims.module.iam.api.dto.request.UserRequest;
+import com.aquasuite.ims.module.iam.api.dto.response.UserResponse;
+import com.aquasuite.ims.module.iam.internal.user.controller.UserController;
+import com.aquasuite.ims.module.iam.internal.user.entity.User;
+import com.aquasuite.ims.module.iam.internal.user.enums.UserStatus;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -25,7 +25,7 @@ class IamSensitiveDataBoundaryTest {
 
     // Test-only record demonstrating safe projection without sensitive fields (AC-05)
     public record TestUserSafeProjection(UUID id, String username, String email, UserStatus status) {
-        public static TestUserSafeProjection from(UserEntity entity) {
+        public static TestUserSafeProjection from(User entity) {
             return new TestUserSafeProjection(
                     entity.getId(),
                     entity.getUsername(),
@@ -38,7 +38,7 @@ class IamSensitiveDataBoundaryTest {
     @Test
     @DisplayName("AC-05: Test-only projection excludes password_hash and sensitive credentials")
     void testTestOnlySafeProjectionFixture() {
-        UserEntity user = new UserEntity();
+        User user = new User();
         user.setId(UUID.randomUUID());
         user.setUsername("safe_user");
         user.setEmail("safe@test.com");
@@ -94,20 +94,20 @@ class IamSensitiveDataBoundaryTest {
                 "src/main/java/com/aquasuite/ims/module/iam/api/UserExternalService.java",
                 "ca15b1007a1a1dc8715af5a39017cadebd9664659b17fcbc1ffd963d95e7e96b",
 
-                "src/main/java/com/aquasuite/ims/module/iam/api/dto/UserRequest.java",
-                "8e48fefc28471a3af46550b3a0d2aeecea1eb896b7e4cdec302ccfc925befea9",
+                "src/main/java/com/aquasuite/ims/module/iam/api/dto/request/UserRequest.java",
+                "9fcd250ccc0d082831db6b3acb1e9b6371104046d625a28ee920b49288500d5e",
 
-                "src/main/java/com/aquasuite/ims/module/iam/api/dto/UserResponse.java",
-                "932b8ca8a7efbf29a46b9fc4eb6bb2bbcfd208e83e936c20f50040444c2c42c4",
+                "src/main/java/com/aquasuite/ims/module/iam/api/dto/response/UserResponse.java",
+                "c23de5fe7cb2a3925ab8ba9e76b75bd3fd907950ec598efefff6adc3ec2b1d37",
 
-                "src/main/java/com/aquasuite/ims/module/iam/internal/controller/UserController.java",
-                "be71fca446b74a27adb82685b78de9abaf5db608b8dff6a50717d6295e84699c",
+                "src/main/java/com/aquasuite/ims/module/iam/internal/user/controller/UserController.java",
+                "60bc909dc8e72f882bf424f077c74e21dcb3845614fcee25a9cf5b81f7266cde",
 
-                "src/main/java/com/aquasuite/ims/module/iam/internal/service/UserService.java",
-                "561594bc97bd9a4fb225fbbc16e01b6e048fe1516b3c5a66827c03686a632ac2",
+                "src/main/java/com/aquasuite/ims/module/iam/internal/user/service/UserService.java",
+                "d1f383e92d66fe8526917213e36a5b09927d73630d7633d037113b6832f5ed0d",
 
-                "src/main/java/com/aquasuite/ims/module/iam/internal/service/Impl/UserServiceImpl.java",
-                "b0dedbf5d90a43eeae07be1991f277914008dbf80c1042186ba944a7a617a2bb"
+                "src/main/java/com/aquasuite/ims/module/iam/internal/user/service/impl/UserServiceImpl.java",
+                "e48bef9beff8ee193c4f2defcd73e0f2ca4b251cbd662c8ba9ed9c231aa75ad6"
         );
 
         MessageDigest digest = MessageDigest.getInstance("SHA-256");

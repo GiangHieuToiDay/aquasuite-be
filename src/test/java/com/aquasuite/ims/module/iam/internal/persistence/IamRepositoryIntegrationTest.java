@@ -1,11 +1,12 @@
 package com.aquasuite.ims.module.iam.internal.persistence;
 
-import com.aquasuite.ims.module.iam.internal.entity.PermissionEntity;
-import com.aquasuite.ims.module.iam.internal.entity.RoleEntity;
-import com.aquasuite.ims.module.iam.internal.entity.UserEntity;
-import com.aquasuite.ims.module.iam.internal.repository.PermissionRepository;
-import com.aquasuite.ims.module.iam.internal.repository.RoleRepository;
-import com.aquasuite.ims.module.iam.internal.repository.UserRepository;
+import com.aquasuite.ims.module.iam.internal.authorization.entity.Permission;
+import com.aquasuite.ims.module.iam.internal.authorization.entity.Role;
+import com.aquasuite.ims.module.iam.internal.user.entity.User;
+import com.aquasuite.ims.module.iam.internal.user.enums.UserStatus;
+import com.aquasuite.ims.module.iam.internal.authorization.repository.PermissionRepository;
+import com.aquasuite.ims.module.iam.internal.authorization.repository.RoleRepository;
+import com.aquasuite.ims.module.iam.internal.user.repository.UserRepository;
 import com.aquasuite.ims.testsupport.PostgreSqlIntegrationTestSupport;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -55,17 +56,17 @@ class IamRepositoryIntegrationTest extends PostgreSqlIntegrationTestSupport {
     @Test
     @DisplayName("CP3: UserRepository case-insensitive lookups and existence checks")
     void testUserRepositoryLookups() {
-        UserEntity user = new UserEntity();
+        User user = new User();
         user.setUsername("AlexSmith");
         user.setEmail("Alex.Smith@Test.com");
         user.setPasswordHash("hashed_pwd");
         user = userRepository.saveAndFlush(user);
 
-        Optional<UserEntity> byUsername = userRepository.findByUsernameIgnoreCase("alexsmith");
+        Optional<User> byUsername = userRepository.findByUsernameIgnoreCase("alexsmith");
         assertThat(byUsername).isPresent();
         assertThat(byUsername.get().getId()).isEqualTo(user.getId());
 
-        Optional<UserEntity> byEmail = userRepository.findByEmailIgnoreCase("alex.smith@test.com");
+        Optional<User> byEmail = userRepository.findByEmailIgnoreCase("alex.smith@test.com");
         assertThat(byEmail).isPresent();
         assertThat(byEmail.get().getId()).isEqualTo(user.getId());
 
@@ -78,13 +79,13 @@ class IamRepositoryIntegrationTest extends PostgreSqlIntegrationTestSupport {
     @Test
     @DisplayName("CP3: RoleRepository case-insensitive lookups and existence checks")
     void testRoleRepositoryLookups() {
-        RoleEntity role = new RoleEntity();
+        Role role = new Role();
         role.setRoleName("SuperAdmin");
         role.setDescription("Highest privileges");
         role.setActive(true);
         role = roleRepository.saveAndFlush(role);
 
-        Optional<RoleEntity> byName = roleRepository.findByRoleNameIgnoreCase("superadmin");
+        Optional<Role> byName = roleRepository.findByRoleNameIgnoreCase("superadmin");
         assertThat(byName).isPresent();
         assertThat(byName.get().getRoleId()).isEqualTo(role.getRoleId());
 
@@ -95,12 +96,12 @@ class IamRepositoryIntegrationTest extends PostgreSqlIntegrationTestSupport {
     @Test
     @DisplayName("CP3: PermissionRepository case-insensitive lookups and existence checks")
     void testPermissionRepositoryLookups() {
-        PermissionEntity perm = new PermissionEntity();
+        Permission perm = new Permission();
         perm.setCode("ORDER_VIEW");
         perm.setDescription("View order list");
         perm = permissionRepository.saveAndFlush(perm);
 
-        Optional<PermissionEntity> byCode = permissionRepository.findByCodeIgnoreCase("order_view");
+        Optional<Permission> byCode = permissionRepository.findByCodeIgnoreCase("order_view");
         assertThat(byCode).isPresent();
         assertThat(byCode.get().getId()).isEqualTo(perm.getId());
 
@@ -114,16 +115,16 @@ class IamRepositoryIntegrationTest extends PostgreSqlIntegrationTestSupport {
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
 
         tx.execute(status -> {
-            PermissionEntity perm = new PermissionEntity();
+            Permission perm = new Permission();
             perm.setCode("REPORT_EXPORT");
             perm = permissionRepository.save(perm);
 
-            RoleEntity role = new RoleEntity();
+            Role role = new Role();
             role.setRoleName("ANALYST");
             role.getPermissions().add(perm);
             role = roleRepository.save(role);
 
-            UserEntity user = new UserEntity();
+            User user = new User();
             user.setUsername("data_analyst");
             user.setEmail("analyst@test.com");
             user.setPasswordHash("h");
@@ -131,9 +132,9 @@ class IamRepositoryIntegrationTest extends PostgreSqlIntegrationTestSupport {
             user = userRepository.save(user);
 
             // Traverse from user
-            UserEntity reloadedUser = userRepository.findById(user.getId()).orElseThrow();
+            User reloadedUser = userRepository.findById(user.getId()).orElseThrow();
             assertThat(reloadedUser.getRoles()).hasSize(1);
-            RoleEntity fetchedRole = reloadedUser.getRoles().iterator().next();
+            Role fetchedRole = reloadedUser.getRoles().iterator().next();
             assertThat(fetchedRole.getRoleName()).isEqualTo("ANALYST");
             assertThat(fetchedRole.getPermissions()).hasSize(1);
             assertThat(fetchedRole.getPermissions().iterator().next().getCode()).isEqualTo("REPORT_EXPORT");

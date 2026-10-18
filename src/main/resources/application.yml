@@ -11,7 +11,22 @@ spring:
     enabled: true
     schemas: public
     locations: classpath:db/migration
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:${SPRING_REDIS_HOST:localhost}}
+      port: ${SPRING_DATA_REDIS_PORT:${SPRING_REDIS_PORT:6379}}
+      password: ${SPRING_DATA_REDIS_PASSWORD:${SPRING_REDIS_PASSWORD:}}
 
 aquasuite:
   config:
     environment: default
+    auth-generation: 2
+  security:
+    jwt:
+      issuer: aquasuite-be
+      access-audience: aquasuite-api
+      refresh-audience: aquasuite-auth
+      access-token-ttl-seconds: 1800
+      refresh-token-ttl-seconds: 1296000
+      session-absolute-ttl-seconds: 1296000
+      secret: ${JWT_SECRET:}

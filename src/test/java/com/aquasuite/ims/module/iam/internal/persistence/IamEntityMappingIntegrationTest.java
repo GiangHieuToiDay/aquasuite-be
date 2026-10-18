@@ -1,9 +1,9 @@
 package com.aquasuite.ims.module.iam.internal.persistence;
 
-import com.aquasuite.ims.module.iam.internal.entity.PermissionEntity;
-import com.aquasuite.ims.module.iam.internal.entity.RoleEntity;
-import com.aquasuite.ims.module.iam.internal.entity.UserEntity;
-import com.aquasuite.ims.module.iam.internal.enums.UserStatus;
+import com.aquasuite.ims.module.iam.internal.authorization.entity.Permission;
+import com.aquasuite.ims.module.iam.internal.authorization.entity.Role;
+import com.aquasuite.ims.module.iam.internal.user.entity.User;
+import com.aquasuite.ims.module.iam.internal.user.enums.UserStatus;
 import com.aquasuite.ims.testsupport.PostgreSqlIntegrationTestSupport;
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.EntityManager;
@@ -57,19 +57,18 @@ class IamEntityMappingIntegrationTest extends PostgreSqlIntegrationTestSupport {
     }
 
     @Test
-    @DisplayName("AC-06: Entities reside in internal.entity, UserStatus in internal.enums, no cross-module relations")
+    @DisplayName("AC-06: Target architecture package structure and encapsulation")
     void testPackageEncapsulation() {
-        List<Class<?>> entityClasses = List.of(UserEntity.class, RoleEntity.class, PermissionEntity.class);
-        for (Class<?> clazz : entityClasses) {
-            assertThat(clazz.getPackageName()).isEqualTo("com.aquasuite.ims.module.iam.internal.entity");
-        }
-        assertThat(UserStatus.class.getPackageName()).isEqualTo("com.aquasuite.ims.module.iam.internal.enums");
+        assertThat(User.class.getPackageName()).isEqualTo("com.aquasuite.ims.module.iam.internal.user.entity");
+        assertThat(Role.class.getPackageName()).isEqualTo("com.aquasuite.ims.module.iam.internal.authorization.entity");
+        assertThat(Permission.class.getPackageName()).isEqualTo("com.aquasuite.ims.module.iam.internal.authorization.entity");
+        assertThat(UserStatus.class.getPackageName()).isEqualTo("com.aquasuite.ims.module.iam.internal.user.enums");
     }
 
     @Test
     @DisplayName("AC-07: Exactly two ManyToMany LAZY associations, empty cascade, exact JoinTable metadata, no join entity or embedded IDs")
     void testAssociationCountAndLazyNoCascade() throws NoSuchFieldException {
-        List<Class<?>> entities = List.of(UserEntity.class, RoleEntity.class, PermissionEntity.class);
+        List<Class<?>> entities = List.of(User.class, Role.class, Permission.class);
         int totalManyToManyCount = 0;
         for (Class<?> entity : entities) {
             for (Field f : entity.getDeclaredFields()) {
@@ -84,8 +83,8 @@ class IamEntityMappingIntegrationTest extends PostgreSqlIntegrationTestSupport {
         }
         assertThat(totalManyToManyCount).isEqualTo(2);
 
-        // Inspect UserEntity.roles
-        Field rolesField = UserEntity.class.getDeclaredField("roles");
+        // Inspect User.roles
+        Field rolesField = User.class.getDeclaredField("roles");
         ManyToMany userRolesM2M = rolesField.getAnnotation(ManyToMany.class);
         assertThat(userRolesM2M).isNotNull();
         assertThat(userRolesM2M.fetch()).isEqualTo(FetchType.LAZY);
@@ -100,8 +99,8 @@ class IamEntityMappingIntegrationTest extends PostgreSqlIntegrationTestSupport {
         assertThat(userRolesJoin.inverseJoinColumns()).hasSize(1);
         assertThat(userRolesJoin.inverseJoinColumns()[0].name()).isEqualTo("role_id");
 
-        // Inspect RoleEntity.permissions
-        Field permsField = RoleEntity.class.getDeclaredField("permissions");
+        // Inspect Role.permissions
+        Field permsField = Role.class.getDeclaredField("permissions");
         ManyToMany rolePermsM2M = permsField.getAnnotation(ManyToMany.class);
         assertThat(rolePermsM2M).isNotNull();
         assertThat(rolePermsM2M.fetch()).isEqualTo(FetchType.LAZY);
@@ -122,7 +121,7 @@ class IamEntityMappingIntegrationTest extends PostgreSqlIntegrationTestSupport {
     void testApplicationGeneratedUuidPrePersist() {
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
 
-        UserEntity user1 = new UserEntity();
+        User user1 = new User();
         user1.setUsername("uuid_user1");
         user1.setEmail("uuid_user1@test.com");
         user1.setPasswordHash("hash");
@@ -134,7 +133,7 @@ class IamEntityMappingIntegrationTest extends PostgreSqlIntegrationTestSupport {
         assertThat(user1.getId()).isNotNull();
 
         UUID presetId = UUID.randomUUID();
-        UserEntity user2 = new UserEntity();
+        User user2 = new User();
         user2.setId(presetId);
         user2.setUsername("uuid_user2");
         user2.setEmail("uuid_user2@test.com");
@@ -152,9 +151,9 @@ class IamEntityMappingIntegrationTest extends PostgreSqlIntegrationTestSupport {
     void testDatabaseGeneratedCreatedAtAndImmutable() {
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
 
-        // 1. Verify UserEntity created_at
+        // 1. Verify User created_at
         UUID userId = tx.execute(status -> {
-            UserEntity user = new UserEntity();
+            User user = new User();
             user.setUsername("timestamp_user");
             user.setEmail("timestamp_user@test.com");
             user.setPasswordHash("hash");
@@ -165,7 +164,7 @@ class IamEntityMappingIntegrationTest extends PostgreSqlIntegrationTestSupport {
         });
 
         Instant initialUserCreatedAt = tx.execute(status -> {
-            UserEntity reloaded = entityManager.find(UserEntity.class, userId);
+            User reloaded = entityManager.find(User.class, userId);
             assertThat(reloaded).isNotNull();
             assertThat(reloaded.getCreatedAt()).isNotNull();
             reloaded.setPhone("0900000002");
@@ -175,16 +174,16 @@ class IamEntityMappingIntegrationTest extends PostgreSqlIntegrationTestSupport {
         });
 
         tx.execute(status -> {
-            UserEntity reloadedAgain = entityManager.find(UserEntity.class, userId);
+            User reloadedAgain = entityManager.find(User.class, userId);
             assertThat(reloadedAgain).isNotNull();
             assertThat(reloadedAgain.getPhone()).isEqualTo("0900000002");
             assertThat(reloadedAgain.getCreatedAt()).isEqualTo(initialUserCreatedAt);
             return null;
         });
 
-        // 2. Verify RoleEntity created_at (Spec AC-16)
+        // 2. Verify Role created_at (Spec AC-16)
         UUID roleId = tx.execute(status -> {
-            RoleEntity role = new RoleEntity();
+            Role role = new Role();
             role.setRoleName("TIMESTAMP_ROLE");
             role.setDescription("Initial role description");
             entityManager.persist(role);
@@ -193,7 +192,7 @@ class IamEntityMappingIntegrationTest extends PostgreSqlIntegrationTestSupport {
         });
 
         Instant initialRoleCreatedAt = tx.execute(status -> {
-            RoleEntity reloadedRole = entityManager.find(RoleEntity.class, roleId);
+            Role reloadedRole = entityManager.find(Role.class, roleId);
             assertThat(reloadedRole).isNotNull();
             assertThat(reloadedRole.getCreatedAt()).isNotNull();
             reloadedRole.setDescription("Updated role description");
@@ -203,7 +202,7 @@ class IamEntityMappingIntegrationTest extends PostgreSqlIntegrationTestSupport {
         });
 
         tx.execute(status -> {
-            RoleEntity reloadedRoleAgain = entityManager.find(RoleEntity.class, roleId);
+            Role reloadedRoleAgain = entityManager.find(Role.class, roleId);
             assertThat(reloadedRoleAgain).isNotNull();
             assertThat(reloadedRoleAgain.getDescription()).isEqualTo("Updated role description");
             assertThat(reloadedRoleAgain.getCreatedAt()).isEqualTo(initialRoleCreatedAt);
@@ -218,7 +217,7 @@ class IamEntityMappingIntegrationTest extends PostgreSqlIntegrationTestSupport {
 
         for (UserStatus statusVal : UserStatus.values()) {
             UUID id = tx.execute(status -> {
-                UserEntity user = new UserEntity();
+                User user = new User();
                 user.setUsername("status_" + statusVal.name().toLowerCase());
                 user.setEmail("status_" + statusVal.name().toLowerCase() + "@test.com");
                 user.setPasswordHash("hash");
@@ -229,7 +228,7 @@ class IamEntityMappingIntegrationTest extends PostgreSqlIntegrationTestSupport {
             });
 
             tx.execute(status -> {
-                UserEntity reloaded = entityManager.find(UserEntity.class, id);
+                User reloaded = entityManager.find(User.class, id);
                 assertThat(reloaded.getStatus()).isEqualTo(statusVal);
 
                 String rawStatus = (String) entityManager.createNativeQuery(
@@ -249,18 +248,18 @@ class IamEntityMappingIntegrationTest extends PostgreSqlIntegrationTestSupport {
 
         // 1. Create role and user, link role to user
         UUID[] ids = tx.execute(status -> {
-            RoleEntity role = new RoleEntity();
+            Role role = new Role();
             role.setRoleName("ROLE_MANAGER");
             entityManager.persist(role);
 
-            PermissionEntity perm = new PermissionEntity();
+            Permission perm = new Permission();
             perm.setCode("MANAGE_USERS");
             entityManager.persist(perm);
 
             role.getPermissions().add(perm);
             entityManager.flush();
 
-            UserEntity user = new UserEntity();
+            User user = new User();
             user.setUsername("m2m_user");
             user.setEmail("m2m@test.com");
             user.setPasswordHash("hash");
@@ -277,9 +276,9 @@ class IamEntityMappingIntegrationTest extends PostgreSqlIntegrationTestSupport {
 
         // 2. Traversal within transaction
         tx.execute(status -> {
-            UserEntity reloadedUser = entityManager.find(UserEntity.class, userId);
+            User reloadedUser = entityManager.find(User.class, userId);
             assertThat(reloadedUser.getRoles()).hasSize(1);
-            RoleEntity linkedRole = reloadedUser.getRoles().iterator().next();
+            Role linkedRole = reloadedUser.getRoles().iterator().next();
             assertThat(linkedRole.getRoleId()).isEqualTo(roleId);
             assertThat(linkedRole.getPermissions()).hasSize(1);
             assertThat(linkedRole.getPermissions().iterator().next().getId()).isEqualTo(permId);
@@ -288,7 +287,7 @@ class IamEntityMappingIntegrationTest extends PostgreSqlIntegrationTestSupport {
 
         // 3. Deleting referenced target (role) while join row exists is rejected by foreign key RESTRICT
         assertThatThrownBy(() -> tx.execute(status -> {
-            RoleEntity roleToDelete = entityManager.find(RoleEntity.class, roleId);
+            Role roleToDelete = entityManager.find(Role.class, roleId);
             entityManager.remove(roleToDelete);
             entityManager.flush();
             return null;
@@ -296,16 +295,16 @@ class IamEntityMappingIntegrationTest extends PostgreSqlIntegrationTestSupport {
 
         // 4. Removing role from user.getRoles() deletes only join row in user_roles, leaves user and role intact
         tx.execute(status -> {
-            UserEntity user = entityManager.find(UserEntity.class, userId);
+            User user = entityManager.find(User.class, userId);
             user.getRoles().clear();
             entityManager.flush();
             return null;
         });
 
         tx.execute(status -> {
-            UserEntity user = entityManager.find(UserEntity.class, userId);
+            User user = entityManager.find(User.class, userId);
             assertThat(user.getRoles()).isEmpty();
-            RoleEntity role = entityManager.find(RoleEntity.class, roleId);
+            Role role = entityManager.find(Role.class, roleId);
             assertThat(role).isNotNull(); // Role is still preserved
             return null;
         });
