@@ -44,6 +44,36 @@ Quy trình triển khai mỗi tính năng phân tách rõ ràng giữa tiền đ
    - Kế hoạch phải được kiểm tra độc lập và cấp trạng thái `PLAN_REVIEW: APPROVED`.
    - Mọi thay đổi nội dung của plan sau khi duyệt sẽ làm tăng `PLAN_VERSION` và khiến review cũ mất hiệu lực (stale).
 
+### Approval Metadata Reconciliation
+
+`WORKFLOW_AMENDMENT_ID: APPROVAL-METADATA-RECONCILIATION`
+`AMENDMENT_STATUS: HUMAN_AUTHORIZED`
+`AUTHORIZATION_ROLE: PROJECT_OWNER_WORKFLOW_OWNER`
+`AUTHORIZATION_DATE: 2026-10-19`
+
+`PLAN_REVIEW` trong active Plan là snapshot metadata được ghi tại thời điểm
+tạo hoặc cập nhật Plan; nó không phải một approval gate độc lập. Canonical
+`.agent/reviews/plan-review.md` là nguồn xác thực trạng thái Plan Review khi
+đồng thời thỏa mãn toàn bộ điều kiện sau:
+
+1. Canonical review ghi `PLAN_REVIEW: APPROVED`.
+2. `PLAN_ID` của review khớp active Plan.
+3. `PLAN_VERSION` của review khớp active Plan.
+4. SHA-256 byte UTF-8 của active Plan khớp tuyệt đối với `PLAN_SHA256` trong
+   canonical review.
+5. Không có approval mới hơn đã supersede hoặc revoke approval hiện tại.
+
+Khi các điều kiện trên đạt, `CODEX_REVIEW` và `ANTI_DEV` dùng canonical review
+để xác định Plan Review approval và implementation authorization. Không yêu
+cầu, và không được thực hiện, việc sửa active Plan chỉ để đổi
+`PLAN_REVIEW: PENDING` thành `PLAN_REVIEW: APPROVED`; việc sửa đó sẽ làm thay
+đổi Plan hash và có thể làm approval stale.
+
+Quy tắc này không áp dụng nếu Plan hash khác approved SHA, ID/version khác,
+canonical review không `APPROVED`, approval đã bị supersede/revoke, hoặc có
+thay đổi technical content sau approval. Các trường hợp đó phải đi qua Plan
+Revision và Plan Review mới theo workflow.
+
 ### Stage 3: Implementation, Verification, and Handoff
 1. **Thẩm quyền triển khai (Authorization Gate)**:
    - Agent hoặc kỹ sư chỉ được phép sửa mã nguồn khi có đúng một active plan kèm phê duyệt `PLAN_REVIEW: APPROVED` còn hiệu lực và mã băm SHA-256 khớp tuyệt đối.
