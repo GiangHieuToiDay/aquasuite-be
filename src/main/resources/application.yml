@@ -13,10 +13,12 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: ${JPA_DDL_AUTO:create}
+      ddl-auto: validate
+#      ddl-auto: ${JPA_DDL_AUTO:create}
 
     properties:
       hibernate:
+        default_schema: public
         format_sql: true
 
         jdbc:
@@ -25,12 +27,19 @@ spring:
 
         order_inserts: true
         order_updates: true
+    flyway:
+      enabled: true
+      schemas: public
+      locations: classpath:db/migration
 
 
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+#      host: ${SPRING_DATA_REDIS_HOST:${SPRING_REDIS_HOST:localhost}}
+      #      port: ${SPRING_DATA_REDIS_PORT:${SPRING_REDIS_PORT:6379}}
+      #      password: ${SPRING_DATA_REDIS_PASSWORD:${SPRING_REDIS_PASSWORD:}}
       timeout: 5000ms
       lettuce:
         pool:
@@ -50,3 +59,17 @@ spring:
           starttls:
             enable: true
 
+
+aquasuite:
+  config:
+    environment: default
+    auth-generation: 2
+  security:
+    jwt:
+      issuer: aquasuite-be
+      access-audience: aquasuite-api
+      refresh-audience: aquasuite-auth
+      access-token-ttl-seconds: 1800
+      refresh-token-ttl-seconds: 1296000
+      session-absolute-ttl-seconds: 1296000
+      secret: ${JWT_SECRET:}

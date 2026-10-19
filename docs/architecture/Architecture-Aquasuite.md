@@ -10,12 +10,12 @@ Tài liệu này xác lập tiêu chuẩn kiến trúc backend cho hệ thống 
 - **Base Package**: Toàn bộ mã nguồn hiện tại nằm dưới gói `com.aquasuite.ims`.
 - **Database Baseline**: PostgreSQL là hệ thống cơ sở dữ liệu chuẩn duy nhất.
 - **Existing Components**:
-    - `com.aquasuite.ims.AquasuiteBeApplication`: Main class khởi chạy ứng dụng.
-    - `com.aquasuite.ims.share.dto.ApiResponse<T>`: Cấu trúc response chuẩn cho HTTP API (`success`, `code`, `message`, `data`, `errors`, `timestamp`).
-    - `com.aquasuite.ims.share.dto.FieldErrorDetail`: Chi tiết lỗi validation từng trường (`field`, `message`).
-    - `com.aquasuite.ims.share.exception.GlobalExceptionHandler`: Bộ xử lý lỗi tập trung qua `@RestControllerAdvice` (`AppException`, `MethodArgumentNotValidException`, `AccessDeniedException`, `DataIntegrityViolationException`, `Exception`).
-    - `com.aquasuite.ims.share.exception.AppException`: Ngoại lệ nghiệp vụ kế thừa `RuntimeException`, mang theo `BaseErrorCode`.
-    - `com.aquasuite.ims.share.exception.CommonErrorCode`: Enum mã lỗi hệ thống (`SYS_001` đến `SYS_004`, `AUTH_001`, `AUTH_002`, `DB_001`).
+  - `com.aquasuite.ims.AquasuiteBeApplication`: Main class khởi chạy ứng dụng.
+  - `com.aquasuite.ims.share.dto.ApiResponse<T>`: Cấu trúc response chuẩn cho HTTP API (`success`, `code`, `message`, `data`, `errors`, `timestamp`).
+  - `com.aquasuite.ims.share.dto.FieldErrorDetail`: Chi tiết lỗi validation từng trường (`field`, `message`).
+  - `com.aquasuite.ims.share.exception.GlobalExceptionHandler`: Bộ xử lý lỗi tập trung qua `@RestControllerAdvice` (`AppException`, `MethodArgumentNotValidException`, `AccessDeniedException`, `DataIntegrityViolationException`, `Exception`).
+  - `com.aquasuite.ims.share.exception.AppException`: Ngoại lệ nghiệp vụ kế thừa `RuntimeException`, mang theo `BaseErrorCode`.
+  - `com.aquasuite.ims.share.exception.CommonErrorCode`: Enum mã lỗi hệ thống (`SYS_001` đến `SYS_004`, `AUTH_001`, `AUTH_002`, `DB_001`).
 - **Implementation State**: Các module nghiệp vụ được cấu trúc dưới `com.aquasuite.ims.module.<module_name>`. Hiện tại các skeleton (ví dụ IAM) đang ở giai đoạn khởi tạo ban đầu, chưa triển khai trọn vẹn nghiệp vụ.
 
 ### Target Architecture
@@ -113,9 +113,9 @@ Tài liệu kiến trúc cũ tồn tại mâu thuẫn phụ thuộc hai chiều:
 **Quy tắc chuẩn hóa:**
 - Loại bỏ hoàn toàn chiều gọi đồng bộ trực tiếp từ `crm` sang `sales`.
 - Để phục vụ màn hình tổng hợp thông tin khách hàng (bao gồm đơn hàng từ `sales`, công nợ từ `finance`, bảo hành từ `servicedesk`):
-    - **Tùy chọn A (Composition / Query Service)**: Tạo một query use case riêng biệt (ví dụ `CustomerProfileAggregationQuery`) đứng bên trên các feature để điều phối truy vấn, hoặc giải quyết ở tầng BFF / Read-Model.
-    - **Tùy chọn B (Event-Driven Read Cache)**: `crm` lắng nghe các Domain Event (`OrderConfirmedEvent`, `OrderPaymentStatusChangedEvent`) để duy trì bản sao lịch sử tóm tắt nội bộ.
-    - **Quyết định (Decision Gate)**: Đánh dấu `TBD`. Quyết định chính thức thuộc về Lead Architect khi bắt tay triển khai chi tiết tính năng FE-10.
+  - **Tùy chọn A (Composition / Query Service)**: Tạo một query use case riêng biệt (ví dụ `CustomerProfileAggregationQuery`) đứng bên trên các feature để điều phối truy vấn, hoặc giải quyết ở tầng BFF / Read-Model.
+  - **Tùy chọn B (Event-Driven Read Cache)**: `crm` lắng nghe các Domain Event (`OrderConfirmedEvent`, `OrderPaymentStatusChangedEvent`) để duy trì bản sao lịch sử tóm tắt nội bộ.
+  - **Quyết định (Decision Gate)**: Đánh dấu `TBD`. Quyết định chính thức thuộc về Lead Architect khi bắt tay triển khai chi tiết tính năng FE-10.
 
 ### Decoupled Communication via Domain Events (Eventual Consistency)
 
@@ -154,28 +154,28 @@ inventory (Xác nhận Phiếu nhập kho - GRN)
 > Cần phân biệt rõ giữa **chế độ thực thi luồng** và **giai đoạn kích hoạt transaction**:
 > 1. **Chế độ thực thi luồng**: Mặc định trong Spring Framework, Application Events chạy **đồng bộ trên cùng thread của Publisher**. Việc thực thi bất đồng bộ đa luồng (multi-threaded async) đòi hỏi cấu hình `TaskExecutor` và `@Async` riêng biệt.
 > 2. **Giai đoạn Transaction**: Annotation `@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)` chỉ bảo đảm listener được kích hoạt sau khi transaction nguồn commit thành công. Nó **không biến event thành hàng đợi tin nhắn bền vững (durable message queue)**. Nếu tiến trình bị tắt hoặc listener thất bại, event có thể bị mất nếu không có hàng đợi/outbox chuyên dụng.
-     > Do đó, mọi Event Contract bắt buộc phải chỉ định cơ chế xử lý lỗi, trạng thái chờ (pending state), và tính idempotent khi listener thực thi lại.
+> Do đó, mọi Event Contract bắt buộc phải chỉ định cơ chế xử lý lỗi, trạng thái chờ (pending state), và tính idempotent khi listener thực thi lại.
 
 ### Open Consistency Decision Gates
 
 1. **Xác nhận Đơn hàng và Giữ Tồn kho (`sales` & `inventory`)**:
-    - *Vấn đề*: Khi khách hàng xác nhận đơn hàng, việc trừ/giữ tồn kho có bắt buộc nằm trong cùng một database transaction (ACID tức thời) hay tách rời qua event (chấp nhận đơn ở trạng thái `PENDING_RESERVATION` rồi xác nhận sau)?
-    - *Trạng thái*: `TBD` (Cần Product Owner và Lead Architect quyết định dựa trên yêu cầu chịu tải bán hàng online và bán tại quầy).
+   - *Vấn đề*: Khi khách hàng xác nhận đơn hàng, việc trừ/giữ tồn kho có bắt buộc nằm trong cùng một database transaction (ACID tức thời) hay tách rời qua event (chấp nhận đơn ở trạng thái `PENDING_RESERVATION` rồi xác nhận sau)?
+   - *Trạng thái*: `TBD` (Cần Product Owner và Lead Architect quyết định dựa trên yêu cầu chịu tải bán hàng online và bán tại quầy).
 2. **Kích hoạt bảo hành khi giao hàng thành công (`fulfillment` & `servicedesk`)**:
-    - *Vấn đề*: Khi giao hàng xong, nếu listener kích hoạt bảo hành điện tử thất bại thì đơn hàng có được xem là giao thành công không?
-    - *Trạng thái*: `TBD` (Mặc định cho phép eventual consistency kèm bảng ghi nhận retry tác vụ thất bại).
+   - *Vấn đề*: Khi giao hàng xong, nếu listener kích hoạt bảo hành điện tử thất bại thì đơn hàng có được xem là giao thành công không?
+   - *Trạng thái*: `TBD` (Mặc định cho phép eventual consistency kèm bảng ghi nhận retry tác vụ thất bại).
 
 ---
 
 ## Coding Guardrails and Invariants
 
 1. **Guardrail 1 - Package Visibility**:
-    - Chỉ các Interface, DTO, Event đặt trong `module/<module_name>/api/` mới được xem là public module contract.
-    - Các class trong `internal/` (Entity, Repository, Service Implementation, Mapper, Controller) phải được thiết kế để không cho phép bên ngoài truy cập. Khi triển khai các subpackage trong `internal/`, lập trình viên phải duy trì tính đóng gói và không mở rộng quyền truy cập cho module khác.
+   - Chỉ các Interface, DTO, Event đặt trong `module/<module_name>/api/` mới được xem là public module contract.
+   - Các class trong `internal/` (Entity, Repository, Service Implementation, Mapper, Controller) phải được thiết kế để không cho phép bên ngoài truy cập. Khi triển khai các subpackage trong `internal/`, lập trình viên phải duy trì tính đóng gói và không mở rộng quyền truy cập cho module khác.
 2. **Guardrail 2 - Transaction Boundaries & Event Handling**:
-    - Khi phát Domain Event, Publisher phải bảo đảm payload chứa thông tin tối thiểu cần thiết và mã định danh nghiệp vụ.
-    - Khi Consumer nhận Event qua `@TransactionalEventListener(phase = AFTER_COMMIT)`, tác vụ ghi dữ liệu phải mở transaction mới (`@Transactional(propagation = Propagation.REQUIRES_NEW)`) và có cơ chế bắt lỗi để không làm treo luồng chính.
+   - Khi phát Domain Event, Publisher phải bảo đảm payload chứa thông tin tối thiểu cần thiết và mã định danh nghiệp vụ.
+   - Khi Consumer nhận Event qua `@TransactionalEventListener(phase = AFTER_COMMIT)`, tác vụ ghi dữ liệu phải mở transaction mới (`@Transactional(propagation = Propagation.REQUIRES_NEW)`) và có cơ chế bắt lỗi để không làm treo luồng chính.
 3. **Guardrail 3 - Idempotency & Deduplication**:
-    - Mọi Consumer lắng nghe Event hoặc API xử lý thanh toán/tồn kho phải kiểm tra tính lặp lại (idempotency key / event ID) trước khi thay đổi trạng thái dữ liệu.
+   - Mọi Consumer lắng nghe Event hoặc API xử lý thanh toán/tồn kho phải kiểm tra tính lặp lại (idempotency key / event ID) trước khi thay đổi trạng thái dữ liệu.
 4. **Guardrail 4 - Audit Trail Invariant (FE-02)**:
-    - Các thao tác nhạy cảm (thay đổi giá bán, chỉnh sửa tồn kho, hủy/sửa đơn hàng, điều chỉnh công nợ) bắt buộc phải phát sinh bản ghi kiểm toán kèm theo dữ liệu trước (`beforeValue`) và sau (`afterValue`).
+   - Các thao tác nhạy cảm (thay đổi giá bán, chỉnh sửa tồn kho, hủy/sửa đơn hàng, điều chỉnh công nợ) bắt buộc phải phát sinh bản ghi kiểm toán kèm theo dữ liệu trước (`beforeValue`) và sau (`afterValue`).
