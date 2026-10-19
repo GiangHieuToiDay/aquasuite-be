@@ -35,10 +35,12 @@ Hệ thống tài liệu backend bao gồm các tài liệu chuyên đề sau:
 
 ### 3. Specifications and Templates
 - [`specs/SCRUM14-UC13-product-combos.md`](specs/SCRUM14-UC13-product-combos.md):
-  - Spec dự thảo UC-13 (View and Manage Product Combos), đối chiếu Report 3, Database.pdf và code catalog hiện có.
+  - Spec UC-13 revision `0.9.1`: đầy đủ nghiệp vụ, luồng chính/thay thế và phân bổ ba phase; Phase 1 ưu tiên core cho Iteration 1, chưa tích hợp Auth/Audit.
   - Package triển khai đã được người dùng chốt cho SCRUM14: `com.aquasuite.ims.module.catalog`; public contract mới trong `api/`.
-  - Có decision register và AC-to-Test; chưa được phê duyệt để code. Tài liệu kiến trúc chung ở trên còn mô tả baseline cũ, cần cập nhật trong phạm vi riêng.
-  - Kế hoạch chuẩn bị: [SCRUM14-UC13](../.agent/plans/SCRUM14-UC13.md), trạng thái `DRAFT - NOT_ACTIVE`.
+  - Core CRUD/status/lookup/giá đã đối chiếu spec và sửa lỗi update/status của combo DELETED. Full verify trước commit ngày 2026-10-19 đạt 36 unit + 37 integration tests, 0 failures/errors/skipped, gồm regression test cấu hình không credential hardcode và JPA mặc định validate; sẵn sàng code review, chưa Final Gate. Public/media/tồn/options/Sales thuộc phase sau; review/hash `0.8.1` không áp dụng.
+  - [Plan 0.9.2 và báo cáo tiến độ](../.agent/plans/SCRUM14-UC13.md): ánh xạ spec → công việc → bằng chứng/việc còn lại, không tuyên bố hoàn tất toàn UC.
+  - [Implementation handoff hiện hành](../.agent/handoffs/SCRUM14-UC13-phase1-verification.md), [code guide Phase 1](SCRUM14-UC13-phase1-code-guide.md), [migration runbook](migrations/SCRUM14-UC13-phase1.md). Thư mục handoff chỉ giữ bản mới nhất của UC-13; các bản cũ đã được bỏ theo yêu cầu người dùng ngày 2026-10-19.
+  - Hai review 0.8.1 lỗi thời đã được xóa theo yêu cầu người dùng ngày 2026-10-19; chưa có review mới. Kết quả test và log tái lập nằm trong handoff hiện hành.
 - [`templates/feature-spec.md`](templates/feature-spec.md):
   - Mẫu tài liệu đặc tả tính năng chuẩn hóa.
   - Phân loại độ sâu tài liệu theo mức độ rủi ro (Risk-Based Depth).

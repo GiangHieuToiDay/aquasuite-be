@@ -1,6 +1,7 @@
 package com.aquasuite.ims.module.catalog.internal.repository;
 
 import com.aquasuite.ims.module.catalog.internal.entity.ProductVariant;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -10,7 +11,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface ProductVariantRepository extends JpaRepository<ProductVariant, UUID> {
+public interface ProductVariantRepository
+        extends JpaRepository<ProductVariant, UUID>,
+                org.springframework.data.jpa.repository.JpaSpecificationExecutor<ProductVariant> {
 
     Optional<ProductVariant> findBySku(String sku);
 

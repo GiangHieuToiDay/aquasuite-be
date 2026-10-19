@@ -15,7 +15,7 @@ Tài liệu này xác lập tiêu chuẩn kiến trúc backend cho hệ thống 
   - `com.aquasuite.ims.share.exception.GlobalExceptionHandler`: Bộ xử lý lỗi tập trung qua `@RestControllerAdvice` (`AppException`, `MethodArgumentNotValidException`, `AccessDeniedException`, `DataIntegrityViolationException`, `Exception`).
   - `com.aquasuite.ims.share.exception.AppException`: Ngoại lệ nghiệp vụ kế thừa `RuntimeException`, mang theo `BaseErrorCode`.
   - `com.aquasuite.ims.share.exception.CommonErrorCode`: Enum mã lỗi hệ thống (`SYS_001` đến `SYS_004`, `AUTH_001`, `AUTH_002`, `DB_001`).
-- **Implementation Gap**: Hiện tại trong mã nguồn chưa có gói `com.aquasuite.be`, chưa có cấu trúc `common/` hay `features/`, và chưa có entity nghiệp vụ hay public facade nào được hiện thực hóa. Mọi khẳng định về sự tồn tại của gói `com.aquasuite.backend` hoặc các module nghiệp vụ đã chạy là không chính xác với hiện trạng (hệ thống hiện chuẩn hóa trên Spring Boot 3.5.16 theo migration FEATURE-004).
+- **Current Modules and Implementation Gap** (đối chiếu workspace 2026-10-17): Có mã nghiệp vụ trong `com.aquasuite.ims.module`, gồm catalog/iam/inventory và mã audit; core quản lý combo có controller/service/entity trong catalog. Sự tồn tại của mã nguồn không chứng minh đã deploy hoặc nghiệm thu. Chưa áp dụng gói `com.aquasuite.be` hay cấu trúc đích `common/`/`features/`; không migration package trong UC-13. [Spec UC-13](../specs/SCRUM14-UC13-product-combos.md) và [plan/tiến độ](../../.agent/plans/SCRUM14-UC13.md) xác định chi tiết hiện trạng và phạm vi từng phase; Phase 1 Iteration 1 không tích hợp Auth/Audit.
 
 ### Target Architecture
 

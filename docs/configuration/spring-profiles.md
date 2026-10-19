@@ -17,10 +17,10 @@ Hệ thống cấu hình của AquaSuite Backend được chuẩn hóa thành 4 
 
 | File Cấu hình | Vai trò & Trách nhiệm | Nội dung Cấu hình Hiện tại | Lưu ý Bảo mật & Vận hành |
 |---|---|---|---|
-| `application.yml` | Cấu hình chung cho mọi môi trường | `spring.application.name: aquasuite-be`<br>`aquasuite.config.environment: default` | Không khai báo `spring.profiles.active`, datasource URL hoặc secret nào. |
+| `application.yml` | Cấu hình chung cho mọi môi trường | Tên app/marker, server, JDBC qua `SPRING_DATASOURCE_*`, JPA batching, Redis và SMTP | Không kích hoạt profile; không chứa credential hoặc fallback credential. JPA mặc định `validate`, cần triển khai schema trước khi chạy. |
 | `application-dev.yml` | Ranh giới môi trường Development | `aquasuite.config.environment: dev` | Không hardcode credential cục bộ; không tự ý thay đổi runtime/logging defaults. |
 | `application-test.yml` | Ranh giới môi trường Testing / CI | `aquasuite.config.environment: test` | Không giả định có database bên ngoài sẵn có; cấu hình kiểm thử cần độc lập và tự cô lập. |
-| `application-prod.yml` | Ranh giới môi trường Production | `aquasuite.config.environment: prod` | Tuyệt đối cấm fallback hoặc default credential rỗng; mọi secret phải nạp từ môi trường chạy. |
+| `application-prod.yml` | Ranh giới môi trường Production | Marker `prod`, JDBC qua `SPRING_DATASOURCE_*`, SMTP qua `MAIL_USERNAME`/`MAIL_PASSWORD` | Không fallback credential; cần cung cấp các biến môi trường tương ứng. |
 
 ---
 
@@ -34,6 +34,10 @@ Hệ thống hỗ trợ nạp cấu hình từ biến môi trường theo quy t�
 | `SPRING_DATASOURCE_URL` | Non-secret | JDBC URL kết nối cơ sở dữ liệu PostgreSQL | `<replace-with-local-or-managed-jdbc-url>` |
 | `SPRING_DATASOURCE_USERNAME` | Non-secret | Tên người dùng kết nối cơ sở dữ liệu | `<replace-with-username>` |
 | `SPRING_DATASOURCE_PASSWORD` | **Secret** | Mật khẩu truy cập cơ sở dữ liệu | `<replace-with-secret>` |
+| `SPRING_JPA_HIBERNATE_DDL_AUTO` | Non-secret | Quản lý schema, mặc định `validate`; chạy migration trước khởi động | `validate` |
+| `MAIL_HOST` / `MAIL_PORT` | Non-secret | SMTP host/port; mặc định smtp.gmail.com/587 | `<replace-with-smtp-host>` / `587` |
+| `MAIL_USERNAME` | Cấu hình tài khoản | Tài khoản SMTP từ môi trường | `<replace-with-smtp-username>` |
+| `MAIL_PASSWORD` | **Secret** | Mật khẩu/secret SMTP, không có fallback | `<replace-with-smtp-secret>` |
 
 > [!WARNING]
 > - Spring Boot **không tự động đọc** file `.env`. Nhà phát triển cần thiết lập biến môi trường qua command line, IDE Run Configuration hoặc Secret Manager.
@@ -49,7 +53,8 @@ Thiết lập profile `dev` và khởi chạy ứng dụng bằng Maven Wrapper:
 
 ```powershell
 $env:SPRING_PROFILES_ACTIVE = 'dev'
-# Thiết lập các biến SPRING_DATASOURCE_* trong shell nếu cần kết nối database
+# Cấp SPRING_DATASOURCE_*, MAIL_USERNAME và MAIL_PASSWORD qua môi trường.
+# Triển khai schema/migration trước; mặc định JPA chỉ validate, không tạo lại bảng.
 .\mvnw.cmd spring-boot:run
 ```
 

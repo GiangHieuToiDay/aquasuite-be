@@ -12,6 +12,34 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class SpringProfileConfigDataTest {
 
+    @Test
+    void credentialsResolveFromEnvironmentAndSchemaDefaultsToValidate() {
+        String databaseSecret = java.util.UUID.randomUUID().toString();
+        String mailSecret = java.util.UUID.randomUUID().toString();
+        var properties = new org.springframework.core.env.MapPropertySource(
+                "isolated-credentials",
+                java.util.Map.of(
+                        "SPRING_DATASOURCE_URL", "jdbc:postgresql://localhost/test-config",
+                        "SPRING_DATASOURCE_USERNAME", "test-config-user",
+                        "SPRING_DATASOURCE_PASSWORD", databaseSecret,
+                        "MAIL_USERNAME", "test-config-mail",
+                        "MAIL_PASSWORD", mailSecret));
+        try (ConfigurableApplicationContext context = new SpringApplicationBuilder(ConfigOnlyApplication.class)
+                .web(WebApplicationType.NONE)
+                .registerShutdownHook(false)
+                .initializers(c -> c.getEnvironment().getPropertySources().addFirst(properties))
+                .run()) {
+            Environment env = context.getEnvironment();
+            assertThat(env.getProperty("spring.datasource.url"))
+                    .isEqualTo("jdbc:postgresql://localhost/test-config");
+            assertThat(env.getProperty("spring.datasource.username")).isEqualTo("test-config-user");
+            assertThat(env.getProperty("spring.datasource.password")).isEqualTo(databaseSecret);
+            assertThat(env.getProperty("spring.mail.username")).isEqualTo("test-config-mail");
+            assertThat(env.getProperty("spring.mail.password")).isEqualTo(mailSecret);
+            assertThat(env.getProperty("spring.jpa.hibernate.ddl-auto")).isEqualTo("validate");
+        }
+    }
+
     // Exercise ConfigData without scanning business services or connecting to databases.
     @Configuration(proxyBeanMethods = false)
     static class ConfigOnlyApplication {

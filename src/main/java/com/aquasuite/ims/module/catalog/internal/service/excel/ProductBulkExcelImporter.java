@@ -2,20 +2,21 @@ package com.aquasuite.ims.module.catalog.internal.service.excel;
 
 import com.aquasuite.ims.module.catalog.events.VariantsBulkImportedEvent;
 import com.aquasuite.ims.module.catalog.events.VariantsBulkImportedEvent.InitialStockItem;
-import com.aquasuite.ims.module.catalog.internal.payload.excel.ImportMode;
-import com.aquasuite.ims.module.catalog.internal.payload.excel.ProductExcelRowDto;
-import com.aquasuite.ims.module.catalog.internal.payload.excel.ProductImportLookupContext;
 import com.aquasuite.ims.module.catalog.internal.entity.Product;
 import com.aquasuite.ims.module.catalog.internal.entity.ProductImage;
 import com.aquasuite.ims.module.catalog.internal.entity.ProductVariant;
 import com.aquasuite.ims.module.catalog.internal.entity.enums.ProductStatus;
 import com.aquasuite.ims.module.catalog.internal.entity.enums.VariantStatus;
 import com.aquasuite.ims.module.catalog.internal.mapper.ProductExcelMapper;
+import com.aquasuite.ims.module.catalog.internal.payload.excel.ImportMode;
+import com.aquasuite.ims.module.catalog.internal.payload.excel.ProductExcelRowDto;
+import com.aquasuite.ims.module.catalog.internal.payload.excel.ProductImportLookupContext;
 import com.aquasuite.ims.module.catalog.internal.repository.*;
 import com.aquasuite.ims.share.excel.dto.ExcelRowError;
 import com.aquasuite.ims.share.excel.importer.AbstractTwoPassExcelImporter;
 import com.aquasuite.ims.share.excel.storage.TempExcelFileManager;
 import com.aquasuite.ims.share.excel.tracker.RedisImportProgressTracker;
+
 import org.dhatim.fastexcel.reader.Row;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Async;
@@ -41,7 +42,8 @@ public class ProductBulkExcelImporter
     private final ProductExcelMapper productExcelMapper;
     private final ApplicationEventPublisher eventPublisher;
 
-    private static final Pattern PLAIN_NUMBER = Pattern.compile("^-?\\d+(\\.\\d+)?([eE][+-]?\\d+)?$");
+    private static final Pattern PLAIN_NUMBER =
+            Pattern.compile("^-?\\d+(\\.\\d+)?([eE][+-]?\\d+)?$");
     private static final Set<String> TRUE_VALUES = Set.of("YES", "Y", "TRUE", "1", "CÓ", "CO");
 
     private static final ThreadLocal<ImportMode> CURRENT_IMPORT_MODE = new ThreadLocal<>();
@@ -111,8 +113,7 @@ public class ProductBulkExcelImporter
                 "Link hình ảnh (image_urls)",
                 "Mô tả (description)",
                 "Tồn kho đầu kỳ (initial_stock)",
-                "Định mức tồn tối thiểu (minimum_qty)"
-        );
+                "Định mức tồn tối thiểu (minimum_qty)");
     }
 
     // =========================================================================
@@ -121,25 +122,26 @@ public class ProductBulkExcelImporter
 
     @Override
     protected ProductImportLookupContext prepareLookupContext() {
-        Map<String, UUID> categoryMap = categoryRepository.findAllActive()
-                .stream()
-                .collect(Collectors.toMap(
-                        c -> normalizeCode(c.getCategoryCode()),
-                        c -> c.getCategoryId(),
-                        (existing, replacement) -> existing
-                ));
+        Map<String, UUID> categoryMap =
+                categoryRepository.findAllActive().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        c -> normalizeCode(c.getCategoryCode()),
+                                        c -> c.getCategoryId(),
+                                        (existing, replacement) -> existing));
 
-        Map<String, UUID> brandMap = brandRepository.findAllActive()
-                .stream()
-                .collect(Collectors.toMap(
-                        b -> normalizeCode(b.getBrandCode()),
-                        b -> b.getBrandId(),
-                        (existing, replacement) -> existing
-                ));
+        Map<String, UUID> brandMap =
+                brandRepository.findAllActive().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        b -> normalizeCode(b.getBrandCode()),
+                                        b -> b.getBrandId(),
+                                        (existing, replacement) -> existing));
 
-        ImportMode mode = CURRENT_IMPORT_MODE.get() != null
-                ? CURRENT_IMPORT_MODE.get()
-                : ImportMode.SKIP_EXISTING;
+        ImportMode mode =
+                CURRENT_IMPORT_MODE.get() != null
+                        ? CURRENT_IMPORT_MODE.get()
+                        : ImportMode.SKIP_EXISTING;
 
         return new ProductImportLookupContext(mode, categoryMap, brandMap);
     }
@@ -160,14 +162,17 @@ public class ProductBulkExcelImporter
 
         BigDecimal costPrice = parseBigDecimal(row, 9, "Giá vốn (cost_price)", null);
         BigDecimal sellingPrice = parseBigDecimal(row, 10, "Giá bán (selling_price)", null);
-        if (costPrice.compareTo(BigDecimal.ZERO) < 0 || sellingPrice.compareTo(BigDecimal.ZERO) <= 0) {
+        if (costPrice.compareTo(BigDecimal.ZERO) < 0
+                || sellingPrice.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Giá vốn phải >= 0 và Giá bán phải > 0");
         }
 
         BigDecimal initialStock = parseBigDecimal(row, 15, "Tồn kho đầu kỳ", BigDecimal.ZERO);
         BigDecimal minimumQty = parseBigDecimal(row, 16, "Định mức tồn tối thiểu", BigDecimal.ZERO);
-        if (initialStock.compareTo(BigDecimal.ZERO) < 0 || minimumQty.compareTo(BigDecimal.ZERO) < 0) {
-            throw new IllegalArgumentException("Tồn kho đầu kỳ và Định mức tồn tối thiểu không được âm");
+        if (initialStock.compareTo(BigDecimal.ZERO) < 0
+                || minimumQty.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException(
+                    "Tồn kho đầu kỳ và Định mức tồn tối thiểu không được âm");
         }
 
         return ProductExcelRowDto.builder()
@@ -206,25 +211,52 @@ public class ProductBulkExcelImporter
         List<ProductExcelRowDto> validRowsInBatch = new ArrayList<>(batch.size());
         for (ProductExcelRowDto row : batch) {
             if (!context.getCategoryCodeToIdMap().containsKey(row.categoryCode())) {
-                batchErrors.add(new ExcelRowError(row.rowNumber(), row.sku(),
-                        "Mã danh mục '" + row.categoryCode() + "' không tồn tại trong hệ thống"));
+                batchErrors.add(
+                        new ExcelRowError(
+                                row.rowNumber(),
+                                row.sku(),
+                                "Mã danh mục '"
+                                        + row.categoryCode()
+                                        + "' không tồn tại trong hệ thống"));
                 continue;
             }
-            if (row.brandCode() != null && !context.getBrandCodeToIdMap().containsKey(row.brandCode())) {
-                batchErrors.add(new ExcelRowError(row.rowNumber(), row.sku(),
-                        "Mã thương hiệu '" + row.brandCode() + "' không tồn tại trong hệ thống"));
+            if (row.brandCode() != null
+                    && !context.getBrandCodeToIdMap().containsKey(row.brandCode())) {
+                batchErrors.add(
+                        new ExcelRowError(
+                                row.rowNumber(),
+                                row.sku(),
+                                "Mã thương hiệu '"
+                                        + row.brandCode()
+                                        + "' không tồn tại trong hệ thống"));
                 continue;
             }
-            String signature = row.productName() + "|" + row.categoryCode() + "|" + (row.brandCode() != null ? row.brandCode() : "");
-            String previousSignature = context.getProductSignatureInFile().putIfAbsent(row.productCode(), signature);
+            String signature =
+                    row.productName()
+                            + "|"
+                            + row.categoryCode()
+                            + "|"
+                            + (row.brandCode() != null ? row.brandCode() : "");
+            String previousSignature =
+                    context.getProductSignatureInFile().putIfAbsent(row.productCode(), signature);
             if (previousSignature != null && !previousSignature.equals(signature)) {
-                batchErrors.add(new ExcelRowError(row.rowNumber(), row.sku(),
-                        "Mã nhóm SP '" + row.productCode() + "' đã xuất hiện ở dòng trước với Tên/Danh mục/Thương hiệu khác"));
+                batchErrors.add(
+                        new ExcelRowError(
+                                row.rowNumber(),
+                                row.sku(),
+                                "Mã nhóm SP '"
+                                        + row.productCode()
+                                        + "' đã xuất hiện ở dòng trước với Tên/Danh mục/Thương hiệu khác"));
                 continue;
             }
             if (!context.getSeenSkusInFile().add(row.sku())) {
-                batchErrors.add(new ExcelRowError(row.rowNumber(), row.sku(),
-                        "Mã SKU '" + row.sku() + "' bị lặp lại nhiều lần trong cùng file Excel"));
+                batchErrors.add(
+                        new ExcelRowError(
+                                row.rowNumber(),
+                                row.sku(),
+                                "Mã SKU '"
+                                        + row.sku()
+                                        + "' bị lặp lại nhiều lần trong cùng file Excel"));
                 continue;
             }
             validRowsInBatch.add(row);
@@ -233,19 +265,33 @@ public class ProductBulkExcelImporter
         if (validRowsInBatch.isEmpty()) return 0;
 
         // 4.2. Query các Product và Variant đã có sẵn trong DB của mẻ này
-        Set<String> productCodes = validRowsInBatch.stream()
-                .map(ProductExcelRowDto::productCode)
-                .collect(Collectors.toSet());
-        Map<String, Product> productMap = productRepository.findByProductCodeIn(productCodes)
-                .stream()
-                .collect(Collectors.toMap(Product::getProductCode, Function.identity()));
+        Set<String> productCodes =
+                validRowsInBatch.stream()
+                        .map(ProductExcelRowDto::productCode)
+                        .collect(Collectors.toSet());
+        Map<String, Product> productMap =
+                productRepository.findByProductCodeIn(productCodes).stream()
+                        .collect(Collectors.toMap(Product::getProductCode, Function.identity()));
 
-        Set<String> skus = validRowsInBatch.stream()
-                .map(ProductExcelRowDto::sku)
-                .collect(Collectors.toSet());
-        Map<String, ProductVariant> variantMap = variantRepository.findBySkuIn(skus)
-                .stream()
-                .collect(Collectors.toMap(ProductVariant::getSku, Function.identity()));
+        Set<UUID> existingVariantParents = new HashSet<>();
+        variantRepository
+                .findBySkuIn(validRowsInBatch.stream().map(ProductExcelRowDto::sku).toList())
+                .forEach(v -> existingVariantParents.add(v.getProductId()));
+        Set<UUID> bundleParentIds =
+                productRepository.findAllById(existingVariantParents).stream()
+                        .filter(
+                                p ->
+                                        p.getProductType()
+                                                == com.aquasuite.ims.module.catalog.internal.entity
+                                                        .enums.ProductType.BUNDLE)
+                        .map(Product::getProductId)
+                        .collect(Collectors.toSet());
+
+        Set<String> skus =
+                validRowsInBatch.stream().map(ProductExcelRowDto::sku).collect(Collectors.toSet());
+        Map<String, ProductVariant> variantMap =
+                variantRepository.findBySkuIn(skus).stream()
+                        .collect(Collectors.toMap(ProductVariant::getSku, Function.identity()));
 
         // 4.3. Duyệt các dòng hợp lệ -> Xử lý theo ImportMode
         int successCount = 0;
@@ -255,33 +301,67 @@ public class ProductBulkExcelImporter
             ProductVariant existingVariant = variantMap.get(row.sku());
             Product existingProduct = productMap.get(row.productCode());
 
+            if ((existingProduct != null
+                            && existingProduct.getProductType()
+                                    == com.aquasuite.ims.module.catalog.internal.entity.enums
+                                            .ProductType.BUNDLE)
+                    || (existingVariant != null
+                            && bundleParentIds.contains(existingVariant.getProductId()))) {
+                batchErrors.add(
+                        new ExcelRowError(
+                                row.rowNumber(),
+                                row.sku(),
+                                "Combo phải được quản lý qua API combo, không được sửa bằng import"));
+                continue;
+            }
             if (existingProduct != null && existingProduct.getStatus() == ProductStatus.DELETED) {
-                batchErrors.add(new ExcelRowError(row.rowNumber(), row.sku(),
-                        "Mã nhóm SP '" + row.productCode() + "' đã bị xóa trên hệ thống, hãy khôi phục hoặc dùng mã khác"));
+                batchErrors.add(
+                        new ExcelRowError(
+                                row.rowNumber(),
+                                row.sku(),
+                                "Mã nhóm SP '"
+                                        + row.productCode()
+                                        + "' đã bị xóa trên hệ thống, hãy khôi phục hoặc dùng mã khác"));
                 continue;
             }
             if (existingVariant != null && existingVariant.getStatus() == VariantStatus.DELETED) {
-                batchErrors.add(new ExcelRowError(row.rowNumber(), row.sku(),
-                        "Mã SKU '" + row.sku() + "' đã bị xóa trên hệ thống, hãy khôi phục hoặc dùng mã khác"));
+                batchErrors.add(
+                        new ExcelRowError(
+                                row.rowNumber(),
+                                row.sku(),
+                                "Mã SKU '"
+                                        + row.sku()
+                                        + "' đã bị xóa trên hệ thống, hãy khôi phục hoặc dùng mã khác"));
                 continue;
             }
 
             if (existingVariant != null && mode == ImportMode.SKIP_EXISTING) {
-                batchErrors.add(new ExcelRowError(
-                        row.rowNumber(),
-                        row.sku(),
-                        "Mã SKU '" + row.sku() + "' đã tồn tại trên hệ thống (Bỏ qua do chọn chế độ Tạo mới)"
-                ));
+                batchErrors.add(
+                        new ExcelRowError(
+                                row.rowNumber(),
+                                row.sku(),
+                                "Mã SKU '"
+                                        + row.sku()
+                                        + "' đã tồn tại trên hệ thống (Bỏ qua do chọn chế độ Tạo mới)"));
                 continue;
             }
 
             UUID categoryId = context.getCategoryCodeToIdMap().get(row.categoryCode());
-            UUID brandId = row.brandCode() != null ? context.getBrandCodeToIdMap().get(row.brandCode()) : null;
+            UUID brandId =
+                    row.brandCode() != null
+                            ? context.getBrandCodeToIdMap().get(row.brandCode())
+                            : null;
 
-            if (existingVariant != null && existingProduct != null
+            if (existingVariant != null
+                    && existingProduct != null
                     && !existingVariant.getProductId().equals(existingProduct.getProductId())) {
-                batchErrors.add(new ExcelRowError(row.rowNumber(), row.sku(),
-                        "Mã SKU '" + row.sku() + "' đang thuộc nhóm SP khác trên hệ thống, không thể chuyển nhóm bằng Import"));
+                batchErrors.add(
+                        new ExcelRowError(
+                                row.rowNumber(),
+                                row.sku(),
+                                "Mã SKU '"
+                                        + row.sku()
+                                        + "' đang thuộc nhóm SP khác trên hệ thống, không thể chuyển nhóm bằng Import"));
                 continue;
             }
 
@@ -297,21 +377,30 @@ public class ProductBulkExcelImporter
 
             // B. Xử lý bảng con product_variants & product_images
             if (existingVariant == null) {
-                ProductVariant newVariant = productExcelMapper.toNewVariant(row, product.getProductId());
+                ProductVariant newVariant =
+                        productExcelMapper.toNewVariant(row, product.getProductId());
                 entityManager.persist(newVariant);
                 variantMap.put(row.sku(), newVariant);
 
-                persistVariantImages(product.getProductId(), newVariant.getVariantId(), row.imageUrls());
+                persistVariantImages(
+                        product.getProductId(), newVariant.getVariantId(), row.imageUrls());
 
-                context.getInitialStockItemsToPublish().add(new InitialStockItem(
-                        newVariant.getVariantId(), row.sku(), row.initialStock(), row.minimumQty()
-                ));
+                context.getInitialStockItemsToPublish()
+                        .add(
+                                new InitialStockItem(
+                                        newVariant.getVariantId(),
+                                        row.sku(),
+                                        row.initialStock(),
+                                        row.minimumQty()));
             } else {
                 productExcelMapper.updateVariant(existingVariant, row);
 
                 if (row.imageUrls() != null && !row.imageUrls().isEmpty()) {
                     productImageRepository.deleteByVariantId(existingVariant.getVariantId());
-                    persistVariantImages(product.getProductId(), existingVariant.getVariantId(), row.imageUrls());
+                    persistVariantImages(
+                            product.getProductId(),
+                            existingVariant.getVariantId(),
+                            row.imageUrls());
                 }
             }
 
@@ -327,14 +416,10 @@ public class ProductBulkExcelImporter
 
     @Override
     protected void onImportCompleted(
-            String jobId,
-            int totalSuccess,
-            int totalErrors,
-            ProductImportLookupContext context) {
+            String jobId, int totalSuccess, int totalErrors, ProductImportLookupContext context) {
         if (!context.getInitialStockItemsToPublish().isEmpty()) {
-            eventPublisher.publishEvent(new VariantsBulkImportedEvent(
-                    jobId, context.getInitialStockItemsToPublish()
-            ));
+            eventPublisher.publishEvent(
+                    new VariantsBulkImportedEvent(jobId, context.getInitialStockItemsToPublish()));
         }
     }
 
@@ -343,7 +428,8 @@ public class ProductBulkExcelImporter
     // =========================================================================
 
     private void persistVariantImages(UUID productId, UUID variantId, List<String> imageUrls) {
-        List<ProductImage> images = productExcelMapper.toVariantImages(productId, variantId, imageUrls);
+        List<ProductImage> images =
+                productExcelMapper.toVariantImages(productId, variantId, imageUrls);
         for (ProductImage img : images) {
             entityManager.persist(img);
         }
@@ -352,7 +438,8 @@ public class ProductBulkExcelImporter
     private String getRequiredCell(Row row, int colIdx, String fieldName) {
         String val = getOptionalCell(row, colIdx);
         if (val == null) {
-            throw new IllegalArgumentException("Cột bắt buộc [" + fieldName + "] không được để trống");
+            throw new IllegalArgumentException(
+                    "Cột bắt buộc [" + fieldName + "] không được để trống");
         }
         return val;
     }
@@ -363,7 +450,8 @@ public class ProductBulkExcelImporter
         return (text == null || text.isBlank()) ? null : text.trim();
     }
 
-    private BigDecimal parseBigDecimal(Row row, int colIdx, String fieldName, BigDecimal defaultValue) {
+    private BigDecimal parseBigDecimal(
+            Row row, int colIdx, String fieldName, BigDecimal defaultValue) {
         String val = getOptionalCell(row, colIdx);
         if (val == null) {
             if (defaultValue != null) return defaultValue;
@@ -371,8 +459,12 @@ public class ProductBulkExcelImporter
         }
         String compact = val.replace("\u00A0", "").replace(" ", "");
         if (!PLAIN_NUMBER.matcher(compact).matches()) {
-            throw new IllegalArgumentException("Giá trị '" + val + "' ở cột [" + fieldName
-                    + "] không hợp lệ. Chỉ nhập số thuần, không dùng dấu phân cách hàng nghìn (VD: 1500000 hoặc 12.5)");
+            throw new IllegalArgumentException(
+                    "Giá trị '"
+                            + val
+                            + "' ở cột ["
+                            + fieldName
+                            + "] không hợp lệ. Chỉ nhập số thuần, không dùng dấu phân cách hàng nghìn (VD: 1500000 hoặc 12.5)");
         }
         return new BigDecimal(compact);
     }
@@ -392,7 +484,8 @@ public class ProductBulkExcelImporter
             if (pair.isBlank()) continue;
             int colonIdx = pair.indexOf(':');
             if (colonIdx > 0 && colonIdx < pair.length() - 1) {
-                specMap.put(pair.substring(0, colonIdx).trim(), pair.substring(colonIdx + 1).trim());
+                specMap.put(
+                        pair.substring(0, colonIdx).trim(), pair.substring(colonIdx + 1).trim());
             } else {
                 specMap.put("spec_" + (specMap.size() + 1), pair.trim());
             }

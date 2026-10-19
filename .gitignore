@@ -37,6 +37,23 @@ build/
 logs/
 *.log
 
+# Local temporary files and editor backups
+/tmp/
+/temp/
+*.tmp
+*.swp
+*.swo
+*~
+
+# JVM profiling output and heap dumps
+*.hprof
+*.jfr
+
+# Operating system metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+
 ### Understand-Anything ###
 .ua/
 
@@ -82,4 +99,4 @@ secrets.json
 /src/main/resources/application-*.local.properties
 
 
-.agent/
+# Workflow plans/reviews/handoffs must remain visible to Git (see AGENTS.md).
