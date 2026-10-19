@@ -1,6 +1,6 @@
 package com.aquasuite.ims.module.iam.internal.service;
 
-import com.aquasuite.ims.module.iam.events.PasswordChangedEvent;
+import com.aquasuite.ims.module.iam.api.event.PasswordChangedEvent;
 import com.aquasuite.ims.module.iam.internal.entity.User;
 import com.aquasuite.ims.module.iam.internal.entity.enums.RecoveryChannel;
 import com.aquasuite.ims.module.iam.internal.entity.enums.UserStatus;

@@ -1,13 +1,13 @@
 package com.aquasuite.ims.module.inventory.internal.service.impl;
 
-import com.aquasuite.ims.module.iam.IamFacade;
-import com.aquasuite.ims.module.inventory.InventoryFacade;
-import com.aquasuite.ims.module.inventory.dto.StockAdjustCommand;
-import com.aquasuite.ims.module.inventory.dto.StockSummaryDto;
-import com.aquasuite.ims.module.inventory.events.LowStockAlertEvent;
+import com.aquasuite.ims.module.iam.api.IamApi;
+import com.aquasuite.ims.module.inventory.api.InventoryApi;
+import com.aquasuite.ims.module.inventory.api.dto.MovementType;
+import com.aquasuite.ims.module.inventory.api.dto.StockAdjustCommand;
+import com.aquasuite.ims.module.inventory.api.dto.StockSummaryDto;
+import com.aquasuite.ims.module.inventory.api.event.LowStockAlertEvent;
 import com.aquasuite.ims.module.inventory.internal.entity.Inventory;
 import com.aquasuite.ims.module.inventory.internal.entity.StockMovement;
-import com.aquasuite.ims.module.inventory.internal.entity.enums.MovementType;
 import com.aquasuite.ims.module.inventory.internal.exception.InventoryErrorCode;
 import com.aquasuite.ims.module.inventory.internal.repository.InventoryRepository;
 import com.aquasuite.ims.module.inventory.internal.repository.StockMovementRepository;
@@ -29,12 +29,12 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class InventoryServiceImpl implements InventoryFacade, InventoryService {
+public class InventoryServiceImpl implements InventoryApi, InventoryService {
 
     private final InventoryRepository inventoryRepository;
     private final StockMovementRepository stockMovementRepository;
     private final ApplicationEventPublisher eventPublisher;
-    private final IamFacade iamFacade;
+    private final IamApi iamApi;
 
     // =========================================================================
     // 1. CỔNG FACADE PUBLIC DÀNH CHO CÁC MODULE KHÁC
@@ -129,7 +129,7 @@ public class InventoryServiceImpl implements InventoryFacade, InventoryService {
         }
         inventoryRepository.save(inv);
 
-        Long actorId = command.actorUserId() != null ? command.actorUserId() : iamFacade.getCurrentUserId();
+        Long actorId = command.actorUserId() != null ? command.actorUserId() : iamApi.getCurrentUserId();
 
         // 3. Ghi thẻ kho bất biến (stock_movements)
         StockMovement movement = StockMovement.builder()

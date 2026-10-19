@@ -1,7 +1,7 @@
 package com.aquasuite.ims.module.catalog.internal.service.excel;
 
-import com.aquasuite.ims.module.catalog.events.VariantsBulkImportedEvent;
-import com.aquasuite.ims.module.catalog.events.VariantsBulkImportedEvent.InitialStockItem;
+import com.aquasuite.ims.module.catalog.api.event.VariantsBulkImportedEvent;
+import com.aquasuite.ims.module.catalog.api.event.VariantsBulkImportedEvent.InitialStockItem;
 import com.aquasuite.ims.module.catalog.internal.payload.excel.ImportMode;
 import com.aquasuite.ims.module.catalog.internal.payload.excel.ProductExcelRowDto;
 import com.aquasuite.ims.module.catalog.internal.payload.excel.ProductImportLookupContext;

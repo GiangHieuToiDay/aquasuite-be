@@ -1,4 +1,4 @@
-package com.aquasuite.ims.module.iam.dto;
+package com.aquasuite.ims.module.iam.api.dto;
 
 import lombok.Builder;
 

@@ -1,6 +1,6 @@
 package com.aquasuite.ims.module.inventory.internal.entity;
 
-import com.aquasuite.ims.module.inventory.internal.entity.enums.MovementType;
+import com.aquasuite.ims.module.inventory.api.dto.MovementType;
 import jakarta.persistence.*;
 import lombok.*;
 

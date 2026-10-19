@@ -1,16 +1,11 @@
-package com.aquasuite.ims.module.inventory.dto;
-
-import lombok.Builder;
+package com.aquasuite.ims.module.inventory.api.event;
 
 import java.math.BigDecimal;
 import java.util.UUID;
 
-@Builder
-public record StockSummaryDto(
+public record LowStockAlertEvent(
         UUID variantId,
-        String warehouseCode,
         BigDecimal onHandQty,
-        BigDecimal reservedQty,
         BigDecimal availableQty,
         BigDecimal minimumQty
 ) {}

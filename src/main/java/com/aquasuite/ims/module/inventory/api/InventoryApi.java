@@ -1,7 +1,7 @@
-package com.aquasuite.ims.module.inventory;
+package com.aquasuite.ims.module.inventory.api;
 
-import com.aquasuite.ims.module.inventory.dto.StockAdjustCommand;
-import com.aquasuite.ims.module.inventory.dto.StockSummaryDto;
+import com.aquasuite.ims.module.inventory.api.dto.StockAdjustCommand;
+import com.aquasuite.ims.module.inventory.api.dto.StockSummaryDto;
 
 import java.math.BigDecimal;
 import java.util.Collection;
@@ -9,7 +9,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface InventoryFacade {
+/**
+ * Public Interface của Module Inventory.
+ * Các module khác (Sales, Fulfillment, Finance, ...) giao tiếp đồng bộ với Inventory qua Interface này.
+ */
+public interface InventoryApi {
 
     /** Lấy thông tin tồn kho của 1 SKU */
     Optional<StockSummaryDto> getStockSummary(UUID variantId);

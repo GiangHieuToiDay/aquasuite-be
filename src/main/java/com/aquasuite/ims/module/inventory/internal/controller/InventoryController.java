@@ -1,7 +1,7 @@
 package com.aquasuite.ims.module.inventory.internal.controller;
 
-import com.aquasuite.ims.module.iam.IamFacade;
-import com.aquasuite.ims.module.inventory.dto.StockSummaryDto;
+import com.aquasuite.ims.module.iam.api.IamApi;
+import com.aquasuite.ims.module.inventory.api.dto.StockSummaryDto;
 import com.aquasuite.ims.module.inventory.internal.entity.StockMovement;
 import com.aquasuite.ims.module.inventory.internal.payload.req.ManualStockAdjustRequest;
 import com.aquasuite.ims.module.inventory.internal.service.InventoryService;
@@ -23,7 +23,7 @@ import java.util.UUID;
 public class InventoryController {
 
     private final InventoryService inventoryService;
-    private final IamFacade iamFacade;
+    private final IamApi iamApi;
 
     /**
      * Xem thông tin tồn kho chi tiết của một biến thể (SKU)
@@ -50,7 +50,7 @@ public class InventoryController {
      */
     @PostMapping("/adjust")
     public ResponseEntity<ApiResponse<Void>> manualAdjustStock(@Valid @RequestBody ManualStockAdjustRequest request) {
-        Long actorUserId = iamFacade.getCurrentUserId();
+        Long actorUserId = iamApi.getCurrentUserId();
         inventoryService.manualAdjustStock(request.variantId(), request.deltaQty(), request.reason(), actorUserId);
         return ResponseEntity.ok(ApiResponse.ok(null, "Điều chỉnh tồn kho thành công"));
     }

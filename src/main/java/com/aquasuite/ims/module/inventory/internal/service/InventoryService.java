@@ -1,6 +1,6 @@
 package com.aquasuite.ims.module.inventory.internal.service;
 
-import com.aquasuite.ims.module.inventory.dto.StockSummaryDto;
+import com.aquasuite.ims.module.inventory.api.dto.StockSummaryDto;
 import com.aquasuite.ims.module.inventory.internal.entity.StockMovement;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

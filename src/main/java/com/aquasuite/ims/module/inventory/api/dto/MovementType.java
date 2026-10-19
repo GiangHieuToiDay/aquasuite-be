@@ -1,4 +1,4 @@
-package com.aquasuite.ims.module.inventory.internal.entity.enums;
+package com.aquasuite.ims.module.inventory.api.dto;
 
 public enum MovementType {
     INITIAL_IMPORT,     // Khởi tạo tồn kho đầu kỳ

@@ -1,7 +1,7 @@
 package com.aquasuite.ims.module.iam.internal.service.impl;
 
-import com.aquasuite.ims.module.iam.IamFacade;
-import com.aquasuite.ims.module.iam.dto.UserSummaryDto;
+import com.aquasuite.ims.module.iam.api.IamApi;
+import com.aquasuite.ims.module.iam.api.dto.UserSummaryDto;
 import com.aquasuite.ims.module.iam.internal.entity.User;
 import com.aquasuite.ims.module.iam.internal.repository.UserRepository;
 import com.aquasuite.ims.module.iam.internal.security.SecurityUtils;
@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class IamFacadeImpl implements IamFacade {
+public class IamApiImpl implements IamApi {
 
     private final UserRepository userRepository;
 

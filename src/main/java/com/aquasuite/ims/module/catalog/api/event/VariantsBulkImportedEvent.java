@@ -1,4 +1,4 @@
-package com.aquasuite.ims.module.catalog.events;
+package com.aquasuite.ims.module.catalog.api.event;
 
 import java.math.BigDecimal;
 import java.util.List;

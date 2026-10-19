@@ -1,6 +1,5 @@
-package com.aquasuite.ims.module.inventory.dto;
+package com.aquasuite.ims.module.inventory.api.dto;
 
-import com.aquasuite.ims.module.inventory.internal.entity.enums.MovementType;
 import lombok.Builder;
 
 import java.math.BigDecimal;

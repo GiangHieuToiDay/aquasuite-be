@@ -1,12 +1,12 @@
 package com.aquasuite.ims.module.inventory.internal.service.impl;
 
-import com.aquasuite.ims.module.iam.IamFacade;
-import com.aquasuite.ims.module.inventory.InventoryFacade;
-import com.aquasuite.ims.module.inventory.dto.StockAdjustCommand;
+import com.aquasuite.ims.module.iam.api.IamApi;
+import com.aquasuite.ims.module.inventory.api.InventoryApi;
+import com.aquasuite.ims.module.inventory.api.dto.MovementType;
+import com.aquasuite.ims.module.inventory.api.dto.StockAdjustCommand;
 import com.aquasuite.ims.module.inventory.internal.entity.Inventory;
 import com.aquasuite.ims.module.inventory.internal.entity.StockCount;
 import com.aquasuite.ims.module.inventory.internal.entity.StockCountItem;
-import com.aquasuite.ims.module.inventory.internal.entity.enums.MovementType;
 import com.aquasuite.ims.module.inventory.internal.entity.enums.StockCountStatus;
 import com.aquasuite.ims.module.inventory.internal.exception.InventoryErrorCode;
 import com.aquasuite.ims.module.inventory.internal.payload.req.CreateStockCountRequest;
@@ -43,8 +43,8 @@ public class StockCountServiceImpl implements StockCountService {
     private final StockCountRepository stockCountRepository;
     private final StockCountItemRepository stockCountItemRepository;
     private final InventoryRepository inventoryRepository;
-    private final InventoryFacade inventoryFacade;
-    private final IamFacade iamFacade;
+    private final InventoryApi inventoryApi;
+    private final IamApi iamApi;
 
     /**
      * 1. Tạo phiếu kiểm kho dạng nháp (DRAFT)
@@ -52,7 +52,7 @@ public class StockCountServiceImpl implements StockCountService {
     @Override
     @Transactional
     public StockCountResponse createDraftStockCount(CreateStockCountRequest request, Long actorUserId) {
-        Long userId = actorUserId != null ? actorUserId : iamFacade.getCurrentUserId();
+        Long userId = actorUserId != null ? actorUserId : iamApi.getCurrentUserId();
         String warehouse = (request.warehouseCode() != null && !request.warehouseCode().isBlank())
                 ? request.warehouseCode().trim()
                 : "WH_MAIN";
@@ -136,7 +136,7 @@ public class StockCountServiceImpl implements StockCountService {
             throw new AppException(InventoryErrorCode.INVALID_STOCK_COUNT_STATUS, stockCount.getStatus());
         }
 
-        Long approverId = approverUserId != null ? approverUserId : iamFacade.getCurrentUserId();
+        Long approverId = approverUserId != null ? approverUserId : iamApi.getCurrentUserId();
 
         stockCount.setStatus(StockCountStatus.COMPLETED);
         stockCount.setApprovedBy(approverId);
@@ -165,7 +165,7 @@ public class StockCountServiceImpl implements StockCountService {
                         .actorUserId(approverId)
                         .build();
 
-                inventoryFacade.adjustPhysicalStock(command);
+                inventoryApi.adjustPhysicalStock(command);
             }
 
             itemResponses.add(StockCountItemResponse.builder()
