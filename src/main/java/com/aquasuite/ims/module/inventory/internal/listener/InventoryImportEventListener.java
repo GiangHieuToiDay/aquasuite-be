@@ -1,7 +1,7 @@
 package com.aquasuite.ims.module.inventory.internal.listener;
 
-import com.aquasuite.ims.module.catalog.events.VariantsBulkImportedEvent;
-import com.aquasuite.ims.module.catalog.events.VariantsBulkImportedEvent.InitialStockItem;
+import com.aquasuite.ims.module.catalog.api.event.VariantsBulkImportedEvent;
+import com.aquasuite.ims.module.catalog.api.event.VariantsBulkImportedEvent.InitialStockItem;
 import com.aquasuite.ims.module.inventory.internal.entity.Inventory;
 import com.aquasuite.ims.module.inventory.internal.entity.StockMovement;
 import com.aquasuite.ims.module.inventory.internal.entity.enums.MovementType;

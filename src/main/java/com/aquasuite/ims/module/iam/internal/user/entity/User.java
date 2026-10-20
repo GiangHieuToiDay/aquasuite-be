@@ -1,6 +1,7 @@
 package com.aquasuite.ims.module.iam.internal.user.entity;
 
 import com.aquasuite.ims.module.iam.internal.authorization.entity.Role;
+import com.aquasuite.ims.module.iam.internal.user.enums.AuthProvider;
 import com.aquasuite.ims.module.iam.internal.user.enums.UserStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -47,7 +48,7 @@ public class User {
     @Column(name = "avatar_url", length = 2048)
     private String avatarUrl;
 
-    @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
     @Enumerated(EnumType.STRING)
@@ -56,6 +57,16 @@ public class User {
 
     @Column(name = "phone", length = 32)
     private String phone;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "provider", nullable = false, length = 50)
+    private AuthProvider provider = AuthProvider.LOCAL;
+
+    @Column(name = "provider_id", length = 255)
+    private String providerId;
+
+    @Column(name = "is_verified", nullable = false)
+    private boolean isVerified;
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
@@ -71,8 +82,14 @@ public class User {
         if (this.id == null) {
             this.id = UUID.randomUUID();
         }
+        if (this.createdAt == null) {
+            this.createdAt = Instant.now();
+        }
         if (this.status == null) {
             this.status = UserStatus.PENDING_ACTIVATION;
+        }
+        if (this.provider == null) {
+            this.provider = AuthProvider.LOCAL;
         }
     }
 }

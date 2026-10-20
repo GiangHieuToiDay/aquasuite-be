@@ -1,6 +1,6 @@
 package com.aquasuite.ims.module.catalog.internal.payload.excel;
 
-import com.aquasuite.ims.module.catalog.events.VariantsBulkImportedEvent.InitialStockItem;
+import com.aquasuite.ims.module.catalog.api.event.VariantsBulkImportedEvent.InitialStockItem;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 

@@ -9,7 +9,7 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/aquasuite}
     username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:root}
+    password: ${DB_PASSWORD:}
 
   jpa:
     hibernate:
@@ -27,10 +27,10 @@ spring:
 
         order_inserts: true
         order_updates: true
-    flyway:
-      enabled: true
-      schemas: public
-      locations: classpath:db/migration
+  flyway:
+    enabled: true
+    schemas: public
+    locations: classpath:db/migration
 
 
   data:
@@ -50,8 +50,8 @@ spring:
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME:g.trung.hieu.08@gmail.com}
-    password: ${MAIL_PASSWORD:imeh vhfm vpss awbg}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
     properties:
       mail:
         smtp:

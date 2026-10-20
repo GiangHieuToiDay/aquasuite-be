@@ -21,6 +21,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
@@ -31,6 +32,7 @@ public class RedisSessionStore {
     public static final String PREFIX_SESSION = "auth:v2:session:";
     public static final String PREFIX_REVOKED = "auth:v2:session-revoked:";
     public static final String PREFIX_USED = "auth:v2:refresh-used:";
+    public static final String PREFIX_USER_SESSIONS = "auth:v2:user-sessions:";
 
     public static final int AUTH_GENERATION_V2 = 2;
     public static final int SCHEMA_VERSION_V2 = 2;
@@ -48,9 +50,11 @@ public class RedisSessionStore {
 
     private static final String CREATE_SESSION_LUA =
             "local sessionKey = KEYS[1]\n"
+            + "local userSessionsKey = KEYS[2]\n"
             + "local value = ARGV[1]\n"
             + "local pttl = tonumber(ARGV[2])\n"
-            + "if not sessionKey or not value or not pttl or pttl <= 0 then\n"
+            + "local sessionId = ARGV[3]\n"
+            + "if not sessionKey or not userSessionsKey or not value or not pttl or pttl <= 0 then\n"
             + "    return cjson.encode({ status = 'INCONSISTENT' })\n"
             + "end\n"
             + "if redis.call('EXISTS', sessionKey) == 1 then\n"
@@ -59,6 +63,11 @@ public class RedisSessionStore {
             + "local setRes = redis.call('SET', sessionKey, value, 'PX', pttl, 'NX')\n"
             + "if not setRes then\n"
             + "    return cjson.encode({ status = 'CONFLICT' })\n"
+            + "end\n"
+            + "redis.call('SADD', userSessionsKey, sessionId)\n"
+            + "local trackedTtl = redis.call('PTTL', userSessionsKey)\n"
+            + "if trackedTtl < pttl then\n"
+            + "    redis.call('PEXPIRE', userSessionsKey, pttl)\n"
             + "end\n"
             + "return cjson.encode({ status = 'SUCCESS' })\n";
 
@@ -132,6 +141,10 @@ public class RedisSessionStore {
         return PREFIX_USED + "{" + sid.toString() + "}:" + jti.toString();
     }
 
+    public static String buildUserSessionsKey(UUID userId) {
+        return PREFIX_USER_SESSIONS + "{" + userId.toString() + "}";
+    }
+
     public enum ValidationState {
         ACTIVE,
         REVOKED,
@@ -196,9 +209,10 @@ public class RedisSessionStore {
             String json = objectMapper.writeValueAsString(sessionData);
             String resultJson = redisTemplate.execute(
                     createSessionScript,
-                    List.of(sessionKey),
+                    List.of(sessionKey, buildUserSessionsKey(userId)),
                     json,
-                    String.valueOf(ttlMillis)
+                    String.valueOf(ttlMillis),
+                    sessionId.toString()
             );
 
             if (resultJson == null) {
@@ -227,7 +241,7 @@ public class RedisSessionStore {
     public ValidationState validateSession(UUID sessionId, UUID userId) {
         String sessionKey = buildSessionKey(sessionId);
         String revokedKey = buildRevokedKey(sessionId);
-        List<String> keys = List.of(sessionKey, revokedKey);
+        List<String> keys = List.of(sessionKey, revokedKey, buildUserSessionsKey(userId));
         String[] args = new String[]{
                 userId.toString(),
                 String.valueOf(authGeneration)
@@ -350,6 +364,36 @@ public class RedisSessionStore {
             throw e;
         } catch (Exception e) {
             log.error("Redis error while revoking session for sid: {}", sessionId, e);
+            throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Dịch vụ xác thực tạm thời không khả dụng");
+        }
+    }
+
+    /** Revokes every currently tracked session for a user after an account-level status change. */
+    public void revokeAllSessions(UUID userId, String reason) {
+        String userSessionsKey = buildUserSessionsKey(userId);
+        try {
+            Set<String> sessionIds = redisTemplate.opsForSet().members(userSessionsKey);
+            if (sessionIds == null || sessionIds.isEmpty()) {
+                return;
+            }
+            for (String rawSessionId : sessionIds) {
+                try {
+                    UUID sessionId = UUID.fromString(rawSessionId);
+                    SessionData session = getSessionData(sessionId);
+                    if (session != null && userId.equals(session.userId())) {
+                        revokeSession(sessionId, userId, reason);
+                    } else {
+                        redisTemplate.opsForSet().remove(userSessionsKey, rawSessionId);
+                    }
+                } catch (IllegalArgumentException ignored) {
+                    redisTemplate.opsForSet().remove(userSessionsKey, rawSessionId);
+                }
+            }
+            redisTemplate.delete(userSessionsKey);
+        } catch (AppException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            log.error("Redis error while revoking sessions for userId={}", userId, exception);
             throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Dịch vụ xác thực tạm thời không khả dụng");
         }
     }

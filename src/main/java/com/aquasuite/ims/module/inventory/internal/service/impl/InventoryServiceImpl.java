@@ -1,10 +1,10 @@
 package com.aquasuite.ims.module.inventory.internal.service.impl;
 
-import com.aquasuite.ims.module.iam.IamFacade;
-import com.aquasuite.ims.module.inventory.InventoryFacade;
-import com.aquasuite.ims.module.inventory.dto.StockAdjustCommand;
-import com.aquasuite.ims.module.inventory.dto.StockSummaryDto;
-import com.aquasuite.ims.module.inventory.events.LowStockAlertEvent;
+import com.aquasuite.ims.module.iam.api.IamApi;
+import com.aquasuite.ims.module.inventory.api.InventoryApi;
+import com.aquasuite.ims.module.inventory.api.dto.StockAdjustCommand;
+import com.aquasuite.ims.module.inventory.api.dto.StockSummaryDto;
+import com.aquasuite.ims.module.inventory.api.event.LowStockAlertEvent;
 import com.aquasuite.ims.module.inventory.internal.entity.Inventory;
 import com.aquasuite.ims.module.inventory.internal.entity.StockMovement;
 import com.aquasuite.ims.module.inventory.internal.entity.enums.MovementType;
@@ -29,12 +29,12 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class InventoryServiceImpl implements InventoryFacade, InventoryService {
+public class InventoryServiceImpl implements InventoryApi, InventoryService {
 
     private final InventoryRepository inventoryRepository;
     private final StockMovementRepository stockMovementRepository;
     private final ApplicationEventPublisher eventPublisher;
-    private final IamFacade iamFacade;
+    private final IamApi iamApi;
 
     // =========================================================================
     // 1. CỔNG FACADE PUBLIC DÀNH CHO CÁC MODULE KHÁC
@@ -129,14 +129,14 @@ public class InventoryServiceImpl implements InventoryFacade, InventoryService {
         }
         inventoryRepository.save(inv);
 
-        Long actorId = command.actorUserId() != null ? command.actorUserId() : iamFacade.getCurrentUserId();
+        UUID actorId = command.actorUserId() != null ? command.actorUserId() : iamApi.getCurrentUserId();
 
         // 3. Ghi thẻ kho bất biến (stock_movements)
         StockMovement movement = StockMovement.builder()
                 .movementId(UUID.randomUUID())
                 .inventoryId(inv.getInventoryId())
                 .variantId(command.variantId())
-                .movementType(command.movementType() != null ? command.movementType() : MovementType.ADJUSTMENT_IN)
+                .movementType(command.movementType() != null ? MovementType.valueOf(command.movementType().name()) : MovementType.ADJUSTMENT_IN)
                 .quantity(deltaQty)
                 .balanceAfter(newOnHand)
                 .referenceType(command.referenceType() != null ? command.referenceType() : "MANUAL_ADJUSTMENT")
@@ -173,7 +173,7 @@ public class InventoryServiceImpl implements InventoryFacade, InventoryService {
 
     @Override
     @Transactional
-    public void manualAdjustStock(UUID variantId, BigDecimal deltaQty, String reason, Long actorUserId) {
+    public void manualAdjustStock(UUID variantId, BigDecimal deltaQty, String reason, UUID actorUserId) {
         if (deltaQty == null || deltaQty.compareTo(BigDecimal.ZERO) == 0) {
             throw new AppException(InventoryErrorCode.INVALID_ADJUST_QUANTITY);
         }
@@ -183,7 +183,7 @@ public class InventoryServiceImpl implements InventoryFacade, InventoryService {
 
         StockAdjustCommand command = StockAdjustCommand.builder()
                 .variantId(variantId)
-                .movementType(type)
+                .movementType(com.aquasuite.ims.module.inventory.api.dto.StockMovementType.valueOf(type.name()))
                 .deltaQty(deltaQty)
                 .releaseFromReserved(false)
                 .referenceType("MANUAL_ADJUSTMENT")

@@ -1,6 +1,7 @@
 -- Redis Lua script: revoke-session.lua (V2)
 -- KEYS[1]: auth:v2:session:{sid}
 -- KEYS[2]: auth:v2:session-revoked:{sid}
+-- KEYS[3]: auth:v2:user-sessions:{userId}
 -- ARGV[1]: userId
 -- ARGV[2]: sid
 -- ARGV[3]: reason ("LOGOUT" or "REPLAY")
@@ -10,6 +11,7 @@
 
 local sessionKey = KEYS[1]
 local revokedKey = KEYS[2]
+local userSessionsKey = KEYS[3]
 
 local userId = ARGV[1]
 local sid = ARGV[2]
@@ -26,6 +28,7 @@ if redis.call('EXISTS', revokedKey) == 1 then
     if redis.call('EXISTS', sessionKey) == 1 then
         redis.call('DEL', sessionKey)
     end
+    redis.call('SREM', userSessionsKey, sid)
     return cjson.encode({ status = "SUCCESS" })
 end
 
@@ -76,6 +79,7 @@ if redis.call('EXISTS', sessionKey) == 1 then
     redis.call('SET', revokedKey, cjson.encode(revokedData), 'PX', tombstonePttl)
     -- Delete session
     redis.call('DEL', sessionKey)
+    redis.call('SREM', userSessionsKey, sid)
 
     return cjson.encode({ status = "SUCCESS" })
 end
