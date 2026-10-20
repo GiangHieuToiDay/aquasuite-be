@@ -1,6 +1,6 @@
 package com.aquasuite.ims.module.iam.internal.controller;
 
-import com.aquasuite.ims.module.iam.internal.authorization.dto.response.RoleResponse;
+import com.aquasuite.ims.module.iam.internal.payload.response.RoleResponse;
 import com.aquasuite.ims.module.iam.internal.service.IamRoleService;
 import com.aquasuite.ims.share.dto.ApiResponse;
 import lombok.RequiredArgsConstructor;

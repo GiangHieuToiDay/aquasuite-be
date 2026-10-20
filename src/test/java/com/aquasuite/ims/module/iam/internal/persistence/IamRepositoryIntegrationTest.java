@@ -1,12 +1,12 @@
 package com.aquasuite.ims.module.iam.internal.persistence;
 
-import com.aquasuite.ims.module.iam.internal.authorization.entity.Permission;
-import com.aquasuite.ims.module.iam.internal.authorization.entity.Role;
-import com.aquasuite.ims.module.iam.internal.user.entity.User;
-import com.aquasuite.ims.module.iam.internal.user.enums.UserStatus;
-import com.aquasuite.ims.module.iam.internal.authorization.repository.PermissionRepository;
-import com.aquasuite.ims.module.iam.internal.authorization.repository.RoleRepository;
-import com.aquasuite.ims.module.iam.internal.user.repository.UserRepository;
+import com.aquasuite.ims.module.iam.internal.entity.Permission;
+import com.aquasuite.ims.module.iam.internal.entity.Role;
+import com.aquasuite.ims.module.iam.internal.entity.User;
+import com.aquasuite.ims.module.iam.internal.entity.UserStatus;
+import com.aquasuite.ims.module.iam.internal.repository.PermissionRepository;
+import com.aquasuite.ims.module.iam.internal.repository.RoleRepository;
+import com.aquasuite.ims.module.iam.internal.repository.UserRepository;
 import com.aquasuite.ims.testsupport.PostgreSqlIntegrationTestSupport;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;

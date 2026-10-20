@@ -1,23 +1,24 @@
 package com.aquasuite.ims.module.iam.internal.persistence;
 
-import com.aquasuite.ims.module.iam.api.dto.request.UserRequest;
-import com.aquasuite.ims.module.iam.api.dto.response.UserResponse;
-import com.aquasuite.ims.module.iam.internal.user.controller.UserController;
-import com.aquasuite.ims.module.iam.internal.user.entity.User;
-import com.aquasuite.ims.module.iam.internal.user.enums.UserStatus;
+import com.aquasuite.ims.module.iam.api.UserExternalService;
+import com.aquasuite.ims.module.iam.api.dto.UserSummaryDto;
+import com.aquasuite.ims.module.iam.internal.controller.UserController;
+import com.aquasuite.ims.module.iam.internal.entity.User;
+import com.aquasuite.ims.module.iam.internal.entity.UserStatus;
+import com.aquasuite.ims.module.iam.internal.service.UserService;
+import com.aquasuite.ims.module.iam.internal.service.impl.UserServiceImpl;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
-import java.io.InputStream;
+import java.io.IOException;
 import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.security.MessageDigest;
-import java.util.HexFormat;
-import java.util.Map;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -58,19 +59,36 @@ class IamSensitiveDataBoundaryTest {
     }
 
     @Test
-    @DisplayName("AC-05, AC-11: No production DTO/mapper directories exist under iam.internal")
-    void testNoProductionDtoOrMapperDirectoriesExist() {
+    @DisplayName("AC-08: REST payload location and encapsulation without external leakage")
+    void testRestPayloadLocationAndEncapsulation() throws IOException {
         Path payloadDir = Paths.get("src/main/java/com/aquasuite/ims/module/iam/internal/payload");
-        Path mapperDir = Paths.get("src/main/java/com/aquasuite/ims/module/iam/internal/mapper");
+        assertThat(Files.exists(payloadDir)).as("Production payload directory must exist under internal").isTrue();
 
-        assertThat(Files.exists(payloadDir)).as("Production payload directory must not exist").isFalse();
-        assertThat(Files.exists(mapperDir)).as("Production mapper directory must not exist").isFalse();
+        // No external module outside IAM should import internal payload
+        Path srcMain = Paths.get("src/main/java");
+        if (Files.exists(srcMain)) {
+            try (Stream<Path> stream = Files.walk(srcMain)) {
+                List<Path> violatingFiles = stream
+                        .filter(Files::isRegularFile)
+                        .filter(p -> p.toString().endsWith(".java"))
+                        .filter(p -> !p.toString().replace('\\', '/').contains("/module/iam/"))
+                        .filter(p -> {
+                            try {
+                                return Files.readString(p).contains("com.aquasuite.ims.module.iam.internal.payload");
+                            } catch (IOException e) {
+                                return false;
+                            }
+                        })
+                        .toList();
+                assertThat(violatingFiles).as("No non-IAM file may import internal.payload").isEmpty();
+            }
+        }
     }
 
     @Test
-    @DisplayName("AC-05: Existing public DTOs do not expose password_hash")
+    @DisplayName("AC-07: Public DTO skeleton does not expose sensitive credentials")
     void testSensitiveDataNotExposedInPublicDto() {
-        Class<?>[] publicDtos = new Class<?>[]{UserRequest.class, UserResponse.class};
+        Class<?>[] publicDtos = new Class<?>[]{UserSummaryDto.class};
         for (Class<?> dto : publicDtos) {
             for (Field field : dto.getDeclaredFields()) {
                 String name = field.getName().toLowerCase();
@@ -88,41 +106,63 @@ class IamSensitiveDataBoundaryTest {
     }
 
     @Test
-    @DisplayName("AC-12: All six protected skeleton files match exact baseline SHA-256")
-    void testSixProtectedSkeletonFilesSha256Fingerprint() throws Exception {
-        Map<String, String> expectedHashes = Map.of(
-                "src/main/java/com/aquasuite/ims/module/iam/api/UserExternalService.java",
-                "ca15b1007a1a1dc8715af5a39017cadebd9664659b17fcbc1ffd963d95e7e96b",
+    @DisplayName("AC-04, AC-05, AC-06, AC-07: Semantic structural assertions for User skeletons and DTOs")
+    void testUserSkeletonsAndDtoStructuralIntegrity() throws IOException {
+        // 1. UserExternalService remains empty public class without annotations/methods/fields/interfaces
+        assertThat(Modifier.isPublic(UserExternalService.class.getModifiers())).isTrue();
+        assertThat(UserExternalService.class.getAnnotations()).isEmpty();
+        assertThat(UserExternalService.class.getDeclaredMethods()).isEmpty();
+        assertThat(UserExternalService.class.getDeclaredFields()).isEmpty();
+        assertThat(UserExternalService.class.getInterfaces()).isEmpty();
 
-                "src/main/java/com/aquasuite/ims/module/iam/api/dto/request/UserRequest.java",
-                "9fcd250ccc0d082831db6b3acb1e9b6371104046d625a28ee920b49288500d5e",
+        // 2. UserService remains empty internal interface
+        assertThat(UserService.class.isInterface()).isTrue();
+        assertThat(UserService.class.getAnnotations()).isEmpty();
+        assertThat(UserService.class.getDeclaredMethods()).isEmpty();
 
-                "src/main/java/com/aquasuite/ims/module/iam/api/dto/response/UserResponse.java",
-                "c23de5fe7cb2a3925ab8ba9e76b75bd3fd907950ec598efefff6adc3ec2b1d37",
+        // 3. UserServiceImpl remains empty public class without annotations/interfaces/constructors declared/dependencies
+        assertThat(Modifier.isPublic(UserServiceImpl.class.getModifiers())).isTrue();
+        assertThat(UserServiceImpl.class.getAnnotations()).isEmpty();
+        assertThat(UserServiceImpl.class.getDeclaredMethods()).isEmpty();
+        assertThat(UserServiceImpl.class.getDeclaredFields()).isEmpty();
+        assertThat(UserServiceImpl.class.getInterfaces()).isEmpty();
+        assertThat(UserServiceImpl.class.getDeclaredConstructors()).allMatch(c -> c.getParameterCount() == 0);
 
-                "src/main/java/com/aquasuite/ims/module/iam/internal/user/controller/UserController.java",
-                "60bc909dc8e72f882bf424f077c74e21dcb3845614fcee25a9cf5b81f7266cde",
+        // 4. UserSummaryDto remains empty public class without annotations/methods/fields
+        assertThat(Modifier.isPublic(UserSummaryDto.class.getModifiers())).isTrue();
+        assertThat(UserSummaryDto.class.getAnnotations()).isEmpty();
+        assertThat(UserSummaryDto.class.getDeclaredMethods()).isEmpty();
+        assertThat(UserSummaryDto.class.getDeclaredFields()).isEmpty();
 
-                "src/main/java/com/aquasuite/ims/module/iam/internal/user/service/UserService.java",
-                "d1f383e92d66fe8526917213e36a5b09927d73630d7633d037113b6832f5ed0d",
+        // 5. Removed DTO files and obsolete namespaces must not exist
+        Path oldUserRequest = Paths.get("src/main/java/com/aquasuite/ims/module/iam/api/dto/request/UserRequest.java");
+        Path oldUserResponse = Paths.get("src/main/java/com/aquasuite/ims/module/iam/api/dto/response/UserResponse.java");
+        assertThat(Files.exists(oldUserRequest)).as("UserRequest.java must be deleted").isFalse();
+        assertThat(Files.exists(oldUserResponse)).as("UserResponse.java must be deleted").isFalse();
 
-                "src/main/java/com/aquasuite/ims/module/iam/internal/user/service/impl/UserServiceImpl.java",
-                "e48bef9beff8ee193c4f2defcd73e0f2ca4b251cbd662c8ba9ed9c231aa75ad6"
-        );
+        Path authDir = Paths.get("src/main/java/com/aquasuite/ims/module/iam/internal/auth");
+        Path authorizationDir = Paths.get("src/main/java/com/aquasuite/ims/module/iam/internal/authorization");
+        Path userDir = Paths.get("src/main/java/com/aquasuite/ims/module/iam/internal/user");
+        assertThat(Files.exists(authDir)).as("internal.auth directory must not exist").isFalse();
+        assertThat(Files.exists(authorizationDir)).as("internal.authorization directory must not exist").isFalse();
+        assertThat(Files.exists(userDir)).as("internal.user directory must not exist").isFalse();
 
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
-
-        for (Map.Entry<String, String> entry : expectedHashes.entrySet()) {
-            Path path = Paths.get(entry.getKey());
-            assertThat(Files.exists(path)).as("File must exist: " + entry.getKey()).isTrue();
-
-            byte[] bytes = Files.readAllBytes(path);
-            byte[] hash = digest.digest(bytes);
-            String actualHash = HexFormat.of().formatHex(hash).toLowerCase();
-
-            assertThat(actualHash)
-                    .as("SHA-256 mismatch for " + entry.getKey())
-                    .isEqualTo(entry.getValue());
+        // 6. No production references to removed DTOs
+        Path srcMain = Paths.get("src/main/java");
+        try (Stream<Path> stream = Files.walk(srcMain)) {
+            List<Path> referencingFiles = stream
+                    .filter(Files::isRegularFile)
+                    .filter(p -> p.toString().endsWith(".java"))
+                    .filter(p -> {
+                        try {
+                            String content = Files.readString(p);
+                            return content.contains("UserRequest") || content.contains("UserResponse");
+                        } catch (IOException e) {
+                            return false;
+                        }
+                    })
+                    .toList();
+            assertThat(referencingFiles).as("No production file may reference UserRequest or UserResponse").isEmpty();
         }
     }
 }

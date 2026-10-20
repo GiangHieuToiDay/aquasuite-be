@@ -1,12 +1,12 @@
 package com.aquasuite.ims.module.iam.internal.service.impl;
 
-import com.aquasuite.ims.module.iam.internal.authorization.entity.Permission;
-import com.aquasuite.ims.module.iam.internal.authorization.entity.Role;
-import com.aquasuite.ims.module.iam.internal.authorization.repository.PermissionRepository;
-import com.aquasuite.ims.module.iam.internal.authorization.repository.RoleRepository;
+import com.aquasuite.ims.module.iam.internal.entity.Permission;
+import com.aquasuite.ims.module.iam.internal.entity.Role;
 import com.aquasuite.ims.module.iam.internal.error.IamErrorCode;
-import com.aquasuite.ims.module.iam.internal.authorization.dto.response.PermissionResponse;
-import com.aquasuite.ims.module.iam.internal.authorization.dto.response.RoleResponse;
+import com.aquasuite.ims.module.iam.internal.payload.response.PermissionResponse;
+import com.aquasuite.ims.module.iam.internal.payload.response.RoleResponse;
+import com.aquasuite.ims.module.iam.internal.repository.PermissionRepository;
+import com.aquasuite.ims.module.iam.internal.repository.RoleRepository;
 import com.aquasuite.ims.module.iam.internal.service.IamRoleService;
 import com.aquasuite.ims.share.exception.AppException;
 import com.aquasuite.ims.share.exception.CommonErrorCode;

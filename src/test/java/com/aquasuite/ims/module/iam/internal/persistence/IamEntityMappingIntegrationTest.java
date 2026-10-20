@@ -1,9 +1,9 @@
 package com.aquasuite.ims.module.iam.internal.persistence;
 
-import com.aquasuite.ims.module.iam.internal.authorization.entity.Permission;
-import com.aquasuite.ims.module.iam.internal.authorization.entity.Role;
-import com.aquasuite.ims.module.iam.internal.user.entity.User;
-import com.aquasuite.ims.module.iam.internal.user.enums.UserStatus;
+import com.aquasuite.ims.module.iam.internal.entity.Permission;
+import com.aquasuite.ims.module.iam.internal.entity.Role;
+import com.aquasuite.ims.module.iam.internal.entity.User;
+import com.aquasuite.ims.module.iam.internal.entity.UserStatus;
 import com.aquasuite.ims.testsupport.PostgreSqlIntegrationTestSupport;
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.EntityManager;
@@ -59,10 +59,10 @@ class IamEntityMappingIntegrationTest extends PostgreSqlIntegrationTestSupport {
     @Test
     @DisplayName("AC-06: Target architecture package structure and encapsulation")
     void testPackageEncapsulation() {
-        assertThat(User.class.getPackageName()).isEqualTo("com.aquasuite.ims.module.iam.internal.user.entity");
-        assertThat(Role.class.getPackageName()).isEqualTo("com.aquasuite.ims.module.iam.internal.authorization.entity");
-        assertThat(Permission.class.getPackageName()).isEqualTo("com.aquasuite.ims.module.iam.internal.authorization.entity");
-        assertThat(UserStatus.class.getPackageName()).isEqualTo("com.aquasuite.ims.module.iam.internal.user.enums");
+        assertThat(User.class.getPackageName()).isEqualTo("com.aquasuite.ims.module.iam.internal.entity");
+        assertThat(Role.class.getPackageName()).isEqualTo("com.aquasuite.ims.module.iam.internal.entity");
+        assertThat(Permission.class.getPackageName()).isEqualTo("com.aquasuite.ims.module.iam.internal.entity");
+        assertThat(UserStatus.class.getPackageName()).isEqualTo("com.aquasuite.ims.module.iam.internal.entity");
     }
 
     @Test

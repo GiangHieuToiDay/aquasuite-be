@@ -1,6 +1,6 @@
 package com.aquasuite.ims.module.iam.internal.service;
 
-import com.aquasuite.ims.module.iam.internal.authorization.dto.response.RoleResponse;
+import com.aquasuite.ims.module.iam.internal.payload.response.RoleResponse;
 
 import java.util.List;
 import java.util.UUID;

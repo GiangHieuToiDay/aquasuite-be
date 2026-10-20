@@ -1,9 +1,9 @@
 package com.aquasuite.ims.module.iam.internal.service;
 
-import com.aquasuite.ims.module.iam.internal.authorization.dto.request.CreatePermissionRequest;
-import com.aquasuite.ims.module.iam.internal.authorization.dto.request.UpdatePermissionRequest;
-import com.aquasuite.ims.module.iam.internal.authorization.dto.response.PermissionPageResponse;
-import com.aquasuite.ims.module.iam.internal.authorization.dto.response.PermissionResponse;
+import com.aquasuite.ims.module.iam.internal.payload.request.CreatePermissionRequest;
+import com.aquasuite.ims.module.iam.internal.payload.request.UpdatePermissionRequest;
+import com.aquasuite.ims.module.iam.internal.payload.response.PermissionPageResponse;
+import com.aquasuite.ims.module.iam.internal.payload.response.PermissionResponse;
 
 import java.util.UUID;
 
