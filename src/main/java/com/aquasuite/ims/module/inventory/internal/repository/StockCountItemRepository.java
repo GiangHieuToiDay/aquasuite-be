@@ -13,4 +13,5 @@ public interface StockCountItemRepository extends JpaRepository<StockCountItem, 
     List<StockCountItem> findByStockCountId(UUID stockCountId);
 
     void deleteByStockCountId(UUID stockCountId);
+    long countByVariantId(UUID variantId);
 }
