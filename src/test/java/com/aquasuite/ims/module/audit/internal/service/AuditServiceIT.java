@@ -21,7 +21,7 @@ class AuditServiceIT extends BundleCoreTestSupport {
                         () ->
                                 audit.append(
                                         new AuditCommand(
-                                                1L,
+                                                OWNER,
                                                 "TEST",
                                                 UUID.randomUUID(),
                                                 null,
@@ -38,7 +38,7 @@ class AuditServiceIT extends BundleCoreTestSupport {
                 status ->
                         audit.append(
                                 new AuditCommand(
-                                        1L,
+                                        OWNER,
                                         "TEST",
                                         d.bundleId(),
                                         null,
@@ -49,7 +49,7 @@ class AuditServiceIT extends BundleCoreTestSupport {
         assertThat(after)
                 .contains(d.bundleId().toString())
                 .doesNotContain("password", "costPrice", "Authorization");
-        assertThat(jdbc.queryForObject("select actor_id from audit_entries", Long.class))
-                .isEqualTo(1L);
+        assertThat(jdbc.queryForObject("select actor_id from audit_entries", UUID.class))
+                .isEqualTo(OWNER);
     }
 }

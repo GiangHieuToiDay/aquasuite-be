@@ -1,38 +1,47 @@
 package com.aquasuite.ims.module.catalog.internal.payload;
 
 import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 import jakarta.validation.constraints.*;
 
-import java.util.*;
+import java.io.IOException;
 
+/**
+ * Body bật/tắt combo nội bộ: ACTIVE/INACTIVE và expectedVersion.
+ * Luồng: Jackson kiểm kiểu/status → service khóa và kiểm version → đổi Product.status.
+ * Không dùng DTO này để xóa hoặc publish; các thao tác đó có contract riêng.
+ */
 public record BundleCoreStatusRequest(
-        @com.fasterxml.jackson.databind.annotation.JsonDeserialize(
-                        using = BundleCoreCreateRequest.StrictLong.class)
-                @NotNull
-                @PositiveOrZero
-                Long expectedVersion,
-        @com.fasterxml.jackson.databind.annotation.JsonDeserialize(using = StrictStatus.class)
-                @NotNull
-                Status productStatus) {
+        @JsonDeserialize(using = BundleJsonDeserializers.StrictLong.class)
+        @NotNull @PositiveOrZero Long expectedVersion,
+        @JsonDeserialize(using = StrictStatus.class)
+        @NotNull Status productStatus) {
+    /**
+     * Các trạng thái client được đổi qua endpoint status; không gồm DELETED hoặc publication.
+     */
     public enum Status {
         ACTIVE,
         INACTIVE
     }
 
-    public static class StrictStatus
-            extends com.fasterxml.jackson.databind.JsonDeserializer<Status> {
+    /**
+     * Chỉ nhận chuỗi ACTIVE/INACTIVE; không chuyển số hoặc giá trị lạ thành enum.
+     */
+    public static class StrictStatus extends JsonDeserializer<Status> {
         @Override
-        public Status deserialize(
-                com.fasterxml.jackson.core.JsonParser p,
-                com.fasterxml.jackson.databind.DeserializationContext c)
-                throws java.io.IOException {
-            if (!p.hasToken(com.fasterxml.jackson.core.JsonToken.VALUE_STRING))
-                return c.reportInputMismatch(Status.class, "Expected ACTIVE or INACTIVE");
+        public Status deserialize(JsonParser parser, DeserializationContext context)
+                throws IOException {
+            if (!parser.hasToken(JsonToken.VALUE_STRING))
+                return context.reportInputMismatch(Status.class, "Expected ACTIVE or INACTIVE");
             try {
-                return Status.valueOf(p.getText());
+                return Status.valueOf(parser.getText());
             } catch (IllegalArgumentException ex) {
-                return c.reportInputMismatch(Status.class, "Expected ACTIVE or INACTIVE");
+                return context.reportInputMismatch(Status.class, "Expected ACTIVE or INACTIVE");
             }
         }
     }

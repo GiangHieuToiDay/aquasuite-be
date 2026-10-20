@@ -36,7 +36,7 @@ class BundleAdminServiceIT extends BundleCoreTestSupport {
                             CATEGORY,
                             null,
                             "Must roll back too",
-                            List.of(new BundleCoreCreateRequest.Item(replacementSku, 2)),
+                            List.of(new BundleItemRequest(replacementSku, 2)),
                             new BigDecimal("90000000.00"),
                             original.version());
             assertThatThrownBy(() -> service.update(original.bundleId(), replacement))
@@ -77,7 +77,7 @@ class BundleAdminServiceIT extends BundleCoreTestSupport {
         var request =
                 new BundleCoreCreateRequest(
                         "INVALID-REFERENCE", "Invalid", category, null, null,
-                        List.of(new BundleCoreCreateRequest.Item(variant, 1)),
+                        List.of(new BundleItemRequest(variant, 1)),
                         new BigDecimal("95000000.00"));
         assertThatThrownBy(() -> service.create(request))
                 .isInstanceOfSatisfying(

@@ -21,7 +21,7 @@ public class AuditEntry {
     @Id private UUID id;
 
     @Column(name = "actor_id", nullable = false)
-    private Long actorId;
+    private UUID actorId;
 
     @Column(nullable = false, length = 40)
     private String action;

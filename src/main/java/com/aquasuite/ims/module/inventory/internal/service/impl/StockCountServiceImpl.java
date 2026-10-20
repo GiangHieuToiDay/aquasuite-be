@@ -1,6 +1,6 @@
 package com.aquasuite.ims.module.inventory.internal.service.impl;
 
-import com.aquasuite.ims.module.iam.IamFacade;
+import com.aquasuite.ims.module.iam.api.IamFacade;
 import com.aquasuite.ims.module.inventory.InventoryFacade;
 import com.aquasuite.ims.module.inventory.dto.StockAdjustCommand;
 import com.aquasuite.ims.module.inventory.internal.entity.Inventory;
@@ -51,8 +51,8 @@ public class StockCountServiceImpl implements StockCountService {
      */
     @Override
     @Transactional
-    public StockCountResponse createDraftStockCount(CreateStockCountRequest request, Long actorUserId) {
-        Long userId = actorUserId != null ? actorUserId : iamFacade.getCurrentUserId();
+    public StockCountResponse createDraftStockCount(CreateStockCountRequest request, UUID actorUserId) {
+        UUID userId = actorUserId != null ? actorUserId : iamFacade.getCurrentUserId();
         String warehouse = (request.warehouseCode() != null && !request.warehouseCode().isBlank())
                 ? request.warehouseCode().trim()
                 : "WH_MAIN";
@@ -128,7 +128,7 @@ public class StockCountServiceImpl implements StockCountService {
      */
     @Override
     @Transactional
-    public StockCountResponse approveStockCount(UUID stockCountId, Long approverUserId) {
+    public StockCountResponse approveStockCount(UUID stockCountId, UUID approverUserId) {
         StockCount stockCount = stockCountRepository.findById(stockCountId)
                 .orElseThrow(() -> new AppException(InventoryErrorCode.STOCK_COUNT_NOT_FOUND, stockCountId));
 
@@ -136,7 +136,7 @@ public class StockCountServiceImpl implements StockCountService {
             throw new AppException(InventoryErrorCode.INVALID_STOCK_COUNT_STATUS, stockCount.getStatus());
         }
 
-        Long approverId = approverUserId != null ? approverUserId : iamFacade.getCurrentUserId();
+        UUID approverId = approverUserId != null ? approverUserId : iamFacade.getCurrentUserId();
 
         stockCount.setStatus(StockCountStatus.COMPLETED);
         stockCount.setApprovedBy(approverId);

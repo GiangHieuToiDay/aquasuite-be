@@ -1,7 +1,10 @@
 package com.aquasuite.ims.module.inventory.internal.service.impl;
 
-import com.aquasuite.ims.module.iam.IamFacade;
+import java.util.UUID;
+
+import com.aquasuite.ims.module.iam.api.IamFacade;
 import com.aquasuite.ims.module.inventory.InventoryFacade;
+import com.aquasuite.ims.module.inventory.api.InventoryAvailabilityApi;
 import com.aquasuite.ims.module.inventory.dto.StockAdjustCommand;
 import com.aquasuite.ims.module.inventory.dto.StockSummaryDto;
 import com.aquasuite.ims.module.inventory.events.LowStockAlertEvent;
@@ -20,6 +23,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -29,7 +33,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class InventoryServiceImpl implements InventoryFacade, InventoryService {
+public class InventoryServiceImpl implements InventoryFacade, InventoryService, InventoryAvailabilityApi {
 
     private final InventoryRepository inventoryRepository;
     private final StockMovementRepository stockMovementRepository;
@@ -39,6 +43,14 @@ public class InventoryServiceImpl implements InventoryFacade, InventoryService {
     // =========================================================================
     // 1. CỔNG FACADE PUBLIC DÀNH CHO CÁC MODULE KHÁC
     // =========================================================================
+
+    /** Reuses the batch reader without accessing IAM or writing inventory. */
+    @Override
+    @Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
+    public Map<UUID, BigDecimal> availableQuantities(Collection<UUID> variantIds) {
+        return getStockSummaries(variantIds).values().stream()
+                .collect(Collectors.toMap(StockSummaryDto::variantId, StockSummaryDto::availableQty));
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -129,7 +141,7 @@ public class InventoryServiceImpl implements InventoryFacade, InventoryService {
         }
         inventoryRepository.save(inv);
 
-        Long actorId = command.actorUserId() != null ? command.actorUserId() : iamFacade.getCurrentUserId();
+        UUID actorId = command.actorUserId() != null ? command.actorUserId() : iamFacade.getCurrentUserId();
 
         // 3. Ghi thẻ kho bất biến (stock_movements)
         StockMovement movement = StockMovement.builder()
@@ -173,7 +185,7 @@ public class InventoryServiceImpl implements InventoryFacade, InventoryService {
 
     @Override
     @Transactional
-    public void manualAdjustStock(UUID variantId, BigDecimal deltaQty, String reason, Long actorUserId) {
+    public void manualAdjustStock(UUID variantId, BigDecimal deltaQty, String reason, UUID actorUserId) {
         if (deltaQty == null || deltaQty.compareTo(BigDecimal.ZERO) == 0) {
             throw new AppException(InventoryErrorCode.INVALID_ADJUST_QUANTITY);
         }

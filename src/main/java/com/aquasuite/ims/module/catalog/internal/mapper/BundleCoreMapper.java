@@ -1,97 +1,55 @@
 package com.aquasuite.ims.module.catalog.internal.mapper;
 
-import com.aquasuite.ims.module.catalog.internal.entity.*;
-import com.aquasuite.ims.module.catalog.internal.entity.enums.*;
+import com.aquasuite.ims.module.catalog.internal.entity.BundleConfiguration;
+import com.aquasuite.ims.module.catalog.internal.entity.BundleComponentGroup;
+import com.aquasuite.ims.module.catalog.internal.entity.BundleItem;
+import com.aquasuite.ims.module.catalog.internal.entity.Product;
+import com.aquasuite.ims.module.catalog.internal.entity.ProductVariant;
 import com.aquasuite.ims.module.catalog.internal.payload.*;
-import com.aquasuite.ims.module.catalog.internal.service.BundlePricingService;
+import com.aquasuite.ims.module.catalog.internal.service.BundlePricingService.Price;
 
-import lombok.RequiredArgsConstructor;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.ReportingPolicy;
 
-import org.springframework.stereotype.Component;
+import java.util.List;
 
-import java.util.*;
+/**
+ * MapStruct sinh mã chuyển dữ liệu catalog đã xử lý sang DTO HTTP của combo.
+ * Nhận entity/cấu hình/kết quả giá từ service hoặc assembler, ánh xạ field và trả DTO.
+ * Không tính giá, quyết định sellable hoặc truy vấn DB. MapStruct báo lỗi build khi thiếu
+ * mapping cho field đích mới; implementation được sinh trong target khi compile.
+ */
+@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.ERROR)
+public interface BundleCoreMapper {
+    @Mapping(target = "bundleId", source = "product.productId")
+    @Mapping(target = "name", source = "product.productName")
+    @Mapping(target = "productStatus", source = "product.status")
+    @Mapping(target = "publicationStatus", source = "configuration.publicationStatus")
+    @Mapping(target = "createdAt", source = "configuration.createdAt")
+    @Mapping(target = "updatedAt", source = "configuration.updatedAt")
+    @Mapping(target = "linkedItemsCount", expression = "java(items.size())")
+    BundleCoreDetail detail(
+            Product product,
+            BundleConfiguration configuration,
+            Price price,
+            List<BundleCoreDetail.Item> items);
 
-@Component
-@RequiredArgsConstructor
-public class BundleCoreMapper {
-    private final BundlePricingService pricing;
-
-    public BundleCoreDetail detail(
-            Product p,
-            BundleConfiguration c,
-            List<BundleItem> items,
-            Map<UUID, ProductVariant> variants,
-            Map<UUID, Product> parents) {
-        var lines =
-                items.stream()
-                        .map(
-                                i -> {
-                                    var v = variants.get(i.getVariantId());
-                                    return new BundlePricingService.Line(
-                                            v == null ? null : v.getSellingPrice(),
-                                            i.getQuantity());
-                                })
-                        .toList();
-        var price = pricing.preview(lines, c.getPackagePrice());
-        var views =
-                items.stream()
-                        .map(
-                                i -> {
-                                    var v = variants.get(i.getVariantId());
-                                    var parent = v == null ? null : parents.get(v.getProductId());
-                                    boolean sellable =
-                                            v != null
-                                                    && v.getStatus() == VariantStatus.ACTIVE
-                                                    && parent != null
-                                                    && parent.getStatus() == ProductStatus.ACTIVE
-                                                    && parent.getProductType()
-                                                            == ProductType.NORMAL;
-                                    return new BundleCoreDetail.Item(
-                                            i.getBundleItemId(),
-                                            i.getVariantId(),
-                                            v == null ? null : v.getSku(),
-                                            v == null ? null : v.getVariantName(),
-                                            i.getQuantity(),
-                                            v == null ? null : v.getSellingPrice(),
-                                            sellable);
-                                })
-                        .toList();
-        return new BundleCoreDetail(
-                p.getProductId(),
-                p.getProductCode(),
-                p.getProductName(),
-                p.getStatus().name(),
-                c.getPublicationStatus().name(),
-                c.getVersion(),
-                items.size(),
-                price.originalTotal(),
-                c.getPackagePrice(),
-                price.savingAmount(),
-                price.discountPercent(),
-                price.priceIssue(),
-                c.getCreatedAt(),
-                c.getUpdatedAt(),
-                p.getCategoryId(),
-                p.getBrandId(),
-                p.getDescription(),
-                views);
+    default BundleComponentGroupRequest group(BundleComponentGroup group) {
+        return new BundleComponentGroupRequest(group.getGroupId(), group.getDefaultVariantId(),
+                java.util.List.of(group.getAllowedVariantIds()));
     }
 
-    public BundleCoreSummary summary(BundleCoreDetail d) {
-        return new BundleCoreSummary(
-                d.bundleId(),
-                d.productCode(),
-                d.name(),
-                d.productStatus(),
-                d.publicationStatus(),
-                d.version(),
-                d.linkedItemsCount(),
-                d.originalTotal(),
-                d.packagePrice(),
-                d.savingAmount(),
-                d.discountPercent(),
-                d.priceIssue(),
-                d.createdAt(),
-                d.updatedAt());
-    }
+    BundleCoreSummary summary(BundleCoreDetail detail);
+
+    @Mapping(target = "variantId", source = "item.variantId")
+    @Mapping(target = "name", source = "variant.variantName")
+    BundleCoreDetail.Item item(BundleItem item, ProductVariant variant, boolean sellable);
+
+    @Mapping(target = "bundleId", source = "product.productId")
+    @Mapping(target = "productStatus", source = "product.status")
+    BundleCoreMutationResult mutation(Product product, BundleConfiguration configuration);
+
+    @Mapping(target = "productId", source = "variant.productId")
+    BundleSkuResponse sku(ProductVariant variant, Product product);
 }

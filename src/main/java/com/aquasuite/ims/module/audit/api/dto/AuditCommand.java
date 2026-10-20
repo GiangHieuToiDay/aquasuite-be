@@ -6,7 +6,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 public record AuditCommand(
-        Long actorId,
+        UUID actorId,
         String action,
         UUID aggregateId,
         JsonNode before,

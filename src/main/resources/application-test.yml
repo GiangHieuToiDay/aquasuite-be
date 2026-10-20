@@ -1,3 +1,19 @@
+spring:
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:${SPRING_REDIS_HOST:localhost}}
+      port: ${SPRING_DATA_REDIS_PORT:${SPRING_REDIS_PORT:6379}}
+
 aquasuite:
   config:
     environment: test
+    auth-generation: 2
+  security:
+    jwt:
+      issuer: aquasuite-be
+      access-audience: aquasuite-api
+      refresh-audience: aquasuite-auth
+      access-token-ttl-seconds: 1800
+      refresh-token-ttl-seconds: 1296000
+      session-absolute-ttl-seconds: 1296000
+      secret: "dGVzdC1zZWNyZXQta2V5LWZvci11bml0LXRlc3RzLW11c3QtYmUtYXQtbGVhc3QtNjQtYnl0ZXMtbG9uZy1zby10aGlzLXNob3VsZC13b3JrIQ=="

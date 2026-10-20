@@ -8,6 +8,8 @@ import com.aquasuite.ims.module.catalog.internal.service.BundleAdminService;
 import com.aquasuite.ims.share.exception.GlobalExceptionHandler;
 
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.*;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -52,5 +54,17 @@ class BundleAdminControllerTest {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/v1/catalog/admin/bundles", "/api/v1/catalog/admin/bundle-skus"})
+    void unknownOrRepeatedQueryParametersAreRejected(String path) throws Exception {
+        mvc.perform(get(path).param("surprise", "value"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("SYS_002"));
+        mvc.perform(get(path).param("page", "0", "1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("SYS_002"));
+        verifyNoInteractions(service);
     }
 }

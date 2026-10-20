@@ -51,7 +51,7 @@ public class StockMovement {
     private String note;
 
     @Column(name = "created_by")
-    private Long createdBy; // Tham chiếu User.id từ module IAM
+    private UUID createdBy; // Tham chiếu User.id từ module IAM
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

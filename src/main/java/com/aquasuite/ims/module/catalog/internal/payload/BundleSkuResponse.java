@@ -5,6 +5,11 @@ import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 import java.util.*;
 
+/**
+ * Một SKU đủ điều kiện trong kết quả tìm thành phần combo, gồm tên sản phẩm và giá lẻ.
+ * Luồng: BundleAdminService.searchSkus lọc SKU ACTIVE thuộc product NORMAL ACTIVE → MapStruct.
+ * Client lấy variantId để gửi trong BundleItemRequest; không có giá vốn hoặc tồn kho.
+ */
 public record BundleSkuResponse(
         UUID variantId,
         UUID productId,

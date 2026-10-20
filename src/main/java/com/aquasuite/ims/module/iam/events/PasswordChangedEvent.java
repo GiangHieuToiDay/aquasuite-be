@@ -1,6 +1,6 @@
 package com.aquasuite.ims.module.iam.events;
 
 public record PasswordChangedEvent(
-    Long userId,
+    java.util.UUID userId,
     String reason
 ) {}

@@ -7,14 +7,14 @@
 | Work item | `SCRUM14` (theo yêu cầu người dùng; chưa đối chiếu hệ thống quản lý ticket). |
 | Feature ID / Use Case | `FE-03 / UC-13`. |
 | Feature Name | View and Manage Product Combos — Xem và quản lý combo sản phẩm |
-| Version | `0.9.1`. |
-| Status | SCOPE_CONFIRMED_BY_USER; đồng bộ Iteration 1, technical review 0.9.1 PENDING; approval/hash 0.8.1 đã stale. |
+| Version | `0.11.0`. |
+| Status | IMPLEMENTATION_READY_FOR_REVIEW; authentication integration 0.11.0 verified; independent technical/code review PENDING. |
 | Owner / Author / Reviewer | QuangNB; cần người phụ trách nghiệp vụ và kỹ thuật review. |
 | Owning Module | `catalog`. |
 | Repository Scope | `BE (aquasuite-be)`. |
 | Target Package | `com.aquasuite.ims.module.catalog`, theo quyết định của người dùng. |
 | Risk Level | `HIGH` vì liên quan giá ưu đãi, tồn kho và dữ liệu chuyển sang đơn hàng. |
-| Implementation guide | [Plan 0.9.2 và tiến độ SCRUM14](../../.agent/plans/SCRUM14-UC13.md); [handoff kiểm chứng core](../../.agent/handoffs/SCRUM14-UC13-phase1-verification.md). |
+| Implementation guide | [Plan 0.9.4 và tiến độ SCRUM14](../../.agent/plans/SCRUM14-UC13.md); [handoff kiểm chứng core](../../.agent/handoffs/SCRUM14-UC13-phase1-verification.md). |
 
 ### Nguồn và cách đọc
 
@@ -45,8 +45,9 @@ Các đường dẫn dưới đây tương đối từ `src/main/java/com/aquasu
 | `module/catalog/internal/repository/ProductRepository.java`, `ProductVariantRepository.java`, `BundleConfigurationRepository.java`, `BundleItemRepository.java` | Có truy vấn combo/SKU, lọc/phân trang và khóa aggregate | Dùng cho core; không đọc repository module khác |
 | `module/inventory/InventoryFacade.java` | Có `getStockSummaries(Collection<UUID>)`, kiểm tra/giữ/nhả tồn | Đọc tồn qua contract được duyệt; không import entity/repository inventory |
 | `module/iam/IamFacade.java` và implementation | Có facade nhưng implementation còn fallback người dùng giả lập | Không dùng fallback để cấp quyền quản trị combo |
-| `module/catalog/internal/controller/BundleAdminController.java`, `BundleSkuController.java` | Có list/detail/create/update/delete/status và lookup | Core contract bên dưới, không yêu cầu token/actor/permission |
-| `module/catalog/internal/service/BundleAdminService.java`, `BundleSkuQueryService.java`, `BundlePricingService.java` | Có CRUD, giá, validation, khóa/version và lookup | Core không gọi IAM/Audit/Inventory/Sales/Cloudinary |
+| `module/catalog/internal/controller/BundleAdminController.java` | Gộp CRUD và SKU lookup; URL /bundles và /bundle-skus giữ nguyên | Chặn query lạ/lặp, không yêu cầu token/actor/permission |
+| `module/catalog/internal/mapper/BundleCoreMapper.java`, `service/BundleDetailAssembler.java` | MapStruct chuyển field; assembler tính giá/sellable | Refactor nội bộ plan 0.9.3, không đổi JSON/HTTP/schema |
+| `module/catalog/internal/service/BundleAdminService.java`, `BundlePricingService.java` | Một service điều phối CRUD/SKU lookup; pricing giữ công thức dùng chung; JavaDoc mô tả tác dụng/luồng | Core không gọi IAM/Audit/Inventory/Sales/Cloudinary; HTTP contract giữ nguyên sau gộp |
 
 Hiện trạng được đối chiếu workspace ngày 2026-10-17, bao gồm thay đổi chưa commit; không khẳng định đã deploy hoặc kiểm live DB. Đợt tài liệu 0.9.1 không chạy test; đợt code plan 0.9.2 sau đó đã chạy full verify 72 test case PASS, xem handoff kiểm chứng core ở Metadata. Không khẳng định UC-13 đã hoàn thành chỉ vì core có mã nguồn hoặc đạt subset test.
 
@@ -329,7 +330,7 @@ BundleConfiguration, constraint BundleItem và migration core đã có trong wor
 - Nếu cần quản lý vòng đời Cloudinary asset: bổ sung metadata asset/public ID qua thiết kế media được duyệt; `image_url` đơn thuần chưa đủ cho cleanup/ownership.
 - Index đề xuất trên publication/hiệu lực và `bundle_items.bundle_product_id`; chỉ chốt sau thiết kế query. Version trên cấu hình không tự phát hiện thay đổi giá SKU: đánh giá giá cần snapshot/revalidation riêng.
 
-Script DDL core đã có trong workspace; chưa xác minh trạng thái live DB. Cách chạy nằm trong [migration runbook](../migrations/SCRUM14-UC13-phase1.md). Phần options chờ D05 nhưng không chặn core. Không dùng `specifications` JSONB để nhét field giá/hiệu lực nhằm tránh migration.
+Flyway quản lý toàn bộ migration schema qua V1/V2 trong `db/migration`; không dùng runner hoặc SQL thủ công. Chưa xác minh trạng thái live DB. Cách khởi động/baseline nằm trong [migration runbook](../migrations/flyway.md). Phần options chờ D05 nhưng không chặn core. Không dùng `specifications` JSONB để nhét field giá/hiệu lực nhằm tránh migration.
 
 Cross-module references chỉ dùng ID/DTO. Không tạo JPA relationship sang inventory, sales, IAM hay audit.
 
@@ -1095,3 +1096,34 @@ Người dùng xác nhận phạm vi sau rà soát: Phase 1 quản trị core kh
 Ngày 2026-10-17, theo yêu cầu trực tiếp của người dùng, code được đối chiếu Core DTO/B03-B06/B11/B12/C01. Đã sửa ưu tiên 404 của update/status với combo DELETED; DELETE giữ kiểm stale/no-op tombstone. Thêm 12 test case hồi quy về lifecycle, rollback thay toàn bộ items, SKU/category không hợp lệ, PUBLISHED và lọc/phân trang. Không đổi hợp đồng công khai hoặc SQL schema; spec giữ version 0.9.1.
 
 Full verify sau sửa: **35 unit + 37 integration = 72 test case PASS trong một lần chạy, 0 failures/errors/skipped, BUILD SUCCESS**. Log `uc13-iteration1-final-verify.log`; lệnh/môi trường/test-to-AC trong handoff hiện hành. Các subset core đã có bằng chứng mới và sẵn sàng review; chưa nghiệm thu toàn bộ AC hoặc UC-13. Auth/Audit và Phase 2/3 vẫn deferred; chưa deploy/live DB hoặc Final Gate.
+
+### Refactor nội bộ plan 0.9.3 — 2026-10-20
+
+Theo yêu cầu người dùng, chuyển BundleCoreMapper sang MapStruct, tách BundleDetailAssembler, gộp controller CRUD/lookup và dùng chung BundleItemRequest/BundleJsonDeserializers. Giữ DTO create/update và summary/detail riêng theo validation/response shape; giữ rule 400 cho query lạ/lặp qua validateQueryParameters. Không đổi HTTP/JSON/schema nên spec vẫn 0.9.1. Clean verify đạt **47 unit + 38 integration = 85 PASS**, không lỗi/skipped; JAR có generated mapper và không còn controller SKU cũ. Log `uc13-mapstruct-clean-verify.log`, chi tiết trong handoff hiện hành. Chưa stage/commit/push hoặc Final Gate.
+
+### JavaDoc và gộp service plan 0.9.4 — 2026-10-20
+
+Bổ sung comment tiếng Việt về tác dụng/caller/luồng của controller, service, assembler, mapper và DTO combo. SKU lookup chuyển vào BundleAdminService.searchSkus để cùng CRUD phục vụ một màn hình; pricing và helper ghép response giữ riêng. HTTP/JSON, lookup read-only, lọc SKU trước phân trang, transaction/version và phạm vi Phase 1 không đổi. Clean verify đạt **85/85 PASS** sau gộp; log `uc13-service-comments-verify.log`, JAR không còn service/controller SKU cũ. Không thêm test chỉ để kiểm comment; chưa commit/push hoặc Final Gate.
+
+## Revision 0.10.0 - Phase 2 user-confirmed scope
+
+This revision supersedes conflicting P2 proposals above: D05-P = C, options at the same current sellingPrice as their default SKU. D06-read = the existing single warehouse. User deferred Auth/Audit and media; banner/asset/actor are not publish prerequisites for this revision. No fake providers. Plan 0.10.0 tracks implementation; direct authorization is not independent technical approval.
+
+Create/update add optional validFrom/validUntil (Instant with offset) and componentGroups (omitted/null = []). Core drafts may have no dates; otherwise both dates are required and from < until. Publish requires dates and until > now, may occur before from; public visibility is ACTIVE/PUBLISHED and from <= now < until (UTC). Each group has groupId/defaultVariantId/allowedVariantIds (distinct, contains default). Default belongs to items, at most one group per default. All options must be NORMAL ACTIVE and have the same price as default. Revalidate at save/publish; selected replacements must still match current default price at evaluation. Never add surcharges or silently change package price. PUT replaces dates/groups; unpublish before editing PUBLISHED.
+
+GET /api/v1/catalog/bundles supports page,size,keyword and returns BundlePage<BundleCoreSummary>, filtering visibility before paging. GET /{bundleId} returns BundleCoreDetail with dates/groups and no cost price; stock is read through POST /{bundleId}/evaluations. Non-visible IDs return 404. Public definition reads do not reserve or imply availability.
+
+Evaluation body: quantity (integer 1..10000), expectedVersion (optional nonnegative long), selections [{groupId,variantId}] (omitted/null=[]). Unselected groups use defaults; replacements retain quantity. Duplicate groups, unknown groups, non-whitelisted choices, unequal-price replacements and duplicate final SKU return 400 CATALOG_BUNDLE_001; stale version returns 409 CATALOG_BUNDLE_003. Response BundleEvaluation: bundleId,bundleVersion,evaluatedAt,quantity,packagePrice,totalPackagePrice,originalTotal,savingAmount,discountPercent,priceIssue,availability,purchasable,missingVariantIds,items [{variantId,sku,name,requiredQty,availableQty}]. Monetary totals apply to requested quantity; packagePrice is per set, discountPercent unchanged. All multiplied totals must fit DECIMAL(15,2). Missing rows/dependency errors -> UNKNOWN, never purchasable. Known insufficient rows appear in missingVariantIds. No reservation. Retail drop/inactive components produce non-purchasable preview with priceIssue and null savings/discount.
+
+B07/B08 keep the documented routes and accept required expectedVersion through BundleVersionRequest. Stale is checked before no-op; publish revalidates current definition and returns message MSG44. Unpublish DRAFT returns 409; inactive/expired bundles may be unpublished. Auth/Audit/media C02/C03 and Sales remain deferred, not satisfied by these endpoints.
+
+InventoryAvailabilityApi.availableQuantities(Collection<UUID>): Catalog -> Inventory, input non-null SKU IDs; returns Map<UUID,BigDecimal> available=onHand-reserved for the single warehouse; absent rows omitted. REQUIRES_NEW/read-only isolates query failure from Catalog's read transaction. Runtime failures propagate to preview, which returns UNKNOWN and logs only bundle ID/failure class. No actor required in current scope. Additive public API in inventory/api; does not change legacy facade or expose entities. Groups use bundle_component_groups with allowed UUID[] whitelist, not specifications JSONB.
+
+Phase 2 verification: clean verify BUILD SUCCESS at 2026-10-20 15:05:17 +07; 111 PASS (56 unit + 55 integration), zero failures/errors/skipped. See [Phase 2 handoff](../../.agent/handoffs/SCRUM14-UC13-phase2-verification.md). Subset ready for review; full UC-13, security/audit/media and Sales are not certified.
+
+
+## Revision 0.11.0 - authentication integration
+
+User chose incoming authentication v2 with UUID users and JWT required on every non-login/refresh endpoint, including catalog list/detail/evaluation/admin, inventory and password APIs. This overrides earlier public/no-token statements. Reuse the incoming JWT decoder/current-authority checks and Redis session revocation; no bypass/fallback actor. Authentication alone is the incoming non-auth API policy; no new catalog role/permission matrix or Audit write integration is implied. Media and Phase 3 remain deferred. Preserve existing combo behavior behind the security filter. Legacy User IDs migrate to deterministic UUIDs with mapping/archive; no data drop or automatic role assignment. Password recovery state is separated from the incoming User schema.
+
+Authentication merge verified at 2026-10-20 17:56:28 +07: 251 PASS (186 Surefire + 65 Failsafe), zero failures/errors/skipped. JWT-backed combo/inventory/password access and populated UUID upgrade are tested. Business Audit writes, media and Phase 3 remain outside this integration. No independent approval, live migration or deployment claimed.

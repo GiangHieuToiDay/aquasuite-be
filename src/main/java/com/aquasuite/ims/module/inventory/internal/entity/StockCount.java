@@ -36,10 +36,10 @@ public class StockCount {
     private StockCountStatus status = StockCountStatus.DRAFT;
 
     @Column(name = "counted_by")
-    private Long countedBy; // User.id
+    private UUID countedBy; // User.id
 
     @Column(name = "approved_by")
-    private Long approvedBy; // User.id
+    private UUID approvedBy; // User.id
 
     @Column(name = "count_date")
     private LocalDateTime countDate;

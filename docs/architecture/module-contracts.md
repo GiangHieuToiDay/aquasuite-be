@@ -11,27 +11,30 @@ Tài liệu này quy định các tiêu chuẩn kỹ thuật khi thiết kế v�
 ### Java API Design Rules
 
 1. **Vị trí và Đóng gói**:
-   - Mọi Interface công khai phải được đặt trong package `com.aquasuite.be.features.<feature_name>.api`.
-   - Các DTO dùng làm tham số đầu vào (`Request`) hoặc kết quả trả về (`Response`) phải nằm trong `com.aquasuite.be.features.<feature_name>.api.dto`.
+   - Mọi Interface công khai phải được đặt trong package `com.aquasuite.ims.module.<module_name>.api`.
+   - Các DTO dùng làm tham số đầu vào (`Request`) hoặc kết quả trả về (`Response`) phải nằm trong `com.aquasuite.ims.module.<module_name>.api.dto`.
+   - Các class triển khai nội bộ phải nằm trong `com.aquasuite.ims.module.<module_name>.internal..`.
    - **Tuyệt đối không** dùng JPA Entity làm kiểu dữ liệu tham số hoặc trả về trong public API.
-2. **Nguyên tắc Thiết kế**:
+2. **Nguyên tắc Thiết kế và Ranh giới Kiến trúc**:
    - Giao diện được tối ưu hóa theo nhu cầu của Consumer, không phơi bày toàn bộ cấu trúc bảng dữ liệu bên trong.
    - Luôn định nghĩa rõ ràng các mã ngoại lệ nghiệp vụ có thể ném ra (`AppException` với `BaseErrorCode`).
    - Interface chỉ thực hiện các thao tác đọc dữ liệu hoặc các tác vụ ghi mang tính bắt buộc đồng bộ cao (như kiểm tra điều kiện tiên quyết).
+   - **Phân biệt giữa Java Visibility và Architectural Visibility**: Một số class hoặc method trong `.internal` có thể bắt buộc phải khai báo `public` trong mã nguồn Java do yêu cầu của Spring Bean lifecycle, CGLIB proxies, hoặc JPA runtime reflection. Tuy nhiên, về mặt kiến trúc, các type này hoàn toàn là private đối với các module khác. Cấm các module bên ngoài import bất kỳ type nào từ `.internal`.
+   - **Kiểm định Kiến trúc qua ArchUnit**: Dependency và kiểm tra có phạm vi `BundleCoreBoundaryTest` đã tồn tại trong workspace. Các API mới tiếp tục phải tuân thủ ranh giới module; kết quả test này không chứng nhận toàn bộ mã legacy. IAM chia sẻ danh tính UUID qua `iam/api/IamFacade`, không chia sẻ entity hoặc mock actor.
 
 ### Synchronous Interface Template
 
 ```java
-package com.aquasuite.be.features.sample.api;
+package com.aquasuite.ims.module.sample.api;
 
 // Template pseudocode minh họa - ngoại lệ kế thừa BaseErrorCode (hiện trạng: com.aquasuite.ims.share.exception.AppException)
 import com.aquasuite.ims.share.exception.AppException;
-import com.aquasuite.be.features.sample.api.dto.SampleQueryRequest;
-import com.aquasuite.be.features.sample.api.dto.SampleResponse;
+import com.aquasuite.ims.module.sample.api.dto.SampleQueryRequest;
+import com.aquasuite.ims.module.sample.api.dto.SampleResponse;
 
 /**
- * Public Contract Interface mẫu cho Feature Sample (Architecture Template).
- * Được hiện thực hóa bởi service trong package internal của Feature Sample.
+ * Public Contract Interface mẫu cho Module Sample (Architecture Template).
+ * Được hiện thực hóa bởi service trong package internal của Module Sample.
  */
 public interface SampleApi {
 
@@ -69,7 +72,7 @@ Khi lập đặc tả cho một phương thức Java API giữa các module, b�
 ### Event Design Rules
 
 1. **Vị trí và Kiểu dữ liệu**:
-   - Tất cả Domain Events công khai phải được khai báo bằng Java `record` và đặt trong `com.aquasuite.be.features.<feature_name>.api.event`.
+   - Tất cả Domain Events công khai phải được khai báo bằng Java `record` và đặt trong `com.aquasuite.ims.module.<module_name>.api.event`.
    - Tên event phải ở thể quá khứ (Past Tense), ví dụ: `OrderConfirmedEvent`, `DeliveryBatchDispatchedEvent`.
 2. **Payload tối thiểu (Minimal Payload)**:
    - Event chỉ chứa các khóa định danh chính (`orderId`, `customerId`), dấu thời gian (`occurredAt`), và các thông tin cần thiết nhất cho tác vụ kế tiếp.
@@ -83,13 +86,13 @@ Khi lập đặc tả cho một phương thức Java API giữa các module, b�
 ### Domain Event Template
 
 ```java
-package com.aquasuite.be.features.sample.api.event;
+package com.aquasuite.ims.module.sample.api.event;
 
 import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Public Domain Event phát ra khi một sự kiện nghiệp vụ trong Feature Sample hoàn tất.
+ * Public Domain Event phát ra khi một sự kiện nghiệp vụ trong Module Sample hoàn tất.
  */
 public record SampleBusinessCompletedEvent(
         UUID eventId,
@@ -127,9 +130,9 @@ Mỗi Domain Event trong hệ thống khi được đặc tả bắt buộc ph�
 Do `@TransactionalEventListener(phase = AFTER_COMMIT)` kích hoạt sau khi transaction nguồn đã kết thúc, thread hiện tại không còn transaction đang hoạt động. Nếu Listener cần ghi dữ liệu vào database, nó bắt buộc phải tạo transaction mới:
 
 ```java
-package com.aquasuite.be.features.sample.internal.listener;
+package com.aquasuite.ims.module.sample.internal.listener;
 
-import com.aquasuite.be.features.sample.api.event.SampleBusinessCompletedEvent;
+import com.aquasuite.ims.module.sample.api.event.SampleBusinessCompletedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

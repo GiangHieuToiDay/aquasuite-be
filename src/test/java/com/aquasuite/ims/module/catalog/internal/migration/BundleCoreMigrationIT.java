@@ -9,7 +9,8 @@ import org.junit.jupiter.api.Test;
 import java.nio.file.*;
 import java.sql.*;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
+import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.FlywayException;
 
 class BundleCoreMigrationIT {
     private String database;
@@ -30,10 +31,18 @@ class BundleCoreMigrationIT {
                                 pg.getJdbcUrl(), pg.getUsername(), pg.getPassword());
                 var statement = admin.createStatement()) {
             statement.execute("CREATE DATABASE " + database);
-            try (var c = open();
-                    var st = c.createStatement()) {
-                st.execute(
-                        Files.readString(Path.of("src/test/resources/db/uc13-core-baseline.sql")));
+            migration().target("1").load().migrate();
+            try (var c = open(); var st = c.createStatement()) {
+                st.execute("""
+                    INSERT INTO products(product_id,category_id,product_code,product_name,product_type,status) VALUES
+                    ('10000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000099','NORMAL','Normal','NORMAL','ACTIVE'),
+                    ('10000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000099','LEGACY','Legacy','BUNDLE','INACTIVE'),
+                    ('10000000-0000-4000-8000-000000000003','10000000-0000-4000-8000-000000000099','DELETED','Deleted','BUNDLE','DELETED');
+                    INSERT INTO product_variants(variant_id,product_id,sku,variant_name,unit,conversion_rate,weight,cost_price,selling_price,serial_tracking,status)
+                    VALUES('20000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001','SKU','Variant','piece',1,0,0,100,false,'ACTIVE');
+                    INSERT INTO bundle_items(bundle_item_id,created_at,bundle_product_id,variant_id,quantity) VALUES('30000000-0000-4000-8000-000000000001',CURRENT_TIMESTAMP,
+                    '10000000-0000-4000-8000-000000000002','20000000-0000-4000-8000-000000000001',2);
+                    """);
             }
             try {
                 work.run();
@@ -47,36 +56,11 @@ class BundleCoreMigrationIT {
         void run() throws Exception;
     }
 
-    private int runner(Path directory) throws Exception {
-        var command =
-                new ArrayList<>(
-                        List.of(
-                                "powershell.exe",
-                                "-NoProfile",
-                                "-ExecutionPolicy",
-                                "Bypass",
-                                "-File",
-                                Path.of("scripts/db/Apply-Uc13Phase1.ps1")
-                                        .toAbsolutePath()
-                                        .toString(),
-                                "-ContainerId",
-                                BundleCoreTestSupport.DB.getContainerId(),
-                                "-Database",
-                                database,
-                                "-Username",
-                                BundleCoreTestSupport.DB.getUsername()));
-        if (directory != null) {
-            command.add("-SqlDirectory");
-            command.add(directory.toAbsolutePath().toString());
-        }
-        var process = new ProcessBuilder(command).redirectErrorStream(true).start();
-        var output =
-                new String(
-                        process.getInputStream().readAllBytes(),
-                        java.nio.charset.StandardCharsets.UTF_8);
-        assertThat(process.waitFor(60, TimeUnit.SECONDS)).isTrue();
-        System.out.println(output);
-        return process.exitValue();
+    private org.flywaydb.core.api.configuration.FluentConfiguration migration() {
+        var pg = BundleCoreTestSupport.DB;
+        return Flyway.configure().dataSource(
+                "jdbc:postgresql://" + pg.getHost() + ":" + pg.getMappedPort(5432) + "/" + database,
+                pg.getUsername(), pg.getPassword()).cleanDisabled(true);
     }
 
     private int count(String query) throws Exception {
@@ -89,11 +73,11 @@ class BundleCoreMigrationIT {
     }
 
     @Test
-    void realRunnerBackfillRetryAndChecksumMismatch() throws Exception {
+    void flywayBackfillRetryAndChecksumMismatch() throws Exception {
         isolated(
                 () -> {
-                    assertThat(runner(null)).isZero();
-                    assertThat(runner(null)).isZero();
+                    assertThat(migration().target("2").load().migrate().migrationsExecuted).isEqualTo(1);
+                    assertThat(migration().target("2").load().migrate().migrationsExecuted).isZero();
                     assertThat(
                                     count(
                                             "select count(*) from bundle_configurations where package_price is null and publication_status='DRAFT'"))
@@ -102,22 +86,16 @@ class BundleCoreMigrationIT {
                             .isEqualTo(1);
                     assertThat(count("select count(*) from bundle_items where quantity=2"))
                             .isEqualTo(1);
-                    assertThat(count("select count(*) from catalog_bundle_schema_versions"))
-                            .isEqualTo(1);
+                    assertThat(count("select count(*) from flyway_schema_history where success"))
+                            .isEqualTo(2);
                     Path temp = Files.createTempDirectory("uc13-checksum-");
                     try {
-                        for (String f :
-                                List.of(
-                                        "uc13-phase1-preflight.sql",
-                                        "uc13-phase1-v001.sql",
-                                        "uc13-phase1-verify.sql"))
-                            Files.copy(
-                                    Path.of("src/main/resources/db/manual/" + f), temp.resolve(f));
-                        Files.writeString(
-                                temp.resolve("uc13-phase1-v001.sql"),
-                                "\n-- different bytes",
-                                StandardOpenOption.APPEND);
-                        assertThat(runner(temp)).isNotZero();
+                        for (String f : List.of("V1__Initial_legacy_schema.sql", "V2__SCRUM14_phase1_combo_core.sql"))
+                            Files.copy(Path.of("src/main/resources/db/migration/" + f), temp.resolve(f));
+                        Files.writeString(temp.resolve("V2__SCRUM14_phase1_combo_core.sql"),
+                                "\nSELECT 42;", StandardOpenOption.APPEND);
+                        assertThatThrownBy(() -> migration().target("2").locations("filesystem:" + temp.toAbsolutePath()).load().validate())
+                                .isInstanceOf(FlywayException.class);
                     } finally {
                         try (var entries = Files.list(temp)) {
                             for (Path file : entries.toList()) Files.delete(file);
@@ -135,10 +113,10 @@ class BundleCoreMigrationIT {
                             var st = c.createStatement()) {
                         st.execute("update bundle_items set quantity=0");
                     }
-                    assertThat(runner(null)).isNotZero();
+                    assertThatThrownBy(() -> migration().target("2").load().migrate()).isInstanceOf(FlywayException.class);
                     assertThat(
                                     count(
-                                            "select count(*) from information_schema.tables where table_schema='public' and table_name in ('bundle_configurations','catalog_bundle_schema_versions','audit_entries')"))
+                                            "select count(*) from information_schema.tables where table_schema='public' and table_name in ('bundle_configurations','audit_entries')"))
                             .isZero();
                 });
     }
@@ -147,7 +125,7 @@ class BundleCoreMigrationIT {
     void databaseConstraintsRejectInvalidAndPreserveBaseTables() throws Exception {
         isolated(
                 () -> {
-                    assertThat(runner(null)).isZero();
+                    assertThat(migration().target("2").load().migrate().migrationsExecuted).isEqualTo(1);
                     try (var c = open();
                             var st = c.createStatement()) {
                         assertThatThrownBy(() -> st.execute("update bundle_items set quantity=0"))
@@ -155,7 +133,7 @@ class BundleCoreMigrationIT {
                         assertThatThrownBy(
                                         () ->
                                                 st.execute(
-                                                        "insert into bundle_items select gen_random_uuid(),bundle_product_id,variant_id,quantity,created_at from bundle_items"))
+                                                        "insert into bundle_items(bundle_item_id,bundle_product_id,variant_id,quantity,created_at) select gen_random_uuid(),bundle_product_id,variant_id,quantity,created_at from bundle_items"))
                                 .isInstanceOf(SQLException.class);
                         assertThatThrownBy(
                                         () ->
@@ -165,8 +143,8 @@ class BundleCoreMigrationIT {
                     }
                     assertThat(
                                     count(
-                                            "select count(*) from information_schema.tables where table_schema='public' and table_name in ('media_assets','inventories')"))
-                            .isZero();
+                                            "select count(*) from information_schema.tables where table_schema='public' and table_name='inventories'"))
+                            .isEqualTo(1);
                 });
     }
 }

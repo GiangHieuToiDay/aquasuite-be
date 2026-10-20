@@ -1,54 +1,29 @@
 package com.aquasuite.ims.module.iam.internal.service.impl;
-
-import com.aquasuite.ims.module.iam.IamFacade;
-import com.aquasuite.ims.module.iam.dto.UserSummaryDto;
-import com.aquasuite.ims.module.iam.internal.entity.User;
-import com.aquasuite.ims.module.iam.internal.repository.UserRepository;
-import com.aquasuite.ims.module.iam.internal.security.SecurityUtils;
+import com.aquasuite.ims.module.iam.api.IamFacade;
+import com.aquasuite.ims.module.iam.api.dto.UserSummaryDto;
+import com.aquasuite.ims.module.iam.internal.user.repository.UserRepository;
+import com.aquasuite.ims.share.exception.*;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import java.util.UUID;
 
-@Slf4j
+/** Reads the UUID subject of the JWT authenticated by the shared Auth filter. No mock fallback. */
 @Service
 @RequiredArgsConstructor
 public class IamFacadeImpl implements IamFacade {
-
-    private final UserRepository userRepository;
-
-    @Override
-    public UserSummaryDto getCurrentUser() {
-        Long userId = getCurrentUserId();
-
-        return userRepository.findById(userId)
-                .map(this::toDto)
-                .orElseGet(() -> {
-                    log.warn("User with id {} not found in DB. Falling back to mock UserSummaryDto", userId);
-                    return UserSummaryDto.builder()
-                            .id(userId)
-                            .username("hieuganrt")
-                            .email("ganrt.hieu.08@gmail.com")
-                            .phone("0987654321")
-                            .avatar(null)
-                            .status("ACTIVE")
-                            .build();
-                });
+    private final UserRepository users;
+    @Override public UUID getCurrentUserId() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (!(authentication instanceof JwtAuthenticationToken jwt) || !jwt.isAuthenticated())
+            throw new AppException(CommonErrorCode.UNAUTHORIZED);
+        try { return UUID.fromString(jwt.getToken().getSubject()); }
+        catch (IllegalArgumentException | NullPointerException failure) { throw new AppException(CommonErrorCode.UNAUTHORIZED); }
     }
-
-    @Override
-    public Long getCurrentUserId() {
-        Long currentUserId = SecurityUtils.getCurrentUserId();
-        return currentUserId != null ? currentUserId : 1L;
-    }
-
-    private UserSummaryDto toDto(User user) {
-        return UserSummaryDto.builder()
-                .id(user.getId())
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .phone(user.getPhone())
-                .avatar(user.getAvatar())
-                .status(user.getStatus() != null ? user.getStatus().name() : "ACTIVE")
-                .build();
+    @Override public UserSummaryDto getCurrentUser() {
+        var user = users.findById(getCurrentUserId()).orElseThrow(() -> new AppException(CommonErrorCode.UNAUTHORIZED));
+        return new UserSummaryDto(user.getId(), user.getUsername(), user.getEmail(), user.getPhone(),
+                user.getAvatarUrl(), user.getStatus().name());
     }
 }

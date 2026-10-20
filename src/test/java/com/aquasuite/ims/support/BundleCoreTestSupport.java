@@ -3,7 +3,7 @@ package com.aquasuite.ims.support;
 import com.aquasuite.ims.module.audit.internal.service.AuditService;
 import com.aquasuite.ims.module.catalog.internal.config.BundleClockConfig;
 import com.aquasuite.ims.module.catalog.internal.controller.*;
-import com.aquasuite.ims.module.catalog.internal.mapper.BundleCoreMapper;
+import com.aquasuite.ims.module.catalog.internal.mapper.BundleCoreMapperImpl;
 import com.aquasuite.ims.module.catalog.internal.payload.*;
 import com.aquasuite.ims.module.catalog.internal.service.*;
 import com.aquasuite.ims.share.exception.GlobalExceptionHandler;
@@ -28,9 +28,10 @@ import java.time.*;
 import java.util.*;
 
 @SpringBootTest(classes = BundleCoreTestSupport.Config.class)
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc(addFilters = false)
 @ActiveProfiles("test")
 public abstract class BundleCoreTestSupport {
+    public static final UUID OWNER = UUID.fromString("40000000-0000-4000-8000-000000000001");
     public static final UUID CATEGORY = UUID.fromString("10000000-0000-4000-8000-000000000001");
     public static final UUID NORMAL = UUID.fromString("10000000-0000-4000-8000-000000000002");
     public static final UUID SKU = UUID.fromString("20000000-0000-4000-8000-000000000001");
@@ -48,36 +49,49 @@ public abstract class BundleCoreTestSupport {
         r.add("spring.datasource.url", DB::getJdbcUrl);
         r.add("spring.datasource.username", DB::getUsername);
         r.add("spring.datasource.password", DB::getPassword);
-        r.add("spring.jpa.hibernate.ddl-auto", () -> "create-drop");
+        r.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
         r.add("spring.jpa.open-in-view", () -> "false");
     }
 
     @SpringBootConfiguration
+    @org.springframework.boot.test.context.TestComponent
     @EnableAutoConfiguration
     @EntityScan(
             basePackages = {
                 "com.aquasuite.ims.module.catalog.internal.entity",
                 "com.aquasuite.ims.module.iam.internal.entity",
-                "com.aquasuite.ims.module.audit.internal.entity"
+                "com.aquasuite.ims.module.iam.internal.user.entity",
+                "com.aquasuite.ims.module.iam.internal.authorization.entity",
+                "com.aquasuite.ims.module.audit.internal.entity",
+                "com.aquasuite.ims.module.inventory.internal.entity"
             })
     @EnableJpaRepositories(
             basePackages = {
                 "com.aquasuite.ims.module.catalog.internal.repository",
                 "com.aquasuite.ims.module.iam.internal.repository",
-                "com.aquasuite.ims.module.audit.internal.repository"
+                "com.aquasuite.ims.module.iam.internal.user.repository",
+                "com.aquasuite.ims.module.audit.internal.repository",
+                "com.aquasuite.ims.module.inventory.internal.repository"
             })
     @Import({
         BundleAdminService.class,
+        BundleStorefrontService.class,
+        BundleStorefrontController.class,
+        com.aquasuite.ims.module.inventory.internal.service.impl.InventoryServiceImpl.class,
         BundlePricingService.class,
-        BundleCoreMapper.class,
-        BundleSkuQueryService.class,
+        BundleCoreMapperImpl.class,
+        BundleDetailAssembler.class,
         BundleClockConfig.class,
         AuditService.class,
         BundleAdminController.class,
-        BundleSkuController.class,
         GlobalExceptionHandler.class
     })
     public static class Config {
+        @org.springframework.context.annotation.Bean
+        com.aquasuite.ims.module.iam.api.IamFacade iamFacade() {
+            return org.mockito.Mockito.mock(com.aquasuite.ims.module.iam.api.IamFacade.class);
+        }
+
         @org.springframework.context.annotation.Bean
         org.springframework.transaction.support.TransactionTemplate transactionTemplate(
                 org.springframework.transaction.PlatformTransactionManager manager) {
@@ -90,6 +104,7 @@ public abstract class BundleCoreTestSupport {
         }
     }
 
+    @org.springframework.boot.test.context.TestComponent
     @org.springframework.web.bind.annotation.RestController
     public static class LegacyProbe {
         @org.springframework.web.bind.annotation.GetMapping("/test-legacy-endpoint")
@@ -108,11 +123,10 @@ public abstract class BundleCoreTestSupport {
     public void fixture() {
         jdbc.execute(
                 "TRUNCATE"
-                    + " audit_entries,bundle_items,bundle_configurations,product_images,product_variants,products,categories,brands,users"
+                    + " inventories,audit_entries,bundle_items,bundle_configurations,product_images,product_variants,products,categories,brands,users"
                     + " RESTART IDENTITY CASCADE");
         jdbc.update(
-                "INSERT INTO users(id,username,status)"
-                    + " VALUES(1,'owner','ACTIVE'),(2,'inactive','INACTIVE')");
+                "INSERT INTO users(id,username,email,password_hash,status) VALUES(?, 'owner','owner@test.invalid','{disabled-test-account}','ACTIVE')", OWNER);
         jdbc.update(
                 "INSERT INTO categories(category_id,category_code,category_name,status)"
                     + " VALUES(?,?,?,'ACTIVE')",
@@ -145,7 +159,7 @@ public abstract class BundleCoreTestSupport {
                 CATEGORY,
                 null,
                 null,
-                List.of(new BundleCoreCreateRequest.Item(SKU, 1)),
+                List.of(new BundleItemRequest(SKU, 1)),
                 new java.math.BigDecimal("95000000.00"));
     }
 
@@ -160,7 +174,7 @@ public abstract class BundleCoreTestSupport {
                 CATEGORY,
                 null,
                 null,
-                List.of(new BundleCoreCreateRequest.Item(SKU, 2)),
+                List.of(new BundleItemRequest(SKU, 2)),
                 new java.math.BigDecimal("95000000.00"),
                 d.version());
     }

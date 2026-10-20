@@ -15,5 +15,5 @@ public record StockAdjustCommand(
         String referenceType,         // 'EXCEL_IMPORT', 'GOODS_RECEIPT', 'STOCK_DISPATCH', 'STOCK_COUNT', v.v.
         String referenceId,           // Lưu jobId hoặc mã/UUID chứng từ
         String note,
-        Long actorUserId
+        UUID actorUserId
 ) {}

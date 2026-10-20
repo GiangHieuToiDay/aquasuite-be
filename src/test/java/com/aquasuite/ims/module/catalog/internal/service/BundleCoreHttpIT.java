@@ -12,6 +12,37 @@ import org.springframework.http.MediaType;
 
 class BundleCoreHttpIT extends BundleCoreTestSupport {
     @Test
+    void sharedItemPayloadKeepsCreateAndUpdateContractsDistinct() throws Exception {
+        var detail = create();
+        var body = (com.fasterxml.jackson.databind.node.ObjectNode)
+                json.valueToTree(request(detail.productCode()));
+        body.put("expectedVersion", detail.version());
+        mvc.perform(post("/api/v1/catalog/admin/bundles")
+                        .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("SYS_002"));
+        body.remove("expectedVersion");
+        mvc.perform(put("/api/v1/catalog/admin/bundles/" + detail.bundleId())
+                        .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("SYS_003"));
+        body.put("expectedVersion", detail.version());
+        var item = (com.fasterxml.jackson.databind.node.ObjectNode) body.get("items").get(0);
+        item.put("quantity", "1");
+        mvc.perform(put("/api/v1/catalog/admin/bundles/" + detail.bundleId())
+                        .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("SYS_002"));
+        item.put("quantity", 1);
+        item.put("unexpected", true);
+        mvc.perform(put("/api/v1/catalog/admin/bundles/" + detail.bundleId())
+                        .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("SYS_002"));
+        assertThat(service.get(detail.bundleId()).version()).isEqualTo(detail.version());
+    }
+
+    @Test
     void adminFiltersAndPagingExcludeDeletedAndNormalProducts() throws Exception {
         var active = service.create(request("FILTER-ACTIVE"));
         var inactive = service.create(request("FILTER-INACTIVE"));
@@ -145,7 +176,7 @@ class BundleCoreHttpIT extends BundleCoreTestSupport {
     void invalidFieldsNeverPersist() throws Exception {
         var body =
                 (com.fasterxml.jackson.databind.node.ObjectNode) json.valueToTree(request("BAD"));
-        body.putArray("componentGroups");
+        body.putArray("unknownGroups");
         mvc.perform(
                         post("/api/v1/catalog/admin/bundles")
                                 .contentType(MediaType.APPLICATION_JSON)

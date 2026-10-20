@@ -6,6 +6,11 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.*;
 
+/**
+ * Response chi tiết dùng sau GET, tạo hoặc sửa combo, gồm definition và các SKU thành phần.
+ * Luồng: service đọc dữ liệu → assembler tính giá/sellable → MapStruct ánh xạ sang DTO.
+ * Timestamp/version thuộc cấu hình combo; không chứa tồn kho, quyền hoặc entity JPA.
+ */
 public record BundleCoreDetail(
         UUID bundleId,
         String productCode,
@@ -24,7 +29,14 @@ public record BundleCoreDetail(
         UUID categoryId,
         UUID brandId,
         String description,
-        List<Item> items) {
+        List<Item> items,
+        Instant validFrom,
+        Instant validUntil,
+        List<BundleComponentGroupRequest> componentGroups) {
+    /**
+     * Dòng thành phần trong response: giữ ID/SKU để sửa kể cả khi không còn sellable.
+     * Khác BundleItemRequest vì có thông tin hiển thị do server ghép, không nhận ngược từ client.
+     */
     public record Item(
             UUID bundleItemId,
             UUID variantId,

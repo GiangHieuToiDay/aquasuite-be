@@ -13,7 +13,11 @@
 - **Owner / Author**: `<Tên kỹ sư sở hữu / Đội ngũ>`
 - **Owning Module**: `<iam | catalog | sales | inventory | fulfillment | finance | crm | servicedesk | intelligence | aiadvisor | audit>`
 - **Repository Scope**: `BE (aquasuite-be)`
-- **Target Package**: `com.aquasuite.be.features.<feature_name>`
+- **Target Package**: `com.aquasuite.ims.module.<module_name>`
+- **Database Baseline**: `PostgreSQL`
+- **Spec Review Status**: `<PENDING | APPROVED>`
+- **Spec Review Approver**: `<Product Owner / Lead Architect>`
+- **Spec Review Evidence**: `<Ghi nhận biên bản/PR phê duyệt Spec Review cấp dự án trước khi gọi $plan-feature>`
 - **Risk Level**: `<LOW | MEDIUM | HIGH | CRITICAL>`
   - *Risk-Based Depth Rule*: Mức độ rủi ro quyết định độ sâu của tài liệu. Các tính năng mức HIGH/CRITICAL (liên quan trực tiếp đến tiền tệ, công nợ, trừ tồn kho, tính toán thuế, giao hàng nhiều đợt) bắt buộc phải có đầy đủ phần phân tích Concurrency, Transaction Boundary, Failure Recovery và Ma trận AC-to-Test chi tiết.
 
@@ -68,7 +72,7 @@
 
 ## 4. Data Model and Schema Impact
 
-### Owned Entities (Internal Package)
+### Owned Entities (module/<module_name>/internal)
 <Mô tả các entity thuộc quyền sở hữu của module này.>
 - `SampleEntity`: Lưu trữ thông tin ...
   - `id`: UUID (Primary Key)
@@ -76,11 +80,12 @@
   - `status`: String
 
 ### Cross-Module References
-- **Quy tắc**: Tuyệt đối không khai báo JPA Relationship (`@ManyToOne`, `@OneToMany`) sang entity của feature khác. Chỉ lưu ID thuần:
+- **Quy tắc**: Tuyệt đối không khai báo JPA Relationship (`@ManyToOne`, `@OneToMany`) sang entity của module khác. Chỉ lưu ID thuần:
   - `customerId`: UUID (Tham chiếu sang module `crm`)
   - `orderId`: UUID (Tham chiếu sang module `sales`)
 
-### Database Migration
+### Database Migration (PostgreSQL Baseline)
+- Hệ cơ sở dữ liệu: PostgreSQL
 - Bảng mới cần tạo: `<tên_bảng>`
 - Chỉ mục (Indexes): `<tên_index>` trên các cột ...
 - Khóa ngoại Database (Foreign Keys): <Quyết định FK vật lý ở mức DB nếu cần bảo đảm toàn vẹn schema.>
@@ -124,7 +129,7 @@ Mọi endpoint HTTP phải tuân thủ chuẩn `docs/contracts/api-conventions.m
   | `404 NOT_FOUND` | `SYS_004` | Không tìm thấy tài nguyên yêu cầu | ID không tồn tại |
   | `409 CONFLICT` | `SAMPLE_001` | Mã đã tồn tại trên hệ thống | Trùng mã nghiệp vụ duy nhất |
 
-### 5.2. Internal Synchronous Java Interface (`features/<feature>/api`)
+### 5.2. Inter-Module Synchronous Java Interface (`module/<module_name>/api`)
 
 Đặc tả các phương thức Java API công khai theo chuẩn `docs/architecture/module-contracts.md`:
 
@@ -140,7 +145,7 @@ Mọi endpoint HTTP phải tuân thủ chuẩn `docs/contracts/api-conventions.m
 | **Transaction Behavior** | `REQUIRED` / `SUPPORTS` / Read-Only | Phạm vi transaction của phương thức |
 | **Compatibility Strategy** | Backward compatible / Versioning | Kế hoạch tương thích khi mở rộng DTO |
 
-### 5.3. Domain Events (`features/<feature>/api/event`)
+### 5.3. Domain Events (`module/<module_name>/api/event`)
 
 Đặc tả các Domain Event (Java `record`) phát ra hoặc lắng nghe theo chuẩn `docs/architecture/module-contracts.md`:
 

@@ -1,43 +1,42 @@
-
 server:
   port: ${SERVER_PORT:8080}
-
 spring:
   application:
     name: aquasuite-be
-
   datasource:
-    url: ${SPRING_DATASOURCE_URL}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/aquasuite}
     username: ${SPRING_DATASOURCE_USERNAME}
     password: ${SPRING_DATASOURCE_PASSWORD}
-
+  flyway:
+    enabled: true
+    schemas: public
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    clean-disabled: true
+    validate-on-migrate: true
   jpa:
     hibernate:
       ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:validate}
-
     properties:
       hibernate:
+        default_schema: public
         format_sql: true
-
         jdbc:
           batch_size: 50
           batch_versioned_data: true
-
         order_inserts: true
         order_updates: true
-
-
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
+      host: ${SPRING_DATA_REDIS_HOST:${SPRING_REDIS_HOST:${REDIS_HOST:localhost}}}
+      port: ${SPRING_DATA_REDIS_PORT:${SPRING_REDIS_PORT:${REDIS_PORT:6379}}}
+      password: ${SPRING_DATA_REDIS_PASSWORD:${SPRING_REDIS_PASSWORD:}}
       timeout: 5000ms
       lettuce:
         pool:
           max-active: 16
           max-idle: 8
           min-idle: 2
-
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
@@ -49,7 +48,19 @@ spring:
           auth: true
           starttls:
             enable: true
-
 aquasuite:
   config:
     environment: default
+    auth-generation: 2
+  iam:
+    dev-seed:
+      enabled: false
+  security:
+    jwt:
+      issuer: aquasuite-be
+      access-audience: aquasuite-api
+      refresh-audience: aquasuite-auth
+      access-token-ttl-seconds: 1800
+      refresh-token-ttl-seconds: 1296000
+      session-absolute-ttl-seconds: 1296000
+      secret: ${JWT_SECRET:}
