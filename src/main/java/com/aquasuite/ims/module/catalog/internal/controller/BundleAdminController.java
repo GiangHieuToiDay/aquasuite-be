@@ -21,7 +21,8 @@ import java.util.*;
 /**
  * Điểm vào HTTP cho quản trị combo: danh sách, chi tiết, CRUD, trạng thái và tìm SKU.
  * Luồng: bind/validate request → kiểm query → BundleAdminService → bọc kết quả ApiResponse.
- * Controller không truy cập repository hoặc tính giá. Phase 1 chưa tích hợp Auth/Audit.
+ * Controller không truy cập repository hoặc tính giá. JWT được kiểm qua bộ lọc dùng chung;
+ * phần ghi Audit nghiệp vụ chưa tích hợp.
  */
 @RestController
 @RequestMapping("/api/v1/catalog/admin")
@@ -103,7 +104,7 @@ public class BundleAdminController {
         return ApiResponse.ok(service.status(bundleId, payload));
     }
 
-    /** Publish validates current SKU prices/options and dates under the aggregate lock. */
+    /** Công bố sau khi service khóa cấu hình, kiểm version, giá SKU/option và lịch hiệu lực. */
     @PostMapping("/bundles/{bundleId}/publish")
     public ApiResponse<BundleCoreDetail> publish(@PathVariable UUID bundleId,
             @Valid @RequestBody BundleVersionRequest payload, HttpServletRequest request) {
@@ -111,7 +112,7 @@ public class BundleAdminController {
         return ApiResponse.ok(service.publish(bundleId, payload), "MSG44");
     }
 
-    /** Hides the combo from public reads after commit. */
+    /** Ngừng hiển thị combo trên API xem hàng sau khi transaction hoàn tất. */
     @PostMapping("/bundles/{bundleId}/unpublish")
     public ApiResponse<BundleCoreDetail> unpublish(@PathVariable UUID bundleId,
             @Valid @RequestBody BundleVersionRequest payload, HttpServletRequest request) {

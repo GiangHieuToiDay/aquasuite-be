@@ -26,4 +26,25 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     boolean existsByUsernameIgnoreCase(String username);
 
     boolean existsByEmailIgnoreCase(String email);
+
+    boolean existsByPhone(String phone);
+
+    /** Avoids logging a credential-bearing failed INSERT during duplicate registration races. */
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query(value = """
+            INSERT INTO public.users(id, username, full_name, email, phone, password_hash, status)
+            VALUES (:id, :username, :fullName, :email, :phone, :passwordHash, 'PENDING_ACTIVATION')
+            ON CONFLICT DO NOTHING
+            """, nativeQuery = true)
+    int insertPendingRegistration(
+            @org.springframework.data.repository.query.Param("id") UUID id,
+            @org.springframework.data.repository.query.Param("username") String username,
+            @org.springframework.data.repository.query.Param("fullName") String fullName,
+            @org.springframework.data.repository.query.Param("email") String email,
+            @org.springframework.data.repository.query.Param("phone") String phone,
+            @org.springframework.data.repository.query.Param("passwordHash") String passwordHash);
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select u from User u where lower(u.email) = lower(:email)")
+    Optional<User> findForRegistrationByEmail(@org.springframework.data.repository.query.Param("email") String email);
 }

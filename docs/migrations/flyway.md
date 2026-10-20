@@ -4,6 +4,10 @@ Spring Boot 3.5.16 manages Flyway 11.7.2 (`flyway-core` and `flyway-database-pos
 
 ## New empty database
 
+Customer profile revision: `V7__SCRUM08_customer_profiles.sql` adds CRM customers from Database.pdf, linked by unique UUID user_id with ON DELETE RESTRICT. It does not backfill profiles for existing accounts. New online profiles are created together with OTP activation, default RETAIL/ACTIVE, with nullable address/company. V1-V6 remain unchanged.
+
+SCRUM08 adds `V6__SCRUM08_user_registration.sql` after V5: nullable `users.full_name` and a unique phone index for non-null phones. Preflight blocks noncanonical or duplicate legacy phone values without changing or deleting them. Reconcile on a backed-up/restored copy before applying V6; do not edit V1-V5, automatically repair history or run a destructive down migration. No new registration/CRM/session tables are introduced. Registration OTP uses Redis TTL instead of a cleanup job.
+
 Create the PostgreSQL database itself, supply connection variables, then start the application. Flyway runs:
 
 - `V1__Initial_legacy_schema.sql`: all current base tables (catalog, IAM and inventory); no business seed data.

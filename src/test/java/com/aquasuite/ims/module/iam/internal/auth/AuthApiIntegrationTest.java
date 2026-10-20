@@ -75,6 +75,21 @@ class AuthApiIntegrationTest extends AuthIntegrationTestSupport {
     @Autowired
     private org.springframework.security.oauth2.jwt.JwtDecoder jwtDecoder;
 
+    @Autowired
+    private com.aquasuite.ims.module.iam.internal.auth.service.AuthService authService;
+
+    @Test
+    void registrationIssuerReloadsStatusAndRejectsEveryNonActiveAccount() {
+        for (UserStatus status : java.util.List.of(UserStatus.PENDING_ACTIVATION, UserStatus.INACTIVE, UserStatus.LOCKED)) {
+            testActiveUser.setStatus(status);
+            userRepository.saveAndFlush(testActiveUser);
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> authService.loginRegisteredUser(testActiveUser.getId()))
+                    .isInstanceOfSatisfying(AppException.class, ex ->
+                            assertThat(ex.getErrorCode()).isEqualTo(AuthErrorCode.ACCOUNT_NOT_ACTIVE));
+        }
+        assertThat(redisTemplate.keys("auth:v2:session:*")).isEmpty();
+    }
+
     private User testActiveUser;
     private Role adminRole;
 

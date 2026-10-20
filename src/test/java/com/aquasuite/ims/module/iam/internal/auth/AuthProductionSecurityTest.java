@@ -60,8 +60,14 @@ class AuthProductionSecurityTest extends AuthIntegrationTestSupport {
     }
 
     @Test
-    @DisplayName("AC-11: Chỉ có POST /login và POST /refresh là public; method khác hoặc route khác đều yêu cầu xác thực 401")
+    @DisplayName("Login, refresh and the three registration POST routes are public; other routes remain protected")
     void shouldEnforceExactPublicMethodPathMatchers() throws Exception {
+        for (String path : java.util.List.of("/api/v1/customer-registrations",
+                "/api/v1/customer-registrations/verifications", "/api/v1/customer-registrations/otp-resends")) {
+            mockMvc.perform(post(path).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{}"))
+                    .andExpect(status().isBadRequest());
+            mockMvc.perform(get(path)).andExpect(status().isUnauthorized());
+        }
         // GET /api/v1/auth/login is not permitted
         mockMvc.perform(get("/api/v1/auth/login"))
                 .andExpect(status().isUnauthorized())

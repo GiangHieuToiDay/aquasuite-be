@@ -35,7 +35,7 @@ class AuthenticationUpgradeIT {
             s.execute("INSERT INTO stock_movements(movement_id,inventory_id,variant_id,movement_type,quantity,balance_after,reference_type,created_at,created_by) VALUES('"+UUID.randomUUID()+"','"+UUID.randomUUID()+"','"+UUID.randomUUID()+"','ADJUSTMENT_IN',1,1,'MANUAL',CURRENT_TIMESTAMP,7)");
             s.execute("INSERT INTO stock_counts(stock_count_id,stock_count_code,warehouse_code,status,created_at,updated_at,counted_by,approved_by) VALUES('"+UUID.randomUUID()+"','COUNT','WH_MAIN','DRAFT',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,7,42)");
         }
-        assertThat(flyway(url).load().migrate().migrationsExecuted).isEqualTo(2);
+        assertThat(flyway(url).load().migrate().migrationsExecuted).isEqualTo(4);
         assertThat(flyway(url).load().migrate().migrationsExecuted).isZero();
         try(var c=connect(url);var s=c.createStatement()) {
             UUID mapped;

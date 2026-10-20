@@ -87,7 +87,7 @@ class IamMigrationIntegrationTest extends PostgreSqlIntegrationTestSupport {
         // Check columns of users
         List<String> userCols = getColumnNames("users");
         assertThat(userCols).containsExactlyInAnyOrder(
-                "id", "username", "email", "password_hash", "avatar_url", "created_at", "status", "phone"
+                "id", "username", "full_name", "email", "password_hash", "avatar_url", "created_at", "status", "phone"
         );
 
         // Check columns of user_roles (Spec v0.4.0: only user_id and role_id)
@@ -120,7 +120,7 @@ class IamMigrationIntegrationTest extends PostgreSqlIntegrationTestSupport {
                     } else if ("created_at".equals(col)) {
                         assertThat(nullable).isEqualTo("NO");
                         assertThat(colDefault).contains("CURRENT_TIMESTAMP");
-                    } else if ("phone".equals(col) || "avatar_url".equals(col)) {
+                    } else if ("phone".equals(col) || "avatar_url".equals(col) || "full_name".equals(col)) {
                         assertThat(nullable).isEqualTo("YES");
                     }
                 }
@@ -553,7 +553,7 @@ class IamMigrationIntegrationTest extends PostgreSqlIntegrationTestSupport {
     }
 
     @Test
-    @DisplayName("AC-15: Phone is nullable and non-unique, avatar_url is nullable and stores string")
+    @DisplayName("V6: Phone remains nullable but non-null values are unique; avatar_url stays nullable")
     void testPhoneAndAvatarConstraints() throws SQLException {
         UUID id1 = UUID.randomUUID();
         UUID id2 = UUID.randomUUID();
@@ -567,7 +567,14 @@ class IamMigrationIntegrationTest extends PostgreSqlIntegrationTestSupport {
             try (PreparedStatement ps = conn.prepareStatement(
                     "INSERT INTO public.users (id, username, email, password_hash, phone, avatar_url) VALUES (?, 'u2', 'u2@test.com', 'h', '0912345678', NULL)")) {
                 ps.setObject(1, id2);
-                assertThat(ps.executeUpdate()).isEqualTo(1);
+                assertThatThrownBy(ps::executeUpdate).isInstanceOf(SQLException.class)
+                        .hasMessageContaining("uq_users_phone_not_null");
+            }
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "INSERT INTO public.users (id, username, email, password_hash, phone, avatar_url) VALUES (?, 'u2', 'u2@test.com', 'h', NULL, NULL), (?, 'u3', 'u3@test.com', 'h', NULL, NULL)")) {
+                ps.setObject(1, id2);
+                ps.setObject(2, UUID.randomUUID());
+                assertThat(ps.executeUpdate()).isEqualTo(2);
             }
         }
     }

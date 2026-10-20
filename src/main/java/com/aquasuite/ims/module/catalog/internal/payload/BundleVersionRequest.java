@@ -2,7 +2,7 @@ package com.aquasuite.ims.module.catalog.internal.payload;
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import jakarta.validation.constraints.*;
-/** Aggregate version for publish/unpublish. */
+/** Version cấu hình mà client đã đọc; publish/unpublish từ chối version cũ để tránh ghi đè. */
 public record BundleVersionRequest(
         @JsonDeserialize(using = BundleJsonDeserializers.StrictLong.class)
         @NotNull @PositiveOrZero Long expectedVersion) {

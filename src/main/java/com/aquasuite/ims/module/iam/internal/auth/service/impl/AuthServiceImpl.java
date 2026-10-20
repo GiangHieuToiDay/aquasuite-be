@@ -83,6 +83,21 @@ public class AuthServiceImpl implements AuthService {
             throw new AppException(AuthErrorCode.ACCOUNT_NOT_ACTIVE);
         }
 
+        return createSession(user);
+    }
+
+    @Override
+    public LoginResponse loginRegisteredUser(UUID userId) {
+        User user = currentAuthoritiesService.loadCurrentUser(userId)
+                .orElseThrow(() -> new AppException(AuthErrorCode.INVALID_CREDENTIALS));
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new AppException(AuthErrorCode.ACCOUNT_NOT_ACTIVE);
+        }
+        return createSession(user);
+    }
+
+    /** Both credential login and OTP activation use the same existing JWT/session implementation. */
+    private LoginResponse createSession(User user) {
         UUID sessionId = UUID.randomUUID();
         UUID refreshJti = UUID.randomUUID();
         Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);

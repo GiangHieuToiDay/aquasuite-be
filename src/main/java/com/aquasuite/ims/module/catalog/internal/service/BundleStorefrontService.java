@@ -21,7 +21,10 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-/** Authenticated storefront reads and selection preview. Uses catalog pricing and the Inventory read contract only. */
+/**
+ * Đọc combo đang hiển thị và xem trước lựa chọn sau khi HTTP request đã qua bộ lọc JWT.
+ * Tái sử dụng tính giá của Catalog và hợp đồng đọc tồn của Inventory; không giữ hàng.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -41,6 +44,7 @@ public class BundleStorefrontService {
         admin.validatePageRequest(page, size, keyword);
         Instant now = clock.instant();
         String term = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
+        // Lọc trạng thái và thời hạn ngay trong truy vấn để tổng số bản ghi/phân trang chính xác.
         Specification<Product> visible = (r, query, b) -> {
             var sub = query.subquery(UUID.class);
             var c = sub.from(BundleConfiguration.class);
@@ -53,6 +57,7 @@ public class BundleStorefrontService {
             return b.and(predicate, b.or(b.gt(b.locate(b.lower(r.get("productCode")), term), 0),
                     b.gt(b.locate(b.lower(r.get("productName")), term), 0)));
         };
+        // ID làm tiêu chí phụ để các combo có cùng thời điểm tạo vẫn có thứ tự ổn định.
         var result = products.findAll(visible, PageRequest.of(page, size,
                 Sort.by(Sort.Order.desc("createdAt"), Sort.Order.asc("productId"))));
         var details = admin.loadDetails(result.getContent());
@@ -64,6 +69,7 @@ public class BundleStorefrontService {
         return visibleDetail(id, clock.instant());
     }
 
+    /** Combo chỉ hiển thị trong khoảng UTC [validFrom, validUntil); combo bị ẩn cũng trả 404. */
     private BundleCoreDetail visibleDetail(UUID id, Instant now) {
         var config = configs.findById(id).orElseThrow(() -> new AppException(CommonErrorCode.RESOURCE_NOT_FOUND));
         if (config.getPublicationStatus() != BundleConfiguration.PublicationStatus.PUBLISHED
@@ -76,7 +82,10 @@ public class BundleStorefrontService {
         return detail;
     }
 
-    /** Resolve defaults/whitelist, recheck current option prices, then batch-read stock without writing it. */
+    /**
+     * Ghép lựa chọn với SKU mặc định → kiểm giá hiện tại → tính giá và đọc tồn theo lô.
+     * Kết quả chỉ phục vụ xem trước, không tạo giỏ hàng hoặc bảo đảm tồn cho giao dịch sau.
+     */
     public BundleEvaluation evaluate(UUID id, BundleEvaluationRequest request) {
         if (request == null || !validator.validate(request).isEmpty())
             throw new AppException(CommonErrorCode.VALIDATION_ERROR);
@@ -95,8 +104,10 @@ public class BundleStorefrontService {
                 throw new AppException(BundleErrorCode.INVALID_COMPONENT);
             replacements.put(group.defaultVariantId(), selection.variantId());
         }
+        // Nhóm không được chọn giữ SKU mặc định; SKU thay thế vẫn dùng số lượng của item gốc.
         var selectedIds = detail.items().stream()
                 .map(i -> replacements.getOrDefault(i.variantId(), i.variantId())).toList();
+        // Hai nhóm không được cùng chọn một SKU, tránh trùng thành phần sau khi thay thế.
         if (new HashSet<>(selectedIds).size() != selectedIds.size())
             throw new AppException(BundleErrorCode.INVALID_COMPONENT);
         var current = variants.findAllById(selectedIds).stream()
@@ -113,6 +124,7 @@ public class BundleStorefrontService {
                     && parent != null && parent.getStatus() == ProductStatus.ACTIVE
                     && parent.getProductType() == ProductType.NORMAL;
             sellable &= componentSellable;
+            // Giá SKU có thể đổi sau khi publish: option phải còn bán được và bằng giá mặc định.
             if (!selectedIds.get(index).equals(item.variantId()) && (!componentSellable || variant == null
                     || variant.getSellingPrice() == null || item.sellingPrice() == null
                     || variant.getSellingPrice().compareTo(item.sellingPrice()) != 0))
@@ -120,6 +132,7 @@ public class BundleStorefrontService {
             lines.add(new BundlePricingService.Line(variant == null ? null : variant.getSellingPrice(), item.quantity()));
         }
         var price = pricing.preview(lines, detail.packagePrice());
+        // Giá cấu hình là cho một combo; tiền và nhu cầu tồn phải nhân số combo được yêu cầu.
         BigDecimal multiplier = BigDecimal.valueOf(request.quantity());
         BigDecimal total = detail.packagePrice().multiply(multiplier);
         BigDecimal original = price.originalTotal() == null ? null : price.originalTotal().multiply(multiplier);
@@ -139,6 +152,7 @@ public class BundleStorefrontService {
             itemViews.add(new BundleEvaluation.Item(selected, variant == null ? null : variant.getSku(),
                     variant == null ? null : variant.getVariantName(), required, available));
         }
+        // Thiếu dữ liệu tồn được ưu tiên là UNKNOWN, không suy diễn thành tồn bằng 0.
         String availability = unknown ? "UNKNOWN" : missing.isEmpty() ? "IN_STOCK" : "INSUFFICIENT";
         String issue = price.priceIssue() != null ? price.priceIssue() : sellable ? null : "COMPONENT_UNAVAILABLE";
         return new BundleEvaluation(id, detail.version(), now, request.quantity(), detail.packagePrice(), total,
@@ -152,6 +166,7 @@ public class BundleStorefrontService {
             var result = inventory.availableQuantities(selectedIds);
             return result == null ? Map.of() : result;
         } catch (RuntimeException failure) {
+            // Lỗi phụ thuộc tồn kho chỉ làm preview không xác định tồn; lỗi Catalog vẫn báo bình thường.
             log.warn("Inventory preview unavailable for bundle {} ({})", id, failure.getClass().getSimpleName());
             return Map.of();
         }

@@ -33,7 +33,7 @@ public record BundleCoreCreateRequest(
         name = name == null ? null : name.trim();
     }
 
-    /** Core callers can still save a draft without publication dates. */
+    /** Giữ cách gọi tạo nháp cũ: chưa có lịch công bố và chưa cấu hình nhóm option. */
     public BundleCoreCreateRequest(String productCode, String name, UUID categoryId, UUID brandId,
             String description, List<BundleItemRequest> items, BigDecimal packagePrice) {
         this(productCode, name, categoryId, brandId, description, items, packagePrice, null, null, List.of());

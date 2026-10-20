@@ -35,6 +35,7 @@ public interface BundleCoreMapper {
             Price price,
             List<BundleCoreDetail.Item> items);
 
+    /** Chuyển whitelist lưu trong cấu hình sang DTO; kiểm SKU và giá thuộc trách nhiệm service. */
     default BundleComponentGroupRequest group(BundleComponentGroup group) {
         return new BundleComponentGroupRequest(group.getGroupId(), group.getDefaultVariantId(),
                 java.util.List.of(group.getAllowedVariantIds()));

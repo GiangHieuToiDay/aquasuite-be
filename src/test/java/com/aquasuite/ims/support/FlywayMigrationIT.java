@@ -25,7 +25,7 @@ class FlywayMigrationIT {
 
     @Test void emptyDatabaseMigratesAndRetryDoesNothing() throws Exception {
         var flyway = config(database()).load();
-        assertEquals(5, flyway.migrate().migrationsExecuted);
+        assertEquals(7, flyway.migrate().migrationsExecuted);
         assertTrue(flyway.validateWithResult().validationSuccessful);
         assertEquals(0, flyway.migrate().migrationsExecuted);
         assertThrows(FlywayException.class, flyway::clean);
@@ -67,7 +67,7 @@ class FlywayMigrationIT {
         }
         var adopted = config(url).baselineVersion("2").load();
         adopted.baseline();
-        assertEquals(3, adopted.migrate().migrationsExecuted);
+        assertEquals(5, adopted.migrate().migrationsExecuted);
         try (var c = DriverManager.getConnection(url, db.getUsername(), db.getPassword());
              var s = c.createStatement();
              var r = s.executeQuery("SELECT package_price,version FROM bundle_configurations")) {

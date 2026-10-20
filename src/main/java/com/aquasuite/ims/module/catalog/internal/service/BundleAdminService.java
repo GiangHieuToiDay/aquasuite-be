@@ -29,7 +29,8 @@ import java.util.stream.Collectors;
  * Luồng ghi: kiểm request → khóa/kiểm version khi sửa → kiểm definition/SKU/giá
  * → ghi Product/config/items trong cùng transaction → assembler/MapStruct tạo DTO trả controller.
  * Luồng đọc chỉ truy vấn catalog; công thức giá giao cho BundlePricingService,
- * ghép response giao cho BundleDetailAssembler. Không gọi Auth/Audit/tồn kho trong Phase 1.
+     * ghép response giao cho BundleDetailAssembler. JWT được kiểm ở bộ lọc HTTP dùng chung;
+     * service quản trị không gọi tồn kho và chưa ghi Audit nghiệp vụ.
  */
 @Service
 @RequiredArgsConstructor
@@ -271,7 +272,11 @@ public class BundleAdminService {
         return mapper.mutation(product, configuration);
     }
 
-    /** Revalidates definition under the aggregate lock; never reads or reserves inventory. */
+    /**
+     * Khóa cấu hình và kiểm version trước khi kiểm lại SKU, option cùng giá và thời hạn.
+     * Cho phép publish trước ngày bắt đầu nhưng không cho publish cấu hình đã hết hạn.
+     * Combo ACTIVE đã PUBLISHED với version hiện tại là no-op; không đọc hoặc giữ tồn.
+     */
     @Transactional
     public BundleCoreDetail publish(UUID id, BundleVersionRequest payload) {
         validateRequest(payload);
@@ -291,7 +296,10 @@ public class BundleAdminService {
         return loadDetail(product);
     }
 
-    /** Unpublishing remains possible for inactive/expired bundles; current-version retries are no-op. */
+    /**
+     * Cho phép ngừng công bố cả combo inactive/hết hạn; DRAFT chưa công bố thì bị từ chối.
+     * Retry UNPUBLISHED với version hiện tại không ghi lại; version cũ vẫn bị từ chối.
+     */
     @Transactional
     public BundleCoreDetail unpublish(UUID id, BundleVersionRequest payload) {
         validateRequest(payload);
@@ -305,6 +313,7 @@ public class BundleAdminService {
         return loadDetail(findBundleProduct(id, false));
     }
 
+    /** Thay toàn bộ lịch và nhóm option trong cùng aggregate; giữ groupId do client gửi. */
     private void configurePublication(BundleConfiguration config, Instant from, Instant until,
             List<BundleComponentGroupRequest> groups) {
         config.setValidFrom(from);
@@ -314,7 +323,11 @@ public class BundleAdminService {
                 g.groupId(), g.defaultVariantId(), g.allowedVariantIds().toArray(UUID[]::new))));
     }
 
-    /** Same-price whitelist is checked on save and again at publish, using current retail prices. */
+    /**
+     * Kiểm whitelist khi lưu và kiểm lại khi publish bằng giá bán lẻ hiện tại.
+     * Bản nháp được thiếu cả hai mốc thời gian; nếu có lịch thì phải đủ và bắt đầu trước kết thúc.
+     * Mỗi SKU mặc định chỉ thuộc một nhóm, có trong items và trong chính whitelist của nhóm.
+     */
     private void validatePublicationDefinition(Instant from, Instant until,
             List<BundleItemRequest> requested, List<BundleComponentGroupRequest> groups) {
         if ((from == null) != (until == null) || (from != null && !from.isBefore(until)))
@@ -322,6 +335,7 @@ public class BundleAdminService {
         Set<UUID> defaults = new HashSet<>(), groupIds = new HashSet<>();
         var itemIds = requested.stream().map(BundleItemRequest::variantId).collect(Collectors.toSet());
         Set<UUID> allIds = groups.stream().flatMap(g -> g.allowedVariantIds().stream()).collect(Collectors.toSet());
+        // Đọc SKU và sản phẩm cha theo lô, tránh truy vấn riêng cho từng option.
         var optionVariants = variants.findAllById(allIds).stream()
                 .collect(Collectors.toMap(ProductVariant::getVariantId, Function.identity()));
         var optionProducts = products.findAllById(optionVariants.values().stream().map(ProductVariant::getProductId).toList())
@@ -332,6 +346,7 @@ public class BundleAdminService {
                     || !group.allowedVariantIds().contains(group.defaultVariantId())
                     || new HashSet<>(group.allowedVariantIds()).size() != group.allowedVariantIds().size())
                 throw new AppException(BundleErrorCode.INVALID_COMPONENT);
+            // compareTo so sánh giá trị tiền, không phân biệt cách biểu diễn như 100.0 và 100.00.
             var base = optionVariants.get(group.defaultVariantId());
             for (var id : group.allowedVariantIds()) {
                 var variant = optionVariants.get(id);

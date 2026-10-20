@@ -44,7 +44,11 @@ public class InventoryServiceImpl implements InventoryFacade, InventoryService, 
     // 1. CỔNG FACADE PUBLIC DÀNH CHO CÁC MODULE KHÁC
     // =========================================================================
 
-    /** Reuses the batch reader without accessing IAM or writing inventory. */
+    /**
+     * Tái sử dụng hàm đọc tồn theo lô, không gọi IAM riêng hoặc thay đổi tồn kho.
+     * Transaction đọc độc lập giúp Catalog vẫn trả preview UNKNOWN khi truy vấn tồn lỗi,
+     * thay vì bị đánh dấu rollback theo transaction lỗi của Inventory.
+     */
     @Override
     @Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
     public Map<UUID, BigDecimal> availableQuantities(Collection<UUID> variantIds) {

@@ -34,6 +34,7 @@ Hệ thống tài liệu backend bao gồm các tài liệu chuyên đề sau:
   - Quy chuẩn đặt tên URI và phương thức HTTP cho các Feature Spec tương lai.
 
 ### 3. Specifications and Templates
+- [SCRUM08 / UC-01 Customer account registration](specifications/SCRUM08-UC01-register-customer-account.md): fixed CUSTOMER account, validation, email OTP and linked customers profile; activation/profile commit together, then reuse login JWT/session. [Implementation plan](../.agent/plans/active/SCRUM08-UC01.md), [code guide](SCRUM08-UC01-code-guide.md), [handoff](../.agent/handoffs/SCRUM08-UC01.md). Clean verify PASS: 205 Surefire + 71 Failsafe = 276 tests, zero failures/errors/skipped (2026-10-20 22:02:23 +07). Ready for review; independent review/Final Gate pending.
 - [`specs/SCRUM14-UC13-product-combos.md`](specs/SCRUM14-UC13-product-combos.md):
   - Spec UC-13 revision `0.11.0`: combo Phase 2 và tích hợp authentication mới; User/actor UUID, JWT bắt buộc cho các API ngoài login/refresh. Một kho, option cùng giá; business Audit và media vẫn deferred.
   - Package triển khai đã được người dùng chốt cho SCRUM14: `com.aquasuite.ims.module.catalog`; public contract mới trong `api/`.

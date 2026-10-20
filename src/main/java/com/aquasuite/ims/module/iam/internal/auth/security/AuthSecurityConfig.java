@@ -53,6 +53,10 @@ public class AuthSecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/customer-registrations",
+                                "/api/v1/customer-registrations/verifications",
+                                "/api/v1/customer-registrations/otp-resends").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").authenticated()
                         .anyRequest().authenticated()
                 )

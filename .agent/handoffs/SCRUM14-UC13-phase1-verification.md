@@ -1,108 +1,111 @@
-# SCRUM14 / UC-13 — Phase 1 code alignment and verification
+# SCRUM14 / UC-13 — Phase 1 và Flyway handoff
 
 PLAN_ID: SCRUM14-UC13
-PLAN_VERSION: 0.9.2
+PLAN_VERSION: 0.9.6
 SPEC_VERSION: 0.9.1
-PHASE: 1 — Iteration 1 core
+PHASE: 1 — Core quản trị, chưa Auth/Audit
 IMPLEMENTATION_STATUS: READY_FOR_REVIEW
 CODE_REVIEW: PENDING
 
-Ngày thực hiện: 2026-10-17. Người dùng trực tiếp yêu cầu đối chiếu code/spec, implement và test, rồi cập nhật tiến độ. Thẩm quyền thực hiện này không được ghi thành independent review APPROVED. Phạm vi vẫn là core không Auth/Audit; không triển khai Phase 2/3 hoặc thay hợp đồng công khai.
+Người dùng yêu cầu dùng MapStruct, đơn giản hóa controller/payload, sau đó thêm comment tác dụng/luồng và xem lại việc gộp service. Plan 0.9.4 gộp SKU lookup vào BundleAdminService và thêm JavaDoc tiếng Việt. Refactor nằm trên branch feature/SCRUM-14-phase-1 sau baseline f9f8bc5; giữ HTTP URI/JSON và phạm vi Phase 1. Yêu cầu tiếp theo chuyển toàn bộ migration sang Flyway (plan 0.9.6); không stage/commit/push.
 
 ## Lanes Completed
 
 | Lane | Kết quả |
 |---|---|
-| Đối chiếu core | Đã đọc spec Core DTO/B03-B06/B11/B12/C01, service/controller/DTO/repository/mapper/pricing, migration và các test hiện có |
-| Baseline | Full verify trước sửa đạt 35 unit + 25 integration tests, không lỗi/skipped |
-| Test hồi quy | Test mới tái hiện update combo DELETED bằng version cũ trả 409 thay vì 404 |
-| Implementation | Lấy aggregate lock → kiểm Product tồn tại/loại/trạng thái → kiểm version; chỉ DELETE cho phép đọc tombstone để retry |
-| Bổ sung test | Thêm 12 test case, gồm parameterized cases, về deleted/rollback/reference/published/filter/paging |
-| Verification cuối | PASS: 35 Surefire + 37 Failsafe, 0 failures/errors/skipped; BUILD SUCCESS |
+| MapStruct | Interface Spring mapper, unmappedTargetPolicy ERROR; processor/Lombok binding dùng chung cho compile/testCompile |
+| Tách nghiệp vụ | BundleDetailAssembler tính giá/sellable rồi gọi mapper; mapper chỉ chuyển field detail/summary/item/mutation/SKU |
+| Controller | Gộp SKU lookup vào BundleAdminController; giữ /api/v1/catalog/admin/bundles và /api/v1/catalog/admin/bundle-skus |
+| Application service | Controller gọi một BundleAdminService cho CRUD và searchSkus; xóa BundleSkuQueryService, lookup vẫn read-only |
+| JavaDoc | Trước controller/service/assembler/mapper và toàn bộ DTO combo có tác dụng, caller và luồng; thêm giải thích khóa/version, xóa mềm, strict JSON và tính giá |
+| Query | Đổi query thành validateQueryParameters; giữ chặn parameter lạ/lặp, tên biến dễ đọc |
+| Payload | BundleItemRequest và BundleJsonDeserializers dùng chung; request create/update, response summary/detail giữ riêng theo contract |
+| Đọc code | Đổi tên helper service thành validateRequest/loadDetail/loadDetails/findBundleProduct/lockConfiguration/replaceItems/markConfigurationUpdated; dùng payload/product/configuration trong CRUD |
+| Test | Thêm 9 assembler/mapper unit cases, 2 controller cases và 1 HTTP case; các test hiện có tiếp tục chạy |
+| Flyway | V1 schema nền; V2 combo preflight/DDL/backfill/verify; bỏ runner và SQL thủ công, dùng flyway_schema_history |
+| Migration tests | Dùng Flyway cho checksum, rollback, constraints, baseline, giữ dữ liệu và retry |
 
 ## Files Changed
 
-| Repository | Relative Path |
-|---|---|
-| BE | `src/main/java/com/aquasuite/ims/module/catalog/internal/service/BundleAdminService.java` |
-| BE | `src/test/java/com/aquasuite/ims/module/catalog/internal/service/BundleCoreHttpIT.java` |
-| BE | `src/test/java/com/aquasuite/ims/module/catalog/internal/service/BundleAdminServiceIT.java` |
-| BE | `src/test/java/com/aquasuite/ims/module/catalog/internal/controller/BundleSkuControllerIT.java` |
-| BE | `.agent/plans/SCRUM14-UC13.md` |
-| BE | `.agent/handoffs/SCRUM14-UC13-phase1-verification.md` |
-| BE | `docs/specs/SCRUM14-UC13-product-combos.md` |
-| BE | `docs/README.md` |
-| BE | `docs/SCRUM14-UC13-phase1-code-guide.md` |
-| BE | `docs/migrations/SCRUM14-UC13-phase1.md` (liên kết bằng chứng, không đổi SQL/runner) |
+Repository: BE (aquasuite-be).
+
+- pom.xml: MapStruct 1.6.3, lombok-mapstruct-binding 0.2.0; Flyway core/PostgreSQL do Boot quản lý.
+- src/main/resources/application.yml; db/migration/V1__Initial_legacy_schema.sql, V2__SCRUM14_phase1_combo_core.sql.
+- src/test/java/com/aquasuite/ims/support/FlywayMigrationIT.java; module/catalog/internal/migration/BundleCoreMigrationIT.java.
+- Xóa scripts/db/Apply-Uc13Phase1.ps1, ba SQL trong src/main/resources/db/manual/, test fixture uc13-core-baseline.sql và docs/migrations/SCRUM14-UC13-phase1.md; dùng docs/migrations/flyway.md.
+- src/main/java/com/aquasuite/ims/module/catalog/internal/mapper/BundleCoreMapper.java.
+- internal/service/BundleDetailAssembler.java (mới), BundleAdminService.java, BundlePricingService.java; xóa BundleSkuQueryService.java.
+- internal/controller/BundleAdminController.java; xóa BundleSkuController.java.
+- internal/payload/BundleItemRequest.java và BundleJsonDeserializers.java (mới); BundleCoreCreateRequest.java, BundleCoreUpdateRequest.java, BundleCoreStatusRequest.java; thêm JavaDoc cho BundleCoreSummary/Detail/MutationResult, BundlePage và BundleSkuResponse.
+- src/test/java/com/aquasuite/ims/module/catalog/internal/service/BundleDetailAssemblerTest.java (mới), BundleAdminServiceIT.java, BundleCoreHttpIT.java.
+- src/test/java/com/aquasuite/ims/module/catalog/internal/controller/BundleAdminControllerTest.java; support/BundleCoreTestSupport.java; architecture/BundleCoreBoundaryTest.java.
+- docs/README.md, docs/specs/SCRUM14-UC13-product-combos.md, docs/SCRUM14-UC13-phase1-code-guide.md; plan/handoff hiện hành.
+
+Các đường internal trong bảng này nằm dưới src/main/java/com/aquasuite/ims/module/catalog/. Generated mapper nằm trong target/generated-sources, không track Git. Flyway là cơ chế duy nhất để thay đổi schema; Hibernate chỉ validate.
 
 ## Implementation Summary
 
-Core đã có list/detail/create/update/soft-delete/status/SKU lookup, pricing, validation và aggregate transaction/version. Lỗi xác nhận được là thứ tự kiểm stale che mất 404 của B06/B12 với combo DELETED. Sửa helper khóa để loại resource không tồn tại/không BUNDLE/đã xóa trước kiểm version khi update/status. DELETE vẫn thấy tombstone: version cũ trả 409, version hiện tại trả 200 no-op và giữ dữ liệu.
+BundleCoreMapper không còn gọi pricing hoặc tự xác định sellable. Assembler nhận các entity đã đọc và map ID, giữ nguyên component thiếu/inactive trong response, dùng giá SKU hiện tại và báo priceIssue đúng. Service vẫn sở hữu validation/transaction/khóa/version, không thêm truy vấn từ mapper/assembler.
 
-Không đổi URI, DTO, error code, schema hoặc dependency. Không gọi IAM/Audit/Inventory/Cloudinary/Sales từ core. Không sửa migration/checksum, ứng dụng legacy, review hoặc handoff lịch sử.
+Gộp controller chỉ thay tổ chức Java. Helper query giữ HTTP 400 SYS_002 cho query sai/lặp; bỏ nó sẽ cho phép Spring bỏ qua một số đầu vào ngoài contract. Hàm không phải Auth hoặc điều kiện nghiệp vụ mới.
+
+Gộp CRUD và lookup vào BundleAdminService để giảm số application service cùng màn hình và dùng chung repository/mapper/giới hạn phân trang. BundlePricingService giữ riêng vì validation ghi và assembler đọc cùng cần công thức giá. BundleDetailAssembler là helper ghép response, không mở transaction/use case riêng. JavaDoc mô tả ranh giới và luồng gọi để việc giữ các helper này có lý do rõ ràng.
+
+Create/update trùng 7 field nhưng create cấm expectedVersion, update bắt buộc có; list/detail trùng 14 field nhưng list không trả items/description. Giữ DTO riêng để ràng buộc rõ, dùng MapStruct loại boilerplate mapping. Dùng chung item request và strict numeric deserializers để update/status không phụ thuộc DTO create. Không thêm inheritance/validation groups/JSON lồng khác contract.
 
 ## Tests Added / Updated
 
-| Test | Nội dung mới | Spec / AC core |
-|---|---|---|
-| BundleCoreHttpIT | Update/status DELETED với version cũ/mới trả SYS_004; DELETE stale/no-op đúng | B06/B11/B12; AC09/16/17 subset |
-| BundleCoreHttpIT | List lọc ACTIVE/publication/keyword, paging sau loại NORMAL/DELETED, không cho query DELETED | B03; R01 quản trị, AC14 core |
-| BundleAdminServiceIT | Constraint lỗi khi replace sau xóa item cũ phải khôi phục definition/items/version/timestamp | B06; AC01/09 và transaction |
-| BundleAdminServiceIT | 7 ca SKU thiếu/inactive, parent inactive/deleted/BUNDLE, category thiếu/inactive; không tạo aggregate một phần | B05; AC10 |
-| BundleAdminServiceIT | PUBLISHED không được thay definition, dữ liệu/version giữ nguyên | B06; AC14 core |
-| BundleSkuControllerIT | Loại SKU inactive trước paging, tìm ký tự % theo nghĩa literal, loại parent BUNDLE | C01; AC13 lookup |
-
-Các test cũ tiếp tục kiểm CRUD không token/không audit, giá SRS/overflow, strict JSON quantity/version, item ID, identical PUT, no-op/status/delete, tranh chấp ghi, migration và import guard. Không đánh dấu AC08 hoặc phần audit của AC11/16/17 PASS vì chúng deferred.
+- BundleDetailAssemblerTest: 9 cases kiểm field từ các source đúng, summary copy, giá SRS, enum/version/timestamp, variant thiếu/inactive, parent inactive/deleted/BUNDLE/thiếu, giá giảm không tạo discount âm và mapping mutation/lookup.
+- BundleAdminControllerTest: thêm 2 parameterized cases cho query lạ/lặp ở cả hai URL; cập nhật constructor controller gộp.
+- BundleCoreHttpIT: create từ chối expectedVersion, update bắt buộc có version, item string quantity/unknown field vẫn bị từ chối và không ghi dữ liệu.
+- Test support import generated Spring mapper và assembler, bỏ controller cũ. ArchUnit kiểm cả generated mapper/assembler.
+- Test support chạy Flyway rồi Hibernate validate tất cả entity (gồm inventory); không dùng create-drop.
+- Combo migration IT không gọi PowerShell/psql hoặc đọc SQL thủ công.
+- Các case giá, concurrency, rollback, status/delete, migration/checksum và import guard cũ vẫn là regression suite.
 
 ## Verification Performed
 
-Lệnh chạy PowerShell tại Git root:
+Môi trường: Java 21, Boot 3.5.16, PostgreSQL 17.6 qua Docker/Testcontainers. Mockito agent từ Maven cache và PSModulePath hệ thống theo lệnh sau; không dùng credential thật hoặc DB production.
 
 ```powershell
 $env:PSModulePath = 'C:\Windows\System32\WindowsPowerShell\v1.0\Modules;' + $env:PSModulePath
-.\mvnw.cmd -Pphase1-it '-DargLine=-javaagent:C:/Users/quang/.m2/repository/org/mockito/mockito-core/5.17.0/mockito-core-5.17.0.jar' verify
+.\mvnw.cmd clean -Pphase1-it '-DargLine=-javaagent:C:/Users/quang/.m2/repository/org/mockito/mockito-core/5.17.0/mockito-core-5.17.0.jar' verify
 ```
 
-Đường dẫn Mockito agent là đường dẫn cache Maven cục bộ, cần điều chỉnh theo máy khi tái lập. Java 21/Boot 3.5.16; Docker/Testcontainers PostgreSQL 17.6. Sandbox không truy cập được Docker pipe nên chạy test ngoài sandbox theo approval công cụ; không dùng DB production.
+| Bằng chứng | Kết quả |
+|---|---|
+| Baseline f9f8bc5, uc13-phase1-precommit-verify.log | 36 unit + 37 integration = 73 PASS, lịch sử trước refactor |
+| uc13-mapstruct-compile.log | Compile PASS; generated mapper được đối chiếu field/null/enum/timestamp |
+| uc13-mapstruct-verify.log | 47 unit + 38 integration = 85 PASS, 0 failures/errors/skipped |
+| uc13-mapstruct-clean-verify.log | PASS: 47 unit + 38 integration = 85 cases, 0 failures/errors/skipped, BUILD SUCCESS ngày 2026-10-20 lúc 10:08:43 +07:00 |
+| uc13-service-comments-verify.log | PASS sau gộp service/JavaDoc: 47 unit + 38 integration = 85 cases, 0 failures/errors/skipped, BUILD SUCCESS ngày 2026-10-20 lúc 11:28:39 +07:00 |
 
-| Lần chạy | Log tại Git root | Kết quả |
-|---|---|---|
-| Baseline trước sửa | `uc13-iteration1-baseline-verify.log` | PASS, 35 Surefire + 25 Failsafe, BUILD SUCCESS |
-| Regression trước sửa | `uc13-iteration1-regression-before-fix.log` | EXPECTED_FAIL: 1 test hồi quy fail với expected 404 / actual 409; 8 pricing unit tests PASS |
-| Full verify sau sửa | `uc13-iteration1-final-verify.log` | PASS, 35 Surefire + 37 Failsafe = 72 test case trong một lần chạy; 0 failures/errors/skipped, BUILD SUCCESS lúc 22:21:40 +07:00 ngày 2026-10-17 |
+Log local được ignore, lệnh trong handoff đủ để tái lập. Không cộng baseline hoặc nhiều lần chạy vào số test case cuối. Clean verify bao gồm compile/testCompile/package, sinh mapper từ đầu và loại class controller cũ; không khẳng định kết quả chỉ dựa trên class còn lại từ build trước.
 
-Để tái lập lần hồi quy trước sửa, cùng lệnh verify có thêm `'-Dtest=BundlePricingServiceTest'` và `'-Dit.test=BundleCoreHttpIT#deletedBundleCannotBeUpdatedOrToggledEvenWithOldVersion'`. Log trước sửa giữ làm bằng chứng, không phải trạng thái cuối của code.
+Bằng chứng lịch sử trước Flyway: XML Surefire/Failsafe xác nhận 47/38 test, không lỗi/skipped; JAR có BundleCoreMapperImpl/BundleAdminController và không còn BundleSkuController. Kiểm 5 tài liệu, 42 liên kết tương đối, 7 JSON examples, code fences và encoding đều đạt; git diff --check PASS.
 
-Full verify đã gồm compile/testCompile/package, HTTP không token, PostgreSQL thật, concurrency, migration runner/backfill/checksum/rollback và import regression. Kết quả mới thay thế hạn chế “chưa chạy lại suite” của đợt tài liệu 0.9.1; không dùng các lần chạy lại hoặc baseline để cộng vào 72 test case cuối. Core sẵn sàng code review; chưa có code review APPROVED hoặc Final Gate.
-
-PASS kiểm tra sau cập nhật tiến độ: 6 tài liệu, 49 liên kết tương đối tồn tại, code fences cân bằng, 7 ví dụ JSON parse được, không trailing whitespace/ký tự lỗi encoding; `git diff --check` PASS. Đã đối chiếu trực tiếp XML Surefire/Failsafe với số 35/37 và log final BUILD SUCCESS (log PowerShell dùng UTF-16). Không stage/commit/push.
+Lần kiểm sau gộp xác nhận thêm BundleSkuQueryService không còn trong JAR/source/test; controller chỉ phụ thuộc BundleAdminService. Không thêm test chỉ để kiểm comment.
 
 ## Contract Verification
 
-| Contract | Đối chiếu |
-|---|---|
-| B03/B04 | List/detail và giá hiện tại, không public availability; loại DELETED/NORMAL, lọc và phân trang |
-| B05/B06 | Core DTO validation; lưu Product/config/items nguyên tử; giữ mã và item ID; tăng version khi PUT, cấm edit PUBLISHED |
-| B11/B12 | Xóa mềm/đổi status, không tự publish; giữ code/items; stale/no-op và 404 tombstone theo từng action |
-| C01 | Chỉ SKU ACTIVE của Product NORMAL ACTIVE; không costPrice/tồn; không token |
-| Auth/Audit | Chưa tích hợp theo yêu cầu Iteration 1; không tạo audit CRUD hoặc User runtime giả |
+URI/body/response/error code của B03-B06 Core, B11/B12/C01 giữ nguyên. Không nhận expectedVersion trên create; update/status vẫn strict Long, quantity strict integer, giá JSON numeric. List vẫn summary, detail vẫn giữ item kể cả SKU không sellable. Header timestamp/version, stale 409, deleted 404/no-op DELETE và transaction rollback giữ nguyên. Không thêm Auth/Audit hoặc public browse/publish/Sales.
 
 ## Deviations From Approved Plan
 
-Không thay scope Phase 1 hoặc public contract. Plan 0.9.2 ghi thẩm quyền triển khai trực tiếp từ người dùng; review/hash 0.8.1 không còn áp dụng. Chưa có independent review mới; không tự cấp approval hoặc Final Gate.
+Refactor MapStruct và bổ sung JavaDoc/gộp service được người dùng trực tiếp yêu cầu, ghi trong plan 0.9.3/0.9.4. Không tạo review APPROVED thay reviewer. Flyway là yêu cầu trực tiếp tiếp theo của người dùng, ghi trong plan 0.9.5/0.9.6; không đổi HTTP contract. Không khôi phục review/handoff cũ đã được yêu cầu xóa.
 
 ## Known Limitations
 
-Chưa deploy hoặc kiểm live DB. Phase 2/3, Auth/Audit và lịch sử before/after vẫn deferred. Các field timestamp/status/version không thay thế audit history. Phần full UC R01-R09 chưa hoàn tất chỉ vì core đạt kiểm chứng.
+Chưa có code review APPROVED/Final Gate hoặc triển khai live DB. Auth/Audit, public/media/tồn/options/Sales/preorder/reservation thuộc phase sau. MapStruct code được sinh khi build; IDE cần annotation processing. Cấu hình môi trường vẫn dùng JDBC/SMTP env và schema mặc định validate từ baseline.
 
 ## Tiếp nối
 
-### Chuẩn bị đưa Phase 1 lên Git — 2026-10-19
+[Plan/tiến độ](../plans/SCRUM14-UC13.md), [spec đầy đủ](../../docs/specs/SCRUM14-UC13-product-combos.md), [giải thích code/controller/DTO](../../docs/SCRUM14-UC13-phase1-code-guide.md). Chỉ giữ handoff mới nhất trong thư mục này theo yêu cầu người dùng. Bước tiếp theo sau clean verify là review diff refactor; chưa có commit/push mới.
 
-Theo yêu cầu trực tiếp của người dùng, tạo branch `feature/SCRUM-14-phase-1` để add/commit/push cả source, tests, migration, docs và workflow artifacts hiện hành. Tiêu đề commit: `feat(catalog): implement SCRUM-14 phase 1 combo management`. Quyền Git này không đồng nghĩa code review hoặc Final Gate đã được duyệt.
+## Flyway hiện tại (plan 0.9.6)
 
-Đã loại credential hardcode/fallback khỏi cấu hình common, dùng `SPRING_DATASOURCE_*` và `MAIL_USERNAME`/`MAIL_PASSWORD`; JPA mặc định `validate`. Cập nhật thêm `.env.example`, `application.yml`, `application-prod.yml`, `docs/configuration/spring-profiles.md` và test cấu hình. Runtime cần được cấp các biến JDBC/SMTP từ môi trường; Spring không tự đọc `.env`. Không thay SQL migration hoặc tích hợp Auth/Audit. Credential kế thừa đã có trong remote nhánh nguồn; việc rotate/revoke thuộc chủ sở hữu, không sửa Git history trong tác vụ này.
+Flyway tự chạy V1/V2 khi startup, trước Hibernate validate. Runner và SQL thủ công đã được bỏ hoàn toàn; chỉ còn db/migration trong runtime resources. Flyway quản lý lịch sử/checksum/transaction. Không sửa migration đã chạy trên database dùng chung; thêm V3 trở đi.
 
-Lệnh full verify giữ như trên; log mới `uc13-phase1-precommit-verify.log` được ignore cùng các log local. **PASS: 36 Surefire + 37 Failsafe = 73 test case, 0 failures/errors/skipped; BUILD SUCCESS lúc 20:36:42 +07:00 ngày 2026-10-19.** Có thêm một regression test cấu hình so với 72 test ngày 2026-10-17. Đã kiểm tra các file chuẩn bị commit không còn credential kế thừa, log/target/.env riêng không nằm trong phạm vi stage.
+Database mới chạy tự động. Database đã có schema cần đối chiếu/backup và baseline một lần bằng Flyway: version 1 nếu chỉ có schema nền, version 2 nếu đã đủ schema combo. Baseline không sửa schema thiếu. Xem [runbook](../../docs/migrations/flyway.md). Không chạy migration vào database local hoặc production trong tác vụ này.
 
-[Plan và tiến độ](../plans/SCRUM14-UC13.md), [spec](../../docs/specs/SCRUM14-UC13-product-combos.md). Handoff này là bản mới nhất và duy nhất của UC-13 trong thư mục handoff sau khi dọn theo yêu cầu người dùng ngày 2026-10-19. Bốn handoff cũ và hai review 0.8.1 lỗi thời đã được xóa; archive giữ nguyên. Chưa có review mới. Các log baseline/regression/final nêu trên vẫn là bằng chứng kiểm chứng. Không sửa code hoặc chạy lại test trong lần dọn tài liệu này. Bước tiếp theo là code review core; không yêu cầu provider IAM/Audit để review CRUD.
+PASS: clean phase1-it verify BUILD SUCCESS at 2026-10-20 13:36:48 +07; 47 Surefire + 41 Failsafe = 88 PASS, zero failures/errors/skipped. Evidence: flyway-only-verify.log (ignored local log). Relative documentation links and git diff --check passed. Packaged JAR contains only Flyway SQL under db/migration, with no db/manual resources.

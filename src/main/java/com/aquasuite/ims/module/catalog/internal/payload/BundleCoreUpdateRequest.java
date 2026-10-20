@@ -35,7 +35,7 @@ public record BundleCoreUpdateRequest(
         name = name == null ? null : name.trim();
     }
 
-    /** Core callers can still save a draft without publication dates. */
+    /** PUT thay toàn bộ cấu hình: cách gọi cũ này xóa lịch và đặt nhóm option thành rỗng. */
     public BundleCoreUpdateRequest(String productCode, String name, UUID categoryId, UUID brandId,
             String description, List<BundleItemRequest> items, BigDecimal packagePrice, Long expectedVersion) {
         this(productCode, name, categoryId, brandId, description, items, packagePrice, expectedVersion, null, null, List.of());

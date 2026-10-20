@@ -10,6 +10,9 @@ public interface AuthService {
 
     LoginResponse login(LoginRequest request);
 
+    /** Internal IAM call only, after registration OTP activation has committed. */
+    LoginResponse loginRegisteredUser(java.util.UUID userId);
+
     TokenResponse refresh(RefreshRequest request);
 
     void logout(Jwt jwt);

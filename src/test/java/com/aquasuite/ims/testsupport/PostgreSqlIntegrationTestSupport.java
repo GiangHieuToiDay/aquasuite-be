@@ -7,6 +7,11 @@ import org.testcontainers.containers.PostgreSQLContainer;
 
 @ActiveProfiles("test")
 public abstract class PostgreSqlIntegrationTestSupport {
+    /** Keep account fixtures isolated while retaining RESTRICT semantics for production profiles. */
+    @org.junit.jupiter.api.BeforeEach
+    void clearCustomerProfileFixtures(@org.springframework.beans.factory.annotation.Autowired org.springframework.jdbc.core.JdbcTemplate jdbc) {
+        jdbc.update("DELETE FROM public.customers");
+    }
 
     private static final String IMAGE_NAME = "postgres:16-alpine";
     private static PostgreSQLContainer<?> postgresContainer;

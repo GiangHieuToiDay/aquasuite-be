@@ -4,7 +4,10 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import java.util.*;
-/** Preview only. Omitted selections use each group's default SKU. */
+/**
+ * Yêu cầu xem trước cho quantity combo; nhóm không có trong selections dùng SKU mặc định.
+ * expectedVersion là tùy chọn để phát hiện cấu hình đã đổi kể từ lần client đọc trước.
+ */
 public record BundleEvaluationRequest(
         @JsonDeserialize(using = BundleJsonDeserializers.StrictInteger.class)
         @NotNull @Min(1) @Max(10000) Integer quantity,

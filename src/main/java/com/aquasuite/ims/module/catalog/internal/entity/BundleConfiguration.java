@@ -24,12 +24,14 @@ public class BundleConfiguration {
     @Column(name = "package_price", precision = 15, scale = 2)
     private BigDecimal packagePrice;
 
+    // Lịch hiển thị dùng UTC, gồm mốc bắt đầu và không gồm mốc kết thúc; nháp có thể chưa có lịch.
     @Column(name = "valid_from")
     private Instant validFrom;
 
     @Column(name = "valid_until")
     private Instant validUntil;
 
+    // Trạng thái công bố độc lập với ACTIVE/INACTIVE của Product; hiển thị phải thỏa cả hai.
     @Enumerated(EnumType.STRING)
     @Column(name = "publication_status", nullable = false, length = 20)
     private PublicationStatus publicationStatus = PublicationStatus.DRAFT;
@@ -37,6 +39,7 @@ public class BundleConfiguration {
     @Column(name = "stock_policy", nullable = false, length = 40)
     private String stockPolicy = "CHECK_COMPONENT_STOCK";
 
+    // Nhóm option thuộc vòng đời cấu hình; tải theo lô để tránh N+1 khi lấy danh sách combo.
     @BatchSize(size = 100)
     @ElementCollection
     @CollectionTable(name = "bundle_component_groups", joinColumns = @JoinColumn(name = "bundle_product_id"))

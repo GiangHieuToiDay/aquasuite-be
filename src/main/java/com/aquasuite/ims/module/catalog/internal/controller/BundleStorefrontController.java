@@ -9,7 +9,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import java.util.*;
 
-/** Storefront browsing/preview behind the shared JWT filter; no cart mutation or reservation. Media is deferred. */
+/**
+ * API xem combo và xem trước giá/tồn, vẫn yêu cầu JWT qua bộ lọc dùng chung.
+ * Chưa tích hợp media; preview không sửa giỏ hàng hoặc giữ tồn.
+ */
 @RestController
 @RequestMapping("/api/v1/catalog/bundles")
 @RequiredArgsConstructor
@@ -37,6 +40,7 @@ public class BundleStorefrontController {
         return ApiResponse.ok(service.evaluate(bundleId, payload));
     }
 
+    /** Từ chối tham số lạ hoặc lặp để lỗi nhập liệu không bị âm thầm bỏ qua. */
     private void validateQuery(HttpServletRequest request, Set<String> allowed) {
         if (request.getParameterMap().entrySet().stream()
                 .anyMatch(p -> !allowed.contains(p.getKey()) || p.getValue().length != 1))
