@@ -9,7 +9,7 @@ import org.springframework.http.HttpStatus;
 @RequiredArgsConstructor
 public enum CatalogErrorCode implements BaseErrorCode {
     PRODUCT_NOT_FOUND("CAT_001", "Không tìm thấy sản phẩm: {0}", HttpStatus.NOT_FOUND),
-    PRODUCT_CODE_ALREADY_EXISTS("CAT_002", "Mã sản phẩm đã tồn tại: {0}", HttpStatus.CONFLICT),
+    PRODUCT_CODE_ALREADY_EXISTS("CAT_002", "Product Code must be unique. This code is already in use.", HttpStatus.CONFLICT),
     CATEGORY_NOT_FOUND("CAT_003", "Không tìm thấy danh mục với ID: {0}", HttpStatus.NOT_FOUND),
     BRAND_NOT_FOUND("CAT_004", "Không tìm thấy thương hiệu với ID: {0}", HttpStatus.NOT_FOUND),
     SKU_ALREADY_EXISTS("CAT_005", "Mã SKU biến thể đã tồn tại trong hệ thống: {0}", HttpStatus.CONFLICT),

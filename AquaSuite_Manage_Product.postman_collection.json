@@ -1,8 +1,8 @@
 {
   "info": {
     "_postman_id": "a9d5f812-4731-4a88-8888-aquasuite0001",
-    "name": "AquaSuite - Manage Products (SCRUM-10)",
-    "description": "Postman Collection hoàn chỉnh cho tính năng Manage Products của Admin trong dự án AquaSuite IMS (Chỉ quản lý Sản phẩm cha, không đụng tới Biến thể/SKU/Giá).\nTự động trích xuất categoryId, brandId và productId sau mỗi lần Send để bạn không cần copy-paste thủ công.",
+    "name": "AquaSuite - Manage Products (UC-09 / SCRUM-10)",
+    "description": "Postman Collection kiểm thử tự động toàn diện cho UC-09: Manage Products.\nBao gồm kiểm tra đầy đủ các luồng Normal Flow, Alternative Flow và chuẩn hóa các thông điệp MSG35, MSG36, MSG37, MSG38 theo tài liệu đặc tả.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -25,23 +25,28 @@
       "key": "productId",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "testProductCode",
+      "value": "PROD-TOTO-NEO-01",
+      "type": "string"
     }
   ],
   "item": [
     {
-      "name": "1. Lấy danh sách Danh mục (Tự lưu categoryId)",
+      "name": "01. Precondition: Lấy danh mục hoạt động",
       "event": [
         {
           "listen": "test",
           "script": {
             "exec": [
-              "if (pm.response.code === 200) {",
+              "pm.test(\"Precondition 1: Status code 200 & Có ít nhất 1 danh mục\", function () {",
+              "    pm.response.to.have.status(200);",
               "    var res = pm.response.json();",
-              "    if (res.data && res.data.length > 0) {",
-              "        pm.collectionVariables.set('categoryId', res.data[0].categoryId);",
-              "        console.log('Đã tự động lưu categoryId:', res.data[0].categoryId);",
-              "    }",
-              "}"
+              "    pm.expect(res.success).to.be.true;",
+              "    pm.expect(res.data).to.be.an('array').that.is.not.empty;",
+              "    pm.collectionVariables.set('categoryId', res.data[0].categoryId);",
+              "});"
             ],
             "type": "text/javascript"
           }
@@ -62,24 +67,24 @@
             "categories"
           ]
         },
-        "description": "Lấy danh sách các danh mục sản phẩm đang ACTIVE trong database. (Request GET không có Body)"
+        "description": "UC-09 Precondition 2: Lấy danh mục để điền vào Form tạo sản phẩm."
       },
       "response": []
     },
     {
-      "name": "2. Lấy danh sách Thương hiệu (Tự lưu brandId)",
+      "name": "02. Precondition: Lấy thương hiệu hoạt động",
       "event": [
         {
           "listen": "test",
           "script": {
             "exec": [
-              "if (pm.response.code === 200) {",
+              "pm.test(\"Precondition 2: Status code 200 & Có ít nhất 1 thương hiệu\", function () {",
+              "    pm.response.to.have.status(200);",
               "    var res = pm.response.json();",
-              "    if (res.data && res.data.length > 0) {",
-              "        pm.collectionVariables.set('brandId', res.data[0].brandId);",
-              "        console.log('Đã tự động lưu brandId:', res.data[0].brandId);",
-              "    }",
-              "}"
+              "    pm.expect(res.success).to.be.true;",
+              "    pm.expect(res.data).to.be.an('array').that.is.not.empty;",
+              "    pm.collectionVariables.set('brandId', res.data[0].brandId);",
+              "});"
             ],
             "type": "text/javascript"
           }
@@ -100,24 +105,28 @@
             "brands"
           ]
         },
-        "description": "Lấy danh sách thương hiệu đang ACTIVE trong database. (Request GET không có Body)"
+        "description": "UC-09 Precondition 2: Lấy thương hiệu để điền vào Form tạo sản phẩm."
       },
       "response": []
     },
     {
-      "name": "3. Tạo mới sản phẩm (Tự lưu productId)",
+      "name": "03. Tạo mới sản phẩm (UC-09 Normal Flow - Kỳ vọng MSG35)",
       "event": [
         {
           "listen": "test",
           "script": {
             "exec": [
-              "if (pm.response.code === 201) {",
+              "pm.test(\"Normal Flow Step 8: Status code 201 Created\", function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "pm.test(\"MSG35: Product created successfully. Please configure SKUs and variants.\", function () {",
               "    var res = pm.response.json();",
-              "    if (res.data && res.data.productId) {",
-              "        pm.collectionVariables.set('productId', res.data.productId);",
-              "        console.log('Đã tự động lưu productId vừa tạo:', res.data.productId);",
-              "    }",
-              "}"
+              "    pm.expect(res.success).to.be.true;",
+              "    pm.expect(res.message).to.eql(\"Product created successfully. Please configure SKUs and variants.\");",
+              "    pm.expect(res.data.productId).to.not.be.empty;",
+              "    pm.expect(res.data.origin).to.eql(\"Nhật Bản\");",
+              "    pm.collectionVariables.set('productId', res.data.productId);",
+              "});"
             ],
             "type": "text/javascript"
           }
@@ -133,7 +142,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"productCode\": \"SP-TOTO-CS886\",\n  \"productName\": \"Bồn cầu một khối TOTO CS886\",\n  \"categoryId\": \"{{categoryId}}\",\n  \"brandId\": \"{{brandId}}\",\n  \"description\": \"Bồn cầu cao cấp nắp đóng êm tráng men CeFiONtect chống bám bẩn\",\n  \"productType\": \"NORMAL\",\n  \"status\": \"ACTIVE\",\n  \"imageUrls\": [\n    \"https://example.com/images/toto-cs886-01.jpg\",\n    \"https://example.com/images/toto-cs886-02.jpg\"\n  ]\n}",
+          "raw": "{\n  \"productCode\": \"{{testProductCode}}\",\n  \"productName\": \"TOTO Neorest Smart Toilet\",\n  \"categoryId\": \"{{categoryId}}\",\n  \"brandId\": \"{{brandId}}\",\n  \"origin\": \"Nhật Bản\",\n  \"description\": \"CeFiONtect ceramic glaze, Tornado flush, auto-deodorizer\",\n  \"specifications\": {\n    \"roughInDimension\": \"305mm\",\n    \"waterPressure\": \"0.05-0.75 MPa\",\n    \"powerRating\": \"220V/850W\",\n    \"trapway\": \"S-Trap\",\n    \"cadBlueprints\": [\n      \"https://res.cloudinary.com/aquasuite/raw/upload/v1/blueprints/toto-neorest-blueprint.dwg\"\n    ],\n    \"installationManualPdf\": \"https://res.cloudinary.com/aquasuite/image/upload/v1/manuals/toto-neorest-install.pdf\"\n  },\n  \"productType\": \"NORMAL\",\n  \"status\": \"ACTIVE\",\n  \"imageUrls\": [\n    \"https://res.cloudinary.com/aquasuite/image/upload/v1/products/toto-neorest-01.jpg\",\n    \"https://res.cloudinary.com/aquasuite/image/upload/v1/products/toto-neorest-02.jpg\"\n  ]\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -152,17 +161,90 @@
             "products"
           ]
         },
-        "description": "Tạo sản phẩm cha thuần túy (không đụng đến SKU/Biến thể/Giá). Script test sẽ tự động lưu productId vừa tạo vào biến {{productId}} cho các request kế tiếp."
+        "description": "UC-09 Normal Flow: Tạo Master Product với thông số kỹ thuật, xuất xứ và hình ảnh Cloudinary."
       },
       "response": []
     },
     {
-      "name": "4. Danh sách sản phẩm (Phân trang, Tìm kiếm, Lọc)",
+      "name": "04. Bắt lỗi trùng Product Code (UC-09 Alt Flow 4 - Kỳ vọng MSG37)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Alt Flow Step 4: Status code 409 Conflict\", function () {",
+              "    pm.response.to.have.status(409);",
+              "});",
+              "pm.test(\"MSG37: Product Code must be unique. This code is already in use.\", function () {",
+              "    var res = pm.response.json();",
+              "    pm.expect(res.success).to.be.false;",
+              "    pm.expect(res.code).to.eql(\"CAT_002\");",
+              "    pm.expect(res.message).to.eql(\"Product Code must be unique. This code is already in use.\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"productCode\": \"{{testProductCode}}\",\n  \"productName\": \"Bồn cầu TOTO trùng mã\",\n  \"categoryId\": \"{{categoryId}}\",\n  \"origin\": \"Nhật Bản\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/catalog/products",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "catalog",
+            "products"
+          ]
+        },
+        "description": "UC-09 Alt Flow 4: Cố tình tạo sản phẩm với mã trùng lặp để kiểm tra thông báo MSG37."
+      },
+      "response": []
+    },
+    {
+      "name": "05. Danh sách sản phẩm phân trang & Bộ lọc (UC-09 Normal Flow Step 2)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Normal Flow Step 2: Lấy danh sách sản phẩm thành công (200 OK)\", function () {",
+              "    pm.response.to.have.status(200);",
+              "    var res = pm.response.json();",
+              "    pm.expect(res.success).to.be.true;",
+              "    pm.expect(res.data.content).to.be.an('array');",
+              "    var found = res.data.content.find(p => p.productCode === pm.collectionVariables.get('testProductCode'));",
+              "    pm.expect(found).to.not.be.undefined;",
+              "    pm.expect(found.productName).to.eql('TOTO Neorest Smart Toilet');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "GET",
         "header": [],
         "url": {
-          "raw": "{{baseUrl}}/api/v1/catalog/products?keyword=TOTO&page=0&size=10&status=ACTIVE",
+          "raw": "{{baseUrl}}/api/v1/catalog/products?keyword={{testProductCode}}&page=0&size=10&status=ACTIVE",
           "host": [
             "{{baseUrl}}"
           ],
@@ -175,44 +257,47 @@
           "query": [
             {
               "key": "keyword",
-              "value": "TOTO",
-              "description": "Tìm kiếm theo tên hoặc mã sản phẩm"
+              "value": "{{testProductCode}}"
             },
             {
               "key": "page",
-              "value": "0",
-              "description": "Số trang (bắt đầu từ 0)"
+              "value": "0"
             },
             {
               "key": "size",
-              "value": "10",
-              "description": "Số phần tử mỗi trang"
+              "value": "10"
             },
             {
               "key": "status",
-              "value": "ACTIVE",
-              "description": "Lọc theo trạng thái: ACTIVE, INACTIVE, DISCONTINUED"
-            },
-            {
-              "key": "categoryId",
-              "value": "{{categoryId}}",
-              "disabled": true,
-              "description": "Lọc theo danh mục"
-            },
-            {
-              "key": "brandId",
-              "value": "{{brandId}}",
-              "disabled": true,
-              "description": "Lọc theo thương hiệu"
+              "value": "ACTIVE"
             }
           ]
         },
-        "description": "Lấy danh sách sản phẩm phân trang. (Request GET không có Body)"
+        "description": "UC-09 Step 2: Tìm kiếm và lọc sản phẩm theo mã và trạng thái."
       },
       "response": []
     },
     {
-      "name": "5. Xem chi tiết sản phẩm theo ID",
+      "name": "06. Xem chi tiết sản phẩm theo ID (UC-09 Alt Flow Edit Step 3)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Alt Flow Edit Step 3: Tải dữ liệu chi tiết sản phẩm thành công\", function () {",
+              "    pm.response.to.have.status(200);",
+              "    var res = pm.response.json();",
+              "    pm.expect(res.success).to.be.true;",
+              "    pm.expect(res.data.productId).to.eql(pm.collectionVariables.get('productId'));",
+              "    pm.expect(res.data.origin).to.eql('Nhật Bản');",
+              "    pm.expect(res.data.specifications.roughInDimension).to.eql('305mm');",
+              "    pm.expect(res.data.images).to.have.lengthOf(2);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "GET",
         "header": [],
@@ -229,12 +314,32 @@
             "{{productId}}"
           ]
         },
-        "description": "Xem chi tiết một sản phẩm theo {{productId}} vừa được tạo. (Request GET không có Body)"
+        "description": "UC-09 Alt Flow Edit: Xem chi tiết sản phẩm để load vào form chỉnh sửa."
       },
       "response": []
     },
     {
-      "name": "6. Cập nhật sản phẩm",
+      "name": "07. Cập nhật chi tiết sản phẩm (UC-09 Alt Flow Edit - Kỳ vọng MSG36)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Alt Flow Edit Step 5: Status code 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"MSG36: Product details updated successfully.\", function () {",
+              "    var res = pm.response.json();",
+              "    pm.expect(res.success).to.be.true;",
+              "    pm.expect(res.message).to.eql(\"Product details updated successfully.\");",
+              "    pm.expect(res.data.productName).to.include(\"Phiên bản 2026\");",
+              "    pm.expect(res.data.specifications.trapway).to.eql(\"S-Trap Enhanced\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "PUT",
         "header": [
@@ -245,7 +350,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"productCode\": \"SP-TOTO-CS886\",\n  \"productName\": \"Bồn cầu một khối TOTO CS886 (Phiên bản Nâng Cấp)\",\n  \"categoryId\": \"{{categoryId}}\",\n  \"brandId\": \"{{brandId}}\",\n  \"description\": \"Cập nhật mô tả: tráng men Nano chống bám cặn vĩnh viễn\",\n  \"productType\": \"NORMAL\",\n  \"status\": \"ACTIVE\",\n  \"imageUrls\": [\n    \"https://example.com/images/toto-cs886-new.jpg\"\n  ]\n}",
+          "raw": "{\n  \"productCode\": \"{{testProductCode}}\",\n  \"productName\": \"TOTO Neorest Smart Toilet (Phiên bản 2026)\",\n  \"categoryId\": \"{{categoryId}}\",\n  \"brandId\": \"{{brandId}}\",\n  \"origin\": \"Nhật Bản\",\n  \"description\": \"CeFiONtect glaze thế hệ mới, tích hợp vòi rửa tự động và sấy ấm\",\n  \"specifications\": {\n    \"roughInDimension\": \"305mm\",\n    \"waterPressure\": \"0.05-0.75 MPa\",\n    \"powerRating\": \"220V/850W\",\n    \"trapway\": \"S-Trap Enhanced\"\n  },\n  \"productType\": \"NORMAL\",\n  \"status\": \"ACTIVE\",\n  \"imageUrls\": [\n    \"https://res.cloudinary.com/aquasuite/image/upload/v1/products/toto-neorest-updated.jpg\"\n  ]\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -265,12 +370,31 @@
             "{{productId}}"
           ]
         },
-        "description": "Cập nhật thông tin chi tiết của sản phẩm theo {{productId}} (không đụng đến SKU/Biến thể)."
+        "description": "UC-09 Alt Flow Edit Step 4: Cập nhật thông tin chi tiết và gallery của sản phẩm."
       },
       "response": []
     },
     {
-      "name": "7. Thay đổi trạng thái sản phẩm (Ẩn / Ngừng kinh doanh)",
+      "name": "08. Ngừng kinh doanh sản phẩm (UC-09 Discontinue Flow - Kỳ vọng MSG38)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Discontinue Flow Step 3: Status code 200 OK\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"MSG38: Product marked as Discontinued.\", function () {",
+              "    var res = pm.response.json();",
+              "    pm.expect(res.success).to.be.true;",
+              "    pm.expect(res.message).to.eql(\"Product marked as Discontinued.\");",
+              "    pm.expect(res.data.status).to.eql(\"DISCONTINUED\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "PATCH",
         "header": [
@@ -281,7 +405,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"status\": \"INACTIVE\"\n}",
+          "raw": "{\n  \"status\": \"DISCONTINUED\"\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -302,12 +426,72 @@
             "status"
           ]
         },
-        "description": "Chuyển trạng thái sản phẩm sang INACTIVE hoặc DISCONTINUED."
+        "description": "UC-09 Discontinue / Archive Product: Chuyển trạng thái sang DISCONTINUED."
       },
       "response": []
     },
     {
-      "name": "8. Xóa mềm sản phẩm (Soft Delete)",
+      "name": "09. Xác nhận sản phẩm DISCONTINUED bị ẩn khỏi Storefront",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Storefront Isolation: Sản phẩm DISCONTINUED không hiển thị trên Storefront khách hàng\", function () {",
+              "    pm.response.to.have.status(200);",
+              "    var res = pm.response.json();",
+              "    pm.expect(res.success).to.be.true;",
+              "    var found = res.data.products.content.find(p => p.productCode === pm.collectionVariables.get('testProductCode'));",
+              "    pm.expect(found).to.be.undefined;",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/catalog/storefront/search?keyword={{testProductCode}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "catalog",
+            "storefront",
+            "search"
+          ],
+          "query": [
+            {
+              "key": "keyword",
+              "value": "{{testProductCode}}"
+            }
+          ]
+        },
+        "description": "Xác nhận yêu cầu nghiệp vụ: Discontinuing product hides it from customer storefront while preserving existing records."
+      },
+      "response": []
+    },
+    {
+      "name": "10. Xóa mềm dọn dẹp sản phẩm thử nghiệm",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Dọn dẹp: Xóa mềm sản phẩm thành công (200 OK)\", function () {",
+              "    pm.response.to.have.status(200);",
+              "    var res = pm.response.json();",
+              "    pm.expect(res.success).to.be.true;",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "DELETE",
         "header": [],
@@ -324,77 +508,7 @@
             "{{productId}}"
           ]
         },
-        "description": "Xóa mềm sản phẩm (chuyển sang trạng thái DELETED). (Request DELETE không có Body)"
-      },
-      "response": []
-    },
-    {
-      "name": "9. Test Bắt Lỗi: Trùng mã sản phẩm (Mong đợi 409 Conflict)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"productCode\": \"SP-TOTO-CS886\",\n  \"productName\": \"Bồn cầu TOTO trùng mã\",\n  \"categoryId\": \"{{categoryId}}\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        },
-        "url": {
-          "raw": "{{baseUrl}}/api/v1/catalog/products",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "v1",
-            "catalog",
-            "products"
-          ]
-        },
-        "description": "Cố tình tạo sản phẩm với mã SP-TOTO-CS886 đã tồn tại. Hệ thống sẽ trả về lỗi CAT_002 (409 Conflict)."
-      },
-      "response": []
-    },
-    {
-      "name": "10. Test Bắt Lỗi: Thiếu trường bắt buộc (Mong đợi 400 Bad Request)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"description\": \"Chỉ gửi mô tả, không gửi mã hay tên\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        },
-        "url": {
-          "raw": "{{baseUrl}}/api/v1/catalog/products",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "v1",
-            "catalog",
-            "products"
-          ]
-        },
-        "description": "Cố tình gửi request rỗng. Hệ thống sẽ trả về 400 Bad Request kèm chi tiết các trường bị lỗi bằng tiếng Việt."
+        "description": "Dọn dẹp sản phẩm sau khi test hoàn tất."
       },
       "response": []
     }

@@ -1,0 +1,544 @@
+{
+  "info": {
+    "_postman_id": "b182f345-5678-4a99-9999-aquasuite0012",
+    "name": "AquaSuite - Search and View Product Information (UC-12 / SCRUM-13)",
+    "description": "Postman Collection hoàn chỉnh cho Use Case UC-12 (FE-03): Search and View Product Information.\nBao gồm: Tìm kiếm toàn văn (Full-text), Bộ lọc đa diện (Faceted filters: Category, Brand, Price range slider, Tech specs), Xem chi tiết sản phẩm phân quyền (Khách hàng vs Nhân viên bán hàng xem chi tiết kho), Luồng thay thế MSG43 khi không tìm thấy SP, và xử lý biến thể hết hàng.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "categoryId",
+      "value": "151f0422-4706-4500-872d-6007bc063288",
+      "type": "string"
+    },
+    {
+      "key": "brandId",
+      "value": "6f53b339-dab8-44e6-a173-feddcde0cca1",
+      "type": "string"
+    },
+    {
+      "key": "productId",
+      "value": "4dc58e17-9e4a-4523-8293-e0d5d6d55c3c",
+      "type": "string"
+    },
+    {
+      "key": "salesStaffToken",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Lấy dữ liệu Faceted Filter Sidebar",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "var res = pm.response.json();",
+              "if (res.data) {",
+              "    if (res.data.categories && res.data.categories.length > 0) {",
+              "        pm.collectionVariables.set('categoryId', res.data.categories[0].categoryId);",
+              "        console.log('Đã tự động lưu categoryId:', res.data.categories[0].categoryId);",
+              "    }",
+              "    if (res.data.brands && res.data.brands.length > 0) {",
+              "        pm.collectionVariables.set('brandId', res.data.brands[0].brandId);",
+              "        console.log('Đã tự động lưu brandId:', res.data.brands[0].brandId);",
+              "    }",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/catalog/storefront/facets",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "catalog",
+            "storefront",
+            "facets"
+          ]
+        },
+        "description": "Lấy các bộ lọc sidebar bên trái: Categories (kèm số lượng SP), Brands (kèm số lượng SP), Khoảng giá Min-Max để dựng Slider, Danh sách Màu sắc, Kích thước, và Thông số kỹ thuật mặt định (Flushing type, Rough-in dimension, Glaze technology)."
+      },
+      "response": []
+    },
+    {
+      "name": "2. Xem danh mục sản phẩm (Normal Flow - Mặc định không lọc)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "var res = pm.response.json();",
+              "pm.test('Có dữ liệu phân trang sản phẩm', function () {",
+              "    pm.expect(res.data).to.have.property('products');",
+              "});",
+              "if (res.data && res.data.products && res.data.products.content && res.data.products.content.length > 0) {",
+              "    var firstProduct = res.data.products.content[0];",
+              "    pm.collectionVariables.set('productId', firstProduct.productId);",
+              "    console.log('Đã tự động lưu productId:', firstProduct.productId);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/catalog/storefront/search?page=0&size=10",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "catalog",
+            "storefront",
+            "search"
+          ],
+          "query": [
+            {
+              "key": "page",
+              "value": "0",
+              "description": "Số trang (bắt đầu từ 0)"
+            },
+            {
+              "key": "size",
+              "value": "10",
+              "description": "Số sản phẩm trên 1 trang"
+            }
+          ]
+        },
+        "description": "Mô phỏng người dùng vừa vào trang Danh mục sản phẩm (Storefront / POS) xem danh sách tất cả sản phẩm đang ACTIVE, phân trang 10 sản phẩm/trang. Tự động lưu productId của sản phẩm đầu tiên."
+      },
+      "response": []
+    },
+    {
+      "name": "3. Tìm kiếm toàn văn theo từ khóa (Full-Text: TOTO smart toilet 305mm)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "var res = pm.response.json();",
+              "if (res.data && res.data.products && res.data.products.content && res.data.products.content.length > 0) {",
+              "    pm.collectionVariables.set('productId', res.data.products.content[0].productId);",
+              "    console.log('Đã cập nhật productId từ kết quả tìm kiếm:', res.data.products.content[0].productId);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/catalog/storefront/search?keyword=TOTO smart toilet 305mm&page=0&size=10",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "catalog",
+            "storefront",
+            "search"
+          ],
+          "query": [
+            {
+              "key": "keyword",
+              "value": "TOTO smart toilet 305mm",
+              "description": "Từ khóa tìm kiếm theo đúng ví dụ trong tài liệu UC-12"
+            },
+            {
+              "key": "categoryId",
+              "value": "{{categoryId}}",
+              "disabled": true,
+              "description": "Lọc theo ID Danh mục (Bật để test)"
+            },
+            {
+              "key": "brandId",
+              "value": "{{brandId}}",
+              "disabled": true,
+              "description": "Lọc theo ID Thương hiệu (Bật để test)"
+            },
+            {
+              "key": "minPrice",
+              "value": "1000000",
+              "disabled": true,
+              "description": "Giá nhỏ nhất (Slider min)"
+            },
+            {
+              "key": "maxPrice",
+              "value": "30000000",
+              "disabled": true,
+              "description": "Giá lớn nhất (Slider max)"
+            },
+            {
+              "key": "inStockOnly",
+              "value": "true",
+              "disabled": true,
+              "description": "Chỉ lấy sản phẩm còn hàng trong kho (Bật lên để test In Stock Only)"
+            },
+            {
+              "key": "page",
+              "value": "0"
+            },
+            {
+              "key": "size",
+              "value": "10"
+            }
+          ]
+        },
+        "description": "Tìm kiếm toàn văn với từ khóa mẫu chuẩn của đề bài: 'TOTO smart toilet 305mm'. Backend hỗ trợ tìm kiếm đa từ khóa thông minh (tokenized search) khớp cả tên tiếng Việt, tên tiếng Anh, mã sản phẩm và mô tả."
+      },
+      "response": []
+    },
+    {
+      "name": "4. Tìm kiếm từ khóa ngắn (Search: CS886)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "var res = pm.response.json();",
+              "pm.test('Tìm thấy sản phẩm có mã hoặc tên chứa CS886', function () {",
+              "    pm.expect(res.data.products.totalElements).to.be.greaterThan(0);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/catalog/storefront/search?keyword=CS886&page=0&size=10",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "catalog",
+            "storefront",
+            "search"
+          ],
+          "query": [
+            {
+              "key": "keyword",
+              "value": "CS886",
+              "description": "Tìm kiếm nhanh theo mã model bồn cầu CS886"
+            },
+            {
+              "key": "page",
+              "value": "0"
+            },
+            {
+              "key": "size",
+              "value": "10"
+            }
+          ]
+        },
+        "description": "Kiểm tra tìm kiếm nhanh theo mã hiệu dòng sản phẩm (CS886)."
+      },
+      "response": []
+    },
+    {
+      "name": "5. Tìm kiếm kết hợp bộ lọc Faceted (Thương hiệu + Khoảng giá)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/catalog/storefront/search?keyword=TOTO&minPrice=1000000&maxPrice=30000000&page=0&size=10",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "catalog",
+            "storefront",
+            "search"
+          ],
+          "query": [
+            {
+              "key": "keyword",
+              "value": "TOTO"
+            },
+            {
+              "key": "minPrice",
+              "value": "1000000",
+              "description": "Lọc giá tối thiểu 1.000.000 VNĐ"
+            },
+            {
+              "key": "maxPrice",
+              "value": "30000000",
+              "description": "Lọc giá tối đa 30.000.000 VNĐ"
+            },
+            {
+              "key": "color",
+              "value": "Trắng sứ",
+              "disabled": true,
+              "description": "Lọc theo màu sắc (Bật để test)"
+            },
+            {
+              "key": "dimension",
+              "value": "305 mm",
+              "disabled": true,
+              "description": "Lọc theo kích thước tâm xả (Bật để test)"
+            },
+            {
+              "key": "page",
+              "value": "0"
+            },
+            {
+              "key": "size",
+              "value": "10"
+            }
+          ]
+        },
+        "description": "Mô phỏng người dùng tìm từ khóa TOTO kết hợp kéo thanh trượt khoảng giá từ 1 triệu đến 30 triệu (Faceted price slider)."
+      },
+      "response": []
+    },
+    {
+      "name": "6. Luồng thay thế Step 2 - Không tìm thấy sản phẩm (MSG43 & Popular Categories)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "var res = pm.response.json();",
+              "pm.test('Thông báo đúng chuẩn MSG43', function () {",
+              "    pm.expect(res.data.message).to.eql('No products found matching your criteria. Try adjusting your filters or search keywords.');",
+              "});",
+              "pm.test('Trả về danh sách danh mục phổ biến để điều hướng', function () {",
+              "    pm.expect(res.data.popularCategories).to.be.an('array');",
+              "    pm.expect(res.data.popularCategories.length).to.be.greaterThan(0);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/catalog/storefront/search?keyword=NonExistentKeywordXYZ999&page=0&size=10",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "catalog",
+            "storefront",
+            "search"
+          ],
+          "query": [
+            {
+              "key": "keyword",
+              "value": "NonExistentKeywordXYZ999",
+              "description": "Từ khóa cố tình không tồn tại"
+            },
+            {
+              "key": "page",
+              "value": "0"
+            },
+            {
+              "key": "size",
+              "value": "10"
+            }
+          ]
+        },
+        "description": "Kiểm tra Alternative Flow Step 2: Khi không có sản phẩm nào khớp, hệ thống hiển thị thông báo MSG43 và trả về mảng popularCategories để điều hướng người dùng."
+      },
+      "response": []
+    },
+    {
+      "name": "7. Xem Chi tiết Sản phẩm - Góc nhìn Khách hàng (Customer / Guest View)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "var res = pm.response.json();",
+              "pm.test('Khách hàng không nhìn thấy warehouseBreakdown của kho', function () {",
+              "    if (res.data.variants && res.data.variants.length > 0) {",
+              "        pm.expect(res.data.variants[0].isSalesStaff).to.be.false;",
+              "        pm.expect(res.data.variants[0].warehouseBreakdown).to.be.null;",
+              "    }",
+              "});",
+              "pm.test('Có thông tin CAD blueprint, tài liệu hướng dẫn PDF và điều khoản bảo hành', function () {",
+              "    pm.expect(res.data).to.have.property('cadBlueprints');",
+              "    pm.expect(res.data).to.have.property('installationManualPdf');",
+              "    pm.expect(res.data).to.have.property('warrantyTerms');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/catalog/storefront/products/{{productId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "catalog",
+            "storefront",
+            "products",
+            "{{productId}}"
+          ]
+        },
+        "description": "Xem trang chi tiết sản phẩm toàn diện cho Khách hàng vãng lai / Khách mua hàng: Thư viện ảnh zoom, CAD blueprint, file hướng dẫn PDF, điều khoản bảo hành, bộ chọn biến thể (Variant selector), trạng thái tồn kho tổng quát (In Stock / Out of Stock). Thuộc tính warehouseBreakdown bị ẩn (null)."
+      },
+      "response": []
+    },
+    {
+      "name": "8. Xem Chi tiết Sản phẩm - Góc nhìn Nhân viên Bán hàng (Sales Staff / POS View)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "var res = pm.response.json();",
+              "pm.test('Nhân viên bán hàng nhìn thấy chi tiết kho (warehouseBreakdown)', function () {",
+              "    if (res.data.variants && res.data.variants.length > 0 && res.data.variants[0].isSalesStaff) {",
+              "        pm.expect(res.data.variants[0].warehouseBreakdown).to.be.an('array');",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{salesStaffToken}}",
+            "type": "text",
+            "description": "JWT Token của Sales Staff hoặc Admin để xem tồn kho từng kho"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/catalog/storefront/products/{{productId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "catalog",
+            "storefront",
+            "products",
+            "{{productId}}"
+          ]
+        },
+        "description": "Xem chi tiết sản phẩm với quyền Sales Staff / Admin: Hiển thị thêm chi tiết số lượng thực tế theo từng kho hàng (warehouseCode, onHandQty, reservedQty, availableQty)."
+      },
+      "response": []
+    },
+    {
+      "name": "9. Kiểm tra lỗi 404 khi xem sản phẩm không tồn tại (Validation / Error Handling)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 404 Not Found', function () {",
+              "    pm.response.to.have.status(404);",
+              "});",
+              "var res = pm.response.json();",
+              "pm.test('Mã lỗi CAT_001 chuẩn nghiệp vụ Catalog', function () {",
+              "    pm.expect(res.code).to.eql('CAT_001');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/catalog/storefront/products/00000000-0000-0000-0000-000000000000",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "catalog",
+            "storefront",
+            "products",
+            "00000000-0000-0000-0000-000000000000"
+          ]
+        },
+        "description": "Kiểm tra ngoại lệ nghiệp vụ khi truyền vào một UUID không tồn tại trong hệ thống -> Trả về mã lỗi CAT_001 (Không tìm thấy sản phẩm) với HTTP 404 Not Found."
+      },
+      "response": []
+    }
+  ]
+}

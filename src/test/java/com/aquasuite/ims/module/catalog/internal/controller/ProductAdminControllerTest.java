@@ -104,7 +104,7 @@ class ProductAdminControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.message").value("Tạo sản phẩm thành công"))
+                .andExpect(jsonPath("$.message").value("Product created successfully. Please configure SKUs and variants."))
                 .andExpect(jsonPath("$.data.productId").value(sampleProductId.toString()))
                 .andExpect(jsonPath("$.data.productCode").value("SP-001"));
 
@@ -237,7 +237,7 @@ class ProductAdminControllerTest {
                         .content(objectMapper.writeValueAsString(updateReq)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.message").value("Cập nhật sản phẩm thành công"));
+                .andExpect(jsonPath("$.message").value("Product details updated successfully."));
 
         verify(iamApi, times(1)).validateAdminAccess();
         verify(productAdminService, times(1)).updateProduct(eq(sampleProductId), any(UpdateProductRequest.class));
@@ -259,6 +259,27 @@ class ProductAdminControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("Cập nhật trạng thái sản phẩm thành công"));
+
+        verify(iamApi, times(1)).validateAdminAccess();
+        verify(productAdminService, times(1)).updateProductStatus(eq(sampleProductId), any(UpdateProductStatusRequest.class));
+    }
+
+    @Test
+    @DisplayName("PATCH /api/v1/catalog/products/{id}/status - Đổi trạng thái DISCONTINUED trả về MSG38 (200 OK)")
+    void updateProductStatus_Discontinued_Success() throws Exception {
+        doNothing().when(iamApi).validateAdminAccess();
+
+        UpdateProductStatusRequest statusReq = new UpdateProductStatusRequest(ProductStatus.DISCONTINUED);
+
+        when(productAdminService.updateProductStatus(eq(sampleProductId), any(UpdateProductStatusRequest.class)))
+                .thenReturn(sampleDetailResponse);
+
+        mockMvc.perform(patch("/api/v1/catalog/products/{id}/status", sampleProductId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(statusReq)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Product marked as Discontinued."));
 
         verify(iamApi, times(1)).validateAdminAccess();
         verify(productAdminService, times(1)).updateProductStatus(eq(sampleProductId), any(UpdateProductStatusRequest.class));

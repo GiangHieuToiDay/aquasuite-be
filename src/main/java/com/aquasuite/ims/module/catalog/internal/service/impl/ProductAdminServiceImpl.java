@@ -41,7 +41,7 @@ public class ProductAdminServiceImpl implements ProductAdminService {
     public ProductDetailResponse createProduct(CreateProductRequest request) {
         String productCode = request.productCode().trim();
         if (productRepository.existsByProductCode(productCode)) {
-            throw new AppException(CatalogErrorCode.PRODUCT_CODE_ALREADY_EXISTS, productCode);
+            throw new AppException(CatalogErrorCode.PRODUCT_CODE_ALREADY_EXISTS);
         }
 
         Category category = categoryRepository.findById(request.categoryId())
@@ -59,6 +59,7 @@ public class ProductAdminServiceImpl implements ProductAdminService {
                 .productName(request.productName().trim())
                 .categoryId(request.categoryId())
                 .brandId(request.brandId())
+                .origin(request.origin())
                 .description(request.description())
                 .specifications(request.specifications() != null ? request.specifications() : Collections.emptyMap())
                 .productType(request.productType() != null ? request.productType() : ProductType.NORMAL)
@@ -167,6 +168,7 @@ public class ProductAdminServiceImpl implements ProductAdminService {
                     .categoryName(cat != null ? cat.getCategoryName() : null)
                     .brandId(product.getBrandId())
                     .brandName(br != null ? br.getBrandName() : null)
+                    .origin(product.getOrigin())
                     .productType(product.getProductType())
                     .status(product.getStatus())
                     .primaryImageUrl(primaryUrl)
@@ -204,7 +206,7 @@ public class ProductAdminServiceImpl implements ProductAdminService {
 
         String newCode = request.productCode().trim();
         if (productRepository.existsByProductCodeAndProductIdNot(newCode, productId)) {
-            throw new AppException(CatalogErrorCode.PRODUCT_CODE_ALREADY_EXISTS, newCode);
+            throw new AppException(CatalogErrorCode.PRODUCT_CODE_ALREADY_EXISTS);
         }
 
         Category category = categoryRepository.findById(request.categoryId())
@@ -221,6 +223,7 @@ public class ProductAdminServiceImpl implements ProductAdminService {
         product.setProductName(request.productName().trim());
         product.setCategoryId(request.categoryId());
         product.setBrandId(request.brandId());
+        product.setOrigin(request.origin());
         product.setDescription(request.description());
         if (request.specifications() != null) {
             product.setSpecifications(request.specifications());
@@ -375,6 +378,7 @@ public class ProductAdminServiceImpl implements ProductAdminService {
                         .brandCode(brand.getBrandCode())
                         .brandName(brand.getBrandName())
                         .build() : null)
+                .origin(product.getOrigin())
                 .description(product.getDescription())
                 .specifications(product.getSpecifications())
                 .productType(product.getProductType())

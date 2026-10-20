@@ -49,6 +49,11 @@ public class IamApiImpl implements IamApi {
     }
 
     @Override
+    public boolean isSalesStaffOrAdmin() {
+        return SecurityUtils.isCurrentUserSalesStaffOrAdmin();
+    }
+
+    @Override
     public void validateAdminAccess() {
         if (!isAdmin()) {
             log.warn("Access denied: User ID {} is not an Admin", getCurrentUserId());

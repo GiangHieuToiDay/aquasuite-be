@@ -62,6 +62,18 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMethodArgumentTypeMismatch(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException ex) {
+        log.warn("Method argument type mismatch for param [{}]: {}", ex.getName(), ex.getMessage());
+        String detailMessage = String.format("Tham số '%s' không hợp lệ hoặc không đúng định dạng UUID/kiểu dữ liệu", ex.getName());
+        return ResponseEntity
+                .status(CommonErrorCode.INVALID_REQUEST_PARAM.getStatus())
+                .body(ApiResponse.error(
+                        CommonErrorCode.INVALID_REQUEST_PARAM.getCode(),
+                        detailMessage
+                ));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleFallbackException(Exception ex) {
         log.error("Unhandled exception: ", ex);

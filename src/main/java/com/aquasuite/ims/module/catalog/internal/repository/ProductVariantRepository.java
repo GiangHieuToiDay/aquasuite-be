@@ -30,4 +30,28 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
     @Modifying
     @Query("DELETE FROM ProductVariant pv WHERE pv.productId = :productId")
     void deleteByProductId(@Param("productId") UUID productId);
+
+    @Query("SELECT DISTINCT pv.color FROM ProductVariant pv WHERE pv.color IS NOT NULL AND pv.color <> '' AND pv.status = 'ACTIVE' ORDER BY pv.color ASC")
+    List<String> findDistinctActiveColors();
+
+    @Query("SELECT DISTINCT pv.size FROM ProductVariant pv WHERE pv.size IS NOT NULL AND pv.size <> '' AND pv.status = 'ACTIVE' ORDER BY pv.size ASC")
+    List<String> findDistinctActiveSizes();
+
+    @Query("SELECT MIN(pv.sellingPrice) FROM ProductVariant pv WHERE pv.status = 'ACTIVE'")
+    java.math.BigDecimal findMinActiveSellingPrice();
+
+    @Query("SELECT MAX(pv.sellingPrice) FROM ProductVariant pv WHERE pv.status = 'ACTIVE'")
+    java.math.BigDecimal findMaxActiveSellingPrice();
+
+    @Query("SELECT DISTINCT pv.productId FROM ProductVariant pv WHERE pv.status = 'ACTIVE' AND pv.sellingPrice >= :minPrice AND pv.sellingPrice <= :maxPrice")
+    java.util.Set<UUID> findProductIdsByPriceRange(@Param("minPrice") java.math.BigDecimal minPrice, @Param("maxPrice") java.math.BigDecimal maxPrice);
+
+    @Query("SELECT DISTINCT pv.productId FROM ProductVariant pv WHERE pv.status = 'ACTIVE' AND LOWER(pv.color) = LOWER(:color)")
+    java.util.Set<UUID> findProductIdsByColor(@Param("color") String color);
+
+    @Query("SELECT DISTINCT pv.productId FROM ProductVariant pv WHERE pv.status = 'ACTIVE' AND LOWER(pv.size) = LOWER(:size)")
+    java.util.Set<UUID> findProductIdsBySize(@Param("size") String size);
+
+    @Query("SELECT DISTINCT pv.productId FROM ProductVariant pv WHERE pv.status = 'ACTIVE' AND (LOWER(pv.sku) LIKE LOWER(CONCAT('%', :kw, '%')) OR LOWER(pv.variantName) LIKE LOWER(CONCAT('%', :kw, '%')))")
+    java.util.Set<UUID> findProductIdsByVariantKeyword(@Param("kw") String keyword);
 }

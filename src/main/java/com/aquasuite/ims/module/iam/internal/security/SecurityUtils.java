@@ -10,6 +10,7 @@ public final class SecurityUtils {
 
     private static final ThreadLocal<Long> MOCK_USER_ID = new ThreadLocal<>();
     private static final ThreadLocal<Boolean> MOCK_IS_ADMIN = new ThreadLocal<>();
+    private static final ThreadLocal<Boolean> MOCK_IS_SALES_STAFF = new ThreadLocal<>();
 
     private SecurityUtils() {}
 
@@ -27,9 +28,17 @@ public final class SecurityUtils {
         MOCK_IS_ADMIN.set(isAdmin);
     }
 
+    /**
+     * Dùng để thiết lập cờ Sales Staff giả lập trong môi trường Test.
+     */
+    public static void setMockIsSalesStaff(Boolean isSalesStaff) {
+        MOCK_IS_SALES_STAFF.set(isSalesStaff);
+    }
+
     public static void clear() {
         MOCK_USER_ID.remove();
         MOCK_IS_ADMIN.remove();
+        MOCK_IS_SALES_STAFF.remove();
     }
 
     /**
@@ -78,5 +87,28 @@ public final class SecurityUtils {
         // Mặc định tài khoản ID = 1L là Admin hệ thống trong môi trường chưa gắn JWT Filter
         Long currentUserId = getCurrentUserId();
         return currentUserId != null && currentUserId == 1L;
+    }
+
+    /**
+     * Kiểm tra xem người dùng hiện tại có vai trò Nhân viên bán hàng (Sales Staff) hoặc Admin hay không.
+     */
+    public static boolean isCurrentUserSalesStaffOrAdmin() {
+        if (MOCK_IS_ADMIN.get() != null && MOCK_IS_ADMIN.get()) {
+            return true;
+        }
+        if (MOCK_IS_SALES_STAFF.get() != null) {
+            return MOCK_IS_SALES_STAFF.get();
+        }
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.isAuthenticated() && !"anonymousUser".equals(authentication.getPrincipal())) {
+            return authentication.getAuthorities().stream()
+                    .anyMatch(auth -> {
+                        String role = auth.getAuthority().toUpperCase();
+                        return role.contains("ADMIN") || role.contains("SALES") || role.contains("STAFF");
+                    });
+        }
+
+        return false;
     }
 }

@@ -46,7 +46,7 @@ public class ProductAdminController {
         iamApi.validateAdminAccess();
         ProductDetailResponse response = productAdminService.createProduct(request);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.ok(response, "Tạo sản phẩm thành công"));
+                .body(ApiResponse.ok(response, "Product created successfully. Please configure SKUs and variants."));
     }
 
     /**
@@ -93,11 +93,11 @@ public class ProductAdminController {
     ) {
         iamApi.validateAdminAccess();
         ProductDetailResponse response = productAdminService.updateProduct(productId, request);
-        return ResponseEntity.ok(ApiResponse.ok(response, "Cập nhật sản phẩm thành công"));
+        return ResponseEntity.ok(ApiResponse.ok(response, "Product details updated successfully."));
     }
 
     /**
-     * Đổi trạng thái sản phẩm (Ẩn / Hoạt động / Ngừng kinh doanh)
+     * Đổi trạng thái sản phẩm (Bản nháp / Hoạt động / Ngừng kinh doanh)
      * Quyền yêu cầu: ADMIN
      */
     @PatchMapping("/products/{productId}/status")
@@ -107,7 +107,10 @@ public class ProductAdminController {
     ) {
         iamApi.validateAdminAccess();
         ProductDetailResponse response = productAdminService.updateProductStatus(productId, request);
-        return ResponseEntity.ok(ApiResponse.ok(response, "Cập nhật trạng thái sản phẩm thành công"));
+        String message = request.status() == ProductStatus.DISCONTINUED
+                ? "Product marked as Discontinued."
+                : "Cập nhật trạng thái sản phẩm thành công";
+        return ResponseEntity.ok(ApiResponse.ok(response, message));
     }
 
     /**

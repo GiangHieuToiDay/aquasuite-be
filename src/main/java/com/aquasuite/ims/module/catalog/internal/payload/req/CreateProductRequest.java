@@ -26,6 +26,9 @@ public record CreateProductRequest(
 
         UUID brandId,
 
+        @Size(max = 100, message = "Xuất xứ (origin) tối đa 100 ký tự")
+        String origin,
+
         String description,
 
         Map<String, Object> specifications,
