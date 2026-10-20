@@ -126,4 +126,58 @@ class AuthorityMappingTest {
 
         assertThat(roleNames).containsExactly("ADMIN", "MANAGER");
     }
+
+    @Test
+    @DisplayName("Tất cả 6 role chuẩn FEATURE-009 chuẩn hóa thành ROLE_<NAME> và resolveActiveRoleNames sạch")
+    void shouldMapAllSixCanonicalRolesCorrectly() {
+        Role shopOwner = new Role(UUID.randomUUID(), "SHOP_OWNER", "Chủ cửa hàng", true, null, Set.of());
+        Role salesStaff = new Role(UUID.randomUUID(), "SALES_STAFF", "Nhân viên bán hàng", true, null, Set.of());
+        Role accountant = new Role(UUID.randomUUID(), "ACCOUNTANT", "Kế toán", true, null, Set.of());
+        Role techStaff = new Role(UUID.randomUUID(), "TECHNICAL_STAFF", "Nhân viên kỹ thuật", true, null, Set.of());
+        Role shipper = new Role(UUID.randomUUID(), "SHIPPER", "Nhân viên giao hàng", true, null, Set.of());
+        Role customer = new Role(UUID.randomUUID(), "CUSTOMER", "Khách hàng", true, null, Set.of());
+
+        Collection<GrantedAuthority> authorities = service.resolveAuthorities(Set.of(
+                shopOwner, salesStaff, accountant, techStaff, shipper, customer
+        ));
+
+        List<String> authStrings = authorities.stream().map(GrantedAuthority::getAuthority).toList();
+        assertThat(authStrings).containsExactlyInAnyOrder(
+                "ROLE_SHOP_OWNER",
+                "ROLE_SALES_STAFF",
+                "ROLE_ACCOUNTANT",
+                "ROLE_TECHNICAL_STAFF",
+                "ROLE_SHIPPER",
+                "ROLE_CUSTOMER"
+        );
+
+        List<String> activeRoles = service.resolveActiveRoleNames(Set.of(
+                shopOwner, salesStaff, accountant, techStaff, shipper, customer
+        ));
+        assertThat(activeRoles).containsExactlyInAnyOrder(
+                "SHOP_OWNER",
+                "SALES_STAFF",
+                "ACCOUNTANT",
+                "TECHNICAL_STAFF",
+                "SHIPPER",
+                "CUSTOMER"
+        );
+    }
+
+    @Test
+    @DisplayName("Uppercase permission passthrough và ngăn chặn leo quyền từ ROLE_ namespace permission")
+    void shouldPassthroughUppercasePermissionsAndDisqualifyRoleNamespacePermissions() {
+        Permission validUpperPerm = new Permission(UUID.randomUUID(), "USER_READ", "Chủ cửa hàng xem thông tin nhân viên");
+        Permission roleNamespacePerm = new Permission(UUID.randomUUID(), "ROLE_SHOP_OWNER", "Trùng namespace ROLE");
+
+        Role ownerRole = new Role(UUID.randomUUID(), "SHOP_OWNER", "Chủ cửa hàng", true, null,
+                Set.of(validUpperPerm, roleNamespacePerm));
+
+        Collection<GrantedAuthority> authorities = service.resolveAuthorities(Set.of(ownerRole));
+
+        List<String> authStrings = authorities.stream().map(GrantedAuthority::getAuthority).toList();
+        assertThat(authStrings).contains("ROLE_SHOP_OWNER", "USER_READ");
+        // Must NOT contain ROLE_SHOP_OWNER as a permission authority or duplicate authority
+        assertThat(authStrings.stream().filter(s -> s.equals("ROLE_SHOP_OWNER")).count()).isEqualTo(1);
+    }
 }

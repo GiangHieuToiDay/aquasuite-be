@@ -21,6 +21,9 @@ aquasuite:
   config:
     environment: default
     auth-generation: 2
+  iam:
+    dev-seed:
+      enabled: false
   security:
     jwt:
       issuer: aquasuite-be

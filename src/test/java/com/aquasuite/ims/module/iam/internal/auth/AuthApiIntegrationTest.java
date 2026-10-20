@@ -651,4 +651,37 @@ class AuthApiIntegrationTest extends AuthIntegrationTestSupport {
         // Verify session was NOT corrupted or unintended new token issued
         org.mockito.Mockito.reset(redisSessionStore);
     }
+
+    @Test
+    @DisplayName("FEATURE-009: Development owner account login with unchanged LoginResponse contract")
+    void shouldLoginSuccessfullyWithDevelopmentOwnerAccount() throws Exception {
+        Role shopOwnerRole = new Role(UUID.randomUUID(), "SHOP_OWNER", "Chủ cửa hàng", true, null, Set.of());
+        roleRepository.save(shopOwnerRole);
+
+        User owner = new User();
+        owner.setId(UUID.randomUUID());
+        owner.setUsername("owner_test");
+        owner.setEmail("owner@aquasuite.local");
+        owner.setPasswordHash(passwordEncoder.encode("DevOwnerSecretPassword123!"));
+        owner.setStatus(UserStatus.ACTIVE);
+        owner.setRoles(Set.of(shopOwnerRole));
+        userRepository.save(owner);
+
+        LoginRequest req = LoginRequest.builder()
+                .email("owner@aquasuite.local")
+                .password("DevOwnerSecretPassword123!")
+                .build();
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.access_token").isString())
+                .andExpect(jsonPath("$.data.refresh_token").isString())
+                .andExpect(jsonPath("$.data.user.username").value("owner_test"))
+                .andExpect(jsonPath("$.data.user.email").value("owner@aquasuite.local"))
+                .andExpect(jsonPath("$.data.user.roles[0]").value("SHOP_OWNER"));
+    }
 }

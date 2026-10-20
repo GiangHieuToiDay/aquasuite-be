@@ -15,6 +15,9 @@ aquasuite:
   config:
     environment: prod
     auth-generation: 2
+  iam:
+    dev-seed:
+      enabled: false
   security:
     jwt:
       secret: ${JWT_SECRET:}
