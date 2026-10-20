@@ -69,7 +69,9 @@ class JwtSecurityIntegrationTest extends AuthIntegrationTestSupport {
     @BeforeEach
     void setUp() {
         userRepository.deleteAll();
-        roleRepository.deleteAll();
+        roleRepository.deleteAll(roleRepository.findAll().stream()
+                .filter(r -> !Set.of("SHOP_OWNER", "SALES_STAFF", "ACCOUNTANT", "TECHNICAL_STAFF", "SHIPPER", "CUSTOMER").contains(r.getRoleName()))
+                .toList());
         Set<String> keys = redisTemplate.keys("auth:*");
         if (keys != null && !keys.isEmpty()) {
             redisTemplate.delete(keys);

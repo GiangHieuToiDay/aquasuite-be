@@ -33,6 +33,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -90,7 +91,9 @@ class CurrentAuthorityIntegrationTest extends AuthIntegrationTestSupport {
     @BeforeEach
     void setUp() {
         userRepository.deleteAll();
-        roleRepository.deleteAll();
+        roleRepository.deleteAll(roleRepository.findAll().stream()
+                .filter(r -> !Set.of("SHOP_OWNER", "SALES_STAFF", "ACCOUNTANT", "TECHNICAL_STAFF", "SHIPPER", "CUSTOMER").contains(r.getRoleName()))
+                .toList());
         permissionRepository.deleteAll();
         Set<String> keys = redisTemplate.keys("auth:*");
         if (keys != null && !keys.isEmpty()) {
@@ -180,13 +183,18 @@ class CurrentAuthorityIntegrationTest extends AuthIntegrationTestSupport {
     }
 
     @Test
-    @DisplayName("AC-09: User chỉ có permission ROLE_ADMIN (không có role ADMIN) thì cả hasRole('ADMIN') và hasAuthority('ROLE_ADMIN') đều bị từ chối 403")
+    @DisplayName("AC-09: User chỉ có permission (không có role ADMIN) thì cả hasRole('ADMIN') và hasAuthority('ROLE_ADMIN') đều bị từ chối 403; database CHECK constraint từ chối lưu permission có prefix ROLE_")
     void shouldPreventPrivilegeEscalationFromRoleAdminPermission() throws Exception {
-        // Permission has code "ROLE_ADMIN"
+        // 1. Verify DB CHECK constraint rejects inserting permission starting with ROLE_
         Permission permRoleAdmin = new Permission(UUID.randomUUID(), "ROLE_ADMIN", "Malicious permission code");
-        permissionRepository.save(permRoleAdmin);
+        assertThatThrownBy(() -> permissionRepository.saveAndFlush(permRoleAdmin))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
 
-        Role viewerRole = new Role(UUID.randomUUID(), "VIEWER", "Viewer", true, null, Set.of(permRoleAdmin));
+        // 2. User with viewer role and standard permission cannot access admin-only endpoint
+        Permission normalPerm = new Permission(UUID.randomUUID(), "ORDER_VIEW_ONLY", "Normal permission");
+        permissionRepository.saveAndFlush(normalPerm);
+
+        Role viewerRole = new Role(UUID.randomUUID(), "VIEWER", "Viewer", true, null, Set.of(normalPerm));
         roleRepository.save(viewerRole);
 
         User user = new User();

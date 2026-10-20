@@ -26,7 +26,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 @Component
-@RequiredArgsConstructor
 @Slf4j(topic = "DATA INITIALIZER")
 public class DevelopmentDataInitializer implements ApplicationRunner {
 
@@ -56,6 +55,19 @@ public class DevelopmentDataInitializer implements ApplicationRunner {
     private final TransactionTemplate transactionTemplate;
     private final Environment environment;
 
+    public DevelopmentDataInitializer(
+            @org.springframework.beans.factory.annotation.Autowired(required = false) RoleRepository roleRepository,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) UserRepository userRepository,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) PasswordEncoder passwordEncoder,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) TransactionTemplate transactionTemplate,
+            Environment environment) {
+        this.roleRepository = roleRepository;
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.transactionTemplate = transactionTemplate;
+        this.environment = environment;
+    }
+
     private Supplier<String> passwordSupplier = () -> System.getenv("AQUASUITE_DEV_OWNER_PASSWORD");
 
     void setPasswordSupplier(Supplier<String> passwordSupplier) {
@@ -69,6 +81,11 @@ public class DevelopmentDataInitializer implements ApplicationRunner {
 
     public boolean initialize() {
         if (!isEligibleForSeeding()) {
+            return false;
+        }
+
+        if (roleRepository == null || userRepository == null || transactionTemplate == null || passwordEncoder == null) {
+            log.info("Development data initializer skipped: JPA repositories or transaction manager not available.");
             return false;
         }
 

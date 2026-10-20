@@ -51,7 +51,7 @@ class IamEntityMappingIntegrationTest extends PostgreSqlIntegrationTestSupport {
             stmt.executeUpdate("DELETE FROM public.role_permissions");
             stmt.executeUpdate("DELETE FROM public.user_roles");
             stmt.executeUpdate("DELETE FROM public.permissions");
-            stmt.executeUpdate("DELETE FROM public.roles");
+            stmt.executeUpdate("DELETE FROM public.roles WHERE role_name NOT IN ('SHOP_OWNER', 'SALES_STAFF', 'ACCOUNTANT', 'TECHNICAL_STAFF', 'SHIPPER', 'CUSTOMER')");
             stmt.executeUpdate("DELETE FROM public.users");
         }
     }

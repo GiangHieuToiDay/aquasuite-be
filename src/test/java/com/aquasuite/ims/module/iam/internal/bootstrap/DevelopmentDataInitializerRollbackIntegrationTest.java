@@ -50,12 +50,12 @@ class DevelopmentDataInitializerRollbackIntegrationTest extends PostgreSqlIntegr
             stmt.executeUpdate("DELETE FROM public.role_permissions");
             stmt.executeUpdate("DELETE FROM public.user_roles");
             stmt.executeUpdate("DELETE FROM public.users");
-            stmt.executeUpdate("DELETE FROM public.roles");
+            stmt.executeUpdate("DELETE FROM public.roles WHERE role_name NOT IN ('SHOP_OWNER', 'SALES_STAFF', 'ACCOUNTANT', 'TECHNICAL_STAFF', 'SHIPPER', 'CUSTOMER')");
         }
     }
 
     @Test
-    @DisplayName("CR-V6-03: Late owner conflict after createRoles() rolls back entire transaction leaving zero roles")
+    @DisplayName("CR-V6-03: Late owner conflict after createRoles() rolls back entire transaction leaving database uncorrupted")
     void shouldRollbackAllRolesWhenOwnerConflictOccursInSingleTransaction() {
         // 1. Prepare clean test database with pre-existing conflicting user
         User conflictUser = new User();
@@ -67,7 +67,7 @@ class DevelopmentDataInitializerRollbackIntegrationTest extends PostgreSqlIntegr
         userRepository.save(conflictUser);
 
         assertThat(userRepository.count()).isEqualTo(1);
-        assertThat(roleRepository.count()).isEqualTo(0);
+        assertThat(roleRepository.count()).isEqualTo(6);
 
         // 2. Setup initializer with dev environment emulated
         MockEnvironment mockEnv = new MockEnvironment();
@@ -89,9 +89,9 @@ class DevelopmentDataInitializerRollbackIntegrationTest extends PostgreSqlIntegr
                 .isInstanceOf(DevelopmentDataInitializer.SeedConflictException.class)
                 .hasMessageContaining("non-ACTIVE status");
 
-        // 4. Verify transaction rollback: zero roles committed despite createRoles() running before owner check
-        assertThat(roleRepository.count()).isEqualTo(0);
-        assertThat(roleRepository.findByRoleNameIgnoreCase("SHOP_OWNER")).isEmpty();
+        // 4. Verify transaction rollback: canonical roles preserved from V2, no uncommitted roles or owner created
+        assertThat(roleRepository.count()).isEqualTo(6);
+        assertThat(roleRepository.findByRoleNameIgnoreCase("SHOP_OWNER")).isPresent();
 
         // Conflict user remains unchanged
         assertThat(userRepository.count()).isEqualTo(1);

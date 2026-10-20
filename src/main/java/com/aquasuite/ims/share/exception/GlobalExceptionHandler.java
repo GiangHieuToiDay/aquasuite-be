@@ -5,10 +5,14 @@ import com.aquasuite.ims.share.dto.FieldErrorDetail;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.List;
 
@@ -37,6 +41,32 @@ public class GlobalExceptionHandler {
                         CommonErrorCode.VALIDATION_ERROR.getCode(),
                         CommonErrorCode.VALIDATION_ERROR.getMessage(),
                         errors
+                ));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadableException(HttpMessageNotReadableException ex) {
+        log.warn("Message not readable: {}", ex.getMessage());
+        return ResponseEntity
+                .status(CommonErrorCode.VALIDATION_ERROR.getStatus())
+                .body(ApiResponse.error(
+                        CommonErrorCode.VALIDATION_ERROR.getCode(),
+                        CommonErrorCode.VALIDATION_ERROR.getMessage()
+                ));
+    }
+
+    @ExceptionHandler({
+            MethodArgumentTypeMismatchException.class,
+            MissingServletRequestParameterException.class,
+            HandlerMethodValidationException.class
+    })
+    public ResponseEntity<ApiResponse<Void>> handleInvalidRequestParamException(Exception ex) {
+        log.warn("Invalid request parameter: {}", ex.getMessage());
+        return ResponseEntity
+                .status(CommonErrorCode.INVALID_REQUEST_PARAM.getStatus())
+                .body(ApiResponse.error(
+                        CommonErrorCode.INVALID_REQUEST_PARAM.getCode(),
+                        CommonErrorCode.INVALID_REQUEST_PARAM.getMessage()
                 ));
     }
 

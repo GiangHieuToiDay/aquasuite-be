@@ -1,0 +1,20 @@
+meta {
+  name: 04 - List Roles - Unauthorized (401 AUTH_001)
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/v1/iam/roles
+  body: none
+  auth: none
+}
+
+tests {
+  test('Returns HTTP 401 with AUTH_001 when unauthenticated', function () {
+    expect(res.getStatus()).to.equal(401);
+    const body = res.getBody();
+    expect(body.success).to.equal(false);
+    expect(body.code).to.equal('AUTH_001');
+  });
+}

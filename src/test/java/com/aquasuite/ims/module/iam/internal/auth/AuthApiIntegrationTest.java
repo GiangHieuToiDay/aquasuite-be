@@ -83,7 +83,9 @@ class AuthApiIntegrationTest extends AuthIntegrationTestSupport {
         reset(redisSessionStore);
         // Clean up database and redis
         userRepository.deleteAll();
-        roleRepository.deleteAll();
+        roleRepository.deleteAll(roleRepository.findAll().stream()
+                .filter(r -> !Set.of("SHOP_OWNER", "SALES_STAFF", "ACCOUNTANT", "TECHNICAL_STAFF", "SHIPPER", "CUSTOMER").contains(r.getRoleName()))
+                .toList());
         Set<String> keys = redisTemplate.keys("auth:*");
         if (keys != null && !keys.isEmpty()) {
             redisTemplate.delete(keys);
@@ -655,8 +657,8 @@ class AuthApiIntegrationTest extends AuthIntegrationTestSupport {
     @Test
     @DisplayName("FEATURE-009: Development owner account login with unchanged LoginResponse contract")
     void shouldLoginSuccessfullyWithDevelopmentOwnerAccount() throws Exception {
-        Role shopOwnerRole = new Role(UUID.randomUUID(), "SHOP_OWNER", "Chủ cửa hàng", true, null, Set.of());
-        roleRepository.save(shopOwnerRole);
+        Role shopOwnerRole = roleRepository.findByRoleNameIgnoreCase("SHOP_OWNER")
+                .orElseGet(() -> roleRepository.save(new Role(UUID.randomUUID(), "SHOP_OWNER", "Chủ cửa hàng", true, null, Set.of())));
 
         User owner = new User();
         owner.setId(UUID.randomUUID());

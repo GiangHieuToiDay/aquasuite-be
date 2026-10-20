@@ -1,0 +1,28 @@
+meta {
+  name: 06 - Get Permission Detail
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/v1/iam/permissions/{{permissionId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('Returns HTTP 200 with permission detail', function () {
+    expect(res.getStatus()).to.equal(200);
+    const body = res.getBody();
+    expect(body.success).to.equal(true);
+    expect(body.code).to.equal('SUCCESS');
+    expect(body.data.id).to.equal(bru.getVar('permissionId'));
+    expect(body.data.code).to.equal(bru.getVar('permissionCode'));
+    expect(body.data.createdAt).to.be.undefined;
+    expect(body.data.updatedAt).to.be.undefined;
+  });
+}
