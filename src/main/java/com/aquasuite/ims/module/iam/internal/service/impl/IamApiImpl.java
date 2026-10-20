@@ -5,6 +5,8 @@ import com.aquasuite.ims.module.iam.api.dto.UserSummaryDto;
 import com.aquasuite.ims.module.iam.internal.entity.User;
 import com.aquasuite.ims.module.iam.internal.repository.UserRepository;
 import com.aquasuite.ims.module.iam.internal.security.SecurityUtils;
+import com.aquasuite.ims.share.exception.AppException;
+import com.aquasuite.ims.share.exception.CommonErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -39,6 +41,19 @@ public class IamApiImpl implements IamApi {
     public Long getCurrentUserId() {
         Long currentUserId = SecurityUtils.getCurrentUserId();
         return currentUserId != null ? currentUserId : 1L;
+    }
+
+    @Override
+    public boolean isAdmin() {
+        return SecurityUtils.isCurrentUserAdmin();
+    }
+
+    @Override
+    public void validateAdminAccess() {
+        if (!isAdmin()) {
+            log.warn("Access denied: User ID {} is not an Admin", getCurrentUserId());
+            throw new AppException(CommonErrorCode.ACCESS_DENIED, "Chỉ tài khoản Quản trị viên (Admin) mới có quyền thực hiện thao tác này");
+        }
     }
 
     private UserSummaryDto toDto(User user) {

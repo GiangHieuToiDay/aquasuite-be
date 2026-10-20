@@ -1,0 +1,402 @@
+{
+  "info": {
+    "_postman_id": "a9d5f812-4731-4a88-8888-aquasuite0001",
+    "name": "AquaSuite - Manage Products (SCRUM-10)",
+    "description": "Postman Collection hoàn chỉnh cho tính năng Manage Products của Admin trong dự án AquaSuite IMS (Chỉ quản lý Sản phẩm cha, không đụng tới Biến thể/SKU/Giá).\nTự động trích xuất categoryId, brandId và productId sau mỗi lần Send để bạn không cần copy-paste thủ công.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "categoryId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "brandId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "productId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Lấy danh sách Danh mục (Tự lưu categoryId)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    var res = pm.response.json();",
+              "    if (res.data && res.data.length > 0) {",
+              "        pm.collectionVariables.set('categoryId', res.data[0].categoryId);",
+              "        console.log('Đã tự động lưu categoryId:', res.data[0].categoryId);",
+              "    }",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/catalog/categories",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "catalog",
+            "categories"
+          ]
+        },
+        "description": "Lấy danh sách các danh mục sản phẩm đang ACTIVE trong database. (Request GET không có Body)"
+      },
+      "response": []
+    },
+    {
+      "name": "2. Lấy danh sách Thương hiệu (Tự lưu brandId)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    var res = pm.response.json();",
+              "    if (res.data && res.data.length > 0) {",
+              "        pm.collectionVariables.set('brandId', res.data[0].brandId);",
+              "        console.log('Đã tự động lưu brandId:', res.data[0].brandId);",
+              "    }",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/catalog/brands",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "catalog",
+            "brands"
+          ]
+        },
+        "description": "Lấy danh sách thương hiệu đang ACTIVE trong database. (Request GET không có Body)"
+      },
+      "response": []
+    },
+    {
+      "name": "3. Tạo mới sản phẩm (Tự lưu productId)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 201) {",
+              "    var res = pm.response.json();",
+              "    if (res.data && res.data.productId) {",
+              "        pm.collectionVariables.set('productId', res.data.productId);",
+              "        console.log('Đã tự động lưu productId vừa tạo:', res.data.productId);",
+              "    }",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"productCode\": \"SP-TOTO-CS886\",\n  \"productName\": \"Bồn cầu một khối TOTO CS886\",\n  \"categoryId\": \"{{categoryId}}\",\n  \"brandId\": \"{{brandId}}\",\n  \"description\": \"Bồn cầu cao cấp nắp đóng êm tráng men CeFiONtect chống bám bẩn\",\n  \"productType\": \"NORMAL\",\n  \"status\": \"ACTIVE\",\n  \"imageUrls\": [\n    \"https://example.com/images/toto-cs886-01.jpg\",\n    \"https://example.com/images/toto-cs886-02.jpg\"\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/catalog/products",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "catalog",
+            "products"
+          ]
+        },
+        "description": "Tạo sản phẩm cha thuần túy (không đụng đến SKU/Biến thể/Giá). Script test sẽ tự động lưu productId vừa tạo vào biến {{productId}} cho các request kế tiếp."
+      },
+      "response": []
+    },
+    {
+      "name": "4. Danh sách sản phẩm (Phân trang, Tìm kiếm, Lọc)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/catalog/products?keyword=TOTO&page=0&size=10&status=ACTIVE",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "catalog",
+            "products"
+          ],
+          "query": [
+            {
+              "key": "keyword",
+              "value": "TOTO",
+              "description": "Tìm kiếm theo tên hoặc mã sản phẩm"
+            },
+            {
+              "key": "page",
+              "value": "0",
+              "description": "Số trang (bắt đầu từ 0)"
+            },
+            {
+              "key": "size",
+              "value": "10",
+              "description": "Số phần tử mỗi trang"
+            },
+            {
+              "key": "status",
+              "value": "ACTIVE",
+              "description": "Lọc theo trạng thái: ACTIVE, INACTIVE, DISCONTINUED"
+            },
+            {
+              "key": "categoryId",
+              "value": "{{categoryId}}",
+              "disabled": true,
+              "description": "Lọc theo danh mục"
+            },
+            {
+              "key": "brandId",
+              "value": "{{brandId}}",
+              "disabled": true,
+              "description": "Lọc theo thương hiệu"
+            }
+          ]
+        },
+        "description": "Lấy danh sách sản phẩm phân trang. (Request GET không có Body)"
+      },
+      "response": []
+    },
+    {
+      "name": "5. Xem chi tiết sản phẩm theo ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/catalog/products/{{productId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "catalog",
+            "products",
+            "{{productId}}"
+          ]
+        },
+        "description": "Xem chi tiết một sản phẩm theo {{productId}} vừa được tạo. (Request GET không có Body)"
+      },
+      "response": []
+    },
+    {
+      "name": "6. Cập nhật sản phẩm",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"productCode\": \"SP-TOTO-CS886\",\n  \"productName\": \"Bồn cầu một khối TOTO CS886 (Phiên bản Nâng Cấp)\",\n  \"categoryId\": \"{{categoryId}}\",\n  \"brandId\": \"{{brandId}}\",\n  \"description\": \"Cập nhật mô tả: tráng men Nano chống bám cặn vĩnh viễn\",\n  \"productType\": \"NORMAL\",\n  \"status\": \"ACTIVE\",\n  \"imageUrls\": [\n    \"https://example.com/images/toto-cs886-new.jpg\"\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/catalog/products/{{productId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "catalog",
+            "products",
+            "{{productId}}"
+          ]
+        },
+        "description": "Cập nhật thông tin chi tiết của sản phẩm theo {{productId}} (không đụng đến SKU/Biến thể)."
+      },
+      "response": []
+    },
+    {
+      "name": "7. Thay đổi trạng thái sản phẩm (Ẩn / Ngừng kinh doanh)",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"INACTIVE\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/catalog/products/{{productId}}/status",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "catalog",
+            "products",
+            "{{productId}}",
+            "status"
+          ]
+        },
+        "description": "Chuyển trạng thái sản phẩm sang INACTIVE hoặc DISCONTINUED."
+      },
+      "response": []
+    },
+    {
+      "name": "8. Xóa mềm sản phẩm (Soft Delete)",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/catalog/products/{{productId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "catalog",
+            "products",
+            "{{productId}}"
+          ]
+        },
+        "description": "Xóa mềm sản phẩm (chuyển sang trạng thái DELETED). (Request DELETE không có Body)"
+      },
+      "response": []
+    },
+    {
+      "name": "9. Test Bắt Lỗi: Trùng mã sản phẩm (Mong đợi 409 Conflict)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"productCode\": \"SP-TOTO-CS886\",\n  \"productName\": \"Bồn cầu TOTO trùng mã\",\n  \"categoryId\": \"{{categoryId}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/catalog/products",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "catalog",
+            "products"
+          ]
+        },
+        "description": "Cố tình tạo sản phẩm với mã SP-TOTO-CS886 đã tồn tại. Hệ thống sẽ trả về lỗi CAT_002 (409 Conflict)."
+      },
+      "response": []
+    },
+    {
+      "name": "10. Test Bắt Lỗi: Thiếu trường bắt buộc (Mong đợi 400 Bad Request)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"description\": \"Chỉ gửi mô tả, không gửi mã hay tên\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/catalog/products",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "catalog",
+            "products"
+          ]
+        },
+        "description": "Cố tình gửi request rỗng. Hệ thống sẽ trả về 400 Bad Request kèm chi tiết các trường bị lỗi bằng tiếng Việt."
+      },
+      "response": []
+    }
+  ]
+}
