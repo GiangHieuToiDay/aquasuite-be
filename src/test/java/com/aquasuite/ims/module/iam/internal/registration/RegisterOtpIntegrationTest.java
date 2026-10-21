@@ -1,8 +1,8 @@
 package com.aquasuite.ims.module.iam.internal.registration;
 
-import com.aquasuite.ims.module.iam.internal.auth.dto.response.LoginResponse;
+import com.aquasuite.ims.module.iam.internal.payload.response.LoginResponse;
 import com.aquasuite.ims.module.iam.internal.registration.payload.*;
-import com.aquasuite.ims.module.iam.internal.user.enums.UserStatus;
+import com.aquasuite.ims.module.iam.internal.entity.UserStatus;
 import org.junit.jupiter.api.Test;
 import org.springframework.mail.MailSendException;
 import org.springframework.mail.SimpleMailMessage;

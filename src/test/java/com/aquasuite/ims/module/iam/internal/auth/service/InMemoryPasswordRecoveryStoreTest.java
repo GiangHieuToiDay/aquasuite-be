@@ -1,4 +1,4 @@
-package com.aquasuite.ims.module.iam.internal.auth.service;
+package com.aquasuite.ims.module.iam.internal.service;
 
 import com.aquasuite.ims.module.iam.internal.service.InMemoryPasswordRecoveryStore;
 import org.junit.jupiter.api.Test;

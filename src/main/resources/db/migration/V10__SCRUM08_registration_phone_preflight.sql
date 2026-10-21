@@ -11,5 +11,4 @@ BEGIN
     END IF;
 END $$;
 
-ALTER TABLE public.users ADD COLUMN full_name VARCHAR(50);
-CREATE UNIQUE INDEX uq_users_phone_not_null ON public.users(phone) WHERE phone IS NOT NULL;
+-- full_name is owned by V6; unique phone index uq_users_phone is owned by V3.1.

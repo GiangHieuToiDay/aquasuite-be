@@ -5,7 +5,7 @@ import com.aquasuite.ims.module.catalog.internal.entity.enums.*;
 import com.aquasuite.ims.module.catalog.internal.payload.bundle.request.*;
 import com.aquasuite.ims.module.catalog.internal.payload.bundle.response.*;
 import com.aquasuite.ims.module.catalog.internal.repository.*;
-import com.aquasuite.ims.module.inventory.api.InventoryAvailabilityApi;
+import com.aquasuite.ims.module.inventory.api.InventoryApi;
 import com.aquasuite.ims.share.exception.AppException;
 import jakarta.validation.Validation;
 import org.junit.jupiter.api.*;
@@ -24,7 +24,7 @@ class BundleStorefrontServiceTest {
     final ProductVariantRepository variants = mock(ProductVariantRepository.class);
     final BundleConfigurationRepository configs = mock(BundleConfigurationRepository.class);
     final BundleAdminService admin = mock(BundleAdminService.class);
-    final InventoryAvailabilityApi inventory = mock(InventoryAvailabilityApi.class);
+    final InventoryApi inventory = mock(InventoryApi.class);
     final BundleConfiguration config = new BundleConfiguration();
     BundleResponse detail;
     jakarta.validation.ValidatorFactory validatorFactory;
@@ -113,7 +113,7 @@ class BundleStorefrontServiceTest {
 
     @Test
     void inventoryOutageIsUnknownAndCannotConfirmPurchasable() {
-        when(inventory.availableQuantities(any()))
+        when(inventory.getStockSummaries(any()))
                 .thenThrow(new IllegalStateException("unavailable"));
         var result = at(from).evaluate(id, new BundleEvaluationRequest(2, 1L, List.of()));
         assertThat(result.availability()).isEqualTo("UNKNOWN");
@@ -131,7 +131,7 @@ class BundleStorefrontServiceTest {
         variant.setStatus(VariantStatus.ACTIVE);
         variant.setSellingPrice(BigDecimal.ONE);
         when(variants.findAllById(any())).thenReturn(List.of(variant));
-        when(inventory.availableQuantities(any())).thenReturn(Map.of(sku, BigDecimal.TEN));
+        when(inventory.getStockSummaries(any())).thenReturn(Map.of(sku, new com.aquasuite.ims.module.inventory.api.dto.StockSummaryDto(sku, "WH_MAIN", BigDecimal.TEN, BigDecimal.ZERO, BigDecimal.TEN, BigDecimal.ZERO)));
         var result = at(from).evaluate(id, new BundleEvaluationRequest(1, null, List.of()));
         assertThat(result.availability()).isEqualTo("IN_STOCK");
         assertThat(result.priceIssue()).isEqualTo("PACKAGE_EXCEEDS_RETAIL");

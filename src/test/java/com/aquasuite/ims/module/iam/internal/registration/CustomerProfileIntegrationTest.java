@@ -1,7 +1,7 @@
 package com.aquasuite.ims.module.iam.internal.registration;
 
 import com.aquasuite.ims.module.crm.api.dto.CustomerRegistrationRequest;
-import com.aquasuite.ims.module.iam.internal.user.enums.UserStatus;
+import com.aquasuite.ims.module.iam.internal.entity.UserStatus;
 import com.aquasuite.ims.share.exception.AppException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

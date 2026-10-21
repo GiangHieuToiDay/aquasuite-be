@@ -60,15 +60,15 @@ public abstract class BundleCoreTestSupport {
             basePackages = {
                 "com.aquasuite.ims.module.catalog.internal.entity",
                 "com.aquasuite.ims.module.iam.internal.entity",
-                "com.aquasuite.ims.module.iam.internal.user.entity",
-                "com.aquasuite.ims.module.iam.internal.authorization.entity",
+                "com.aquasuite.ims.module.iam.internal.entity",
+                "com.aquasuite.ims.module.iam.internal.entity",
                 "com.aquasuite.ims.module.inventory.internal.entity"
             })
     @EnableJpaRepositories(
             basePackages = {
                 "com.aquasuite.ims.module.catalog.internal.repository",
                 "com.aquasuite.ims.module.iam.internal.repository",
-                "com.aquasuite.ims.module.iam.internal.user.repository",
+                "com.aquasuite.ims.module.iam.internal.repository",
                 "com.aquasuite.ims.module.inventory.internal.repository"
             })
     @Import({
@@ -85,8 +85,8 @@ public abstract class BundleCoreTestSupport {
     })
     public static class Config {
         @org.springframework.context.annotation.Bean
-        com.aquasuite.ims.module.iam.api.IamFacade iamFacade() {
-            return org.mockito.Mockito.mock(com.aquasuite.ims.module.iam.api.IamFacade.class);
+        com.aquasuite.ims.module.iam.api.IamApi iamFacade() {
+            return org.mockito.Mockito.mock(com.aquasuite.ims.module.iam.api.IamApi.class);
         }
 
         @org.springframework.context.annotation.Bean
@@ -120,7 +120,7 @@ public abstract class BundleCoreTestSupport {
     public void fixture() {
         jdbc.execute(
                 "TRUNCATE"
-                        + " inventories,audit_entries,bundle_items,bundle_configurations,product_images,product_variants,products,categories,brands,users"
+                        + " inventories,audit_logs,bundle_items,bundle_configurations,product_images,product_variants,products,categories,brands,users"
                         + " RESTART IDENTITY CASCADE");
         jdbc.update(
                 "INSERT INTO users(id,username,email,password_hash,status) VALUES(?, 'owner','owner@test.invalid','{disabled-test-account}','ACTIVE')",

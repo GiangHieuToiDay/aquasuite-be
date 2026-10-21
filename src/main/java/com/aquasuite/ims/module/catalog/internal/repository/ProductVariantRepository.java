@@ -18,7 +18,7 @@ import java.util.Set;
 import java.util.UUID;
 
 @Repository
-public interface ProductVariantRepository extends JpaRepository<ProductVariant, UUID> {
+public interface ProductVariantRepository extends JpaRepository<ProductVariant, UUID>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<ProductVariant> {
 
     Optional<ProductVariant> findBySku(String sku);
 

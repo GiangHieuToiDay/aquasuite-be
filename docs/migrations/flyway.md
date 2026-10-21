@@ -1,56 +1,66 @@
-# Flyway database migration
+# Flyway database migrations
 
-Spring Boot 3.5.16 manages Flyway 11.7.2 (`flyway-core` and `flyway-database-postgresql`). Startup runs pending migrations before Hibernate `validate`. Connection uses the existing `SPRING_DATASOURCE_*` environment variables.
+## Current chain after develop integration (2026-10-21)
 
-## New empty database
+This chain is reconciled for a new, empty PostgreSQL database. Java 21 / Spring Boot 3.5.16 manages Flyway. Keep Hibernate ddl-auto=validate. Supply credentials through environment variables; no live database was migrated during this reconciliation.
 
-Customer profile revision: `V7__SCRUM08_customer_profiles.sql` adds CRM customers from Database.pdf, linked by unique UUID user_id with ON DELETE RESTRICT. It does not backfill profiles for existing accounts. New online profiles are created together with OTP activation, default RETAIL/ACTIVE, with nullable address/company. V1-V6 remain unchanged.
-
-SCRUM08 adds `V6__SCRUM08_user_registration.sql` after V5: nullable `users.full_name` and a unique phone index for non-null phones. Preflight blocks noncanonical or duplicate legacy phone values without changing or deleting them. Reconcile on a backed-up/restored copy before applying V6; do not edit V1-V5, automatically repair history or run a destructive down migration. No new registration/CRM/session tables are introduced. Registration OTP uses Redis TTL instead of a cleanup job.
-
-Create the PostgreSQL database itself, supply connection variables, then start the application. Flyway runs:
-
-- `V1__Initial_legacy_schema.sql`: all current base tables (catalog, IAM and inventory); no business seed data.
-- `V2__SCRUM14_phase1_combo_core.sql`: preflight, combo constraints/configuration/backfill and compatibility audit table. This does not integrate combo CRUD with Auth/Audit.
-
-Flyway records versions/checksums in `flyway_schema_history`. Keep `ddl-auto=validate`; do not use Hibernate `update`, `create` or `create-drop` alongside Flyway.
-
-## Existing database without Flyway history
-
-Startup deliberately rejects a nonempty database with no history. Back up the database and compare its complete schema with the migrations before opting into a baseline. A baseline records an existing state; it does **not** create or repair missing tables, columns, constraints or indexes.
-
-| Existing state after review | One-time baseline version | Next action |
+| Version | Migration | Ownership / purpose |
 |---|---|---|
-| Complete V1 base schema, combo migration not applied | `1` | Startup applies V2/V3, backfills legacy bundles and adds option configuration |
-| Complete V1 + V2 schema, including old manual UC13 migration | `2` | Startup applies V3 and retains existing combo prices, versions and audit data |
-| Partial, unknown or Hibernate-generated schema missing migration constraints | None yet | Reconcile explicitly on a restored copy before adopting Flyway |
+| 1 | V1__create_iam_foundation.sql | IAM foundation from develop; UUID users, roles, permissions and joins |
+| 2 | V2__provision_canonical_roles_and_protection.sql | Canonical roles and protection from develop |
+| 2.1 | V2_1__create_inventory_baseline.sql | Inventory baseline from develop, previously duplicate V2 |
+| 3 | V3__create_catalog_categories_and_brands.sql | Categories, brands and their permissions from develop |
+| 3.1 | V3_1__extend_iam_and_create_audit_log.sql | IAM provider fields, unique phone index and audit_logs from develop, previously duplicate V3 |
+| 4 | V4__create_catalog_baseline.sql | Products, variants, images and bundle_items; uses category/brand tables already created by V3 |
+| 5 | V5__add_variant_reference_documents.sql | Variant reference documents from develop |
+| 6 | V6__create_crm_customer_and_delivery_addresses.sql | CRM profiles, addresses and users.full_name from develop |
+| 7 | V7__SCRUM14_phase1_combo_core.sql | Combo configurations, preflight and configuration backfill |
+| 8 | V8__SCRUM14_phase2_combo_options.sql | Component groups and SKU whitelist constraints |
+| 9 | V9__password_recovery_storage.sql | Storage required by the retained UserPasswordRecovery entity; no legacy-account backfill |
+| 10 | V10__SCRUM08_registration_phone_preflight.sql | Reject noncanonical/duplicate existing user phone values; reuse develop's full_name and phone index |
 
-In the application launch environment, temporarily set `SPRING_FLYWAY_BASELINE_ON_MIGRATE=true` and `SPRING_FLYWAY_BASELINE_VERSION=1` or `2` according to the reviewed state. Start once and verify `flyway_schema_history` and Hibernate validation. Then remove both variables. Never leave automatic baseline enabled for routine deployment.
+Flyway interprets underscores within version numbers as dots: V2_1 is version 2.1 and V3_1 is 3.1. This preserves develop's major version order while removing its duplicate versions. Local feature additions start after develop's highest version, V6.
 
-Flyway is the only migration mechanism. The PowerShell runner, separate SQL resources and custom schema-version journal are no longer used. Databases upgraded before Flyway adoption still require baseline version 2 after complete schema review. Existing legacy journal tables may remain as historical metadata; the application does not read or modify them.
+## Removed duplicate or obsolete SQL
 
-## Future changes
+- V1__Initial_legacy_schema.sql: superseded by develop's module baselines; creating its numeric-ID users and duplicate catalog/inventory tables would conflict.
+- V4__integrate_uuid_authentication.sql: obsolete on develop's UUID IAM foundation; must not rename/recreate its existing users or roles.
+- V7__SCRUM08_customer_profiles.sql: customers already exists from develop V6; keep develop's Customer schema and foreign-key behavior.
+- Former registration V6: full_name and the unique phone index already exist. Only the protective phone preflight remains, now V10.
+- Former recovery V5: retain CREATE TABLE as V9 because an entity/repository still maps user_password_recovery; remove backfill from nonexistent iam_legacy_users/iam_legacy_user_ids.
+- Former combo V2: quantity, uniqueness and bundle-item foreign keys already exist from develop V4. Retain combo preflight/configuration/backfill and useful indexes, without duplicate constraints. Do not create the unused audit_entries table; develop owns audit_logs.
+- Develop V4 formerly recreated brands/categories and their index after V3. Those duplicate statements are removed; V3 remains their owner.
 
-V3 is `V3__SCRUM14_phase2_combo_options.sql` (additive `bundle_component_groups` table with UUID whitelist arrays). Existing drafts need no backfill; publication dates remain unchanged. Add V4, then V5, etc. under `src/main/resources/db/migration`. Never edit migrations already applied to shared databases. PostgreSQL migrations run transactionally; SQL errors roll back the failed migration. Flyway validation detects modified applied migrations. `clean` is disabled. Use a new corrective migration and application rollback as appropriate; do not delete history or automatically run `repair`.
+## Existing databases and historical migration chains
+
+Renamed/removed SQL and the reconciled V4/V7/V9 content change migration identity/checksums. This is a new-database chain, not an automatic upgrade path for any previously migrated database. Historical V1-V7 references in older specs/reviews describe the former chain, not the current numbering. Earlier test totals do not verify this new chain.
+
+For an existing local/shared/production database, back up and inspect flyway_schema_history and actual schema before choosing a separate reviewed forward-upgrade/onboarding procedure. Do not automatically baseline, repair, delete history, rewrite applied migrations or recreate a database. No existing database contents or history were changed here.
 
 ## Verification
 
-`./mvnw.cmd clean -Pphase1-it verify` requires Docker. Integration tests use disposable PostgreSQL 17.6 databases, apply Flyway migrations, and validate all current entity mappings. Dedicated tests cover first startup/retry, refusal of unmanaged databases, explicit baseline/backfill, retention of existing combo data and disabled clean. No migration is run against the developer's local or production database by these tests.
+On 2026-10-21, all 12 SQL files ran in version order against an isolated disposable PostgreSQL 17.6 container, each in a transaction with ON_ERROR_STOP. All passed. Checks confirmed the required IAM/CRM/inventory/catalog/combo/recovery tables, UUID users, exactly one unique phone index and absence of unused audit_entries. Container was stopped and removed after verification; no ports were exposed.
 
-References: [Spring Boot 3.5 database initialization](https://docs.spring.io/spring-boot/3.5/how-to/data-initialization.html), [Flyway baseline](https://documentation.red-gate.com/flyway/reference/commands/baseline).
+This directly verifies PostgreSQL SQL execution, not Flyway history/checksum/retry behavior or complete Hibernate validation. The pre-merge migration tests still refer to the old chain and need reconciliation before their results can be used as evidence for this chain. Test compilation also has a previously identified missing ArchUnit dependency in the merged POM. No full application/integration pass is claimed.
 
-Latest Flyway-only verification: clean phase1-it verify BUILD SUCCESS at 2026-10-20 13:36:48 +07; 47 Surefire + 41 Failsafe = 88 PASS, zero failures/errors/skipped. Evidence: flyway-only-verify.log (ignored local log). Combo migration tests also verify checksum mismatch, invalid-data rollback and database constraints.
+## Full merged-code verification (2026-10-21)
 
+Production and test sources compile after restoring the ArchUnit test dependency and phase1-it Failsafe profile. Registration's three public endpoints are retained in develop's security configuration. Test fixtures use the develop User/IamApi model.
 
-Phase 2 verification is tracked separately in the Phase 2 handoff; the Flyway-only 88-test result above predates V3. Historical V2 migration tests remain pinned to target 2; full application/Flyway tests migrate through V3 and validate entity mappings. No migration has been applied to a live database by this task.
+Executed `mvn -o clean -Pphase1-it verify`. Surefire failures prevented the lifecycle from reaching Failsafe, so the remaining integration suite was executed explicitly with `mvn -o -Pphase1-it failsafe:integration-test failsafe:verify`.
 
-Phase 2 clean verification: BUILD SUCCESS, 111 PASS (56 + 55), zero failures/errors/skipped, 2026-10-20 15:05:17 +07; log `uc13-phase2-clean-verify.log`. V3 is tested on disposable PostgreSQL only.
+| Suite | Tests | Failures | Errors | Skipped |
+|---|---:|---:|---:|---:|
+| Surefire | 362 | 2 | 185 | 0 |
+| Failsafe | 70 | 2 | 66 | 0 |
+| Total | 432 | 4 | 251 | 0 |
 
+BUILD FAILURE. Most context errors originate from a develop schema/model mismatch: Product maps products.origin but no current migration adds that column. Additional findings: GlobalExceptionHandler has overlapping exception mappings after merge; migration tests still assume the previous numeric-user/legacy V1-V7 chain and old phone-index name; configuration and DTO structural tests retain assumptions superseded by develop. These require reconciliation; the passing direct SQL execution above does not establish that the application starts or all tests pass.
 
-## Authentication merge migration chain
+Reports: target/surefire-reports and target/failsafe-reports. No live database migration, commit or push was performed.
 
-The current chain is V1 legacy schema -> V2 combo core -> V3 options -> V4 UUID authentication -> V5 password recovery. Existing V1/V2/V3 bytes are preserved. The incoming IAM V1 DDL is integrated into V4 instead of introducing a second V1. V4 keeps original account rows in iam_legacy_users and maps numeric IDs deterministically in iam_legacy_user_ids, including historical orphan actor references; audit/stock-count/stock-movement scalar actor columns become UUID. Compatible password hashes/profile values are copied to the new users schema. Missing email/password identities are locked with non-deliverable placeholders; original values remain archived. Conflicting normalized usernames/emails fail the migration atomically for manual reconciliation. Old role IDs are retained in the archive; no role grants are guessed. V5 retains OTP hashes/rate-limit/password-change state separately.
+## Product origin removal (2026-10-21)
 
-Review/back up existing data before deployment. Databases already using this repository's V1/V2/V3 can upgrade forward. A database initialized from the standalone authentication branch has a different V1 checksum/schema: it must be reconciled and rehearsed on a restored copy, not blindly baseline/repair or run this chain. This task never migrates a local/shared/production database; tests use disposable containers.
+At the user's request, origin is removed from Product, create/update requests, product detail/list/storefront responses, service mappings and the product Postman collection. No migration is needed because the reconciled schema never created this column. The missing-origin finding above is historical; the handler ambiguity has also been fixed separately. Full verification is rerun after this change.
 
-Authentication integration verification: full verify 251 PASS, zero failures/errors/skipped (2026-10-20 17:56:28 +07). Three populated upgrade tests check account/profile/hash/recovery/actor/combo preservation, atomic rollback on conflicting identities, and locking incomplete identities. Legacy created_at is interpreted as UTC; raw values remain in the archive for reconciliation. No live migration run.
+Post-origin verification: `mvn -o clean -Pphase1-it -Dmaven.test.failure.ignore=true verify` executed both suites to completion (2026-10-21 22:24:06 +07). Surefire: 363 tests, 2 failures, 147 errors, 0 skipped. Failsafe: 70 tests, 7 failures, 27 errors, 0 skipped. Total: 433 tests, 9 failures, 174 errors, 0 skipped. The ignore flag allows collecting all suite results; Maven's BUILD SUCCESS here does not mean tests passed. Full application startup test passed and missing-origin validation is resolved. Remaining failures include Brand initializer IDs, integration fixtures/configuration/DTO assumptions and obsolete migration expectations; no overall test PASS is claimed.

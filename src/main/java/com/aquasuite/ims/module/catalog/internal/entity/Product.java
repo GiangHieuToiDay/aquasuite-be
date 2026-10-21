@@ -37,9 +37,6 @@ public class Product {
     @Column(name = "product_name", nullable = false, length = 255)
     private String productName;
 
-    @Column(name = "origin", length = 100)
-    private String origin;
-
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 

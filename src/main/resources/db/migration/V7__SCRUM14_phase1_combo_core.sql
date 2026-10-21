@@ -31,18 +31,10 @@ CREATE TABLE bundle_configurations (
 );
 INSERT INTO bundle_configurations(bundle_product_id)
  SELECT product_id FROM products WHERE product_type='BUNDLE';
-ALTER TABLE bundle_items ADD CONSTRAINT uc13_bundle_quantity_positive CHECK(quantity>0);
-ALTER TABLE bundle_items ADD CONSTRAINT uc13_bundle_item_unique UNIQUE(bundle_product_id,variant_id);
-ALTER TABLE bundle_items ADD CONSTRAINT uc13_bundle_parent_fk FOREIGN KEY(bundle_product_id) REFERENCES products(product_id);
-ALTER TABLE bundle_items ADD CONSTRAINT uc13_bundle_variant_fk FOREIGN KEY(variant_id) REFERENCES product_variants(variant_id);
+-- Quantity, uniqueness and item foreign keys are already enforced by V4.
 CREATE INDEX uc13_items_parent_idx ON bundle_items(bundle_product_id);
 CREATE INDEX uc13_publication_idx ON bundle_configurations(publication_status);
-CREATE TABLE audit_entries (
- id UUID PRIMARY KEY, actor_id BIGINT NOT NULL, action VARCHAR(40) NOT NULL,
- aggregate_type VARCHAR(40) NOT NULL, aggregate_id UUID NOT NULL,
- before_value JSONB, after_value JSONB, occurred_at TIMESTAMPTZ NOT NULL
-);
-CREATE INDEX uc13_audit_aggregate_idx ON audit_entries(aggregate_id,occurred_at);
+-- Business audit is owned by audit_logs (V3.1); no unused audit_entries table.
 
 DO $$
 BEGIN

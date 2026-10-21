@@ -124,7 +124,6 @@
               "    pm.expect(res.success).to.be.true;",
               "    pm.expect(res.message).to.eql(\"Product created successfully. Please configure SKUs and variants.\");",
               "    pm.expect(res.data.productId).to.not.be.empty;",
-              "    pm.expect(res.data.origin).to.eql(\"Nhật Bản\");",
               "    pm.collectionVariables.set('productId', res.data.productId);",
               "});"
             ],
@@ -142,7 +141,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"productCode\": \"{{testProductCode}}\",\n  \"productName\": \"TOTO Neorest Smart Toilet\",\n  \"categoryId\": \"{{categoryId}}\",\n  \"brandId\": \"{{brandId}}\",\n  \"origin\": \"Nhật Bản\",\n  \"description\": \"CeFiONtect ceramic glaze, Tornado flush, auto-deodorizer\",\n  \"specifications\": {\n    \"roughInDimension\": \"305mm\",\n    \"waterPressure\": \"0.05-0.75 MPa\",\n    \"powerRating\": \"220V/850W\",\n    \"trapway\": \"S-Trap\",\n    \"cadBlueprints\": [\n      \"https://res.cloudinary.com/aquasuite/raw/upload/v1/blueprints/toto-neorest-blueprint.dwg\"\n    ],\n    \"installationManualPdf\": \"https://res.cloudinary.com/aquasuite/image/upload/v1/manuals/toto-neorest-install.pdf\"\n  },\n  \"productType\": \"NORMAL\",\n  \"status\": \"ACTIVE\",\n  \"imageUrls\": [\n    \"https://res.cloudinary.com/aquasuite/image/upload/v1/products/toto-neorest-01.jpg\",\n    \"https://res.cloudinary.com/aquasuite/image/upload/v1/products/toto-neorest-02.jpg\"\n  ]\n}",
+          "raw": "{\n  \"productCode\": \"{{testProductCode}}\",\n  \"productName\": \"TOTO Neorest Smart Toilet\",\n  \"categoryId\": \"{{categoryId}}\",\n  \"brandId\": \"{{brandId}}\",\n  \"description\": \"CeFiONtect ceramic glaze, Tornado flush, auto-deodorizer\",\n  \"specifications\": {\n    \"roughInDimension\": \"305mm\",\n    \"waterPressure\": \"0.05-0.75 MPa\",\n    \"powerRating\": \"220V/850W\",\n    \"trapway\": \"S-Trap\",\n    \"cadBlueprints\": [\n      \"https://res.cloudinary.com/aquasuite/raw/upload/v1/blueprints/toto-neorest-blueprint.dwg\"\n    ],\n    \"installationManualPdf\": \"https://res.cloudinary.com/aquasuite/image/upload/v1/manuals/toto-neorest-install.pdf\"\n  },\n  \"productType\": \"NORMAL\",\n  \"status\": \"ACTIVE\",\n  \"imageUrls\": [\n    \"https://res.cloudinary.com/aquasuite/image/upload/v1/products/toto-neorest-01.jpg\",\n    \"https://res.cloudinary.com/aquasuite/image/upload/v1/products/toto-neorest-02.jpg\"\n  ]\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -196,7 +195,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"productCode\": \"{{testProductCode}}\",\n  \"productName\": \"Bồn cầu TOTO trùng mã\",\n  \"categoryId\": \"{{categoryId}}\",\n  \"origin\": \"Nhật Bản\"\n}",
+          "raw": "{\n  \"productCode\": \"{{testProductCode}}\",\n  \"productName\": \"Bồn cầu TOTO trùng mã\",\n  \"categoryId\": \"{{categoryId}}\"\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -289,7 +288,6 @@
               "    var res = pm.response.json();",
               "    pm.expect(res.success).to.be.true;",
               "    pm.expect(res.data.productId).to.eql(pm.collectionVariables.get('productId'));",
-              "    pm.expect(res.data.origin).to.eql('Nhật Bản');",
               "    pm.expect(res.data.specifications.roughInDimension).to.eql('305mm');",
               "    pm.expect(res.data.images).to.have.lengthOf(2);",
               "});"
@@ -350,7 +348,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"productCode\": \"{{testProductCode}}\",\n  \"productName\": \"TOTO Neorest Smart Toilet (Phiên bản 2026)\",\n  \"categoryId\": \"{{categoryId}}\",\n  \"brandId\": \"{{brandId}}\",\n  \"origin\": \"Nhật Bản\",\n  \"description\": \"CeFiONtect glaze thế hệ mới, tích hợp vòi rửa tự động và sấy ấm\",\n  \"specifications\": {\n    \"roughInDimension\": \"305mm\",\n    \"waterPressure\": \"0.05-0.75 MPa\",\n    \"powerRating\": \"220V/850W\",\n    \"trapway\": \"S-Trap Enhanced\"\n  },\n  \"productType\": \"NORMAL\",\n  \"status\": \"ACTIVE\",\n  \"imageUrls\": [\n    \"https://res.cloudinary.com/aquasuite/image/upload/v1/products/toto-neorest-updated.jpg\"\n  ]\n}",
+          "raw": "{\n  \"productCode\": \"{{testProductCode}}\",\n  \"productName\": \"TOTO Neorest Smart Toilet (Phiên bản 2026)\",\n  \"categoryId\": \"{{categoryId}}\",\n  \"brandId\": \"{{brandId}}\",\n  \"description\": \"CeFiONtect glaze thế hệ mới, tích hợp vòi rửa tự động và sấy ấm\",\n  \"specifications\": {\n    \"roughInDimension\": \"305mm\",\n    \"waterPressure\": \"0.05-0.75 MPa\",\n    \"powerRating\": \"220V/850W\",\n    \"trapway\": \"S-Trap Enhanced\"\n  },\n  \"productType\": \"NORMAL\",\n  \"status\": \"ACTIVE\",\n  \"imageUrls\": [\n    \"https://res.cloudinary.com/aquasuite/image/upload/v1/products/toto-neorest-updated.jpg\"\n  ]\n}",
           "options": {
             "raw": {
               "language": "json"

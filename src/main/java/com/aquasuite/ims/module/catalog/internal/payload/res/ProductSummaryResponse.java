@@ -17,7 +17,6 @@ public record ProductSummaryResponse(
         String categoryName,
         UUID brandId,
         String brandName,
-        String origin,
         ProductType productType,
         ProductStatus status,
         String primaryImageUrl,

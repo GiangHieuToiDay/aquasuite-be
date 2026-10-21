@@ -323,7 +323,7 @@ class JwtSecurityIntegrationTest extends AuthIntegrationTestSupport {
     void shouldFailApplicationStartupWhenJwtSecretIsMissing() {
         org.springframework.boot.builder.SpringApplicationBuilder builder =
                 new org.springframework.boot.builder.SpringApplicationBuilder(
-                                com.aquasuite.ims.module.iam.internal.auth.token.JwtTokenService
+                                com.aquasuite.ims.module.iam.internal.token.JwtTokenService
                                         .class)
                         .web(org.springframework.boot.WebApplicationType.NONE)
                         .registerShutdownHook(false)

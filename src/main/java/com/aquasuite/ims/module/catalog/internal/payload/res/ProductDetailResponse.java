@@ -16,7 +16,6 @@ public record ProductDetailResponse(
         String productName,
         CategoryBriefResponse category,
         BrandBriefResponse brand,
-        String origin,
         String description,
         Map<String, Object> specifications,
         ProductType productType,

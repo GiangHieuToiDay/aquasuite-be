@@ -1,15 +1,15 @@
 package com.aquasuite.ims.module.iam.internal.registration.service;
 
-import com.aquasuite.ims.module.iam.internal.auth.dto.response.LoginResponse;
-import com.aquasuite.ims.module.iam.internal.auth.service.AuthService;
+import com.aquasuite.ims.module.iam.internal.payload.response.LoginResponse;
+import com.aquasuite.ims.module.iam.internal.service.AuthService;
 import com.aquasuite.ims.module.crm.api.CustomerRegistrationApi;
 import com.aquasuite.ims.module.crm.api.dto.CustomerRegistrationRequest;
-import com.aquasuite.ims.module.iam.internal.authorization.repository.RoleRepository;
+import com.aquasuite.ims.module.iam.internal.repository.RoleRepository;
 import com.aquasuite.ims.module.iam.internal.registration.error.RegistrationErrorCode;
 import com.aquasuite.ims.module.iam.internal.registration.payload.*;
-import com.aquasuite.ims.module.iam.internal.user.entity.User;
-import com.aquasuite.ims.module.iam.internal.user.enums.UserStatus;
-import com.aquasuite.ims.module.iam.internal.user.repository.UserRepository;
+import com.aquasuite.ims.module.iam.internal.entity.User;
+import com.aquasuite.ims.module.iam.internal.entity.UserStatus;
+import com.aquasuite.ims.module.iam.internal.repository.UserRepository;
 import com.aquasuite.ims.share.exception.AppException;
 import com.aquasuite.ims.share.exception.CommonErrorCode;
 import jakarta.validation.Valid;

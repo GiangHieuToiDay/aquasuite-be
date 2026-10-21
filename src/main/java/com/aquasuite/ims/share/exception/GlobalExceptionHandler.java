@@ -95,12 +95,7 @@ public class GlobalExceptionHandler {
                                 CommonErrorCode.DATA_INTEGRITY_VIOLATION.getMessage()));
     }
 
-    @ExceptionHandler({
-        org.springframework.http.converter.HttpMessageNotReadableException.class,
-        org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class,
-        org.springframework.web.bind.MissingServletRequestParameterException.class,
-        org.springframework.web.bind.ServletRequestBindingException.class
-    })
+    @ExceptionHandler(org.springframework.web.bind.ServletRequestBindingException.class)
     public ResponseEntity<ApiResponse<Void>> handleInvalidBinding(Exception ex) {
         return ResponseEntity.badRequest()
                 .body(

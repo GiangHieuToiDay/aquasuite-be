@@ -132,6 +132,12 @@
             <artifactId>cloudinary-http5</artifactId>
             <version>2.0.0</version>
         </dependency>
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit-junit5</artifactId>
+            <version>1.4.1</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -208,4 +214,18 @@
         </plugins>
     </build>
 
+    <profiles>
+        <profile>
+            <id>phase1-it</id>
+            <build><plugins><plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>3.5.6</version>
+                <configuration><failIfNoTests>true</failIfNoTests></configuration>
+                <executions><execution><goals>
+                    <goal>integration-test</goal><goal>verify</goal>
+                </goals></execution></executions>
+            </plugin></plugins></build>
+        </profile>
+    </profiles>
 </project>

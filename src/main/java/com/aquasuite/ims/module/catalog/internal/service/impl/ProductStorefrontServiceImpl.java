@@ -400,7 +400,6 @@ public class ProductStorefrontServiceImpl implements ProductStorefrontService {
                         .brandCode(brand.getBrandCode())
                         .brandName(brand.getBrandName())
                         .build() : null)
-                .origin(product.getOrigin())
                 .description(product.getDescription())
                 .specifications(product.getSpecifications())
                 .productType(product.getProductType())

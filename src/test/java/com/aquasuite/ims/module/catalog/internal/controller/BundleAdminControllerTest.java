@@ -42,7 +42,7 @@ class BundleAdminControllerTest {
                                     .contentType(MediaType.APPLICATION_JSON)
                                     .content("{\"productCode\":\"A\",\"unknownField\":1}"))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.code").value("SYS_002"));
+                    .andExpect(jsonPath("$.code").value("SYS_003"));
             mvc.perform(
                             patch(
                                             "/api/v1/catalog/admin/bundles/10000000-0000-4000-8000-000000000001/status")

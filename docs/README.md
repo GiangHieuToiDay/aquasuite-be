@@ -1,5 +1,7 @@
 # AquaSuite Backend Documentation Index
 
+> Migration reconciliation (2026-10-21): the current new-database chain uses develop V1-V6 (with 2.1/3.1 for duplicate versions), followed by combo V7/V8, recovery V9 and registration phone preflight V10. Redundant legacy/UUID/customer creation is removed. See [current Flyway runbook](migrations/flyway.md). Historical migration numbers and test totals below do not describe this reconciled chain.
+
 ## Purpose and Document Hierarchy
 
 Tài liệu này là bản đồ chỉ mục cho toàn bộ hệ thống tài liệu phát triển backend của dự án AquaSuite. Để giải quyết các mâu thuẫn thông tin có thể phát sinh trong quá trình phát triển, thứ tự ưu tiên nguồn sự thật (Source of Truth) được quy định như sau:

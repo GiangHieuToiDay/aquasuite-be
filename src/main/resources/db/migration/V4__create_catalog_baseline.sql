@@ -1,34 +1,4 @@
--- Catalog baseline. This migration owns the tables mapped by the Catalog module.
-
-CREATE TABLE public.brands (
-    brand_id UUID NOT NULL,
-    brand_code VARCHAR(100) NOT NULL,
-    brand_name VARCHAR(255) NOT NULL,
-    description TEXT,
-    status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT pk_brands PRIMARY KEY (brand_id),
-    CONSTRAINT uq_brands_brand_code UNIQUE (brand_code),
-    CONSTRAINT chk_brands_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
-);
-
-CREATE TABLE public.categories (
-    category_id UUID NOT NULL,
-    category_code VARCHAR(100) NOT NULL,
-    category_name VARCHAR(255) NOT NULL,
-    parent_id UUID,
-    description TEXT,
-    status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT pk_categories PRIMARY KEY (category_id),
-    CONSTRAINT uq_categories_category_code UNIQUE (category_code),
-    CONSTRAINT fk_categories_parent FOREIGN KEY (parent_id) REFERENCES public.categories (category_id) ON DELETE RESTRICT,
-    CONSTRAINT chk_categories_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
-);
-
-CREATE INDEX idx_categories_parent_id ON public.categories (parent_id);
+-- Category and brand tables are owned by V3; this migration adds products and SKUs.
 
 CREATE TABLE public.products (
     product_id UUID NOT NULL,

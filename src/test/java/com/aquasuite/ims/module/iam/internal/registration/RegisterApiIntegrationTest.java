@@ -1,13 +1,13 @@
 package com.aquasuite.ims.module.iam.internal.registration;
 
 import com.aquasuite.ims.AquasuiteBeApplication;
-import com.aquasuite.ims.module.iam.internal.auth.service.AuthService;
-import com.aquasuite.ims.module.iam.internal.authorization.entity.Role;
-import com.aquasuite.ims.module.iam.internal.authorization.repository.RoleRepository;
+import com.aquasuite.ims.module.iam.internal.service.AuthService;
+import com.aquasuite.ims.module.iam.internal.entity.Role;
+import com.aquasuite.ims.module.iam.internal.repository.RoleRepository;
 import com.aquasuite.ims.module.iam.internal.registration.service.RegisterService;
-import com.aquasuite.ims.module.iam.internal.user.entity.User;
-import com.aquasuite.ims.module.iam.internal.user.enums.UserStatus;
-import com.aquasuite.ims.module.iam.internal.user.repository.UserRepository;
+import com.aquasuite.ims.module.iam.internal.entity.User;
+import com.aquasuite.ims.module.iam.internal.entity.UserStatus;
+import com.aquasuite.ims.module.iam.internal.repository.UserRepository;
 import com.aquasuite.ims.testsupport.AuthIntegrationTestSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;

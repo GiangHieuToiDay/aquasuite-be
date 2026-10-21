@@ -59,6 +59,18 @@ class GlobalExceptionHandlerTest {
 
     @RestController
     static class DummyController {
+        @GetMapping("/test/required-param")
+        public void requiredParameter(
+                @org.springframework.web.bind.annotation.RequestParam("id") java.util.UUID id) {}
+
+        @GetMapping("/test/required-header")
+        public void requiredHeader(
+                @org.springframework.web.bind.annotation.RequestHeader("X-Test") String header) {}
+
+        @org.springframework.web.bind.annotation.PostMapping("/test/json")
+        public void jsonBody(
+                @org.springframework.web.bind.annotation.RequestBody java.util.Map<String, String> body) {}
+
         @GetMapping("/test/app-exception")
         public void throwAppException() {
             throw new AppException(TestErrorCode.INSUFFICIENT_STOCK, "SKU-TEST-01", 10, 3);
@@ -145,6 +157,23 @@ class GlobalExceptionHandlerTest {
                         jsonPath("$.message")
                                 .value(CommonErrorCode.INTERNAL_SERVER_ERROR.getMessage()))
                 .andExpect(jsonPath("$.timestamp").exists());
+    }
+
+    @Test
+    void bindingErrorsResolveToSpecificDevelopHandlersWithoutAmbiguity() throws Exception {
+        mockMvc.perform(get("/test/required-param"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("SYS_002"));
+        mockMvc.perform(get("/test/required-param").param("id", "invalid-uuid"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("SYS_002"));
+        mockMvc.perform(get("/test/required-header"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("SYS_002"));
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/test/json").contentType(MediaType.APPLICATION_JSON).content("{"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(CommonErrorCode.VALIDATION_ERROR.getCode()));
     }
 
     @Test

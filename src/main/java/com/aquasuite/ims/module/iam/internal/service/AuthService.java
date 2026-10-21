@@ -10,6 +10,9 @@ public interface AuthService {
 
     LoginResponse login(LoginRequest request);
 
+    /** Internal IAM call after registration activation commits. */
+    LoginResponse loginRegisteredUser(java.util.UUID userId);
+
     TokenResponse refresh(RefreshRequest request);
 
     void logout(Jwt jwt);

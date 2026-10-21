@@ -4,9 +4,9 @@ import com.aquasuite.ims.AquasuiteBeApplication;
 import com.aquasuite.ims.module.catalog.internal.payload.bundle.request.*;
 import com.aquasuite.ims.module.catalog.internal.payload.bundle.response.*;
 import com.aquasuite.ims.module.catalog.internal.service.BundleAdminService;
-import com.aquasuite.ims.module.iam.internal.user.entity.User;
-import com.aquasuite.ims.module.iam.internal.user.enums.UserStatus;
-import com.aquasuite.ims.module.iam.internal.user.repository.UserRepository;
+import com.aquasuite.ims.module.iam.internal.entity.User;
+import com.aquasuite.ims.module.iam.internal.entity.UserStatus;
+import com.aquasuite.ims.module.iam.internal.repository.UserRepository;
 import com.aquasuite.ims.testsupport.AuthIntegrationTestSupport;
 import com.fasterxml.jackson.databind.*;
 import org.junit.jupiter.api.*;
@@ -44,15 +44,14 @@ class AuthenticationMergeIT extends AuthIntegrationTestSupport {
     void fixture() {
         getFaultProxy().disarm();
         jdbc.execute(
-                "TRUNCATE user_roles,role_permissions,user_password_recovery,users,roles,permissions,bundle_items,bundle_configurations,product_images,product_variants,products,categories,brands,inventories,stock_movements,audit_entries CASCADE");
-        users.save(
-                User.builder()
-                        .id(userId)
-                        .username("merge-user")
-                        .email("merge@test.invalid")
-                        .passwordHash(passwords.encode(password))
-                        .status(UserStatus.ACTIVE)
-                        .build());
+                "TRUNCATE user_roles,role_permissions,user_password_recovery,users,roles,permissions,bundle_items,bundle_configurations,product_images,product_variants,products,categories,brands,inventories,stock_movements,audit_logs CASCADE");
+        User account = new User();
+        account.setId(userId);
+        account.setUsername("merge-user");
+        account.setEmail("merge@test.invalid");
+        account.setPasswordHash(passwords.encode(password));
+        account.setStatus(UserStatus.ACTIVE);
+        users.save(account);
         jdbc.update(
                 "INSERT INTO categories(category_id,category_code,category_name,status) VALUES(?,'TEST','Test','ACTIVE')",
                 category);

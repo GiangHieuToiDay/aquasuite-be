@@ -25,24 +25,24 @@ public class CustomerRegistrationServiceImpl implements CustomerRegistrationApi 
         var existing = customers.findByUserId(request.userId());
         if (existing.isPresent()) {
             Customer profile = existing.get();
-            if (!profile.getName().equals(request.fullName())
+            if (!profile.getCustomerName().equals(request.fullName())
                     || !profile.getPhone().equals(request.phone())
                     || !profile.getEmail().equalsIgnoreCase(request.email())) {
                 throw new AppException(CommonErrorCode.DATA_INTEGRITY_VIOLATION);
             }
-            return new CustomerRegistrationResponse(profile.getId(), profile.getCode());
+            return new CustomerRegistrationResponse(profile.getCustomerId(), profile.getCustomerCode());
         }
         Customer profile = new Customer();
         UUID id = UUID.randomUUID();
-        profile.setId(id);
+        profile.setCustomerId(id);
         profile.setUserId(request.userId());
-        profile.setCode("CUS-" + id);
-        profile.setName(request.fullName());
+        profile.setCustomerCode("CUS-" + id);
+        profile.setCustomerName(request.fullName());
         profile.setPhone(request.phone());
         profile.setEmail(request.email());
-        profile.setType("RETAIL");
+        profile.setCustomerType(com.aquasuite.ims.module.crm.internal.entity.enums.CustomerType.RETAIL);
         profile.setStatus("ACTIVE");
         customers.saveAndFlush(profile);
-        return new CustomerRegistrationResponse(id, profile.getCode());
+        return new CustomerRegistrationResponse(id, profile.getCustomerCode());
     }
 }

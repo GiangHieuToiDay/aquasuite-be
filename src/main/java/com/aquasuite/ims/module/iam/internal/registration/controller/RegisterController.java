@@ -1,6 +1,6 @@
 package com.aquasuite.ims.module.iam.internal.registration.controller;
 
-import com.aquasuite.ims.module.iam.internal.auth.dto.response.LoginResponse;
+import com.aquasuite.ims.module.iam.internal.payload.response.LoginResponse;
 import com.aquasuite.ims.module.iam.internal.registration.payload.*;
 import com.aquasuite.ims.module.iam.internal.registration.service.RegisterService;
 import com.aquasuite.ims.share.dto.ApiResponse;

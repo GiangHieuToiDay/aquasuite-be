@@ -8,7 +8,7 @@ import com.aquasuite.ims.module.catalog.internal.exception.BundleErrorCode;
 import com.aquasuite.ims.module.catalog.internal.payload.bundle.request.*;
 import com.aquasuite.ims.module.catalog.internal.payload.bundle.response.*;
 import com.aquasuite.ims.module.catalog.internal.repository.*;
-import com.aquasuite.ims.module.inventory.api.InventoryAvailabilityApi;
+import com.aquasuite.ims.module.inventory.api.InventoryApi;
 import com.aquasuite.ims.share.exception.*;
 import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
@@ -37,7 +37,7 @@ public class BundleStorefrontService {
     private final BundleConfigurationRepository configs;
     private final BundleAdminService admin;
     private final BundlePricingService pricing;
-    private final InventoryAvailabilityApi inventory;
+    private final InventoryApi inventory;
     private final Validator validator;
     private final Clock clock;
 
@@ -231,8 +231,15 @@ public class BundleStorefrontService {
 
     private Map<UUID, BigDecimal> readStock(UUID id, List<UUID> selectedIds) {
         try {
-            var result = inventory.availableQuantities(selectedIds);
-            return result == null ? Map.of() : result;
+            var summaries = inventory.getStockSummaries(selectedIds);
+            if (summaries == null) return Map.of();
+            Map<UUID, BigDecimal> result = new HashMap<>();
+            summaries.forEach((variantId, summary) -> {
+                if (summary != null && summary.availableQty() != null) {
+                    result.put(variantId, summary.availableQty());
+                }
+            });
+            return result;
         } catch (RuntimeException failure) {
             // Lỗi phụ thuộc tồn kho chỉ làm preview không xác định tồn; lỗi Catalog vẫn báo bình
             // thường.
