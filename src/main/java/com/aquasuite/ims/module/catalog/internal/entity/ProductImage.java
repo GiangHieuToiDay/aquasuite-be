@@ -3,7 +3,7 @@ package com.aquasuite.ims.module.catalog.internal.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -38,12 +38,12 @@ public class ProductImage {
     private Integer sortOrder = 0;
 
     @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @PrePersist
     public void prePersist() {
         if (createdAt == null) {
-            createdAt = LocalDateTime.now();
+            createdAt = Instant.now();
         }
         if (isPrimary == null) {
             isPrimary = false;

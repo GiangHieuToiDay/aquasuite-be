@@ -26,8 +26,9 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 
@@ -165,7 +166,7 @@ class PasswordServiceTest {
 
         assertThat(response.message()).isEqualTo("A password reset code has been sent to your email.");
         assertThat(user.getVerificationCode()).isNotNull();
-        assertThat(user.getVerificationExpiredAt()).isAfter(LocalDateTime.now().plusMinutes(9));
+        assertThat(user.getVerificationExpiredAt()).isAfter(Instant.now().plus(9, ChronoUnit.MINUTES));
         assertThat(user.getEmailSentCount()).isEqualTo(1);
         assertThat(user.getEmailSentDate()).isEqualTo(LocalDate.now());
 
@@ -218,7 +219,7 @@ class PasswordServiceTest {
                 .email("user@example.com")
                 .password(passwordEncoder.encode(RAW_OLD_PWD))
                 .verificationCode(passwordEncoder.encode(rawOtp))
-                .verificationExpiredAt(LocalDateTime.now().plusMinutes(5))
+                .verificationExpiredAt(Instant.now().plus(5, ChronoUnit.MINUTES))
                 .status(UserStatus.INACTIVE)
                 .build();
 
@@ -249,7 +250,7 @@ class PasswordServiceTest {
                 .id(1L)
                 .email("user@example.com")
                 .verificationCode(passwordEncoder.encode("123456"))
-                .verificationExpiredAt(LocalDateTime.now().minusMinutes(1))
+                .verificationExpiredAt(Instant.now().minus(1, ChronoUnit.MINUTES))
                 .build();
 
         when(userRepository.findByEmailIgnoreCase("user@example.com")).thenReturn(Optional.of(expiredUser));
@@ -275,7 +276,7 @@ class PasswordServiceTest {
                 .email("user@example.com")
                 .password(passwordEncoder.encode(RAW_OLD_PWD))
                 .verificationCode(passwordEncoder.encode(rawOtp))
-                .verificationExpiredAt(LocalDateTime.now().plusMinutes(5))
+                .verificationExpiredAt(Instant.now().plus(5, ChronoUnit.MINUTES))
                 .status(UserStatus.ACTIVE)
                 .build();
 

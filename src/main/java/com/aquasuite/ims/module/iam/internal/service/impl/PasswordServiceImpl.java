@@ -22,8 +22,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -68,7 +69,7 @@ public class PasswordServiceImpl implements PasswordService {
         // Step 7: Persist new password
         String newHash = passwordEncoder.encode(req.newPassword());
         user.setPassword(newHash);
-        user.setPasswordLastChangedAt(LocalDateTime.now());
+        user.setPasswordLastChangedAt(Instant.now());
         userRepository.save(user);
 
         // Publish domain event
@@ -109,7 +110,7 @@ public class PasswordServiceImpl implements PasswordService {
         // Generate 6-digit OTP
         String otp = String.format("%06d", new SecureRandom().nextInt(1_000_000));
         user.setVerificationCode(passwordEncoder.encode(otp));
-        user.setVerificationExpiredAt(LocalDateTime.now().plusMinutes(10));
+        user.setVerificationExpiredAt(Instant.now().plus(10, ChronoUnit.MINUTES));
         userRepository.save(user);
 
         // Find strategy and send OTP
@@ -136,7 +137,7 @@ public class PasswordServiceImpl implements PasswordService {
 
         // Validate OTP existence and expiration (10 min)
         if (user.getVerificationCode() == null || user.getVerificationExpiredAt() == null
-                || LocalDateTime.now().isAfter(user.getVerificationExpiredAt())) {
+                || Instant.now().isAfter(user.getVerificationExpiredAt())) {
             throw new AppException(IamPasswordErrorCode.INVALID_OR_EXPIRED_OTP);
         }
 
@@ -154,7 +155,7 @@ public class PasswordServiceImpl implements PasswordService {
         // Update password, clear OTP, unlock account if inactive
         String newHash = passwordEncoder.encode(req.newPassword());
         user.setPassword(newHash);
-        user.setPasswordLastChangedAt(LocalDateTime.now());
+        user.setPasswordLastChangedAt(Instant.now());
         user.setVerificationCode(null);
         user.setVerificationExpiredAt(null);
 

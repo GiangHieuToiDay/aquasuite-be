@@ -4,7 +4,7 @@ import com.aquasuite.ims.module.catalog.internal.entity.enums.CategoryStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -38,18 +38,18 @@ public class Category {
     private CategoryStatus status;
 
     @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
     @PrePersist
     public void prePersist() {
         if (createdAt == null) {
-            createdAt = LocalDateTime.now();
+            createdAt = Instant.now();
         }
         if (updatedAt == null) {
-            updatedAt = LocalDateTime.now();
+            updatedAt = Instant.now();
         }
         if (status == null) {
             status = CategoryStatus.ACTIVE;
@@ -58,6 +58,6 @@ public class Category {
 
     @PreUpdate
     public void preUpdate() {
-        updatedAt = LocalDateTime.now();
+        updatedAt = Instant.now();
     }
 }

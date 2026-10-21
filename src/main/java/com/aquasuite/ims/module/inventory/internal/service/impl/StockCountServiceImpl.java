@@ -26,7 +26,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -140,7 +141,7 @@ public class StockCountServiceImpl implements StockCountService {
 
         stockCount.setStatus(StockCountStatus.COMPLETED);
         stockCount.setApprovedBy(approverId);
-        stockCount.setCountDate(LocalDateTime.now());
+        stockCount.setCountDate(Instant.now());
         stockCountRepository.save(stockCount);
 
         List<StockCountItem> items = stockCountItemRepository.findByStockCountId(stockCountId);
@@ -265,7 +266,7 @@ public class StockCountServiceImpl implements StockCountService {
     }
 
     private String generateStockCountCode() {
-        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyMMddHHmm"));
+        String timestamp = DateTimeFormatter.ofPattern("yyMMddHHmm").withZone(ZoneOffset.UTC).format(Instant.now());
         int rand = ThreadLocalRandom.current().nextInt(1000, 9999);
         return "STC" + timestamp + rand;
     }

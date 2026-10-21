@@ -3,7 +3,7 @@ package com.aquasuite.ims.module.inventory.internal.payload.res;
 import com.aquasuite.ims.module.inventory.internal.entity.enums.StockCountStatus;
 import lombok.Builder;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -15,8 +15,8 @@ public record StockCountResponse(
         StockCountStatus status,
         Long countedBy,
         Long approvedBy,
-        LocalDateTime countDate,
+        Instant countDate,
         String note,
-        LocalDateTime createdAt,
+        Instant createdAt,
         List<StockCountItemResponse> items
 ) {}

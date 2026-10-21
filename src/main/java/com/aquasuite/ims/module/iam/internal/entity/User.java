@@ -4,8 +4,8 @@ package com.aquasuite.ims.module.iam.internal.entity;
 import com.aquasuite.ims.module.iam.internal.entity.enums.UserStatus;
 import jakarta.persistence.*;
 import lombok.*;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "users")
@@ -31,13 +31,13 @@ public class User {
     private String password;
 
     @Column(name = "password_last_changed_at")
-    private LocalDateTime passwordLastChangedAt;
+    private Instant passwordLastChangedAt;
 
     @Column(name = "avatar")
     private String avatar;
 
     @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @Column(name = "provider_id")
     private String providerId;
@@ -57,7 +57,7 @@ public class User {
     private String fcmToken;
 
     @Column(name = "verification_expired_at")
-    private LocalDateTime verificationExpiredAt;
+    private Instant verificationExpiredAt;
 
     @Column(name = "is_verified")
     private Boolean isVerified;
@@ -80,7 +80,7 @@ public class User {
     @PrePersist
     public void prePersist() {
         if (createdAt == null) {
-            createdAt = LocalDateTime.now();
+            createdAt = Instant.now();
         }
         if (isVerified == null) {
             isVerified = false;
