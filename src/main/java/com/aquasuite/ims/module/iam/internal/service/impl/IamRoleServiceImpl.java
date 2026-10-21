@@ -3,7 +3,7 @@ package com.aquasuite.ims.module.iam.internal.service.impl;
 import com.aquasuite.ims.module.iam.internal.entity.Permission;
 import com.aquasuite.ims.module.iam.internal.entity.Role;
 import com.aquasuite.ims.module.iam.internal.error.IamErrorCode;
-import com.aquasuite.ims.module.iam.internal.payload.response.PermissionResponse;
+import com.aquasuite.ims.module.iam.internal.mapper.RoleMapper;
 import com.aquasuite.ims.module.iam.internal.payload.response.RoleResponse;
 import com.aquasuite.ims.module.iam.internal.repository.PermissionRepository;
 import com.aquasuite.ims.module.iam.internal.repository.RoleRepository;
@@ -19,7 +19,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -33,12 +32,15 @@ public class IamRoleServiceImpl implements IamRoleService {
 
     private final RoleRepository roleRepository;
     private final PermissionRepository permissionRepository;
+    private final RoleMapper roleMapper;
 
     public IamRoleServiceImpl(
             @org.springframework.beans.factory.annotation.Autowired(required = false) RoleRepository roleRepository,
-            @org.springframework.beans.factory.annotation.Autowired(required = false) PermissionRepository permissionRepository) {
+            @org.springframework.beans.factory.annotation.Autowired(required = false) PermissionRepository permissionRepository,
+            RoleMapper roleMapper) {
         this.roleRepository = roleRepository;
         this.permissionRepository = permissionRepository;
+        this.roleMapper = roleMapper;
     }
 
     @Override
@@ -61,7 +63,7 @@ public class IamRoleServiceImpl implements IamRoleService {
 
         return roles.stream()
                 .sorted(Comparator.comparingInt(r -> CANONICAL_ROLES_ORDER.indexOf(r.getRoleName())))
-                .map(this::toRoleResponse)
+                .map(roleMapper::toResponse)
                 .toList();
     }
 
@@ -76,7 +78,7 @@ public class IamRoleServiceImpl implements IamRoleService {
             throw new AppException(CommonErrorCode.DATA_INTEGRITY_VIOLATION);
         }
 
-        return toRoleResponse(role);
+        return roleMapper.toResponse(role);
     }
 
     @Override
@@ -109,7 +111,7 @@ public class IamRoleServiceImpl implements IamRoleService {
                     permission.getCode(), permissionId, role.getRoleName(), roleId);
         }
 
-        return toRoleResponse(role);
+        return roleMapper.toResponse(role);
     }
 
     @Override
@@ -139,26 +141,6 @@ public class IamRoleServiceImpl implements IamRoleService {
                     permission.getCode(), permissionId, role.getRoleName(), roleId);
         }
 
-        return toRoleResponse(role);
-    }
-
-    private RoleResponse toRoleResponse(Role role) {
-        List<PermissionResponse> permissions = role.getPermissions() == null ? List.of() :
-                role.getPermissions().stream()
-                        .map(p -> PermissionResponse.builder()
-                                .id(p.getId())
-                                .code(p.getCode())
-                                .description(p.getDescription())
-                                .build())
-                        .sorted(Comparator.comparing(PermissionResponse::getCode))
-                        .toList();
-
-        return RoleResponse.builder()
-                .id(role.getRoleId())
-                .code(role.getRoleName())
-                .description(role.getDescription())
-                .active(role.isActive())
-                .permissions(permissions)
-                .build();
+        return roleMapper.toResponse(role);
     }
 }

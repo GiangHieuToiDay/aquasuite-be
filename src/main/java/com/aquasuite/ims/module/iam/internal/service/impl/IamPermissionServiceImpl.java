@@ -2,6 +2,7 @@ package com.aquasuite.ims.module.iam.internal.service.impl;
 
 import com.aquasuite.ims.module.iam.internal.entity.Permission;
 import com.aquasuite.ims.module.iam.internal.error.IamErrorCode;
+import com.aquasuite.ims.module.iam.internal.mapper.PermissionMapper;
 import com.aquasuite.ims.module.iam.internal.payload.request.CreatePermissionRequest;
 import com.aquasuite.ims.module.iam.internal.payload.request.UpdatePermissionRequest;
 import com.aquasuite.ims.module.iam.internal.payload.response.PermissionPageResponse;
@@ -35,10 +36,13 @@ public class IamPermissionServiceImpl implements IamPermissionService {
     private static final Set<String> ALLOWED_SORT_FIELDS = Set.of("code", "description", "id");
 
     private final PermissionRepository permissionRepository;
+    private final PermissionMapper permissionMapper;
 
     public IamPermissionServiceImpl(
-            @org.springframework.beans.factory.annotation.Autowired(required = false) PermissionRepository permissionRepository) {
+            @org.springframework.beans.factory.annotation.Autowired(required = false) PermissionRepository permissionRepository,
+            PermissionMapper permissionMapper) {
         this.permissionRepository = permissionRepository;
+        this.permissionMapper = permissionMapper;
     }
 
     @Override
@@ -73,13 +77,7 @@ public class IamPermissionServiceImpl implements IamPermissionService {
 
         Page<Permission> pageResult = permissionRepository.searchPermissions(searchTerm, pageable);
 
-        return PermissionPageResponse.builder()
-                .items(pageResult.getContent().stream().map(this::toPermissionResponse).toList())
-                .page(pageResult.getNumber())
-                .size(pageResult.getSize())
-                .totalElements(pageResult.getTotalElements())
-                .totalPages(pageResult.getTotalPages())
-                .build();
+        return permissionMapper.toPageResponse(pageResult);
     }
 
     @Override
@@ -87,7 +85,7 @@ public class IamPermissionServiceImpl implements IamPermissionService {
     public PermissionResponse getPermissionDetail(UUID permissionId) {
         Permission perm = permissionRepository.findById(permissionId)
                 .orElseThrow(() -> new AppException(IamErrorCode.PERMISSION_NOT_FOUND));
-        return toPermissionResponse(perm);
+        return permissionMapper.toResponse(perm);
     }
 
     @Override
@@ -138,7 +136,7 @@ public class IamPermissionServiceImpl implements IamPermissionService {
             throw ex;
         }
 
-        return toPermissionResponse(permission);
+        return permissionMapper.toResponse(permission);
     }
 
     @Override
@@ -154,7 +152,7 @@ public class IamPermissionServiceImpl implements IamPermissionService {
         permission = permissionRepository.saveAndFlush(permission);
         log.info("Updated description for permission '{}' ({})", permission.getCode(), permission.getId());
 
-        return toPermissionResponse(permission);
+        return permissionMapper.toResponse(permission);
     }
 
     @Override
@@ -265,13 +263,5 @@ public class IamPermissionServiceImpl implements IamPermissionService {
             throw new AppException(CommonErrorCode.VALIDATION_ERROR);
         }
         return trimmed;
-    }
-
-    private PermissionResponse toPermissionResponse(Permission permission) {
-        return PermissionResponse.builder()
-                .id(permission.getId())
-                .code(permission.getCode())
-                .description(permission.getDescription())
-                .build();
     }
 }

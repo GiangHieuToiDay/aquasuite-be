@@ -3,6 +3,8 @@ package com.aquasuite.ims.module.iam.internal.service;
 import com.aquasuite.ims.module.iam.internal.entity.Permission;
 import com.aquasuite.ims.module.iam.internal.entity.Role;
 import com.aquasuite.ims.module.iam.internal.error.IamErrorCode;
+import com.aquasuite.ims.module.iam.internal.mapper.PermissionMapper;
+import com.aquasuite.ims.module.iam.internal.mapper.RoleMapper;
 import com.aquasuite.ims.module.iam.internal.payload.request.CreatePermissionRequest;
 import com.aquasuite.ims.module.iam.internal.payload.request.UpdatePermissionRequest;
 import com.aquasuite.ims.module.iam.internal.payload.response.PermissionResponse;
@@ -46,13 +48,19 @@ class IamValidationUnitTest {
     @Mock
     private RoleRepository roleRepository;
 
+    @Mock
+    private PermissionMapper permissionMapper;
+
+    @Mock
+    private RoleMapper roleMapper;
+
     private IamPermissionServiceImpl permissionService;
     private IamRoleServiceImpl roleService;
 
     @BeforeEach
     void setUp() {
-        permissionService = new IamPermissionServiceImpl(permissionRepository);
-        roleService = new IamRoleServiceImpl(roleRepository, permissionRepository);
+        permissionService = new IamPermissionServiceImpl(permissionRepository, permissionMapper);
+        roleService = new IamRoleServiceImpl(roleRepository, permissionRepository, roleMapper);
     }
 
     @Test
@@ -65,6 +73,10 @@ class IamValidationUnitTest {
 
         when(permissionRepository.existsByCodeIgnoreCase("ORDER_APPROVE")).thenReturn(false);
         when(permissionRepository.saveAndFlush(any(Permission.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(permissionMapper.toResponse(any(Permission.class))).thenAnswer(inv -> {
+            Permission p = inv.getArgument(0);
+            return PermissionResponse.builder().id(p.getId()).code(p.getCode()).description(p.getDescription()).build();
+        });
 
         PermissionResponse response = permissionService.createPermission(request);
 
@@ -155,6 +167,10 @@ class IamValidationUnitTest {
 
         when(permissionRepository.findById(permId)).thenReturn(Optional.of(existing));
         when(permissionRepository.saveAndFlush(any(Permission.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(permissionMapper.toResponse(any(Permission.class))).thenAnswer(inv -> {
+            Permission p = inv.getArgument(0);
+            return PermissionResponse.builder().id(p.getId()).code(p.getCode()).description(p.getDescription()).build();
+        });
 
         UpdatePermissionRequest req = UpdatePermissionRequest.builder().description("New description").build();
         PermissionResponse updated = permissionService.updatePermission(permId, req);
