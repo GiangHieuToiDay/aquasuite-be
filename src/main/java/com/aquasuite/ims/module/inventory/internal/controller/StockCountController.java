@@ -30,7 +30,7 @@ public class StockCountController {
     @PostMapping
     public ResponseEntity<ApiResponse<StockCountResponse>> createDraftStockCount(
             @Valid @RequestBody CreateStockCountRequest request) {
-        Long actorUserId = iamApi.getCurrentUserId();
+        UUID actorUserId = iamApi.getCurrentUserId();
         StockCountResponse response = stockCountService.createDraftStockCount(request, actorUserId);
         return ResponseEntity.ok(ApiResponse.ok(response, "Tạo phiếu kiểm kho thành công"));
     }
@@ -41,7 +41,7 @@ public class StockCountController {
     @PostMapping("/{stockCountId}/approve")
     public ResponseEntity<ApiResponse<StockCountResponse>> approveStockCount(
             @PathVariable UUID stockCountId) {
-        Long approverUserId = iamApi.getCurrentUserId();
+        UUID approverUserId = iamApi.getCurrentUserId();
         StockCountResponse response = stockCountService.approveStockCount(stockCountId, approverUserId);
         return ResponseEntity.ok(ApiResponse.ok(response, "Duyệt phiếu kiểm kê và cân bằng kho thành công"));
     }

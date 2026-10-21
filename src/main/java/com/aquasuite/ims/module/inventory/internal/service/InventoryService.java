@@ -14,5 +14,5 @@ public interface InventoryService {
 
     Page<StockMovement> getMovementsByVariantId(UUID variantId, Pageable pageable);
 
-    void manualAdjustStock(UUID variantId, BigDecimal deltaQty, String reason, Long actorUserId);
+    void manualAdjustStock(UUID variantId, BigDecimal deltaQty, String reason, UUID actorUserId);
 }

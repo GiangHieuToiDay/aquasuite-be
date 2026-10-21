@@ -1,7 +1,6 @@
 package com.aquasuite.ims.module.inventory.api.dto;
 
 import lombok.Builder;
-
 import java.math.BigDecimal;
 import java.util.UUID;
 
@@ -15,4 +14,10 @@ public record StockSummaryDto(
         BigDecimal availableQty,
         BigDecimal minimumQty,
         boolean isLowStock
-) {}
+) {
+    public StockSummaryDto(UUID variantId, String warehouseCode, BigDecimal onHandQty,
+                          BigDecimal reservedQty, BigDecimal availableQty, BigDecimal minimumQty) {
+        this(null, variantId, warehouseCode, onHandQty, reservedQty, availableQty, minimumQty,
+                availableQty != null && minimumQty != null && availableQty.compareTo(minimumQty) <= 0);
+    }
+}

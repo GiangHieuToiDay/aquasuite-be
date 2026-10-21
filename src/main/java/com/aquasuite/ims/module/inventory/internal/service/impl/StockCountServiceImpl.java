@@ -51,8 +51,8 @@ public class StockCountServiceImpl implements StockCountService {
      */
     @Override
     @Transactional
-    public StockCountResponse createDraftStockCount(CreateStockCountRequest request, Long actorUserId) {
-        Long userId = actorUserId != null ? actorUserId : iamApi.getCurrentUserId();
+    public StockCountResponse createDraftStockCount(CreateStockCountRequest request, UUID actorUserId) {
+        UUID userId = actorUserId != null ? actorUserId : iamApi.getCurrentUserId();
         String warehouse = (request.warehouseCode() != null && !request.warehouseCode().isBlank())
                 ? request.warehouseCode().trim()
                 : "WH_MAIN";
@@ -128,7 +128,7 @@ public class StockCountServiceImpl implements StockCountService {
      */
     @Override
     @Transactional
-    public StockCountResponse approveStockCount(UUID stockCountId, Long approverUserId) {
+    public StockCountResponse approveStockCount(UUID stockCountId, UUID approverUserId) {
         StockCount stockCount = stockCountRepository.findById(stockCountId)
                 .orElseThrow(() -> new AppException(InventoryErrorCode.STOCK_COUNT_NOT_FOUND, stockCountId));
 
@@ -136,7 +136,7 @@ public class StockCountServiceImpl implements StockCountService {
             throw new AppException(InventoryErrorCode.INVALID_STOCK_COUNT_STATUS, stockCount.getStatus());
         }
 
-        Long approverId = approverUserId != null ? approverUserId : iamApi.getCurrentUserId();
+        UUID approverId = approverUserId != null ? approverUserId : iamApi.getCurrentUserId();
 
         stockCount.setStatus(StockCountStatus.COMPLETED);
         stockCount.setApprovedBy(approverId);
@@ -155,7 +155,7 @@ public class StockCountServiceImpl implements StockCountService {
 
                 StockAdjustCommand command = StockAdjustCommand.builder()
                         .variantId(item.getVariantId())
-                        .movementType(movementType)
+                        .movementType(com.aquasuite.ims.module.inventory.api.dto.StockMovementType.valueOf(movementType.name()))
                         .deltaQty(diff)
                         .releaseFromReserved(false)
                         .referenceType("STOCK_COUNT")

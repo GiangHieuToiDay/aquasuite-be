@@ -129,14 +129,14 @@ public class InventoryServiceImpl implements InventoryApi, InventoryService {
         }
         inventoryRepository.save(inv);
 
-        Long actorId = command.actorUserId() != null ? command.actorUserId() : iamApi.getCurrentUserId();
+        UUID actorId = command.actorUserId() != null ? command.actorUserId() : iamApi.getCurrentUserId();
 
         // 3. Ghi thẻ kho bất biến (stock_movements)
         StockMovement movement = StockMovement.builder()
                 .movementId(UUID.randomUUID())
                 .inventoryId(inv.getInventoryId())
                 .variantId(command.variantId())
-                .movementType(command.movementType() != null ? command.movementType() : MovementType.ADJUSTMENT_IN)
+                .movementType(command.movementType() != null ? MovementType.valueOf(command.movementType().name()) : MovementType.ADJUSTMENT_IN)
                 .quantity(deltaQty)
                 .balanceAfter(newOnHand)
                 .referenceType(command.referenceType() != null ? command.referenceType() : "MANUAL_ADJUSTMENT")
@@ -173,7 +173,7 @@ public class InventoryServiceImpl implements InventoryApi, InventoryService {
 
     @Override
     @Transactional
-    public void manualAdjustStock(UUID variantId, BigDecimal deltaQty, String reason, Long actorUserId) {
+    public void manualAdjustStock(UUID variantId, BigDecimal deltaQty, String reason, UUID actorUserId) {
         if (deltaQty == null || deltaQty.compareTo(BigDecimal.ZERO) == 0) {
             throw new AppException(InventoryErrorCode.INVALID_ADJUST_QUANTITY);
         }
@@ -183,7 +183,7 @@ public class InventoryServiceImpl implements InventoryApi, InventoryService {
 
         StockAdjustCommand command = StockAdjustCommand.builder()
                 .variantId(variantId)
-                .movementType(type)
+                .movementType(com.aquasuite.ims.module.inventory.api.dto.StockMovementType.valueOf(type.name()))
                 .deltaQty(deltaQty)
                 .releaseFromReserved(false)
                 .referenceType("MANUAL_ADJUSTMENT")

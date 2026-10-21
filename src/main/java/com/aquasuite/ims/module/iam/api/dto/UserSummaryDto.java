@@ -1,16 +1,16 @@
 package com.aquasuite.ims.module.iam.api.dto;
 
 import lombok.Builder;
+import java.util.UUID;
 
-/**
- * DTO công khai đại diện cho thông tin người dùng được chia sẻ giữa các module.
- */
+/** Public, entity-free view of the authenticated IAM user. */
 @Builder
 public record UserSummaryDto(
-        Long id,
+        UUID id,
         String username,
         String email,
         String phone,
-        String avatar,
+        String avatarUrl,
         String status
-) {}
+) {
+}
