@@ -1,4 +1,4 @@
--- V5__create_crm_customer_and_delivery_addresses.sql
+-- V6__create_crm_customer_and_delivery_addresses.sql
 -- SCRUM-5 / UC-03: Manage Profile and Delivery Addresses
 
 -- 1. Bổ sung trường full_name vào bảng users (cho tài khoản nhân viên & định danh cá nhân)
