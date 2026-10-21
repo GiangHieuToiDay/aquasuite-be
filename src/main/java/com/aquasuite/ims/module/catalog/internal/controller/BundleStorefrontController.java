@@ -1,5 +1,7 @@
 package com.aquasuite.ims.module.catalog.internal.controller;
-import com.aquasuite.ims.module.catalog.internal.payload.*;
+
+import com.aquasuite.ims.module.catalog.internal.payload.bundle.request.*;
+import com.aquasuite.ims.module.catalog.internal.payload.bundle.response.*;
 import com.aquasuite.ims.module.catalog.internal.service.BundleStorefrontService;
 import com.aquasuite.ims.share.dto.ApiResponse;
 import com.aquasuite.ims.share.exception.*;
@@ -20,22 +22,27 @@ public class BundleStorefrontController {
     private final BundleStorefrontService service;
 
     @GetMapping
-    public ApiResponse<BundlePage<BundleResponse>> list(@RequestParam(defaultValue="0") int page,
-            @RequestParam(defaultValue="20") int size, @RequestParam(required=false) String keyword,
+    public ApiResponse<BundlePage<BundleResponse>> list(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String keyword,
             HttpServletRequest request) {
         validateQuery(request, Set.of("page", "size", "keyword"));
         return ApiResponse.ok(service.list(page, size, keyword));
     }
 
     @GetMapping("/{bundleId}")
-    public ApiResponse<BundleResponse> get(@PathVariable UUID bundleId, HttpServletRequest request) {
+    public ApiResponse<BundleResponse> get(
+            @PathVariable UUID bundleId, HttpServletRequest request) {
         validateQuery(request, Set.of());
         return ApiResponse.ok(service.get(bundleId));
     }
 
     @PostMapping("/{bundleId}/evaluations")
-    public ApiResponse<BundleEvaluation> evaluate(@PathVariable UUID bundleId,
-            @Valid @RequestBody BundleEvaluationRequest payload, HttpServletRequest request) {
+    public ApiResponse<BundleEvaluation> evaluate(
+            @PathVariable UUID bundleId,
+            @Valid @RequestBody BundleEvaluationRequest payload,
+            HttpServletRequest request) {
         validateQuery(request, Set.of());
         return ApiResponse.ok(service.evaluate(bundleId, payload));
     }

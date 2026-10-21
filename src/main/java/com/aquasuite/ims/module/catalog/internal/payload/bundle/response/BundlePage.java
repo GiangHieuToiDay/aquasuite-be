@@ -1,4 +1,4 @@
-package com.aquasuite.ims.module.catalog.internal.payload;
+package com.aquasuite.ims.module.catalog.internal.payload.bundle.response;
 
 import jakarta.validation.constraints.*;
 
@@ -10,8 +10,4 @@ import java.util.*;
  * Trang vượt cuối trả items rỗng, không coi là lỗi tài nguyên không tồn tại.
  */
 public record BundlePage<T>(
-        List<T> items,
-        int page,
-        int size,
-        long totalElements,
-        int totalPages) {}
+        List<T> items, int page, int size, long totalElements, int totalPages) {}

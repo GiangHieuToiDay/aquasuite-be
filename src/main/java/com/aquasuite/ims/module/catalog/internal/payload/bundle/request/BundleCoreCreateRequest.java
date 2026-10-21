@@ -1,4 +1,4 @@
-package com.aquasuite.ims.module.catalog.internal.payload;
+package com.aquasuite.ims.module.catalog.internal.payload.bundle.request;
 
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
@@ -22,8 +22,10 @@ public record BundleCoreCreateRequest(
         @Size(max = 10000) String description,
         @NotNull @Size(min = 1, max = 100) List<@NotNull @Valid BundleItemRequest> items,
         @JsonDeserialize(using = BundleJsonDeserializers.StrictMoney.class)
-        @NotNull @DecimalMin(value = "0", inclusive = false) @Digits(integer = 13, fraction = 2)
-        BigDecimal packagePrice,
+                @NotNull
+                @DecimalMin(value = "0", inclusive = false)
+                @Digits(integer = 13, fraction = 2)
+                BigDecimal packagePrice,
         Instant validFrom,
         Instant validUntil,
         @Size(max = 100) List<@NotNull @Valid BundleComponentGroupRequest> componentGroups) {
@@ -34,9 +36,25 @@ public record BundleCoreCreateRequest(
     }
 
     /** Giữ cách gọi tạo nháp cũ: chưa có lịch công bố và chưa cấu hình nhóm option. */
-    public BundleCoreCreateRequest(String productCode, String name, UUID categoryId, UUID brandId,
-            String description, List<BundleItemRequest> items, BigDecimal packagePrice) {
-        this(productCode, name, categoryId, brandId, description, items, packagePrice, null, null, List.of());
+    public BundleCoreCreateRequest(
+            String productCode,
+            String name,
+            UUID categoryId,
+            UUID brandId,
+            String description,
+            List<BundleItemRequest> items,
+            BigDecimal packagePrice) {
+        this(
+                productCode,
+                name,
+                categoryId,
+                brandId,
+                description,
+                items,
+                packagePrice,
+                null,
+                null,
+                List.of());
     }
 
     @JsonAnySetter

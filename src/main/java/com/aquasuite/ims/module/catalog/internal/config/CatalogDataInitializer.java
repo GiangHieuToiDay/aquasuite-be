@@ -30,15 +30,15 @@ public class CatalogDataInitializer implements CommandLineRunner {
     private void initCategories() {
         if (categoryRepository.count() == 0) {
             log.info("Seeding reference categories from Excel template...");
-            categoryRepository.saveAll(List.of(
-                    createCategory("109", "ỐNG GEN & PHỤ KIỆN"),
-                    createCategory("202", "MẶT CÔNG TẮC & Ổ CẮM"),
-                    createCategory("301", "DÂY VÀ CÁP ĐIỆN"),
-                    createCategory("405", "THIẾT BỊ VỆ SINH TOTO"),
-                    createCategory("502", "BỒN CẦU & THIẾT BỊ PHÒNG TẮM"),
-                    createCategory("601", "BƠM NƯỚC & PHỤ KIỆN CẤP THOÁT"),
-                    createCategory("708", "ĐÈN CHIẾU SÁNG & ĐÈN TRANG TRÍ")
-            ));
+            categoryRepository.saveAll(
+                    List.of(
+                            createCategory("109", "ỐNG GEN & PHỤ KIỆN"),
+                            createCategory("202", "MẶT CÔNG TẮC & Ổ CẮM"),
+                            createCategory("301", "DÂY VÀ CÁP ĐIỆN"),
+                            createCategory("405", "THIẾT BỊ VỆ SINH TOTO"),
+                            createCategory("502", "BỒN CẦU & THIẾT BỊ PHÒNG TẮM"),
+                            createCategory("601", "BƠM NƯỚC & PHỤ KIỆN CẤP THOÁT"),
+                            createCategory("708", "ĐÈN CHIẾU SÁNG & ĐÈN TRANG TRÍ")));
             log.info("Seeded 7 reference categories successfully.");
         }
     }
@@ -46,15 +46,15 @@ public class CatalogDataInitializer implements CommandLineRunner {
     private void initBrands() {
         if (brandRepository.count() == 0) {
             log.info("Seeding reference brands from Excel template...");
-            brandRepository.saveAll(List.of(
-                    createBrand("SINO", "Sino Vanlock"),
-                    createBrand("ART_DNA", "ART DNA Switches"),
-                    createBrand("CADISUN", "Cáp điện Cadisun"),
-                    createBrand("TOTO", "Thiết bị vệ sinh TOTO"),
-                    createBrand("PANASONIC", "Panasonic Electric"),
-                    createBrand("RANG_DONG", "Rạng Đông Lighting"),
-                    createBrand("TIEN_PHONG", "Nhựa Tiền Phong")
-            ));
+            brandRepository.saveAll(
+                    List.of(
+                            createBrand("SINO", "Sino Vanlock"),
+                            createBrand("ART_DNA", "ART DNA Switches"),
+                            createBrand("CADISUN", "Cáp điện Cadisun"),
+                            createBrand("TOTO", "Thiết bị vệ sinh TOTO"),
+                            createBrand("PANASONIC", "Panasonic Electric"),
+                            createBrand("RANG_DONG", "Rạng Đông Lighting"),
+                            createBrand("TIEN_PHONG", "Nhựa Tiền Phong")));
             log.info("Seeded 7 reference brands successfully.");
         }
     }
@@ -68,10 +68,6 @@ public class CatalogDataInitializer implements CommandLineRunner {
     }
 
     private Brand createBrand(String code, String name) {
-        return Brand.builder()
-                .brandCode(code)
-                .brandName(name)
-                .status(BrandStatus.ACTIVE)
-                .build();
+        return Brand.builder().brandCode(code).brandName(name).status(BrandStatus.ACTIVE).build();
     }
 }

@@ -41,22 +41,31 @@ public class RegisterService {
     static final int MAX_ATTEMPTS = 5;
     private static final SecureRandom RANDOM = new SecureRandom();
 
-    private static final DefaultRedisScript<Long> STORE = new DefaultRedisScript<>("""
+    private static final DefaultRedisScript<Long> STORE =
+            new DefaultRedisScript<>(
+                    """
             redis.call('HSET', KEYS[1], 'hash', ARGV[1], 'sentAt', ARGV[2],
                        'attempts', ARGV[3], 'version', ARGV[4])
             redis.call('PEXPIRE', KEYS[1], ARGV[5])
             return 1
-            """, Long.class);
-    private static final DefaultRedisScript<Long> ATTEMPT = new DefaultRedisScript<>("""
+            """,
+                    Long.class);
+    private static final DefaultRedisScript<Long> ATTEMPT =
+            new DefaultRedisScript<>(
+                    """
             if redis.call('HGET', KEYS[1], 'version') ~= ARGV[1]
                or redis.call('PTTL', KEYS[1]) <= 0 then return -1 end
             return redis.call('HINCRBY', KEYS[1], 'attempts', 1)
-            """, Long.class);
-    private static final DefaultRedisScript<Long> CONSUME = new DefaultRedisScript<>("""
+            """,
+                    Long.class);
+    private static final DefaultRedisScript<Long> CONSUME =
+            new DefaultRedisScript<>(
+                    """
             if redis.call('HGET', KEYS[1], 'version') ~= ARGV[1]
                or redis.call('PTTL', KEYS[1]) <= 0 then return 0 end
             return redis.call('DEL', KEYS[1])
-            """, Long.class);
+            """,
+                    Long.class);
 
     private final UserRepository users;
     private final RoleRepository roles;
@@ -71,31 +80,56 @@ public class RegisterService {
     public RegisterResponse register(@Valid RegisterRequest request) {
         RegisterResponse response;
         try {
-            response = transactions.execute(tx -> {
-                if (users.existsByEmailIgnoreCase(request.email()) || users.existsByPhone(request.phone())) {
-                    throw new AppException(RegistrationErrorCode.DUPLICATE_ACCOUNT);
-                }
-                var role = roles.findByRoleNameIgnoreCase("CUSTOMER")
-                        .filter(r -> r.isActive())
-                        .orElseThrow(() -> new AppException(RegistrationErrorCode.UNAVAILABLE));
-                UUID id = UUID.randomUUID();
-                int inserted = users.insertPendingRegistration(id, "customer-" + id, request.fullName(),
-                        request.email(), request.phone(), encoder.encode(request.password()));
-                if (inserted != 1) {
-                    if (users.existsByEmailIgnoreCase(request.email()) || users.existsByPhone(request.phone())) {
-                        throw new AppException(RegistrationErrorCode.DUPLICATE_ACCOUNT);
-                    }
-                    throw new AppException(CommonErrorCode.DATA_INTEGRITY_VIOLATION);
-                }
-                User user = users.findById(id).orElseThrow(() -> new AppException(RegistrationErrorCode.UNAVAILABLE));
-                user.getRoles().add(role);
-                users.saveAndFlush(user);
-                return new RegisterResponse(id, user.getEmail(), user.getStatus().name());
-            });
+            response =
+                    transactions.execute(
+                            tx -> {
+                                if (users.existsByEmailIgnoreCase(request.email())
+                                        || users.existsByPhone(request.phone())) {
+                                    throw new AppException(RegistrationErrorCode.DUPLICATE_ACCOUNT);
+                                }
+                                var role =
+                                        roles.findByRoleNameIgnoreCase("CUSTOMER")
+                                                .filter(r -> r.isActive())
+                                                .orElseThrow(
+                                                        () ->
+                                                                new AppException(
+                                                                        RegistrationErrorCode
+                                                                                .UNAVAILABLE));
+                                UUID id = UUID.randomUUID();
+                                int inserted =
+                                        users.insertPendingRegistration(
+                                                id,
+                                                "customer-" + id,
+                                                request.fullName(),
+                                                request.email(),
+                                                request.phone(),
+                                                encoder.encode(request.password()));
+                                if (inserted != 1) {
+                                    if (users.existsByEmailIgnoreCase(request.email())
+                                            || users.existsByPhone(request.phone())) {
+                                        throw new AppException(
+                                                RegistrationErrorCode.DUPLICATE_ACCOUNT);
+                                    }
+                                    throw new AppException(
+                                            CommonErrorCode.DATA_INTEGRITY_VIOLATION);
+                                }
+                                User user =
+                                        users.findById(id)
+                                                .orElseThrow(
+                                                        () ->
+                                                                new AppException(
+                                                                        RegistrationErrorCode
+                                                                                .UNAVAILABLE));
+                                user.getRoles().add(role);
+                                users.saveAndFlush(user);
+                                return new RegisterResponse(
+                                        id, user.getEmail(), user.getStatus().name());
+                            });
         } catch (DataIntegrityViolationException ex) {
             // The transaction has already rolled back; do not continue inside a failed transaction.
             String constraint = constraintName(ex);
-            if ("uq_users_email_lower".equals(constraint) || "uq_users_phone_not_null".equals(constraint)) {
+            if ("uq_users_email_lower".equals(constraint)
+                    || "uq_users_phone_not_null".equals(constraint)) {
                 throw new AppException(RegistrationErrorCode.DUPLICATE_ACCOUNT);
             }
             throw new AppException(CommonErrorCode.DATA_INTEGRITY_VIOLATION);
@@ -110,35 +144,53 @@ public class RegisterService {
     public void resend(@Valid ResendRegistrationOtpRequest request) {
         OtpDelivery delivery;
         try {
-            delivery = transactions.execute(tx -> {
-                User user = pendingUser(request.email());
-                String key = OTP_PREFIX + user.getId();
-                Map<Object, Object> current = redis.opsForHash().entries(key);
-                long now = System.currentTimeMillis();
-                int attempts = 0;
-                if (!current.isEmpty()) {
-                    attempts = Integer.parseInt(value(current, "attempts"));
-                    if (attempts >= MAX_ATTEMPTS
-                            || now - Long.parseLong(value(current, "sentAt")) < RESEND_DELAY_MS) {
-                        throw new AppException(RegistrationErrorCode.OTP_LIMIT);
-                    }
-                }
-                String otp = String.format(java.util.Locale.ROOT, "%06d", RANDOM.nextInt(1_000_000));
-                Long stored = redis.execute(STORE, List.of(key), encoder.encode(otp),
-                        Long.toString(now), Integer.toString(attempts), UUID.randomUUID().toString(),
-                        Long.toString(OTP_TTL_MS));
-                if (!Long.valueOf(1).equals(stored)) throw new AppException(RegistrationErrorCode.UNAVAILABLE);
-                return new OtpDelivery(user.getEmail(), otp);
-            });
-        } catch (DataAccessException | org.springframework.transaction.TransactionException | IllegalArgumentException ex) {
+            delivery =
+                    transactions.execute(
+                            tx -> {
+                                User user = pendingUser(request.email());
+                                String key = OTP_PREFIX + user.getId();
+                                Map<Object, Object> current = redis.opsForHash().entries(key);
+                                long now = System.currentTimeMillis();
+                                int attempts = 0;
+                                if (!current.isEmpty()) {
+                                    attempts = Integer.parseInt(value(current, "attempts"));
+                                    if (attempts >= MAX_ATTEMPTS
+                                            || now - Long.parseLong(value(current, "sentAt"))
+                                                    < RESEND_DELAY_MS) {
+                                        throw new AppException(RegistrationErrorCode.OTP_LIMIT);
+                                    }
+                                }
+                                String otp =
+                                        String.format(
+                                                java.util.Locale.ROOT,
+                                                "%06d",
+                                                RANDOM.nextInt(1_000_000));
+                                Long stored =
+                                        redis.execute(
+                                                STORE,
+                                                List.of(key),
+                                                encoder.encode(otp),
+                                                Long.toString(now),
+                                                Integer.toString(attempts),
+                                                UUID.randomUUID().toString(),
+                                                Long.toString(OTP_TTL_MS));
+                                if (!Long.valueOf(1).equals(stored))
+                                    throw new AppException(RegistrationErrorCode.UNAVAILABLE);
+                                return new OtpDelivery(user.getEmail(), otp);
+                            });
+        } catch (DataAccessException
+                | org.springframework.transaction.TransactionException
+                | IllegalArgumentException ex) {
             throw new AppException(RegistrationErrorCode.UNAVAILABLE);
         }
         try {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setTo(delivery.email());
             message.setSubject("[AquaSuite] Verify your customer account");
-            message.setText("Your account activation code is: " + delivery.otp()
-                    + "\nThis code expires in 5 minutes. If you did not register, ignore this email.");
+            message.setText(
+                    "Your account activation code is: "
+                            + delivery.otp()
+                            + "\nThis code expires in 5 minutes. If you did not register, ignore this email.");
             mail.send(message);
         } catch (RuntimeException ex) {
             throw new AppException(RegistrationErrorCode.MAIL_UNAVAILABLE);
@@ -149,42 +201,65 @@ public class RegisterService {
     public LoginResponse verify(@Valid VerifyRegistrationRequest request) {
         UUID activated;
         try {
-            activated = transactions.execute(tx -> {
-                User user = pendingUser(request.email());
-                String key = OTP_PREFIX + user.getId();
-                Map<Object, Object> state = redis.opsForHash().entries(key);
-                if (state.isEmpty()) throw new AppException(RegistrationErrorCode.EXPIRED_OTP);
-                int attempts = Integer.parseInt(value(state, "attempts"));
-                if (attempts >= MAX_ATTEMPTS) throw new AppException(RegistrationErrorCode.OTP_LIMIT);
-                String version = value(state, "version");
-                if (!encoder.matches(request.otp(), value(state, "hash"))) {
-                    Long count = redis.execute(ATTEMPT, List.of(key), version);
-                    if (count == null || count < 0) throw new AppException(RegistrationErrorCode.EXPIRED_OTP);
-                    if (count >= MAX_ATTEMPTS) throw new AppException(RegistrationErrorCode.OTP_LIMIT);
-                    throw new AppException(RegistrationErrorCode.INVALID_OTP,
-                            "Invalid OTP code. Remaining attempts: " + (MAX_ATTEMPTS - count));
-                }
-                // Recheck the role at activation rather than trusting its state at registration.
-                var customer = roles.findByRoleNameIgnoreCase("CUSTOMER")
-                        .filter(r -> r.isActive())
-                        .orElseThrow(() -> new AppException(RegistrationErrorCode.UNAVAILABLE));
-                if (user.getRoles().stream().noneMatch(r -> r.getRoleId().equals(customer.getRoleId()))) {
-                    throw new AppException(RegistrationErrorCode.UNAVAILABLE);
-                }
-                if (!Long.valueOf(1).equals(redis.execute(CONSUME, List.of(key), version))) {
-                    throw new AppException(RegistrationErrorCode.EXPIRED_OTP);
-                }
-                try {
-                    customerProfiles.createProfile(new CustomerRegistrationRequest(user.getId(),
-                            user.getFullName(), user.getPhone(), user.getEmail()));
-                } catch (RuntimeException ex) {
-                    throw new AppException(RegistrationErrorCode.UNAVAILABLE);
-                }
-                user.setStatus(UserStatus.ACTIVE);
-                users.saveAndFlush(user);
-                return user.getId();
-            });
-        } catch (DataAccessException | org.springframework.transaction.TransactionException | IllegalArgumentException ex) {
+            activated =
+                    transactions.execute(
+                            tx -> {
+                                User user = pendingUser(request.email());
+                                String key = OTP_PREFIX + user.getId();
+                                Map<Object, Object> state = redis.opsForHash().entries(key);
+                                if (state.isEmpty())
+                                    throw new AppException(RegistrationErrorCode.EXPIRED_OTP);
+                                int attempts = Integer.parseInt(value(state, "attempts"));
+                                if (attempts >= MAX_ATTEMPTS)
+                                    throw new AppException(RegistrationErrorCode.OTP_LIMIT);
+                                String version = value(state, "version");
+                                if (!encoder.matches(request.otp(), value(state, "hash"))) {
+                                    Long count = redis.execute(ATTEMPT, List.of(key), version);
+                                    if (count == null || count < 0)
+                                        throw new AppException(RegistrationErrorCode.EXPIRED_OTP);
+                                    if (count >= MAX_ATTEMPTS)
+                                        throw new AppException(RegistrationErrorCode.OTP_LIMIT);
+                                    throw new AppException(
+                                            RegistrationErrorCode.INVALID_OTP,
+                                            "Invalid OTP code. Remaining attempts: "
+                                                    + (MAX_ATTEMPTS - count));
+                                }
+                                // Recheck the role at activation rather than trusting its state at
+                                // registration.
+                                var customer =
+                                        roles.findByRoleNameIgnoreCase("CUSTOMER")
+                                                .filter(r -> r.isActive())
+                                                .orElseThrow(
+                                                        () ->
+                                                                new AppException(
+                                                                        RegistrationErrorCode
+                                                                                .UNAVAILABLE));
+                                if (user.getRoles().stream()
+                                        .noneMatch(
+                                                r -> r.getRoleId().equals(customer.getRoleId()))) {
+                                    throw new AppException(RegistrationErrorCode.UNAVAILABLE);
+                                }
+                                if (!Long.valueOf(1)
+                                        .equals(redis.execute(CONSUME, List.of(key), version))) {
+                                    throw new AppException(RegistrationErrorCode.EXPIRED_OTP);
+                                }
+                                try {
+                                    customerProfiles.createProfile(
+                                            new CustomerRegistrationRequest(
+                                                    user.getId(),
+                                                    user.getFullName(),
+                                                    user.getPhone(),
+                                                    user.getEmail()));
+                                } catch (RuntimeException ex) {
+                                    throw new AppException(RegistrationErrorCode.UNAVAILABLE);
+                                }
+                                user.setStatus(UserStatus.ACTIVE);
+                                users.saveAndFlush(user);
+                                return user.getId();
+                            });
+        } catch (DataAccessException
+                | org.springframework.transaction.TransactionException
+                | IllegalArgumentException ex) {
             throw new AppException(RegistrationErrorCode.UNAVAILABLE);
         }
         try {
@@ -196,8 +271,9 @@ public class RegisterService {
     }
 
     private User pendingUser(String email) {
-        User user = users.findForRegistrationByEmail(email)
-                .orElseThrow(() -> new AppException(RegistrationErrorCode.NOT_PENDING));
+        User user =
+                users.findForRegistrationByEmail(email)
+                        .orElseThrow(() -> new AppException(RegistrationErrorCode.NOT_PENDING));
         if (user.getStatus() != UserStatus.PENDING_ACTIVATION
                 || !user.getUsername().equals("customer-" + user.getId())) {
             throw new AppException(RegistrationErrorCode.NOT_PENDING);
@@ -207,7 +283,8 @@ public class RegisterService {
 
     private static String value(Map<Object, Object> values, String name) {
         Object result = values.get(name);
-        if (!(result instanceof String text)) throw new AppException(RegistrationErrorCode.UNAVAILABLE);
+        if (!(result instanceof String text))
+            throw new AppException(RegistrationErrorCode.UNAVAILABLE);
         return text;
     }
 
@@ -221,6 +298,9 @@ public class RegisterService {
     }
 
     private record OtpDelivery(String email, String otp) {
-        @Override public String toString() { return "OtpDelivery[redacted]"; }
+        @Override
+        public String toString() {
+            return "OtpDelivery[redacted]";
+        }
     }
 }

@@ -1,4 +1,4 @@
-package com.aquasuite.ims.module.catalog.internal.payload;
+package com.aquasuite.ims.module.catalog.internal.payload.bundle.request;
 
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
@@ -15,19 +15,19 @@ import java.util.UUID;
  * Mã combo phải giữ nguyên; omit/null brandId hoặc description sẽ xóa giá trị cũ.
  */
 public record BundleCoreUpdateRequest(
-        @NotBlank @Size(max = 100)
-        String productCode,
-        @NotBlank @Size(max = 255)
-        String name,
+        @NotBlank @Size(max = 100) String productCode,
+        @NotBlank @Size(max = 255) String name,
         @NotNull UUID categoryId,
         UUID brandId,
         @Size(max = 10000) String description,
         @NotNull @Size(min = 1, max = 100) List<@NotNull @Valid BundleItemRequest> items,
         @JsonDeserialize(using = BundleJsonDeserializers.StrictMoney.class)
-        @NotNull @DecimalMin(value = "0", inclusive = false) @Digits(integer = 13, fraction = 2)
-        BigDecimal packagePrice,
-        @JsonDeserialize(using = BundleJsonDeserializers.StrictLong.class)
-        @NotNull @PositiveOrZero Long expectedVersion,
+                @NotNull
+                @DecimalMin(value = "0", inclusive = false)
+                @Digits(integer = 13, fraction = 2)
+                BigDecimal packagePrice,
+        @JsonDeserialize(using = BundleJsonDeserializers.StrictLong.class) @NotNull @PositiveOrZero
+                Long expectedVersion,
         Instant validFrom,
         Instant validUntil,
         @Size(max = 100) List<@NotNull @Valid BundleComponentGroupRequest> componentGroups) {
@@ -38,9 +38,27 @@ public record BundleCoreUpdateRequest(
     }
 
     /** PUT thay toàn bộ cấu hình: cách gọi cũ này xóa lịch và đặt nhóm option thành rỗng. */
-    public BundleCoreUpdateRequest(String productCode, String name, UUID categoryId, UUID brandId,
-            String description, List<BundleItemRequest> items, BigDecimal packagePrice, Long expectedVersion) {
-        this(productCode, name, categoryId, brandId, description, items, packagePrice, expectedVersion, null, null, List.of());
+    public BundleCoreUpdateRequest(
+            String productCode,
+            String name,
+            UUID categoryId,
+            UUID brandId,
+            String description,
+            List<BundleItemRequest> items,
+            BigDecimal packagePrice,
+            Long expectedVersion) {
+        this(
+                productCode,
+                name,
+                categoryId,
+                brandId,
+                description,
+                items,
+                packagePrice,
+                expectedVersion,
+                null,
+                null,
+                List.of());
     }
 
     @JsonAnySetter

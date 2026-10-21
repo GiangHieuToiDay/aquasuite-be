@@ -36,9 +36,8 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class PasswordServiceImpl implements PasswordService {
 
-    private static final Pattern PASSWORD_POLICY_PATTERN = Pattern.compile(
-            "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$"
-    );
+    private static final Pattern PASSWORD_POLICY_PATTERN =
+            Pattern.compile("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$");
 
     private final UserRepository userRepository;
     private final UserPasswordRecoveryRepository recoveries;
@@ -54,11 +53,14 @@ public class PasswordServiceImpl implements PasswordService {
             throw new AppException(IamPasswordErrorCode.INCORRECT_CURRENT_PASSWORD);
         }
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new AppException(IamPasswordErrorCode.USER_NOT_FOUND));
+        User user =
+                userRepository
+                        .findById(userId)
+                        .orElseThrow(() -> new AppException(IamPasswordErrorCode.USER_NOT_FOUND));
 
         // Step 5: Check current password (MSG21)
-        if (user.getPasswordHash() == null || !passwordEncoder.matches(req.currentPassword(), user.getPasswordHash())) {
+        if (user.getPasswordHash() == null
+                || !passwordEncoder.matches(req.currentPassword(), user.getPasswordHash())) {
             throw new AppException(IamPasswordErrorCode.INCORRECT_CURRENT_PASSWORD);
         }
 
@@ -80,7 +82,8 @@ public class PasswordServiceImpl implements PasswordService {
         eventPublisher.publishEvent(new PasswordChangedEvent(user.getId(), "CHANGE_PASSWORD"));
 
         // MSG18
-        return new PasswordActionResponse("Password changed successfully. Please log in again if required.");
+        return new PasswordActionResponse(
+                "Password changed successfully. Please log in again if required.");
     }
 
     @Override
@@ -89,11 +92,17 @@ public class PasswordServiceImpl implements PasswordService {
         User user;
 
         if (req.channel() == RecoveryChannel.EMAIL) {
-            user = userRepository.findByEmailIgnoreCase(identifier)
-                    .orElseThrow(() -> new AppException(IamPasswordErrorCode.USER_NOT_FOUND));
+            user =
+                    userRepository
+                            .findByEmailIgnoreCase(identifier)
+                            .orElseThrow(
+                                    () -> new AppException(IamPasswordErrorCode.USER_NOT_FOUND));
         } else if (req.channel() == RecoveryChannel.SMS) {
-            user = userRepository.findByPhone(identifier)
-                    .orElseThrow(() -> new AppException(IamPasswordErrorCode.USER_NOT_FOUND));
+            user =
+                    userRepository
+                            .findByPhone(identifier)
+                            .orElseThrow(
+                                    () -> new AppException(IamPasswordErrorCode.USER_NOT_FOUND));
         } else {
             throw new AppException(IamPasswordErrorCode.USER_NOT_FOUND);
         }
@@ -101,7 +110,9 @@ public class PasswordServiceImpl implements PasswordService {
         var recovery = recovery(user.getId());
         // Anti-spam rate limiting: max 5 requests per day
         LocalDate today = LocalDate.now();
-        if (today.equals(recovery.getEmailSentDate()) && recovery.getEmailSentCount() != null && recovery.getEmailSentCount() >= 5) {
+        if (today.equals(recovery.getEmailSentDate())
+                && recovery.getEmailSentCount() != null
+                && recovery.getEmailSentCount() >= 5) {
             throw new AppException(IamPasswordErrorCode.EMAIL_RATE_LIMIT_EXCEEDED);
         }
 
@@ -109,7 +120,8 @@ public class PasswordServiceImpl implements PasswordService {
             recovery.setEmailSentDate(today);
             recovery.setEmailSentCount(1);
         } else {
-            recovery.setEmailSentCount(recovery.getEmailSentCount() != null ? recovery.getEmailSentCount() + 1 : 1);
+            recovery.setEmailSentCount(
+                    recovery.getEmailSentCount() != null ? recovery.getEmailSentCount() + 1 : 1);
         }
 
         // Generate 6-digit OTP
@@ -121,10 +133,15 @@ public class PasswordServiceImpl implements PasswordService {
         recoveries.save(recovery);
 
         // Find strategy and send OTP
-        OtpSenderStrategy strategy = otpStrategies.stream()
-                .filter(s -> s.getSupportedChannel() == req.channel())
-                .findFirst()
-                .orElseThrow(() -> new AppException(IamPasswordErrorCode.SMS_CHANNEL_NOT_SUPPORTED_YET));
+        OtpSenderStrategy strategy =
+                otpStrategies.stream()
+                        .filter(s -> s.getSupportedChannel() == req.channel())
+                        .findFirst()
+                        .orElseThrow(
+                                () ->
+                                        new AppException(
+                                                IamPasswordErrorCode
+                                                        .SMS_CHANNEL_NOT_SUPPORTED_YET));
 
         strategy.sendRecoveryOtp(identifier, otp);
 
@@ -140,11 +157,13 @@ public class PasswordServiceImpl implements PasswordService {
         if (userOpt.isEmpty()) {
             userOpt = userRepository.findByPhone(identifier);
         }
-        User user = userOpt.orElseThrow(() -> new AppException(IamPasswordErrorCode.USER_NOT_FOUND));
+        User user =
+                userOpt.orElseThrow(() -> new AppException(IamPasswordErrorCode.USER_NOT_FOUND));
 
         var recovery = recovery(user.getId());
         // Validate OTP existence and expiration (10 min)
-        if (recovery.getVerificationCode() == null || recovery.getVerificationExpiredAt() == null
+        if (recovery.getVerificationCode() == null
+                || recovery.getVerificationExpiredAt() == null
                 || LocalDateTime.now().isAfter(recovery.getVerificationExpiredAt())) {
             throw new AppException(IamPasswordErrorCode.INVALID_OR_EXPIRED_OTP);
         }
@@ -172,29 +191,37 @@ public class PasswordServiceImpl implements PasswordService {
         userRepository.save(user);
 
         // Publish domain event
-        eventPublisher.publishEvent(new PasswordChangedEvent(user.getId(), "FORGOT_PASSWORD_RESET"));
+        eventPublisher.publishEvent(
+                new PasswordChangedEvent(user.getId(), "FORGOT_PASSWORD_RESET"));
 
         // MSG20
-        return new PasswordActionResponse("Your password has been reset successfully. You may now sign in.");
+        return new PasswordActionResponse(
+                "Your password has been reset successfully. You may now sign in.");
     }
 
     private UserPasswordRecovery recovery(UUID userId) {
-        return recoveries.findById(userId).orElseGet(() -> {
-            var state = new UserPasswordRecovery();
-            state.setUserId(userId);
-            return state;
-        });
+        return recoveries
+                .findById(userId)
+                .orElseGet(
+                        () -> {
+                            var state = new UserPasswordRecovery();
+                            state.setUserId(userId);
+                            return state;
+                        });
     }
 
-    private void validatePasswordPolicyAndConfirmation(String newPassword, String confirmNewPassword) {
-        if (newPassword == null || !newPassword.equals(confirmNewPassword)
+    private void validatePasswordPolicyAndConfirmation(
+            String newPassword, String confirmNewPassword) {
+        if (newPassword == null
+                || !newPassword.equals(confirmNewPassword)
                 || !PASSWORD_POLICY_PATTERN.matcher(newPassword).matches()) {
             throw new AppException(IamPasswordErrorCode.WEAK_OR_MISMATCHED_PASSWORD);
         }
     }
 
     private void validateNotSameAsCurrentPassword(User user, String rawNewPassword) {
-        if (user.getPasswordHash() != null && passwordEncoder.matches(rawNewPassword, user.getPasswordHash())) {
+        if (user.getPasswordHash() != null
+                && passwordEncoder.matches(rawNewPassword, user.getPasswordHash())) {
             throw new AppException(IamPasswordErrorCode.SAME_AS_CURRENT_PASSWORD);
         }
     }

@@ -41,19 +41,16 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class DisabledUserIntegrationTest {
 
-    private static final String VALID_SECRET = "dGVzdC1zZWNyZXQta2V5LWZvci11bml0LXRlc3RzLW11c3QtYmUtYXQtbGVhc3QtNjQtYnl0ZXMtbG9uZy1zby10aGlzLXNob3VsZC13b3JrIQ==";
+    private static final String VALID_SECRET =
+            "dGVzdC1zZWNyZXQta2V5LWZvci11bml0LXRlc3RzLW11c3QtYmUtYXQtbGVhc3QtNjQtYnl0ZXMtbG9uZy1zby10aGlzLXNob3VsZC13b3JrIQ==";
 
-    @Mock
-    private AuthenticationManager authenticationManager;
+    @Mock private AuthenticationManager authenticationManager;
 
-    @Mock
-    private UserRepository userRepository;
+    @Mock private UserRepository userRepository;
 
-    @Mock
-    private RedisSessionStore redisSessionStore;
+    @Mock private RedisSessionStore redisSessionStore;
 
-    @Mock
-    private CurrentAuthoritiesService currentAuthoritiesService;
+    @Mock private CurrentAuthoritiesService currentAuthoritiesService;
 
     private JwtTokenService jwtTokenService;
     private AuthServiceImpl authService;
@@ -63,33 +60,35 @@ class DisabledUserIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        jwtTokenService = new JwtTokenService(
-                "aquasuite-be",
-                "aquasuite-api",
-                "aquasuite-auth",
-                1800,
-                1296000,
-                1296000,
-                VALID_SECRET
-        );
+        jwtTokenService =
+                new JwtTokenService(
+                        "aquasuite-be",
+                        "aquasuite-api",
+                        "aquasuite-auth",
+                        1800,
+                        1296000,
+                        1296000,
+                        VALID_SECRET);
         jwtTokenService.init();
 
-        authService = new AuthServiceImpl(
-                authenticationManager,
-                userRepository,
-                jwtTokenService,
-                redisSessionStore,
-                currentAuthoritiesService
-        );
+        authService =
+                new AuthServiceImpl(
+                        authenticationManager,
+                        userRepository,
+                        jwtTokenService,
+                        redisSessionStore,
+                        currentAuthoritiesService);
 
-        accessAuthenticationConverter = new AccessAuthenticationConverter(currentAuthoritiesService);
+        accessAuthenticationConverter =
+                new AccessAuthenticationConverter(currentAuthoritiesService);
 
         request = new MockHttpServletRequest();
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
     }
 
     @Test
-    @DisplayName("AC-10: User bị disabled/non-active không thể đăng nhập -> ném ACCOUNT_NOT_ACTIVE (403 AUTH_008)")
+    @DisplayName(
+            "AC-10: User bị disabled/non-active không thể đăng nhập -> ném ACCOUNT_NOT_ACTIVE (403 AUTH_008)")
     void shouldRejectLoginWhenUserIsDisabled() {
         String email = "disabled@aquasuite.com";
         when(authenticationManager.authenticate(any()))
@@ -99,11 +98,15 @@ class DisabledUserIntegrationTest {
 
         assertThatThrownBy(() -> authService.login(req))
                 .isInstanceOf(AppException.class)
-                .satisfies(e -> assertThat(((AppException) e).getErrorCode()).isEqualTo(AuthErrorCode.ACCOUNT_NOT_ACTIVE));
+                .satisfies(
+                        e ->
+                                assertThat(((AppException) e).getErrorCode())
+                                        .isEqualTo(AuthErrorCode.ACCOUNT_NOT_ACTIVE));
     }
 
     @Test
-    @DisplayName("AC-10: User bị disabled sau khi đăng nhập -> request bảo vệ kế tiếp bị từ chối 403 AUTH_008")
+    @DisplayName(
+            "AC-10: User bị disabled sau khi đăng nhập -> request bảo vệ kế tiếp bị từ chối 403 AUTH_008")
     void shouldDenyProtectedRequestImmediatelyWhenUserDisabledInDb() {
         UUID userId = UUID.randomUUID();
         User disabledUser = new User();
@@ -114,14 +117,17 @@ class DisabledUserIntegrationTest {
         Jwt jwt = mock(Jwt.class);
         when(jwt.getSubject()).thenReturn(userId.toString());
 
-        when(currentAuthoritiesService.loadCurrentUser(userId)).thenReturn(Optional.of(disabledUser));
+        when(currentAuthoritiesService.loadCurrentUser(userId))
+                .thenReturn(Optional.of(disabledUser));
 
         assertThatThrownBy(() -> accessAuthenticationConverter.convert(jwt))
                 .isInstanceOf(OAuth2AuthenticationException.class)
-                .satisfies(e -> {
-                    OAuth2AuthenticationException ex = (OAuth2AuthenticationException) e;
-                    assertThat(ex.getError().getErrorCode()).isEqualTo("account_not_active");
-                });
+                .satisfies(
+                        e -> {
+                            OAuth2AuthenticationException ex = (OAuth2AuthenticationException) e;
+                            assertThat(ex.getError().getErrorCode())
+                                    .isEqualTo("account_not_active");
+                        });
 
         assertThat(request.getAttribute(AuthSecurityErrorHandlers.AUTH_ERROR_ATTRIBUTE))
                 .isEqualTo(AuthErrorCode.ACCOUNT_NOT_ACTIVE);
@@ -135,18 +141,23 @@ class DisabledUserIntegrationTest {
         Instant now = Instant.now();
         Instant absExp = now.plusSeconds(3600);
 
-        JwtTokenService.TokenPair pair = jwtTokenService.issueTokenPair(userId, sessionId, now, absExp);
+        JwtTokenService.TokenPair pair =
+                jwtTokenService.issueTokenPair(userId, sessionId, now, absExp);
 
         User disabledUser = new User();
         disabledUser.setId(userId);
         disabledUser.setStatus(UserStatus.INACTIVE);
 
-        when(currentAuthoritiesService.loadCurrentUser(userId)).thenReturn(Optional.of(disabledUser));
+        when(currentAuthoritiesService.loadCurrentUser(userId))
+                .thenReturn(Optional.of(disabledUser));
 
         RefreshRequest req = RefreshRequest.builder().refreshToken(pair.refreshToken()).build();
 
         assertThatThrownBy(() -> authService.refresh(req))
                 .isInstanceOf(AppException.class)
-                .satisfies(e -> assertThat(((AppException) e).getErrorCode()).isEqualTo(AuthErrorCode.ACCOUNT_NOT_ACTIVE));
+                .satisfies(
+                        e ->
+                                assertThat(((AppException) e).getErrorCode())
+                                        .isEqualTo(AuthErrorCode.ACCOUNT_NOT_ACTIVE));
     }
 }

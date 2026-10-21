@@ -42,8 +42,10 @@ public class StockCountController {
     public ResponseEntity<ApiResponse<StockCountResponse>> approveStockCount(
             @PathVariable UUID stockCountId) {
         UUID approverUserId = iamFacade.getCurrentUserId();
-        StockCountResponse response = stockCountService.approveStockCount(stockCountId, approverUserId);
-        return ResponseEntity.ok(ApiResponse.ok(response, "Duyệt phiếu kiểm kê và cân bằng kho thành công"));
+        StockCountResponse response =
+                stockCountService.approveStockCount(stockCountId, approverUserId);
+        return ResponseEntity.ok(
+                ApiResponse.ok(response, "Duyệt phiếu kiểm kê và cân bằng kho thành công"));
     }
 
     /**
@@ -71,7 +73,8 @@ public class StockCountController {
      */
     @GetMapping
     public ResponseEntity<ApiResponse<Page<StockCountResponse>>> listStockCounts(
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
+                    Pageable pageable) {
         Page<StockCountResponse> page = stockCountService.listStockCounts(pageable);
         return ResponseEntity.ok(ApiResponse.ok(page));
     }

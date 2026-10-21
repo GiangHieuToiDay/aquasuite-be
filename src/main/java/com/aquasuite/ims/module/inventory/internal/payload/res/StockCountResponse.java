@@ -18,5 +18,4 @@ public record StockCountResponse(
         LocalDateTime countDate,
         String note,
         LocalDateTime createdAt,
-        List<StockCountItemResponse> items
-) {}
+        List<StockCountItemResponse> items) {}

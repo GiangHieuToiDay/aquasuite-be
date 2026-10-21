@@ -2,7 +2,7 @@ package com.aquasuite.ims.module.catalog.internal.service;
 
 import static org.assertj.core.api.Assertions.*;
 
-import com.aquasuite.ims.module.catalog.internal.payload.BundleCoreStatusRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.bundle.request.BundleCoreStatusRequest;
 import com.aquasuite.ims.support.BundleCoreTestSupport;
 
 import org.junit.jupiter.api.Test;
@@ -18,8 +18,13 @@ class BundleStatusIT extends BundleCoreTestSupport {
                                 d.version(), BundleCoreStatusRequest.Status.INACTIVE));
         assertThat(off.publicationStatus()).isEqualTo("DRAFT");
         var persistedOff = service.get(d.bundleId());
-        assertThat(off).usingRecursiveComparison().ignoringFields("updatedAt").isEqualTo(persistedOff);
-        assertThat(off.updatedAt()).isCloseTo(persistedOff.updatedAt(), within(1, java.time.temporal.ChronoUnit.MICROS));
+        assertThat(off)
+                .usingRecursiveComparison()
+                .ignoringFields("updatedAt")
+                .isEqualTo(persistedOff);
+        assertThat(off.updatedAt())
+                .isCloseTo(
+                        persistedOff.updatedAt(), within(1, java.time.temporal.ChronoUnit.MICROS));
         assertThat(off.items()).isEqualTo(d.items());
         assertThat(
                         service.status(

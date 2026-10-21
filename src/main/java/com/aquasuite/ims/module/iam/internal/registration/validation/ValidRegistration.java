@@ -9,6 +9,8 @@ import java.lang.annotation.*;
 @Constraint(validatedBy = RegistrationValidator.class)
 public @interface ValidRegistration {
     String message() default "Invalid registration form";
+
     Class<?>[] groups() default {};
+
     Class<? extends Payload>[] payload() default {};
 }

@@ -27,26 +27,21 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @SpringBootTest
 class DevelopmentDataInitializerRollbackIntegrationTest extends PostgreSqlIntegrationTestSupport {
 
-    @Autowired
-    private RoleRepository roleRepository;
+    @Autowired private RoleRepository roleRepository;
 
-    @Autowired
-    private UserRepository userRepository;
+    @Autowired private UserRepository userRepository;
 
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    @Autowired private PasswordEncoder passwordEncoder;
 
-    @Autowired
-    private TransactionTemplate transactionTemplate;
+    @Autowired private TransactionTemplate transactionTemplate;
 
-    @Autowired
-    private DataSource dataSource;
+    @Autowired private DataSource dataSource;
 
     @BeforeEach
     @AfterEach
     void cleanUp() throws Exception {
         try (Connection conn = dataSource.getConnection();
-             Statement stmt = conn.createStatement()) {
+                Statement stmt = conn.createStatement()) {
             stmt.executeUpdate("DELETE FROM public.role_permissions");
             stmt.executeUpdate("DELETE FROM public.user_roles");
             stmt.executeUpdate("DELETE FROM public.users");
@@ -55,7 +50,8 @@ class DevelopmentDataInitializerRollbackIntegrationTest extends PostgreSqlIntegr
     }
 
     @Test
-    @DisplayName("CR-V6-03: Late owner conflict after createRoles() rolls back entire transaction leaving zero roles")
+    @DisplayName(
+            "CR-V6-03: Late owner conflict after createRoles() rolls back entire transaction leaving zero roles")
     void shouldRollbackAllRolesWhenOwnerConflictOccursInSingleTransaction() {
         // 1. Prepare clean test database with pre-existing conflicting user
         User conflictUser = new User();
@@ -75,13 +71,13 @@ class DevelopmentDataInitializerRollbackIntegrationTest extends PostgreSqlIntegr
         mockEnv.setProperty("aquasuite.config.environment", "dev");
         mockEnv.setProperty("aquasuite.iam.dev-seed.enabled", "true");
 
-        DevelopmentDataInitializer initializer = new DevelopmentDataInitializer(
-                roleRepository,
-                userRepository,
-                passwordEncoder,
-                transactionTemplate,
-                mockEnv
-        );
+        DevelopmentDataInitializer initializer =
+                new DevelopmentDataInitializer(
+                        roleRepository,
+                        userRepository,
+                        passwordEncoder,
+                        transactionTemplate,
+                        mockEnv);
         initializer.setPasswordSupplier(() -> "TestPassword123!");
 
         // 3. Execute: exception must be thrown due to owner status conflict
@@ -89,7 +85,8 @@ class DevelopmentDataInitializerRollbackIntegrationTest extends PostgreSqlIntegr
                 .isInstanceOf(DevelopmentDataInitializer.SeedConflictException.class)
                 .hasMessageContaining("non-ACTIVE status");
 
-        // 4. Verify transaction rollback: zero roles committed despite createRoles() running before owner check
+        // 4. Verify transaction rollback: zero roles committed despite createRoles() running before
+        // owner check
         assertThat(roleRepository.count()).isEqualTo(0);
         assertThat(roleRepository.findByRoleNameIgnoreCase("SHOP_OWNER")).isEmpty();
 

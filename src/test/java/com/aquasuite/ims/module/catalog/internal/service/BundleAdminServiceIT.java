@@ -2,7 +2,7 @@ package com.aquasuite.ims.module.catalog.internal.service;
 
 import static org.assertj.core.api.Assertions.*;
 
-import com.aquasuite.ims.module.catalog.internal.payload.*;
+import com.aquasuite.ims.module.catalog.internal.payload.bundle.request.*;
 import com.aquasuite.ims.share.exception.AppException;
 import com.aquasuite.ims.support.BundleCoreTestSupport;
 
@@ -17,23 +17,36 @@ class BundleAdminServiceIT extends BundleCoreTestSupport {
     @Test
     void listingMultipleBundlesKeepsEachBundlesOwnItemsAndPrice() {
         var first = create();
-        var second = service.create(new BundleCoreCreateRequest(
-                "BUNDLE-2", "Second combo", CATEGORY, null, null,
-                List.of(new BundleItemRequest(SKU, 2)), new BigDecimal("95000000.00")));
+        var second =
+                service.create(
+                        new BundleCoreCreateRequest(
+                                "BUNDLE-2",
+                                "Second combo",
+                                CATEGORY,
+                                null,
+                                null,
+                                List.of(new BundleItemRequest(SKU, 2)),
+                                new BigDecimal("95000000.00")));
 
         var page = service.list(0, 20, null, null, null);
 
         assertThat(page.totalElements()).isEqualTo(2);
-        assertThat(page.items()).filteredOn(b -> b.bundleId().equals(first.bundleId()))
-                .singleElement().satisfies(b -> {
-                    assertThat(b.linkedItemsCount()).isEqualTo(1);
-                    assertThat(b.originalTotal()).isEqualByComparingTo("110000000.00");
-                });
-        assertThat(page.items()).filteredOn(b -> b.bundleId().equals(second.bundleId()))
-                .singleElement().satisfies(b -> {
-                    assertThat(b.linkedItemsCount()).isEqualTo(1);
-                    assertThat(b.originalTotal()).isEqualByComparingTo("220000000.00");
-                });
+        assertThat(page.items())
+                .filteredOn(b -> b.bundleId().equals(first.bundleId()))
+                .singleElement()
+                .satisfies(
+                        b -> {
+                            assertThat(b.linkedItemsCount()).isEqualTo(1);
+                            assertThat(b.originalTotal()).isEqualByComparingTo("110000000.00");
+                        });
+        assertThat(page.items())
+                .filteredOn(b -> b.bundleId().equals(second.bundleId()))
+                .singleElement()
+                .satisfies(
+                        b -> {
+                            assertThat(b.linkedItemsCount()).isEqualTo(1);
+                            assertThat(b.originalTotal()).isEqualByComparingTo("220000000.00");
+                        });
     }
 
     @Test
@@ -74,41 +87,61 @@ class BundleAdminServiceIT extends BundleCoreTestSupport {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {
-        "missingSku", "inactiveSku", "inactiveProduct", "deletedProduct", "nestedBundle",
-        "missingCategory", "inactiveCategory"
-    })
+    @ValueSource(
+            strings = {
+                "missingSku",
+                "inactiveSku",
+                "inactiveProduct",
+                "deletedProduct",
+                "nestedBundle",
+                "missingCategory",
+                "inactiveCategory"
+            })
     void invalidReferencesDoNotCreatePartialBundle(String scenario) {
         UUID variant = SKU;
         UUID category = CATEGORY;
         switch (scenario) {
             case "missingSku" -> variant = UUID.randomUUID();
             case "inactiveSku" ->
-                    jdbc.update("update product_variants set status='INACTIVE' where variant_id=?", SKU);
+                    jdbc.update(
+                            "update product_variants set status='INACTIVE' where variant_id=?",
+                            SKU);
             case "inactiveProduct" ->
                     jdbc.update("update products set status='INACTIVE' where product_id=?", NORMAL);
             case "deletedProduct" ->
                     jdbc.update("update products set status='DELETED' where product_id=?", NORMAL);
             case "nestedBundle" ->
-                    jdbc.update("update products set product_type='BUNDLE' where product_id=?", NORMAL);
+                    jdbc.update(
+                            "update products set product_type='BUNDLE' where product_id=?", NORMAL);
             case "missingCategory" -> category = UUID.randomUUID();
             case "inactiveCategory" ->
-                    jdbc.update("update categories set status='INACTIVE' where category_id=?", CATEGORY);
+                    jdbc.update(
+                            "update categories set status='INACTIVE' where category_id=?",
+                            CATEGORY);
             default -> throw new AssertionError(scenario);
         }
         var request =
                 new BundleCoreCreateRequest(
-                        "INVALID-REFERENCE", "Invalid", category, null, null,
+                        "INVALID-REFERENCE",
+                        "Invalid",
+                        category,
+                        null,
+                        null,
                         List.of(new BundleItemRequest(variant, 1)),
                         new BigDecimal("95000000.00"));
         assertThatThrownBy(() -> service.create(request))
                 .isInstanceOfSatisfying(
                         AppException.class,
-                        ex -> assertThat(ex.getErrorCode().getCode())
-                                .isEqualTo(scenario.endsWith("Category")
-                                        ? "CATALOG_BUNDLE_002" : "CATALOG_BUNDLE_001"));
-        assertThat(jdbc.queryForObject(
-                "select count(*) from products where product_code='INVALID-REFERENCE'", Integer.class))
+                        ex ->
+                                assertThat(ex.getErrorCode().getCode())
+                                        .isEqualTo(
+                                                scenario.endsWith("Category")
+                                                        ? "CATALOG_BUNDLE_002"
+                                                        : "CATALOG_BUNDLE_001"));
+        assertThat(
+                        jdbc.queryForObject(
+                                "select count(*) from products where product_code='INVALID-REFERENCE'",
+                                Integer.class))
                 .isZero();
         assertThat(jdbc.queryForObject("select count(*) from bundle_configurations", Integer.class))
                 .isZero();
@@ -122,12 +155,15 @@ class BundleAdminServiceIT extends BundleCoreTestSupport {
         jdbc.update(
                 "update bundle_configurations set publication_status='PUBLISHED',"
                         + " valid_from=CURRENT_TIMESTAMP, valid_until=CURRENT_TIMESTAMP + interval '1 day'"
-                        + " where bundle_product_id=?", original.bundleId());
+                        + " where bundle_product_id=?",
+                original.bundleId());
         var published = service.get(original.bundleId());
         assertThatThrownBy(() -> service.update(original.bundleId(), update(original)))
                 .isInstanceOfSatisfying(
                         AppException.class,
-                        ex -> assertThat(ex.getErrorCode().getCode()).isEqualTo("CATALOG_BUNDLE_006"));
+                        ex ->
+                                assertThat(ex.getErrorCode().getCode())
+                                        .isEqualTo("CATALOG_BUNDLE_006"));
         assertThat(service.get(original.bundleId())).isEqualTo(published);
     }
 

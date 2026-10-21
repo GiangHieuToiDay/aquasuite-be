@@ -37,31 +37,43 @@ public class CatalogImportController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<Map<String, Object>>> uploadAndImport(
             @RequestParam("file") MultipartFile file,
-            @RequestParam(name = "importMode", defaultValue = "SKIP_EXISTING") ImportMode importMode
-    ) {
+            @RequestParam(name = "importMode", defaultValue = "SKIP_EXISTING")
+                    ImportMode importMode) {
         File tempFile = tempFileManager.saveToTempFile(file, "catalog");
         String jobId = "imp_" + UUID.randomUUID();
 
-        log.info("Received catalog import request. JobId: {}, ImportMode: {}, FileName: {}",
-                jobId, importMode, file.getOriginalFilename());
+        log.info(
+                "Received catalog import request. JobId: {}, ImportMode: {}, FileName: {}",
+                jobId,
+                importMode,
+                file.getOriginalFilename());
 
         productBulkExcelImporter.startAsyncImport(tempFile, jobId, importMode);
 
-        Map<String, Object> result = Map.of(
-                "jobId", jobId,
-                "importMode", importMode.name(),
-                "fileName", file.getOriginalFilename() != null ? file.getOriginalFilename() : "catalog.xlsx"
-        );
+        Map<String, Object> result =
+                Map.of(
+                        "jobId",
+                        jobId,
+                        "importMode",
+                        importMode.name(),
+                        "fileName",
+                        file.getOriginalFilename() != null
+                                ? file.getOriginalFilename()
+                                : "catalog.xlsx");
 
         return ResponseEntity.accepted()
-                .body(ApiResponse.ok(result, "File import đã được tiếp nhận và đang tiến hành xử lý ngầm"));
+                .body(
+                        ApiResponse.ok(
+                                result,
+                                "File import đã được tiếp nhận và đang tiến hành xử lý ngầm"));
     }
 
     /**
      * API 2: Lấy tiến độ xử lý (%) và số dòng thành công/thất bại
      */
     @GetMapping("/{jobId}/progress")
-    public ResponseEntity<ApiResponse<ImportProgressDto>> getProgress(@PathVariable("jobId") String jobId) {
+    public ResponseEntity<ApiResponse<ImportProgressDto>> getProgress(
+            @PathVariable("jobId") String jobId) {
         ImportProgressDto progress = progressTracker.getProgress(jobId);
         return ResponseEntity.ok(ApiResponse.ok(progress, "Tiến độ import sản phẩm"));
     }
@@ -70,13 +82,20 @@ public class CatalogImportController {
      * API 3: Tải file Excel báo cáo các dòng lỗi (nếu có lỗi)
      */
     @GetMapping("/{jobId}/error-report")
-    public ResponseEntity<byte[]> downloadErrorReport(@PathVariable("jobId") String jobId) throws IOException {
+    public ResponseEntity<byte[]> downloadErrorReport(@PathVariable("jobId") String jobId)
+            throws IOException {
         ImportProgressDto progress = progressTracker.getProgress(jobId);
-        byte[] excelBytes = errorReportGenerator.generateErrorWorkbook("Catalog_Import_Errors", progress.getErrors());
+        byte[] excelBytes =
+                errorReportGenerator.generateErrorWorkbook(
+                        "Catalog_Import_Errors", progress.getErrors());
 
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=Catalog_Import_Errors_" + jobId + ".xlsx")
-                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=Catalog_Import_Errors_" + jobId + ".xlsx")
+                .contentType(
+                        MediaType.parseMediaType(
+                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(excelBytes);
     }
 }

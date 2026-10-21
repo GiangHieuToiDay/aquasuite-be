@@ -7,14 +7,7 @@ import java.util.UUID;
 /**
  * Domain Event bắn sang module inventory khi hoàn tất import hàng loạt SKU mới.
  */
-public record VariantsBulkImportedEvent(
-        String jobId,
-        List<InitialStockItem> items
-) {
+public record VariantsBulkImportedEvent(String jobId, List<InitialStockItem> items) {
     public record InitialStockItem(
-            UUID variantId,
-            String sku,
-            BigDecimal initialStock,
-            BigDecimal minimumQty
-    ) {}
+            UUID variantId, String sku, BigDecimal initialStock, BigDecimal minimumQty) {}
 }

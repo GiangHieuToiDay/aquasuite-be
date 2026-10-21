@@ -32,14 +32,14 @@ public class DevelopmentDataInitializer implements ApplicationRunner {
 
     public record RoleDefinition(String name, String description) {}
 
-    public static final List<RoleDefinition> CANONICAL_ROLES = List.of(
-            new RoleDefinition("SHOP_OWNER", "Chủ cửa hàng"),
-            new RoleDefinition("SALES_STAFF", "Nhân viên bán hàng"),
-            new RoleDefinition("ACCOUNTANT", "Kế toán"),
-            new RoleDefinition("TECHNICAL_STAFF", "Nhân viên kỹ thuật"),
-            new RoleDefinition("SHIPPER", "Nhân viên giao hàng"),
-            new RoleDefinition("CUSTOMER", "Khách hàng")
-    );
+    public static final List<RoleDefinition> CANONICAL_ROLES =
+            List.of(
+                    new RoleDefinition("SHOP_OWNER", "Chủ cửa hàng"),
+                    new RoleDefinition("SALES_STAFF", "Nhân viên bán hàng"),
+                    new RoleDefinition("ACCOUNTANT", "Kế toán"),
+                    new RoleDefinition("TECHNICAL_STAFF", "Nhân viên kỹ thuật"),
+                    new RoleDefinition("SHIPPER", "Nhân viên giao hàng"),
+                    new RoleDefinition("CUSTOMER", "Khách hàng"));
 
     public static final String OWNER_EMAIL = "owner@aquasuite.local";
     public static final String OWNER_USERNAME = "owner_test";
@@ -74,14 +74,16 @@ public class DevelopmentDataInitializer implements ApplicationRunner {
 
         String password = passwordSupplier.get();
         if (password == null || password.isBlank()) {
-            throw new IllegalStateException("Development data seeding is enabled, but required environment variable AQUASUITE_DEV_OWNER_PASSWORD is null or blank.");
+            throw new IllegalStateException(
+                    "Development data seeding is enabled, but required environment variable AQUASUITE_DEV_OWNER_PASSWORD is null or blank.");
         }
 
         log.info("Starting development data seeding...");
-        transactionTemplate.executeWithoutResult(status -> {
-            Map<String, Role> managedRoles = createRoles();
-            createOwner(password, managedRoles.get("SHOP_OWNER"));
-        });
+        transactionTemplate.executeWithoutResult(
+                status -> {
+                    Map<String, Role> managedRoles = createRoles();
+                    createOwner(password, managedRoles.get("SHOP_OWNER"));
+                });
         log.info("Development data seeding completed successfully.");
         return true;
     }
@@ -89,14 +91,14 @@ public class DevelopmentDataInitializer implements ApplicationRunner {
     public boolean isEligibleForSeeding() {
         String enabledProp = environment.getProperty("aquasuite.iam.dev-seed.enabled");
         if (!Boolean.parseBoolean(enabledProp)) {
-            log.info("Development data initializer is disabled (aquasuite.iam.dev-seed.enabled=false). Skipping.");
+            log.info(
+                    "Development data initializer is disabled (aquasuite.iam.dev-seed.enabled=false). Skipping.");
             return false;
         }
 
         String[] activeProfiles = environment.getActiveProfiles();
-        Set<String> profiles = Arrays.stream(activeProfiles)
-                .map(String::toLowerCase)
-                .collect(Collectors.toSet());
+        Set<String> profiles =
+                Arrays.stream(activeProfiles).map(String::toLowerCase).collect(Collectors.toSet());
 
         if (profiles.contains("prod")) {
             log.warn("Development data initializer blocked: 'prod' profile is active.");
@@ -104,13 +106,17 @@ public class DevelopmentDataInitializer implements ApplicationRunner {
         }
 
         if (!profiles.contains("dev")) {
-            log.info("Development data initializer blocked: active profiles do not contain 'dev'. Active profiles: {}", Arrays.toString(activeProfiles));
+            log.info(
+                    "Development data initializer blocked: active profiles do not contain 'dev'. Active profiles: {}",
+                    Arrays.toString(activeProfiles));
             return false;
         }
 
         String envProp = environment.getProperty("aquasuite.config.environment");
         if (!"dev".equalsIgnoreCase(envProp)) {
-            log.warn("Development data initializer blocked: aquasuite.config.environment is '{}', expected 'dev'.", envProp);
+            log.warn(
+                    "Development data initializer blocked: aquasuite.config.environment is '{}', expected 'dev'.",
+                    envProp);
             return false;
         }
 
@@ -125,10 +131,15 @@ public class DevelopmentDataInitializer implements ApplicationRunner {
             if (existingOpt.isPresent()) {
                 Role existing = existingOpt.get();
                 if (!def.name().equals(existing.getRoleName())) {
-                    throw new SeedConflictException("Role name case mismatch for " + def.name() + ": found " + existing.getRoleName());
+                    throw new SeedConflictException(
+                            "Role name case mismatch for "
+                                    + def.name()
+                                    + ": found "
+                                    + existing.getRoleName());
                 }
                 if (!existing.isActive()) {
-                    throw new SeedConflictException("Role " + def.name() + " exists in database but is inactive.");
+                    throw new SeedConflictException(
+                            "Role " + def.name() + " exists in database but is inactive.");
                 }
                 roleMap.put(def.name(), existing);
             } else {
@@ -149,7 +160,8 @@ public class DevelopmentDataInitializer implements ApplicationRunner {
 
     private void createOwner(String password, Role shopOwnerRole) {
         if (shopOwnerRole == null) {
-            throw new IllegalStateException("SHOP_OWNER role is required before seeding owner user.");
+            throw new IllegalStateException(
+                    "SHOP_OWNER role is required before seeding owner user.");
         }
 
         Optional<User> byEmail = userRepository.findByEmailIgnoreCase(OWNER_EMAIL);
@@ -160,35 +172,58 @@ public class DevelopmentDataInitializer implements ApplicationRunner {
             User userUsername = byUsername.get();
 
             if (!userEmail.getId().equals(userUsername.getId())) {
-                throw new SeedConflictException("Owner identity collision: email and username belong to different users.");
+                throw new SeedConflictException(
+                        "Owner identity collision: email and username belong to different users.");
             }
 
             User user = userEmail;
             if (!OWNER_EMAIL.equals(user.getEmail())) {
-                throw new SeedConflictException("Owner email case mismatch: expected " + OWNER_EMAIL + ", found " + user.getEmail());
+                throw new SeedConflictException(
+                        "Owner email case mismatch: expected "
+                                + OWNER_EMAIL
+                                + ", found "
+                                + user.getEmail());
             }
 
             if (!OWNER_USERNAME.equals(user.getUsername())) {
-                throw new SeedConflictException("Owner username case mismatch: expected " + OWNER_USERNAME + ", found " + user.getUsername());
+                throw new SeedConflictException(
+                        "Owner username case mismatch: expected "
+                                + OWNER_USERNAME
+                                + ", found "
+                                + user.getUsername());
             }
 
             if (user.getStatus() != UserStatus.ACTIVE) {
-                throw new SeedConflictException("Owner account exists with non-ACTIVE status: " + user.getStatus());
+                throw new SeedConflictException(
+                        "Owner account exists with non-ACTIVE status: " + user.getStatus());
             }
 
             if (!passwordEncoder.matches(password, user.getPasswordHash())) {
-                throw new SeedConflictException("Owner account exists but password hash does not match AQUASUITE_DEV_OWNER_PASSWORD.");
+                throw new SeedConflictException(
+                        "Owner account exists but password hash does not match AQUASUITE_DEV_OWNER_PASSWORD.");
             }
 
             Set<Role> roles = user.getRoles();
-            if (roles == null || roles.size() != 1 || !roles.stream().allMatch(r -> "SHOP_OWNER".equals(r.getRoleName()))) {
-                String roleNames = roles == null ? "[]" : roles.stream().map(Role::getRoleName).collect(Collectors.toSet()).toString();
-                throw new SeedConflictException("Owner account exists but role set mismatch: expected [SHOP_OWNER], found " + roleNames);
+            if (roles == null
+                    || roles.size() != 1
+                    || !roles.stream().allMatch(r -> "SHOP_OWNER".equals(r.getRoleName()))) {
+                String roleNames =
+                        roles == null
+                                ? "[]"
+                                : roles.stream()
+                                        .map(Role::getRoleName)
+                                        .collect(Collectors.toSet())
+                                        .toString();
+                throw new SeedConflictException(
+                        "Owner account exists but role set mismatch: expected [SHOP_OWNER], found "
+                                + roleNames);
             }
 
-            log.info("Development owner user 'owner_test' already exists with matching state. Retaining existing record and hash.");
+            log.info(
+                    "Development owner user 'owner_test' already exists with matching state. Retaining existing record and hash.");
         } else if (byEmail.isPresent() || byUsername.isPresent()) {
-            throw new SeedConflictException("Owner identity partial collision: either email or username is already taken by another user.");
+            throw new SeedConflictException(
+                    "Owner identity partial collision: either email or username is already taken by another user.");
         } else {
             User user = new User();
             user.setId(UUID.randomUUID());

@@ -30,21 +30,41 @@ class BundleDetailAssemblerTest {
 
     @BeforeEach
     void setup() {
-        bundle = Product.builder()
-                .productId(UUID.randomUUID()).productCode("COMBO-TEST").productName("Combo")
-                .productType(ProductType.BUNDLE).status(ProductStatus.ACTIVE)
-                .categoryId(UUID.randomUUID()).brandId(UUID.randomUUID()).description("Description")
-                .build();
-        parent = Product.builder()
-                .productId(UUID.randomUUID()).productName("Normal product")
-                .productType(ProductType.NORMAL).status(ProductStatus.ACTIVE).build();
-        variant = ProductVariant.builder()
-                .variantId(UUID.randomUUID()).productId(parent.getProductId())
-                .sku("SKU-TEST").variantName("Variant").unit("piece")
-                .sellingPrice(new BigDecimal("110000000.00")).status(VariantStatus.ACTIVE).build();
-        item = BundleItem.builder()
-                .bundleItemId(UUID.randomUUID()).bundleProductId(bundle.getProductId())
-                .variantId(variant.getVariantId()).quantity(1).build();
+        bundle =
+                Product.builder()
+                        .productId(UUID.randomUUID())
+                        .productCode("COMBO-TEST")
+                        .productName("Combo")
+                        .productType(ProductType.BUNDLE)
+                        .status(ProductStatus.ACTIVE)
+                        .categoryId(UUID.randomUUID())
+                        .brandId(UUID.randomUUID())
+                        .description("Description")
+                        .build();
+        parent =
+                Product.builder()
+                        .productId(UUID.randomUUID())
+                        .productName("Normal product")
+                        .productType(ProductType.NORMAL)
+                        .status(ProductStatus.ACTIVE)
+                        .build();
+        variant =
+                ProductVariant.builder()
+                        .variantId(UUID.randomUUID())
+                        .productId(parent.getProductId())
+                        .sku("SKU-TEST")
+                        .variantName("Variant")
+                        .unit("piece")
+                        .sellingPrice(new BigDecimal("110000000.00"))
+                        .status(VariantStatus.ACTIVE)
+                        .build();
+        item =
+                BundleItem.builder()
+                        .bundleItemId(UUID.randomUUID())
+                        .bundleProductId(bundle.getProductId())
+                        .variantId(variant.getVariantId())
+                        .quantity(1)
+                        .build();
         configuration = new BundleConfiguration();
         configuration.setBundleProductId(bundle.getProductId());
         configuration.setPackagePrice(new BigDecimal("95000000.00"));
@@ -55,8 +75,13 @@ class BundleDetailAssemblerTest {
 
     @Test
     void generatedMapperPreservesResponseFieldsAndPricing() {
-        var detail = assembler.detail(bundle, configuration, List.of(item),
-                Map.of(variant.getVariantId(), variant), Map.of(parent.getProductId(), parent));
+        var detail =
+                assembler.detail(
+                        bundle,
+                        configuration,
+                        List.of(item),
+                        Map.of(variant.getVariantId(), variant),
+                        Map.of(parent.getProductId(), parent));
         assertThat(detail.bundleId()).isEqualTo(bundle.getProductId());
         assertThat(detail.productCode()).isEqualTo(bundle.getProductCode());
         assertThat(detail.name()).isEqualTo(bundle.getProductName());
@@ -85,22 +110,32 @@ class BundleDetailAssemblerTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {
-        "inactiveVariant", "inactiveParent", "deletedParent", "bundleParent", "missingParent"
-    })
+    @ValueSource(
+            strings = {
+                "inactiveVariant",
+                "inactiveParent",
+                "deletedParent",
+                "bundleParent",
+                "missingParent"
+            })
     void unavailableComponentIsRetainedAndMarkedUnsellable(String state) {
         switch (state) {
             case "inactiveVariant" -> variant.setStatus(VariantStatus.INACTIVE);
             case "inactiveParent" -> parent.setStatus(ProductStatus.INACTIVE);
             case "deletedParent" -> parent.setStatus(ProductStatus.DELETED);
             case "bundleParent" -> parent.setProductType(ProductType.BUNDLE);
-            case "missingParent" -> { }
+            case "missingParent" -> {}
             default -> throw new AssertionError(state);
         }
-        Map<UUID, Product> parents = state.equals("missingParent")
-                ? Map.of() : Map.of(parent.getProductId(), parent);
-        var detail = assembler.detail(bundle, configuration, List.of(item),
-                Map.of(variant.getVariantId(), variant), parents);
+        Map<UUID, Product> parents =
+                state.equals("missingParent") ? Map.of() : Map.of(parent.getProductId(), parent);
+        var detail =
+                assembler.detail(
+                        bundle,
+                        configuration,
+                        List.of(item),
+                        Map.of(variant.getVariantId(), variant),
+                        parents);
         assertThat(detail.items()).hasSize(1);
         assertThat(detail.items().getFirst().sellable()).isFalse();
         assertThat(detail.items().getFirst().variantId()).isEqualTo(item.getVariantId());
@@ -124,8 +159,13 @@ class BundleDetailAssemblerTest {
     @Test
     void currentRetailPriceDropDoesNotProduceNegativeDiscount() {
         variant.setSellingPrice(BigDecimal.ONE);
-        var detail = assembler.detail(bundle, configuration, List.of(item),
-                Map.of(variant.getVariantId(), variant), Map.of(parent.getProductId(), parent));
+        var detail =
+                assembler.detail(
+                        bundle,
+                        configuration,
+                        List.of(item),
+                        Map.of(variant.getVariantId(), variant),
+                        Map.of(parent.getProductId(), parent));
         assertThat(detail.originalTotal()).isEqualByComparingTo("1");
         assertThat(detail.priceIssue()).isEqualTo("PACKAGE_EXCEEDS_RETAIL");
         assertThat(detail.savingAmount()).isNull();

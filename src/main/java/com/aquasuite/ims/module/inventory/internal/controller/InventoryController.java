@@ -29,7 +29,8 @@ public class InventoryController {
      * Xem thông tin tồn kho chi tiết của một biến thể (SKU)
      */
     @GetMapping("/{variantId}")
-    public ResponseEntity<ApiResponse<StockSummaryDto>> getStockSummary(@PathVariable UUID variantId) {
+    public ResponseEntity<ApiResponse<StockSummaryDto>> getStockSummary(
+            @PathVariable UUID variantId) {
         StockSummaryDto summary = inventoryService.getInventoryByVariantId(variantId);
         return ResponseEntity.ok(ApiResponse.ok(summary));
     }
@@ -40,8 +41,10 @@ public class InventoryController {
     @GetMapping("/{variantId}/movements")
     public ResponseEntity<ApiResponse<Page<StockMovement>>> getStockMovements(
             @PathVariable UUID variantId,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        Page<StockMovement> movements = inventoryService.getMovementsByVariantId(variantId, pageable);
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
+                    Pageable pageable) {
+        Page<StockMovement> movements =
+                inventoryService.getMovementsByVariantId(variantId, pageable);
         return ResponseEntity.ok(ApiResponse.ok(movements));
     }
 
@@ -49,9 +52,11 @@ public class InventoryController {
      * Điều chỉnh tồn kho thủ công có lý do (Manual adjustment)
      */
     @PostMapping("/adjust")
-    public ResponseEntity<ApiResponse<Void>> manualAdjustStock(@Valid @RequestBody ManualStockAdjustRequest request) {
+    public ResponseEntity<ApiResponse<Void>> manualAdjustStock(
+            @Valid @RequestBody ManualStockAdjustRequest request) {
         UUID actorUserId = iamFacade.getCurrentUserId();
-        inventoryService.manualAdjustStock(request.variantId(), request.deltaQty(), request.reason(), actorUserId);
+        inventoryService.manualAdjustStock(
+                request.variantId(), request.deltaQty(), request.reason(), actorUserId);
         return ResponseEntity.ok(ApiResponse.ok(null, "Điều chỉnh tồn kho thành công"));
     }
 }

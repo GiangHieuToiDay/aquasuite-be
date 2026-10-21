@@ -1,4 +1,4 @@
-package com.aquasuite.ims.module.catalog.internal.payload;
+package com.aquasuite.ims.module.catalog.internal.payload.bundle.request;
 
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
@@ -13,7 +13,10 @@ import java.util.UUID;
 public record BundleItemRequest(
         @NotNull UUID variantId,
         @JsonDeserialize(using = BundleJsonDeserializers.StrictInteger.class)
-        @NotNull @Min(1) @Max(10000) Integer quantity) {
+                @NotNull
+                @Min(1)
+                @Max(10000)
+                Integer quantity) {
     @JsonAnySetter
     public void unknown(String key, Object value) {
         throw new IllegalArgumentException("Unknown field: " + key);

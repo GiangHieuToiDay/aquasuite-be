@@ -18,5 +18,8 @@ public record RegisterRequest(
         phone = phone == null ? null : phone.trim();
     }
 
-    @Override public String toString() { return "RegisterRequest[redacted]"; }
+    @Override
+    public String toString() {
+        return "RegisterRequest[redacted]";
+    }
 }

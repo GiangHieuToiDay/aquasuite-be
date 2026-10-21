@@ -2,7 +2,7 @@ package com.aquasuite.ims.module.catalog.internal.service;
 
 import static org.assertj.core.api.Assertions.*;
 
-import com.aquasuite.ims.module.catalog.internal.payload.BundleCoreStatusRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.bundle.request.BundleCoreStatusRequest;
 import com.aquasuite.ims.support.BundleCoreTestSupport;
 
 import org.junit.jupiter.params.ParameterizedTest;

@@ -1,6 +1,15 @@
 # Hướng dẫn code UC13 — Phase 1 và Phase 2: Quản lý combo
 
-Đối chiếu spec 0.13.0 và code hiện tại, cập nhật ngày 2026-10-21; plan 0.11.0 là bằng chứng tích hợp authentication trước thay đổi response. Giữ tên file cũ để các liên kết đang có tiếp tục hoạt động. [Spec đầy đủ](specs/SCRUM14-UC13-product-combos.md), [plan và tiến độ](../.agent/plans/SCRUM14-UC13.md), [handoff Phase 1](../.agent/handoffs/SCRUM14-UC13-phase1-verification.md), [handoff Phase 2](../.agent/handoffs/SCRUM14-UC13-phase2-verification.md), [handoff authentication](../.agent/handoffs/authentication-merge-verification.md).
+Đối chiếu spec 0.13.0 và code hiện tại, cập nhật ngày 2026-10-21; plan 0.11.0 là bằng chứng tích hợp authentication trước thay đổi response. Giữ tên file cũ để các liên kết đang có tiếp tục hoạt động. [Spec đầy đủ](specs/SCRUM14-UC13-product-combos.md), [plan và tiến độ](../.agent/plans/SCRUM14-UC13.md), [handoff Phase 1](../.agent/handoffs/SCRUM14-UC13-phase1-verification.md), [handoff Phase 2](../.agent/handoffs/SCRUM14-UC13-phase2-verification.md), [authentication integration evidence](specs/SCRUM14-UC13-product-combos.md#authentication-integration-evidence-0110-historical).
+
+## Bundle payload packages
+
+Bundle HTTP payloads are grouped under `module/catalog/internal/payload/bundle/`:
+
+- `request/`: BundleCoreCreateRequest, BundleCoreUpdateRequest, BundleCoreStatusRequest, BundleVersionRequest, BundleEvaluationRequest, BundleItemRequest, BundleComponentGroupRequest and their strict JSON readers (BundleJsonDeserializers).
+- `response/`: BundleResponse, BundlePage, BundleEvaluation and BundleSkuResponse.
+
+This is an internal package move; JSON fields, validation and HTTP contracts are unchanged. Excel payloads remain in `payload/excel`.
 
 ## Phạm vi và đường đi request
 

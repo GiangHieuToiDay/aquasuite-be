@@ -8,10 +8,15 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "inventories", indexes = {
-        @Index(name = "idx_inv_variant_id", columnList = "variant_id"),
-        @Index(name = "idx_inv_variant_wh", columnList = "variant_id, warehouse_code", unique = true)
-})
+@Table(
+        name = "inventories",
+        indexes = {
+            @Index(name = "idx_inv_variant_id", columnList = "variant_id"),
+            @Index(
+                    name = "idx_inv_variant_wh",
+                    columnList = "variant_id, warehouse_code",
+                    unique = true)
+        })
 @Getter
 @Setter
 @Builder

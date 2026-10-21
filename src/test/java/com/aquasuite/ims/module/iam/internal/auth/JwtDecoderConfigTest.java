@@ -34,27 +34,27 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class JwtDecoderConfigTest {
 
-    private static final String VALID_SECRET = "dGVzdC1zZWNyZXQta2V5LWZvci11bml0LXRlc3RzLW11c3QtYmUtYXQtbGVhc3QtNjQtYnl0ZXMtbG9uZy1zby10aGlzLXNob3VsZC13b3JrIQ==";
+    private static final String VALID_SECRET =
+            "dGVzdC1zZWNyZXQta2V5LWZvci11bml0LXRlc3RzLW11c3QtYmUtYXQtbGVhc3QtNjQtYnl0ZXMtbG9uZy1zby10aGlzLXNob3VsZC13b3JrIQ==";
 
     private JwtTokenService jwtTokenService;
 
-    @Mock
-    private RedisSessionStore redisSessionStore;
+    @Mock private RedisSessionStore redisSessionStore;
 
     private JwtDecoderConfig decoderConfig;
     private MockHttpServletRequest request;
 
     @BeforeEach
     void setUp() {
-        jwtTokenService = new JwtTokenService(
-                "aquasuite-be",
-                "aquasuite-api",
-                "aquasuite-auth",
-                1800,
-                1296000,
-                1296000,
-                VALID_SECRET
-        );
+        jwtTokenService =
+                new JwtTokenService(
+                        "aquasuite-be",
+                        "aquasuite-api",
+                        "aquasuite-auth",
+                        1800,
+                        1296000,
+                        1296000,
+                        VALID_SECRET);
         jwtTokenService.init();
 
         decoderConfig = new JwtDecoderConfig(jwtTokenService, redisSessionStore);
@@ -67,14 +67,16 @@ class JwtDecoderConfigTest {
     }
 
     @Test
-    @DisplayName("V2 Access Token: Giải mã thành công khi chữ ký, claims và session Redis đều ACTIVE")
+    @DisplayName(
+            "V2 Access Token: Giải mã thành công khi chữ ký, claims và session Redis đều ACTIVE")
     void shouldDecodeValidAccessTokenWithActiveSession() {
         UUID userId = UUID.randomUUID();
         UUID sessionId = UUID.randomUUID();
         Instant now = Instant.now();
         Instant absExp = now.plusSeconds(3600);
 
-        JwtTokenService.TokenPair pair = jwtTokenService.issueTokenPair(userId, sessionId, now, absExp);
+        JwtTokenService.TokenPair pair =
+                jwtTokenService.issueTokenPair(userId, sessionId, now, absExp);
 
         when(redisSessionStore.validateSession(eq(sessionId), eq(userId)))
                 .thenReturn(RedisSessionStore.ValidationState.ACTIVE);
@@ -89,14 +91,16 @@ class JwtDecoderConfigTest {
     }
 
     @Test
-    @DisplayName("Revoked Session: Từ chối access token khi Redis session ở trạng thái REVOKED (401 AUTH_007)")
+    @DisplayName(
+            "Revoked Session: Từ chối access token khi Redis session ở trạng thái REVOKED (401 AUTH_007)")
     void shouldRejectAccessTokenWhenSessionIsRevoked() {
         UUID userId = UUID.randomUUID();
         UUID sessionId = UUID.randomUUID();
         Instant now = Instant.now();
         Instant absExp = now.plusSeconds(3600);
 
-        JwtTokenService.TokenPair pair = jwtTokenService.issueTokenPair(userId, sessionId, now, absExp);
+        JwtTokenService.TokenPair pair =
+                jwtTokenService.issueTokenPair(userId, sessionId, now, absExp);
 
         when(redisSessionStore.validateSession(eq(sessionId), eq(userId)))
                 .thenReturn(RedisSessionStore.ValidationState.REVOKED);
@@ -117,7 +121,8 @@ class JwtDecoderConfigTest {
         Instant now = Instant.now();
         Instant absExp = now.plusSeconds(3600);
 
-        JwtTokenService.TokenPair pair = jwtTokenService.issueTokenPair(userId, sessionId, now, absExp);
+        JwtTokenService.TokenPair pair =
+                jwtTokenService.issueTokenPair(userId, sessionId, now, absExp);
 
         when(redisSessionStore.validateSession(eq(sessionId), eq(userId)))
                 .thenReturn(RedisSessionStore.ValidationState.NOT_FOUND);
@@ -130,24 +135,30 @@ class JwtDecoderConfigTest {
     }
 
     @Test
-    @DisplayName("Fail-Closed: Redis outage trong lúc decode ném OAuth2AuthenticationException với service_unavailable (503 AUTH_009)")
+    @DisplayName(
+            "Fail-Closed: Redis outage trong lúc decode ném OAuth2AuthenticationException với service_unavailable (503 AUTH_009)")
     void shouldFailClosedWithServiceUnavailableWhenRedisIsDown() {
         UUID userId = UUID.randomUUID();
         UUID sessionId = UUID.randomUUID();
         Instant now = Instant.now();
         Instant absExp = now.plusSeconds(3600);
 
-        JwtTokenService.TokenPair pair = jwtTokenService.issueTokenPair(userId, sessionId, now, absExp);
+        JwtTokenService.TokenPair pair =
+                jwtTokenService.issueTokenPair(userId, sessionId, now, absExp);
 
         when(redisSessionStore.validateSession(eq(sessionId), eq(userId)))
-                .thenThrow(new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Redis connection failed"));
+                .thenThrow(
+                        new AppException(
+                                AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Redis connection failed"));
 
         assertThatThrownBy(() -> decoderConfig.decode(pair.accessToken()))
                 .isInstanceOf(OAuth2AuthenticationException.class)
-                .satisfies(e -> {
-                    OAuth2AuthenticationException ex = (OAuth2AuthenticationException) e;
-                    assertThat(ex.getError().getErrorCode()).isEqualTo("service_unavailable");
-                });
+                .satisfies(
+                        e -> {
+                            OAuth2AuthenticationException ex = (OAuth2AuthenticationException) e;
+                            assertThat(ex.getError().getErrorCode())
+                                    .isEqualTo("service_unavailable");
+                        });
 
         assertThat(request.getAttribute(AuthSecurityErrorHandlers.AUTH_ERROR_ATTRIBUTE))
                 .isEqualTo(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE);
@@ -161,7 +172,8 @@ class JwtDecoderConfigTest {
         Instant now = Instant.now();
         Instant absExp = now.plusSeconds(3600);
 
-        JwtTokenService.TokenPair pair = jwtTokenService.issueTokenPair(userId, sessionId, now, absExp);
+        JwtTokenService.TokenPair pair =
+                jwtTokenService.issueTokenPair(userId, sessionId, now, absExp);
 
         // Pass refresh token to access decoder
         assertThatThrownBy(() -> decoderConfig.decode(pair.refreshToken()))

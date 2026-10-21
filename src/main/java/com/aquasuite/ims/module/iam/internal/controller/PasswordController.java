@@ -20,24 +20,21 @@ public class PasswordController {
 
     @PostMapping("/change")
     public ResponseEntity<ApiResponse<PasswordActionResponse>> changePassword(
-            @Valid @RequestBody ChangePasswordRequest request
-    ) {
+            @Valid @RequestBody ChangePasswordRequest request) {
         PasswordActionResponse response = passwordService.changePassword(request);
         return ResponseEntity.ok(ApiResponse.ok(response, response.message()));
     }
 
     @PostMapping("/forgot")
     public ResponseEntity<ApiResponse<PasswordActionResponse>> forgotPassword(
-            @Valid @RequestBody ForgotPasswordRequest request
-    ) {
+            @Valid @RequestBody ForgotPasswordRequest request) {
         PasswordActionResponse response = passwordService.requestPasswordRecovery(request);
         return ResponseEntity.ok(ApiResponse.ok(response, response.message()));
     }
 
     @PostMapping("/reset")
     public ResponseEntity<ApiResponse<PasswordActionResponse>> resetPassword(
-            @Valid @RequestBody ResetPasswordWithOtpRequest request
-    ) {
+            @Valid @RequestBody ResetPasswordWithOtpRequest request) {
         PasswordActionResponse response = passwordService.resetPasswordWithOtp(request);
         return ResponseEntity.ok(ApiResponse.ok(response, response.message()));
     }

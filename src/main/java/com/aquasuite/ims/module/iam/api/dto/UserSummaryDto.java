@@ -12,5 +12,4 @@ public record UserSummaryDto(
         String email,
         String phone,
         String avatar,
-        String status
-) {}
+        String status) {}

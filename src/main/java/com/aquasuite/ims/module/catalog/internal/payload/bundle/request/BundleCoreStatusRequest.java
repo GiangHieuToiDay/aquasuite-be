@@ -1,4 +1,4 @@
-package com.aquasuite.ims.module.catalog.internal.payload;
+package com.aquasuite.ims.module.catalog.internal.payload.bundle.request;
 
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.core.JsonParser;
@@ -17,10 +17,9 @@ import java.io.IOException;
  * Không dùng DTO này để xóa hoặc publish; các thao tác đó có contract riêng.
  */
 public record BundleCoreStatusRequest(
-        @JsonDeserialize(using = BundleJsonDeserializers.StrictLong.class)
-        @NotNull @PositiveOrZero Long expectedVersion,
-        @JsonDeserialize(using = StrictStatus.class)
-        @NotNull Status productStatus) {
+        @JsonDeserialize(using = BundleJsonDeserializers.StrictLong.class) @NotNull @PositiveOrZero
+                Long expectedVersion,
+        @JsonDeserialize(using = StrictStatus.class) @NotNull Status productStatus) {
     /**
      * Các trạng thái client được đổi qua endpoint status; không gồm DELETED hoặc publication.
      */

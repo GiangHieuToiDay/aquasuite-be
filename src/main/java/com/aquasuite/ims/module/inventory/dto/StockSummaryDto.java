@@ -12,5 +12,4 @@ public record StockSummaryDto(
         BigDecimal onHandQty,
         BigDecimal reservedQty,
         BigDecimal availableQty,
-        BigDecimal minimumQty
-) {}
+        BigDecimal minimumQty) {}

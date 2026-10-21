@@ -9,11 +9,15 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "stock_movements", indexes = {
-        @Index(name = "idx_movement_variant_created", columnList = "variant_id, created_at DESC"),
-        @Index(name = "idx_movement_inventory_id", columnList = "inventory_id"),
-        @Index(name = "idx_movement_reference", columnList = "reference_type, reference_id")
-})
+@Table(
+        name = "stock_movements",
+        indexes = {
+            @Index(
+                    name = "idx_movement_variant_created",
+                    columnList = "variant_id, created_at DESC"),
+            @Index(name = "idx_movement_inventory_id", columnList = "inventory_id"),
+            @Index(name = "idx_movement_reference", columnList = "reference_type, reference_id")
+        })
 @Getter
 @Setter
 @Builder
@@ -42,7 +46,8 @@ public class StockMovement {
     private BigDecimal balanceAfter; // Số dư on_hand_qty ngay sau giao dịch này
 
     @Column(name = "reference_type", nullable = false, length = 50)
-    private String referenceType; // 'EXCEL_IMPORT', 'GOODS_RECEIPT', 'STOCK_DISPATCH', 'STOCK_COUNT'
+    private String
+            referenceType; // 'EXCEL_IMPORT', 'GOODS_RECEIPT', 'STOCK_DISPATCH', 'STOCK_COUNT'
 
     @Column(name = "reference_id", length = 100)
     private String referenceId; // Lưu jobId hoặc UUID chứng từ gốc

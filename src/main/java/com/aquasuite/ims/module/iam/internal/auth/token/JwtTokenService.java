@@ -52,12 +52,14 @@ public class JwtTokenService {
     public JwtTokenService(
             @Value("${aquasuite.security.jwt.issuer:aquasuite-be}") String issuer,
             @Value("${aquasuite.security.jwt.access-audience:aquasuite-api}") String accessAudience,
-            @Value("${aquasuite.security.jwt.refresh-audience:aquasuite-auth}") String refreshAudience,
+            @Value("${aquasuite.security.jwt.refresh-audience:aquasuite-auth}")
+                    String refreshAudience,
             @Value("${aquasuite.security.jwt.access-token-ttl-seconds:1800}") long accessTtlSeconds,
-            @Value("${aquasuite.security.jwt.refresh-token-ttl-seconds:1296000}") long refreshTtlSeconds,
-            @Value("${aquasuite.security.jwt.session-absolute-ttl-seconds:1296000}") long sessionAbsoluteTtlSeconds,
-            @Value("${aquasuite.security.jwt.secret:}") String rawSecret
-    ) {
+            @Value("${aquasuite.security.jwt.refresh-token-ttl-seconds:1296000}")
+                    long refreshTtlSeconds,
+            @Value("${aquasuite.security.jwt.session-absolute-ttl-seconds:1296000}")
+                    long sessionAbsoluteTtlSeconds,
+            @Value("${aquasuite.security.jwt.secret:}") String rawSecret) {
         this.issuer = issuer;
         this.accessAudience = accessAudience;
         this.refreshAudience = refreshAudience;
@@ -70,26 +72,32 @@ public class JwtTokenService {
     @PostConstruct
     public void init() {
         if (rawSecret == null || rawSecret.trim().isEmpty()) {
-            throw new IllegalStateException("JWT signing secret is missing or empty. Startup aborted.");
+            throw new IllegalStateException(
+                    "JWT signing secret is missing or empty. Startup aborted.");
         }
 
         byte[] keyBytes;
         try {
             byte[] decoded = Base64.getDecoder().decode(rawSecret.trim());
             if (decoded.length < 64) {
-                throw new IllegalStateException("JWT signing secret must be at least 64 bytes after Base64 decode (actual: "
-                        + decoded.length + " bytes). Startup aborted.");
+                throw new IllegalStateException(
+                        "JWT signing secret must be at least 64 bytes after Base64 decode (actual: "
+                                + decoded.length
+                                + " bytes). Startup aborted.");
             }
             keyBytes = decoded;
         } catch (IllegalArgumentException e) {
-            throw new IllegalStateException("JWT signing secret is not valid Base64 or cannot be decoded. Startup aborted.", e);
+            throw new IllegalStateException(
+                    "JWT signing secret is not valid Base64 or cannot be decoded. Startup aborted.",
+                    e);
         }
 
         this.secretKeyBytes = keyBytes;
         this.secretKey = new SecretKeySpec(this.secretKeyBytes, "HmacSHA512");
-        log.info("JwtTokenService initialized successfully with HS512 secret length {} bytes", keyBytes.length);
+        log.info(
+                "JwtTokenService initialized successfully with HS512 secret length {} bytes",
+                keyBytes.length);
     }
-
 
     public String computeFingerprint(String jwtString) {
         if (jwtString == null) {
@@ -97,7 +105,8 @@ public class JwtTokenService {
         }
         try {
             java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(jwtString.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            byte[] hash =
+                    digest.digest(jwtString.getBytes(java.nio.charset.StandardCharsets.UTF_8));
             return java.util.HexFormat.of().formatHex(hash);
         } catch (Exception e) {
             throw new IllegalStateException("SHA-256 algorithm unavailable", e);
@@ -105,20 +114,10 @@ public class JwtTokenService {
     }
 
     public record RefreshClaims(
-            UUID userId,
-            UUID sessionId,
-            UUID jti,
-            Instant expiresAt,
-            Instant issuedAt
-    ) {}
+            UUID userId, UUID sessionId, UUID jti, Instant expiresAt, Instant issuedAt) {}
 
     public record AccessClaims(
-            UUID userId,
-            UUID sessionId,
-            UUID jti,
-            Instant expiresAt,
-            Instant issuedAt
-    ) {}
+            UUID userId, UUID sessionId, UUID jti, Instant expiresAt, Instant issuedAt) {}
 
     public record TokenPair(
             String accessToken,
@@ -127,33 +126,59 @@ public class JwtTokenService {
             UUID refreshJti,
             long expiresInSeconds,
             Instant accessExpiresAt,
-            Instant refreshExpiresAt
-    ) {}
+            Instant refreshExpiresAt) {}
 
-    public TokenPair issueTokenPair(UUID userId, UUID sessionId, Instant now, Instant absoluteExpiresAt) {
+    public TokenPair issueTokenPair(
+            UUID userId, UUID sessionId, Instant now, Instant absoluteExpiresAt) {
         return issueTokenPair(userId, sessionId, UUID.randomUUID(), now, absoluteExpiresAt);
     }
 
-    public TokenPair issueTokenPair(UUID userId, UUID sessionId, UUID refreshJti, Instant now, Instant absoluteExpiresAt) {
+    public TokenPair issueTokenPair(
+            UUID userId, UUID sessionId, UUID refreshJti, Instant now, Instant absoluteExpiresAt) {
         Instant normalizedNow = now.truncatedTo(ChronoUnit.SECONDS);
 
         // Calculate access exp = min(now + nominal, absoluteExpiresAt)
         Instant accessNominal = normalizedNow.plusSeconds(accessTtlSeconds);
-        Instant accessExpiresAt = accessNominal.isBefore(absoluteExpiresAt) ? accessNominal : absoluteExpiresAt;
+        Instant accessExpiresAt =
+                accessNominal.isBefore(absoluteExpiresAt) ? accessNominal : absoluteExpiresAt;
         accessExpiresAt = accessExpiresAt.truncatedTo(ChronoUnit.SECONDS);
 
         // Calculate refresh exp = min(now + nominal, absoluteExpiresAt)
         Instant refreshNominal = normalizedNow.plusSeconds(refreshTtlSeconds);
-        Instant refreshExpiresAt = refreshNominal.isBefore(absoluteExpiresAt) ? refreshNominal : absoluteExpiresAt;
+        Instant refreshExpiresAt =
+                refreshNominal.isBefore(absoluteExpiresAt) ? refreshNominal : absoluteExpiresAt;
         refreshExpiresAt = refreshExpiresAt.truncatedTo(ChronoUnit.SECONDS);
 
         long expiresIn = Math.max(0, Duration.between(normalizedNow, accessExpiresAt).toSeconds());
 
         UUID accessJti = UUID.randomUUID();
-        String accessToken = generateSignedJwt(userId, sessionId, accessJti, TOKEN_TYPE_ACCESS, accessAudience, normalizedNow, accessExpiresAt);
-        String refreshToken = generateSignedJwt(userId, sessionId, refreshJti, TOKEN_TYPE_REFRESH, refreshAudience, normalizedNow, refreshExpiresAt);
+        String accessToken =
+                generateSignedJwt(
+                        userId,
+                        sessionId,
+                        accessJti,
+                        TOKEN_TYPE_ACCESS,
+                        accessAudience,
+                        normalizedNow,
+                        accessExpiresAt);
+        String refreshToken =
+                generateSignedJwt(
+                        userId,
+                        sessionId,
+                        refreshJti,
+                        TOKEN_TYPE_REFRESH,
+                        refreshAudience,
+                        normalizedNow,
+                        refreshExpiresAt);
 
-        return new TokenPair(accessToken, refreshToken, accessJti, refreshJti, expiresIn, accessExpiresAt, refreshExpiresAt);
+        return new TokenPair(
+                accessToken,
+                refreshToken,
+                accessJti,
+                refreshJti,
+                expiresIn,
+                accessExpiresAt,
+                refreshExpiresAt);
     }
 
     private String generateSignedJwt(
@@ -163,20 +188,20 @@ public class JwtTokenService {
             String tokenType,
             String audience,
             Instant issuedAt,
-            Instant expiresAt
-    ) {
+            Instant expiresAt) {
         try {
-            JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
-                    .issuer(issuer)
-                    .audience(List.of(audience))
-                    .subject(userId.toString())
-                    .claim(CLAIM_SID, sessionId.toString())
-                    .claim(CLAIM_TOKEN_TYPE, tokenType)
-                    .claim(CLAIM_AUTH_VERSION, AUTH_VERSION_V2)
-                    .jwtID(jti.toString())
-                    .issueTime(Date.from(issuedAt))
-                    .expirationTime(Date.from(expiresAt))
-                    .build();
+            JWTClaimsSet claimsSet =
+                    new JWTClaimsSet.Builder()
+                            .issuer(issuer)
+                            .audience(List.of(audience))
+                            .subject(userId.toString())
+                            .claim(CLAIM_SID, sessionId.toString())
+                            .claim(CLAIM_TOKEN_TYPE, tokenType)
+                            .claim(CLAIM_AUTH_VERSION, AUTH_VERSION_V2)
+                            .jwtID(jti.toString())
+                            .issueTime(Date.from(issuedAt))
+                            .expirationTime(Date.from(expiresAt))
+                            .build();
 
             SignedJWT signedJWT = new SignedJWT(new JWSHeader(JWSAlgorithm.HS512), claimsSet);
             MACSigner signer = new MACSigner(secretKeyBytes);
@@ -184,7 +209,8 @@ public class JwtTokenService {
             return signedJWT.serialize();
         } catch (Exception e) {
             log.error("Failed to generate signed JWT for tokenType: {}", tokenType, e);
-            throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Không thể khởi tạo token");
+            throw new AppException(
+                    AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Không thể khởi tạo token");
         }
     }
 
@@ -203,7 +229,9 @@ public class JwtTokenService {
 
         // Verify Algorithm is strictly HS512
         if (!JWSAlgorithm.HS512.equals(signedJWT.getHeader().getAlgorithm())) {
-            log.warn("Refresh token algorithm is not HS512: {}", signedJWT.getHeader().getAlgorithm());
+            log.warn(
+                    "Refresh token algorithm is not HS512: {}",
+                    signedJWT.getHeader().getAlgorithm());
             throw new AppException(AuthErrorCode.INVALID_REFRESH_TOKEN);
         }
 
@@ -248,7 +276,8 @@ public class JwtTokenService {
             throw new AppException(AuthErrorCode.INVALID_REFRESH_TOKEN);
         }
 
-        // 4. Verify auth_version == 2 (V2 requirement: legacy tokens without auth_version=2 are rejected)
+        // 4. Verify auth_version == 2 (V2 requirement: legacy tokens without auth_version=2 are
+        // rejected)
         Object versionObj = claims.getClaim(CLAIM_AUTH_VERSION);
         if (versionObj == null) {
             log.warn("Refresh token is missing auth_version claim (legacy token rejection)");
@@ -323,7 +352,9 @@ public class JwtTokenService {
         }
 
         if (!JWSAlgorithm.HS512.equals(signedJWT.getHeader().getAlgorithm())) {
-            log.warn("Access token algorithm is not HS512: {}", signedJWT.getHeader().getAlgorithm());
+            log.warn(
+                    "Access token algorithm is not HS512: {}",
+                    signedJWT.getHeader().getAlgorithm());
             throw new AppException(AuthErrorCode.INVALID_CREDENTIALS);
         }
 

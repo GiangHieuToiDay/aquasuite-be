@@ -1,6 +1,8 @@
 package com.aquasuite.ims.module.inventory.api;
+
 import java.math.BigDecimal;
 import java.util.*;
+
 /**
  * Hợp đồng đọc tồn cho preview combo tại kho duy nhất hiện có; không giữ hoặc ghi tồn.
  * Giá trị khả dụng = tồn thực tế - tồn đã giữ. SKU chưa có bản ghi được bỏ khỏi kết quả,

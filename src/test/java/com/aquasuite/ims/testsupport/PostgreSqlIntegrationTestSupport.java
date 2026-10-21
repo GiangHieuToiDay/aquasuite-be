@@ -9,7 +9,9 @@ import org.testcontainers.containers.PostgreSQLContainer;
 public abstract class PostgreSqlIntegrationTestSupport {
     /** Keep account fixtures isolated while retaining RESTRICT semantics for production profiles. */
     @org.junit.jupiter.api.BeforeEach
-    void clearCustomerProfileFixtures(@org.springframework.beans.factory.annotation.Autowired org.springframework.jdbc.core.JdbcTemplate jdbc) {
+    void clearCustomerProfileFixtures(
+            @org.springframework.beans.factory.annotation.Autowired
+                    org.springframework.jdbc.core.JdbcTemplate jdbc) {
         jdbc.update("DELETE FROM public.customers");
     }
 
@@ -26,13 +28,15 @@ public abstract class PostgreSqlIntegrationTestSupport {
 
         if (hasUrl || hasUser || hasPass) {
             if (!(hasUrl && hasUser && hasPass)) {
-                throw new IllegalStateException("Partial TEST_DATABASE_* environment variables detected. Must supply all three: URL, USERNAME, PASSWORD.");
+                throw new IllegalStateException(
+                        "Partial TEST_DATABASE_* environment variables detected. Must supply all three: URL, USERNAME, PASSWORD.");
             }
         } else {
-            postgresContainer = new PostgreSQLContainer<>(IMAGE_NAME)
-                    .withDatabaseName("aquasuite_test")
-                    .withUsername("testuser")
-                    .withPassword("testpass");
+            postgresContainer =
+                    new PostgreSQLContainer<>(IMAGE_NAME)
+                            .withDatabaseName("aquasuite_test")
+                            .withUsername("testuser")
+                            .withPassword("testpass");
             postgresContainer.start();
         }
     }

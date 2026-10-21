@@ -1,8 +1,8 @@
 # AquaSuite Backend Documentation Index
 
-UC-13 update 0.13.0 (2026-10-21, user-authorized): removed the unused Java audit module and its provider tests; audit_entries and V1-V7 migrations are retained. Clean verify PASS: 205 Surefire + 70 Failsafe = 275 tests, zero failures/errors/skipped. See [plan](../.agent/plans/REMOVE-UNUSED-AUDIT.md), [handoff](../.agent/handoffs/REMOVE-UNUSED-AUDIT.md). Previous response verification below remains historical; independent review pending.
+UC-13 update 0.13.0 (2026-10-21, user-authorized): removed the unused Java audit module and its provider tests; audit_entries and V1-V7 migrations are retained. Clean verify PASS: 205 Surefire + 70 Failsafe = 275 tests, zero failures/errors/skipped. See [official scope and verification](specs/SCRUM14-UC13-product-combos.md#current-implementation-scope-and-verification). Previous response verification below remains historical; independent review pending.
 
-UC-13 response update 0.12.0 (2026-10-21, user-authorized): shared `BundleResponse` for list/get/create/update/status/publish/unpublish; DELETE returns HTTP 200 success envelope without data. Clean verify PASS: 205 Surefire + 72 Failsafe = 277 tests, zero failures/errors/skipped. See [spec](specs/SCRUM14-UC13-product-combos.md), [scoped plan](../.agent/plans/COMBO-RESPONSE-SIMPLIFICATION.md), [handoff](../.agent/handoffs/COMBO-RESPONSE-SIMPLIFICATION.md). Independent review pending; prior verification counts below are historical.
+UC-13 response update 0.12.0 (2026-10-21, user-authorized): shared `BundleResponse` for list/get/create/update/status/publish/unpublish; DELETE returns HTTP 200 success envelope without data. Clean verify PASS: 205 Surefire + 72 Failsafe = 277 tests, zero failures/errors/skipped. See [official scope and verification](specs/SCRUM14-UC13-product-combos.md#current-implementation-scope-and-verification). Independent review pending; prior verification counts below are historical.
 
 ## Purpose and Document Hierarchy
 
@@ -84,4 +84,4 @@ Phase 2 evidence: [implementation handoff](../.agent/handoffs/SCRUM14-UC13-phase
 
 Authentication integration (spec/plan 0.11.0): merge source `origin/SCRUM-1-user-login-and-authentication` at `e365cad`. User now requires JWT on all non-login/refresh APIs, including catalog storefront/admin/evaluations and inventory. User IDs and actor references use UUID; mock identity and the old credential initializer are removed. Auth/audit identity types are integrated, while new business audit writes and media remain deferred. V1/V2/V3 remain unchanged; V4 integrates IAM and V5 preserves password recovery. Verification PASS: 251 tests (186 Surefire + 65 Failsafe), zero failures/errors/skipped, 2026-10-20 17:56:28 +07. Earlier no-token descriptions/test counts are historical.
 
-Authentication merge evidence: [handoff](../.agent/handoffs/authentication-merge-verification.md). Git merge is resolved but uncommitted; independent review remains pending.
+Authentication merge evidence: [official record](specs/SCRUM14-UC13-product-combos.md#authentication-integration-evidence-0110-historical). The original staged/uncommitted merge status is historical; independent review remains pending.

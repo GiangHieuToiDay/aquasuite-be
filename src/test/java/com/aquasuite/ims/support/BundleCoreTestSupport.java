@@ -3,7 +3,8 @@ package com.aquasuite.ims.support;
 import com.aquasuite.ims.module.catalog.internal.config.BundleClockConfig;
 import com.aquasuite.ims.module.catalog.internal.controller.*;
 import com.aquasuite.ims.module.catalog.internal.mapper.BundleCoreMapperImpl;
-import com.aquasuite.ims.module.catalog.internal.payload.*;
+import com.aquasuite.ims.module.catalog.internal.payload.bundle.request.*;
+import com.aquasuite.ims.module.catalog.internal.payload.bundle.response.*;
 import com.aquasuite.ims.module.catalog.internal.service.*;
 import com.aquasuite.ims.share.exception.GlobalExceptionHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -119,28 +120,29 @@ public abstract class BundleCoreTestSupport {
     public void fixture() {
         jdbc.execute(
                 "TRUNCATE"
-                    + " inventories,audit_entries,bundle_items,bundle_configurations,product_images,product_variants,products,categories,brands,users"
-                    + " RESTART IDENTITY CASCADE");
+                        + " inventories,audit_entries,bundle_items,bundle_configurations,product_images,product_variants,products,categories,brands,users"
+                        + " RESTART IDENTITY CASCADE");
         jdbc.update(
-                "INSERT INTO users(id,username,email,password_hash,status) VALUES(?, 'owner','owner@test.invalid','{disabled-test-account}','ACTIVE')", OWNER);
+                "INSERT INTO users(id,username,email,password_hash,status) VALUES(?, 'owner','owner@test.invalid','{disabled-test-account}','ACTIVE')",
+                OWNER);
         jdbc.update(
                 "INSERT INTO categories(category_id,category_code,category_name,status)"
-                    + " VALUES(?,?,?,'ACTIVE')",
+                        + " VALUES(?,?,?,'ACTIVE')",
                 CATEGORY,
                 "CAT",
                 "Category");
         jdbc.update(
                 "INSERT INTO"
-                    + " products(product_id,product_code,category_id,product_name,product_type,status,created_at,updated_at)"
-                    + " VALUES(?,?,?,?,'NORMAL','ACTIVE',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
+                        + " products(product_id,product_code,category_id,product_name,product_type,status,created_at,updated_at)"
+                        + " VALUES(?,?,?,?,'NORMAL','ACTIVE',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
                 NORMAL,
                 "NORMAL",
                 CATEGORY,
                 "Normal product");
         jdbc.update(
                 "INSERT INTO"
-                    + " product_variants(variant_id,product_id,sku,variant_name,unit,conversion_rate,weight,cost_price,selling_price,serial_tracking,status)"
-                    + " VALUES(?,?,?,?,?,1,0,0,110000000,false,'ACTIVE')",
+                        + " product_variants(variant_id,product_id,sku,variant_name,unit,conversion_rate,weight,cost_price,selling_price,serial_tracking,status)"
+                        + " VALUES(?,?,?,?,?,1,0,0,110000000,false,'ACTIVE')",
                 SKU,
                 NORMAL,
                 "SKU-1",

@@ -1,4 +1,4 @@
-package com.aquasuite.ims.module.catalog.internal.payload;
+package com.aquasuite.ims.module.catalog.internal.payload.bundle.request;
 
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 import jakarta.validation.constraints.*;
@@ -13,5 +13,7 @@ public record BundleComponentGroupRequest(
         @NotNull UUID defaultVariantId,
         @NotNull @Size(min = 1, max = 100) List<@NotNull UUID> allowedVariantIds) {
     @JsonAnySetter
-    public void unknown(String key, Object value) { throw new IllegalArgumentException("Unknown field: " + key); }
+    public void unknown(String key, Object value) {
+        throw new IllegalArgumentException("Unknown field: " + key);
+    }
 }

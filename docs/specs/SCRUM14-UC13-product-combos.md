@@ -4,6 +4,65 @@
 
 > Revision 0.12.0, theo chỉ đạo người dùng ngày 2026-10-21: list/get/create/update/status/publish/unpublish dùng chung BundleResponse đầy đủ; DELETE trả HTTP 200 ApiResponse<Void>, message thành công và bỏ data. Quy định này thay thế mô tả summary/detail/mutation response trong các phần lịch sử và thiết kế cũ bên dưới. Request, validation, transaction/version, xóa mềm, evaluation và event giữ nguyên. DELETE không trả version mới; retry với version trước xóa vẫn 409, current-version no-op vẫn giữ nguyên. JSON danh sách lớn hơn do bao gồm items/mô tả/lịch/nhóm.
 
+## Current implementation scope and verification
+
+This section consolidates the two scoped plans removed at the user's request on 2026-10-21. Revision remains 0.13.0: this documentation update changes no contract or source code.
+
+### Combo responses (0.12.0)
+
+- `BundleResponse` replaces BundleCoreDetail, BundleCoreSummary and BundleCoreMutationResult, preserving all former detail fields, nested Item, dates and componentGroups.
+- Lists return `ApiResponse<BundlePage<BundleResponse>>`; GET/create/update/status/publish/unpublish return `ApiResponse<BundleResponse>`. Creation retains HTTP 201 and Location.
+- DELETE returns HTTP 200 `ApiResponse<Void>` with a success message and no data/version. Clients remove the row after success; retrying with the pre-delete version returns 409, and current-version no-op retries do not increment version.
+- Controllers, services, assembler, MapStruct and tests were updated; summary/mutation mapping and the unused storefront mapper dependency were removed.
+- Request DTOs, validation, transaction/locking/version rules, evaluations, events, Inventory and the empty catalog/api directory were preserved.
+- Historical verification: clean verify PASS, 205 Surefire + 72 Failsafe = 277 tests, zero failures/errors/skipped.
+
+### Java audit removal (0.13.0)
+
+- Removed AuditApi, AuditCommand, AuditEntry, AuditEntryRepository, AuditService and their two integration tests; the provider had no business caller.
+- Removed audit imports/scan/registrations from BundleCoreTestSupport and AuditService from BundleCoreBoundaryTest scope. No replacement provider was added.
+- Preserved V1-V7 byte-for-byte, schema, historical audit_entries data and SQL-only migration compatibility fixtures/assertions. No live database SQL was run.
+- The removal preserved catalog/registration/authentication production logic, HTTP response contract 0.12.0, events, Inventory and the Bruno collection.
+- Latest recorded verification (2026-10-21): `mvn -o clean -Pphase1-it verify` PASS, 205 Surefire + 70 Failsafe = 275 tests, zero failures/errors/skipped; no module.audit references in production/test Java and no migration changes.
+
+Both changes followed direct user instructions. Independent Plan Review, Code Review and Final Gate approval are not claimed. Tests were not rerun for this documentation update; counts above preserve the verification evidence consolidated from the removed handoffs.
+
+### Response and audit verification details
+
+- Response verification also passed `mvn -o -DskipTests compile`. Full runs used isolated Docker Testcontainers databases; XML reports were generated in target/surefire-reports and target/failsafe-reports.
+- HTTP tests verify complete list/status payloads and absence of DELETE data. Deletion tests inspect persisted tombstones and no-op versions; version, rollback, concurrent-write and multi-bundle isolation coverage was retained.
+- PostgreSQL rounds timestamps to microseconds: updatedAt assertions allow one microsecond against an immediate mutation response, while no-op comparisons use persisted responses. The complete clean rerun passed after correcting this assertion.
+- Removed DTO/mapper references were absent from active Java; audit removal also removed its compiled provider output through clean verification. The reduction from 277 to 275 tests is exactly the two deleted AuditServiceIT cases.
+- Frontend clients outside this repository were not modified or verified. List payloads are larger, DELETE clients must stop reading data/version, and pre-delete-version retries still return 409.
+- Audit removal added no stub, feature flag, dependency or replacement audit provider. Existing historical rows remain available; fresh installs still create/upgrade audit_entries through the preserved migrations.
+
+### Authentication integration evidence (0.11.0, historical)
+
+Source: `origin/SCRUM-1-user-login-and-authentication` at `e365cad`; original target: `feature/SCRUM-14-phase-1` at `f9f8bc5` plus preserved Phase 1/2 changes. The following records the integration as verified on 2026-10-20, not today's Git merge state. Old statements that the merge was staged/uncommitted describe that verification snapshot only.
+
+- Reused the incoming JWT decoder, current-authority converter, login/refresh/logout and Redis rotation/revocation/session implementation. Removed duplicate legacy User/repository/encoder, mock SecurityUtils/fallback identity and the hardcoded credential initializer. Development seeding is environment-driven and disabled by default.
+- User, Role and Permission identities use UUID. Verified JWT subjects identify password changes and inventory actors. IAM's public current-user contract remains in iam/api without entity exposure or cross-module JPA relationships. Audit actor IDs were also migrated at this stage; its Java provider was later removed in 0.13.0.
+- Password change/recovery use the same UUID account/hash, with recovery hashes, expiry and rate-limit state in a separate table. Reset does not reactivate INACTIVE/LOCKED accounts.
+- V1/V2/V3 retained their original bytes. V4 integrates standalone IAM DDL forward without duplicate version 1, archives full legacy rows in iam_legacy_users and retains deterministic numeric-to-UUID mappings in iam_legacy_user_ids, including orphan actor IDs. Missing email/password identities remain locked with original values archived; case-insensitive identity collisions abort atomically. No numeric role IDs are guessed into new grants. V5 preserves password recovery state.
+- At integration time, only POST login/refresh were unauthenticated. All other route families, including storefront, admin, evaluations, inventory and password recovery, required an access JWT, current ACTIVE user and live Redis session. Refresh tokens cannot authorize business APIs. Registration later added its explicit public endpoints; consult the current registration spec and AuthSecurityConfig for the current allowlist.
+- Existing combo requests, pricing, versioning, options, lifecycle, Inventory batch reads, ApiResponse and business errors were preserved. This merge did not introduce a Catalog permission matrix; finer business permissions, business audit, media and Sales remained separate scope.
+
+Recorded verification: `./mvnw.cmd -Pphase1-it verify`, exit 0, BUILD SUCCESS at 2026-10-20 17:56:28 +07 (2m57s); 186 Surefire + 65 Failsafe = 251 tests, zero failures/errors/skipped, independently summed from XML. Surefire includes database/Redis integration cases and is not a pure unit-test count.
+
+| Coverage | Recorded evidence |
+|---|---|
+| AuthenticationMergeIT | 7/7 complete-application cases: missing JWT across route families, valid access to combo/admin/evaluation, rejection of refresh/malformed tokens, logout revocation, inventory UUID actor, same-account password change, disabled-user rejection |
+| AuthenticationUpgradeIT | 3/3 cases: populated V3-to-V5 account/profile/hash/recovery/audit/inventory/combo preservation and retry, atomic rollback on identity conflict, incomplete-account locking |
+| Existing regressions | Phase 1/2 plus incoming Auth/Redis/JWT/roles/seeding/repositories/password suites retained; original sensitive-data and identity constraints retained |
+| Source/build checks | Clean removed stale legacy classes; one User entity, no old initializer/mock identity, no duplicate direct POM dependencies or unresolved conflicts; test-only core configuration excluded from production scanning |
+| Test adjustments | IAM foundation assertions adapted to the merged schema; source fingerprints compare canonical LF; complete-app fixtures clean product_variants; missing-secret startup assertion isolates JwtTokenService |
+
+Reports were generated in target/surefire-reports and target/failsafe-reports; the local auth-merge-final-verify.log was ignored. Existing V1 trailing spaces were intentionally preserved to avoid migration checksum changes. Full-application JWT coverage did not disable security filters or skip tests.
+
+No live/shared migration, deployment, external credential rotation or independent review/Final Gate was performed in that verification. Rehearse and back up before migration; standalone Auth databases have a different V1 and require reviewed onboarding rather than automatic baseline/repair. Legacy created_at is interpreted as UTC; archived raw rows support reconciliation, and new role grants require the IAM ownership process. JWT, database, Redis and SMTP credentials come from deployment environment; prior credential revocation/history remediation remains human-owned.
+
+The historical merge retained a safety stash named `safety before authentication merge 2026-10-20` and a local temporary worktree ZIP. Their current availability is not verified; do not blindly reapply old backups onto integrated code. Incoming approval artifacts do not approve this integrated revision. Implementation was directly user-authorized; no independent/hash-matched 0.11.0 Plan Review approval is claimed.
+
 ## Metadata and Governance
 
 | Thông tin | Giá trị |

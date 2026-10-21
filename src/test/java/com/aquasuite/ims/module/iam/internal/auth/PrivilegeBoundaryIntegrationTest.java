@@ -31,8 +31,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class PrivilegeBoundaryIntegrationTest {
 
-    @Mock
-    private UserRepository userRepository;
+    @Mock private UserRepository userRepository;
 
     private CurrentAuthoritiesService currentAuthoritiesService;
 
@@ -42,7 +41,8 @@ class PrivilegeBoundaryIntegrationTest {
     }
 
     @Test
-    @DisplayName("AC-10: Non-admin user cannot possess ADMIN authorities or elevate own permissions")
+    @DisplayName(
+            "AC-10: Non-admin user cannot possess ADMIN authorities or elevate own permissions")
     void nonAdminUserCannotHaveAdminAuthorities() {
         UUID regularUserId = UUID.randomUUID();
 
@@ -53,11 +53,16 @@ class PrivilegeBoundaryIntegrationTest {
         staffUser.setStatus(UserStatus.ACTIVE);
         staffUser.setRoles(Set.of(staffRole));
 
-        when(userRepository.findWithRolesAndPermissionsById(regularUserId)).thenReturn(Optional.of(staffUser));
+        when(userRepository.findWithRolesAndPermissionsById(regularUserId))
+                .thenReturn(Optional.of(staffUser));
 
         User loadedUser = currentAuthoritiesService.loadCurrentUser(regularUserId).orElseThrow();
-        Collection<GrantedAuthority> authorities = currentAuthoritiesService.resolveAuthorities(loadedUser.getRoles());
-        Set<String> authNames = authorities.stream().map(GrantedAuthority::getAuthority).collect(Collectors.toSet());
+        Collection<GrantedAuthority> authorities =
+                currentAuthoritiesService.resolveAuthorities(loadedUser.getRoles());
+        Set<String> authNames =
+                authorities.stream()
+                        .map(GrantedAuthority::getAuthority)
+                        .collect(Collectors.toSet());
 
         assertThat(authNames).contains("ROLE_STAFF");
         assertThat(authNames).doesNotContain("ROLE_ADMIN", "ROLE_SUPER_ADMIN");
@@ -68,7 +73,8 @@ class PrivilegeBoundaryIntegrationTest {
     void authorityResolutionReflectsDbChangesImmediately() {
         UUID userId = UUID.randomUUID();
 
-        Role viewerRole = new Role(UUID.randomUUID(), "ROLE_VIEWER", "Viewer", true, null, Set.of());
+        Role viewerRole =
+                new Role(UUID.randomUUID(), "ROLE_VIEWER", "Viewer", true, null, Set.of());
         User user = new User();
         user.setId(userId);
         user.setUsername("viewer_user");
@@ -78,17 +84,26 @@ class PrivilegeBoundaryIntegrationTest {
         when(userRepository.findWithRolesAndPermissionsById(userId)).thenReturn(Optional.of(user));
 
         User loadedUser = currentAuthoritiesService.loadCurrentUser(userId).orElseThrow();
-        Collection<GrantedAuthority> initialAuthorities = currentAuthoritiesService.resolveAuthorities(loadedUser.getRoles());
-        Set<String> initialNames = initialAuthorities.stream().map(GrantedAuthority::getAuthority).collect(Collectors.toSet());
+        Collection<GrantedAuthority> initialAuthorities =
+                currentAuthoritiesService.resolveAuthorities(loadedUser.getRoles());
+        Set<String> initialNames =
+                initialAuthorities.stream()
+                        .map(GrantedAuthority::getAuthority)
+                        .collect(Collectors.toSet());
         assertThat(initialNames).containsExactly("ROLE_VIEWER");
 
         // Simulate role change in DB
-        Role newRole = new Role(UUID.randomUUID(), "ROLE_OPERATOR", "Operator", true, null, Set.of());
+        Role newRole =
+                new Role(UUID.randomUUID(), "ROLE_OPERATOR", "Operator", true, null, Set.of());
         user.setRoles(Set.of(newRole));
 
         User updatedUser = currentAuthoritiesService.loadCurrentUser(userId).orElseThrow();
-        Collection<GrantedAuthority> updatedAuthorities = currentAuthoritiesService.resolveAuthorities(updatedUser.getRoles());
-        Set<String> updatedNames = updatedAuthorities.stream().map(GrantedAuthority::getAuthority).collect(Collectors.toSet());
+        Collection<GrantedAuthority> updatedAuthorities =
+                currentAuthoritiesService.resolveAuthorities(updatedUser.getRoles());
+        Set<String> updatedNames =
+                updatedAuthorities.stream()
+                        .map(GrantedAuthority::getAuthority)
+                        .collect(Collectors.toSet());
         assertThat(updatedNames).containsExactly("ROLE_OPERATOR");
         assertThat(updatedNames).doesNotContain("ROLE_VIEWER");
     }

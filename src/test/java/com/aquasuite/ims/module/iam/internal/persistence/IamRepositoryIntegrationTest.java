@@ -26,25 +26,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest
 class IamRepositoryIntegrationTest extends PostgreSqlIntegrationTestSupport {
 
-    @Autowired
-    private UserRepository userRepository;
+    @Autowired private UserRepository userRepository;
 
-    @Autowired
-    private RoleRepository roleRepository;
+    @Autowired private RoleRepository roleRepository;
 
-    @Autowired
-    private PermissionRepository permissionRepository;
+    @Autowired private PermissionRepository permissionRepository;
 
-    @Autowired
-    private PlatformTransactionManager transactionManager;
+    @Autowired private PlatformTransactionManager transactionManager;
 
-    @Autowired
-    private DataSource dataSource;
+    @Autowired private DataSource dataSource;
 
     @AfterEach
     void cleanUp() throws Exception {
         try (Connection conn = dataSource.getConnection();
-             Statement stmt = conn.createStatement()) {
+                Statement stmt = conn.createStatement()) {
             stmt.executeUpdate("DELETE FROM public.role_permissions");
             stmt.executeUpdate("DELETE FROM public.user_roles");
             stmt.executeUpdate("DELETE FROM public.permissions");
@@ -110,36 +105,39 @@ class IamRepositoryIntegrationTest extends PostgreSqlIntegrationTestSupport {
     }
 
     @Test
-    @DisplayName("CP3, AC-07: Three main repositories manage ManyToMany associations and traversals")
+    @DisplayName(
+            "CP3, AC-07: Three main repositories manage ManyToMany associations and traversals")
     void testRepositoriesManageManyToManyAssociations() {
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
 
-        tx.execute(status -> {
-            Permission perm = new Permission();
-            perm.setCode("REPORT_EXPORT");
-            perm = permissionRepository.save(perm);
+        tx.execute(
+                status -> {
+                    Permission perm = new Permission();
+                    perm.setCode("REPORT_EXPORT");
+                    perm = permissionRepository.save(perm);
 
-            Role role = new Role();
-            role.setRoleName("ANALYST");
-            role.getPermissions().add(perm);
-            role = roleRepository.save(role);
+                    Role role = new Role();
+                    role.setRoleName("ANALYST");
+                    role.getPermissions().add(perm);
+                    role = roleRepository.save(role);
 
-            User user = new User();
-            user.setUsername("data_analyst");
-            user.setEmail("analyst@test.com");
-            user.setPasswordHash("h");
-            user.getRoles().add(role);
-            user = userRepository.save(user);
+                    User user = new User();
+                    user.setUsername("data_analyst");
+                    user.setEmail("analyst@test.com");
+                    user.setPasswordHash("h");
+                    user.getRoles().add(role);
+                    user = userRepository.save(user);
 
-            // Traverse from user
-            User reloadedUser = userRepository.findById(user.getId()).orElseThrow();
-            assertThat(reloadedUser.getRoles()).hasSize(1);
-            Role fetchedRole = reloadedUser.getRoles().iterator().next();
-            assertThat(fetchedRole.getRoleName()).isEqualTo("ANALYST");
-            assertThat(fetchedRole.getPermissions()).hasSize(1);
-            assertThat(fetchedRole.getPermissions().iterator().next().getCode()).isEqualTo("REPORT_EXPORT");
+                    // Traverse from user
+                    User reloadedUser = userRepository.findById(user.getId()).orElseThrow();
+                    assertThat(reloadedUser.getRoles()).hasSize(1);
+                    Role fetchedRole = reloadedUser.getRoles().iterator().next();
+                    assertThat(fetchedRole.getRoleName()).isEqualTo("ANALYST");
+                    assertThat(fetchedRole.getPermissions()).hasSize(1);
+                    assertThat(fetchedRole.getPermissions().iterator().next().getCode())
+                            .isEqualTo("REPORT_EXPORT");
 
-            return null;
-        });
+                    return null;
+                });
     }
 }

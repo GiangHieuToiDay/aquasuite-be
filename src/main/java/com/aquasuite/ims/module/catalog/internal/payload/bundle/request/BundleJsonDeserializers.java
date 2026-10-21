@@ -1,4 +1,4 @@
-package com.aquasuite.ims.module.catalog.internal.payload;
+package com.aquasuite.ims.module.catalog.internal.payload.bundle.request;
 
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -19,15 +19,13 @@ public final class BundleJsonDeserializers {
     /**
      * Đọc quantity dưới dạng số nguyên JSON trong giới hạn Integer.
      */
-    public static class StrictInteger
-            extends JsonDeserializer<Integer> {
+    public static class StrictInteger extends JsonDeserializer<Integer> {
         @Override
-        public Integer deserialize(
-                JsonParser parser,
-                DeserializationContext context)
+        public Integer deserialize(JsonParser parser, DeserializationContext context)
                 throws IOException {
             if (!parser.hasToken(JsonToken.VALUE_NUMBER_INT))
-                return context.reportInputMismatch(Integer.class, "Expected an integer JSON number");
+                return context.reportInputMismatch(
+                        Integer.class, "Expected an integer JSON number");
             return parser.getIntValue();
         }
     }
@@ -37,9 +35,7 @@ public final class BundleJsonDeserializers {
      */
     public static class StrictLong extends JsonDeserializer<Long> {
         @Override
-        public Long deserialize(
-                JsonParser parser,
-                DeserializationContext context)
+        public Long deserialize(JsonParser parser, DeserializationContext context)
                 throws IOException {
             if (!parser.hasToken(JsonToken.VALUE_NUMBER_INT))
                 return context.reportInputMismatch(Long.class, "Expected an integer JSON number");
@@ -50,12 +46,9 @@ public final class BundleJsonDeserializers {
     /**
      * Đọc tiền bằng BigDecimal từ số JSON; giới hạn/độ chính xác được validation kiểm sau đó.
      */
-    public static class StrictMoney
-            extends JsonDeserializer<BigDecimal> {
+    public static class StrictMoney extends JsonDeserializer<BigDecimal> {
         @Override
-        public BigDecimal deserialize(
-                JsonParser parser,
-                DeserializationContext context)
+        public BigDecimal deserialize(JsonParser parser, DeserializationContext context)
                 throws IOException {
             if (!parser.currentToken().isNumeric())
                 return context.reportInputMismatch(BigDecimal.class, "Expected a JSON number");

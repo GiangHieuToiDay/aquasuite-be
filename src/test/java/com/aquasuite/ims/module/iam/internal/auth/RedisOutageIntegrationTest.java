@@ -46,19 +46,16 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class RedisOutageIntegrationTest {
 
-    private static final String VALID_SECRET = "dGVzdC1zZWNyZXQta2V5LWZvci11bml0LXRlc3RzLW11c3QtYmUtYXQtbGVhc3QtNjQtYnl0ZXMtbG9uZy1zby10aGlzLXNob3VsZC13b3JrIQ==";
+    private static final String VALID_SECRET =
+            "dGVzdC1zZWNyZXQta2V5LWZvci11bml0LXRlc3RzLW11c3QtYmUtYXQtbGVhc3QtNjQtYnl0ZXMtbG9uZy1zby10aGlzLXNob3VsZC13b3JrIQ==";
 
-    @Mock
-    private AuthenticationManager authenticationManager;
+    @Mock private AuthenticationManager authenticationManager;
 
-    @Mock
-    private UserRepository userRepository;
+    @Mock private UserRepository userRepository;
 
-    @Mock
-    private RedisSessionStore redisSessionStore;
+    @Mock private RedisSessionStore redisSessionStore;
 
-    @Mock
-    private CurrentAuthoritiesService currentAuthoritiesService;
+    @Mock private CurrentAuthoritiesService currentAuthoritiesService;
 
     private JwtTokenService jwtTokenService;
     private AuthServiceImpl authService;
@@ -70,31 +67,33 @@ class RedisOutageIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        jwtTokenService = new JwtTokenService(
-                "aquasuite-be",
-                "aquasuite-api",
-                "aquasuite-auth",
-                1800,
-                1296000,
-                1296000,
-                VALID_SECRET
-        );
+        jwtTokenService =
+                new JwtTokenService(
+                        "aquasuite-be",
+                        "aquasuite-api",
+                        "aquasuite-auth",
+                        1800,
+                        1296000,
+                        1296000,
+                        VALID_SECRET);
         jwtTokenService.init();
 
-        authService = new AuthServiceImpl(
-                authenticationManager,
-                userRepository,
-                jwtTokenService,
-                redisSessionStore,
-                currentAuthoritiesService
-        );
+        authService =
+                new AuthServiceImpl(
+                        authenticationManager,
+                        userRepository,
+                        jwtTokenService,
+                        redisSessionStore,
+                        currentAuthoritiesService);
 
         jwtDecoderConfig = new JwtDecoderConfig(jwtTokenService, redisSessionStore);
         ReflectionTestUtils.setField(jwtDecoderConfig, "issuer", "aquasuite-be");
         ReflectionTestUtils.setField(jwtDecoderConfig, "accessAudience", "aquasuite-api");
         jwtDecoderConfig.init();
 
-        errorHandlers = new AuthSecurityErrorHandlers(new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules());
+        errorHandlers =
+                new AuthSecurityErrorHandlers(
+                        new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules());
 
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
@@ -102,34 +101,44 @@ class RedisOutageIntegrationTest {
     }
 
     @Test
-    @DisplayName("AC-12: Redis outage trong lúc decode access token fail-closed với 503 AUTH_SERVICE_UNAVAILABLE và không signature-only bypass")
+    @DisplayName(
+            "AC-12: Redis outage trong lúc decode access token fail-closed với 503 AUTH_SERVICE_UNAVAILABLE và không signature-only bypass")
     void shouldFailClosedDuringResourceServerAccessWhenRedisDown() throws Exception {
         UUID userId = UUID.randomUUID();
         UUID sessionId = UUID.randomUUID();
         Instant now = Instant.now();
         Instant absExp = now.plusSeconds(3600);
 
-        JwtTokenService.TokenPair pair = jwtTokenService.issueTokenPair(userId, sessionId, now, absExp);
+        JwtTokenService.TokenPair pair =
+                jwtTokenService.issueTokenPair(userId, sessionId, now, absExp);
 
         // Redis throws unavailable exception
         when(redisSessionStore.validateSession(any(), any()))
-                .thenThrow(new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Redis connection timed out"));
+                .thenThrow(
+                        new AppException(
+                                AuthErrorCode.AUTH_SERVICE_UNAVAILABLE,
+                                "Redis connection timed out"));
 
         // Decoder must throw OAuth2AuthenticationException with service_unavailable
         assertThatThrownBy(() -> jwtDecoderConfig.decode(pair.accessToken()))
                 .isInstanceOf(OAuth2AuthenticationException.class)
-                .satisfies(e -> {
-                    OAuth2AuthenticationException ex = (OAuth2AuthenticationException) e;
-                    assertThat(ex.getError().getErrorCode()).isEqualTo("service_unavailable");
-                });
+                .satisfies(
+                        e -> {
+                            OAuth2AuthenticationException ex = (OAuth2AuthenticationException) e;
+                            assertThat(ex.getError().getErrorCode())
+                                    .isEqualTo("service_unavailable");
+                        });
 
         // Error handler returns 503
-        OAuth2AuthenticationException ex = new OAuth2AuthenticationException(
-                new org.springframework.security.oauth2.core.OAuth2Error("service_unavailable", "Redis down", null));
+        OAuth2AuthenticationException ex =
+                new OAuth2AuthenticationException(
+                        new org.springframework.security.oauth2.core.OAuth2Error(
+                                "service_unavailable", "Redis down", null));
         errorHandlers.commence(request, response, ex);
 
         assertThat(response.getStatus()).isEqualTo(503);
-        assertThat(response.getContentAsString()).contains(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE.getCode());
+        assertThat(response.getContentAsString())
+                .contains(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE.getCode());
     }
 
     @Test
@@ -145,28 +154,40 @@ class RedisOutageIntegrationTest {
         user.setRoles(Set.of());
 
         when(authenticationManager.authenticate(any())).thenReturn(mock(Authentication.class));
-        when(userRepository.findWithRolesAndPermissionsByEmailIgnoreCase(email)).thenReturn(Optional.of(user));
+        when(userRepository.findWithRolesAndPermissionsByEmailIgnoreCase(email))
+                .thenReturn(Optional.of(user));
 
         // Redis createSession fails
         doThrow(new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Redis down"))
-                .when(redisSessionStore).createSession(any(UUID.class), any(UUID.class), any(UUID.class), any(Instant.class), any(Instant.class));
+                .when(redisSessionStore)
+                .createSession(
+                        any(UUID.class),
+                        any(UUID.class),
+                        any(UUID.class),
+                        any(Instant.class),
+                        any(Instant.class));
 
         LoginRequest req = LoginRequest.builder().email(email).password("Password123!").build();
 
         assertThatThrownBy(() -> authService.login(req))
                 .isInstanceOf(AppException.class)
-                .satisfies(e -> assertThat(((AppException) e).getErrorCode()).isEqualTo(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE));
+                .satisfies(
+                        e ->
+                                assertThat(((AppException) e).getErrorCode())
+                                        .isEqualTo(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE));
     }
 
     @Test
-    @DisplayName("AC-12: Redis outage trong lúc Refresh fail-closed với 503 AUTH_SERVICE_UNAVAILABLE")
+    @DisplayName(
+            "AC-12: Redis outage trong lúc Refresh fail-closed với 503 AUTH_SERVICE_UNAVAILABLE")
     void shouldFailClosedDuringRefreshWhenRedisDown() {
         UUID userId = UUID.randomUUID();
         UUID sessionId = UUID.randomUUID();
         Instant now = Instant.now();
         Instant absExp = now.plusSeconds(3600);
 
-        JwtTokenService.TokenPair pair = jwtTokenService.issueTokenPair(userId, sessionId, now, absExp);
+        JwtTokenService.TokenPair pair =
+                jwtTokenService.issueTokenPair(userId, sessionId, now, absExp);
 
         User user = new User();
         user.setId(userId);
@@ -180,11 +201,15 @@ class RedisOutageIntegrationTest {
 
         assertThatThrownBy(() -> authService.refresh(req))
                 .isInstanceOf(AppException.class)
-                .satisfies(e -> assertThat(((AppException) e).getErrorCode()).isEqualTo(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE));
+                .satisfies(
+                        e ->
+                                assertThat(((AppException) e).getErrorCode())
+                                        .isEqualTo(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE));
     }
 
     @Test
-    @DisplayName("AC-12: Redis outage trong lúc Logout fail-closed với 503 AUTH_SERVICE_UNAVAILABLE")
+    @DisplayName(
+            "AC-12: Redis outage trong lúc Logout fail-closed với 503 AUTH_SERVICE_UNAVAILABLE")
     void shouldFailClosedDuringLogoutWhenRedisDown() {
         UUID userId = UUID.randomUUID();
         UUID sessionId = UUID.randomUUID();
@@ -194,59 +219,75 @@ class RedisOutageIntegrationTest {
         when(jwt.getSubject()).thenReturn(userId.toString());
 
         doThrow(new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Redis down"))
-                .when(redisSessionStore).revokeSession(any(), any(), any());
+                .when(redisSessionStore)
+                .revokeSession(any(), any(), any());
 
         assertThatThrownBy(() -> authService.logout(jwt))
                 .isInstanceOf(AppException.class)
-                .satisfies(e -> assertThat(((AppException) e).getErrorCode()).isEqualTo(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE));
+                .satisfies(
+                        e ->
+                                assertThat(((AppException) e).getErrorCode())
+                                        .isEqualTo(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE));
     }
 
     @Test
-    @DisplayName("BLOCKING-01: Redis rotateRefresh returning null result fails closed with 503 AUTH_SERVICE_UNAVAILABLE")
+    @DisplayName(
+            "BLOCKING-01: Redis rotateRefresh returning null result fails closed with 503 AUTH_SERVICE_UNAVAILABLE")
     void shouldFailClosedWhenRotateRefreshReturnsNullResult() {
         UUID userId = UUID.randomUUID();
         UUID sessionId = UUID.randomUUID();
         Instant now = Instant.now();
         Instant absExp = now.plusSeconds(3600);
 
-        JwtTokenService.TokenPair pair = jwtTokenService.issueTokenPair(userId, sessionId, now, absExp);
+        JwtTokenService.TokenPair pair =
+                jwtTokenService.issueTokenPair(userId, sessionId, now, absExp);
 
         User user = new User();
         user.setId(userId);
         user.setStatus(UserStatus.ACTIVE);
 
         when(currentAuthoritiesService.loadCurrentUser(userId)).thenReturn(Optional.of(user));
-        when(redisSessionStore.getSessionData(sessionId)).thenReturn(new RedisSessionStore.SessionData(
-                userId, now, absExp, "ACTIVE", UUID.randomUUID()
-        ));
+        when(redisSessionStore.getSessionData(sessionId))
+                .thenReturn(
+                        new RedisSessionStore.SessionData(
+                                userId, now, absExp, "ACTIVE", UUID.randomUUID()));
         when(redisSessionStore.rotateRefresh(any(), any(), any(), any(), any(), any()))
-                .thenThrow(new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Dịch vụ xác thực tạm thời không khả dụng"));
+                .thenThrow(
+                        new AppException(
+                                AuthErrorCode.AUTH_SERVICE_UNAVAILABLE,
+                                "Dịch vụ xác thực tạm thời không khả dụng"));
 
         RefreshRequest req = RefreshRequest.builder().refreshToken(pair.refreshToken()).build();
 
         assertThatThrownBy(() -> authService.refresh(req))
                 .isInstanceOf(AppException.class)
-                .satisfies(e -> assertThat(((AppException) e).getErrorCode()).isEqualTo(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE));
+                .satisfies(
+                        e ->
+                                assertThat(((AppException) e).getErrorCode())
+                                        .isEqualTo(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE));
     }
 
     @Test
-    @DisplayName("BLOCKING-01: Redis rotateRefresh returning UNKNOWN outcome fails closed with 503 AUTH_SERVICE_UNAVAILABLE")
+    @DisplayName(
+            "BLOCKING-01: Redis rotateRefresh returning UNKNOWN outcome fails closed with 503 AUTH_SERVICE_UNAVAILABLE")
     void shouldFailClosedWhenRotateRefreshReturnsUnknownOutcome() {
         UUID userId = UUID.randomUUID();
         UUID sessionId = UUID.randomUUID();
         Instant now = Instant.now();
         Instant absExp = now.plusSeconds(3600);
 
-        JwtTokenService.TokenPair pair = jwtTokenService.issueTokenPair(userId, sessionId, now, absExp);
+        JwtTokenService.TokenPair pair =
+                jwtTokenService.issueTokenPair(userId, sessionId, now, absExp);
 
         User user = new User();
         user.setId(userId);
         user.setStatus(UserStatus.ACTIVE);
 
         when(currentAuthoritiesService.loadCurrentUser(userId)).thenReturn(Optional.of(user));
-        when(redisSessionStore.getSessionData(sessionId)).thenReturn(new RedisSessionStore.SessionData(
-                userId, now, absExp, "ACTIVE", UUID.randomUUID()
-        ));
+        when(redisSessionStore.getSessionData(sessionId))
+                .thenReturn(
+                        new RedisSessionStore.SessionData(
+                                userId, now, absExp, "ACTIVE", UUID.randomUUID()));
         when(redisSessionStore.rotateRefresh(any(), any(), any(), any(), any(), any()))
                 .thenReturn(RedisSessionStore.RotationOutcome.UNKNOWN);
 
@@ -254,6 +295,9 @@ class RedisOutageIntegrationTest {
 
         assertThatThrownBy(() -> authService.refresh(req))
                 .isInstanceOf(AppException.class)
-                .satisfies(e -> assertThat(((AppException) e).getErrorCode()).isEqualTo(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE));
+                .satisfies(
+                        e ->
+                                assertThat(((AppException) e).getErrorCode())
+                                        .isEqualTo(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE));
     }
 }

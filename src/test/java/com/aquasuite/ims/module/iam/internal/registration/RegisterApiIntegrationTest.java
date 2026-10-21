@@ -50,9 +50,12 @@ abstract class RegisterTestSupport extends AuthIntegrationTestSupport {
     @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     @SpyBean com.aquasuite.ims.module.crm.api.CustomerRegistrationApi customerProfiles;
 
-    @BeforeEach void setupRegistration() {
+    @BeforeEach
+    void setupRegistration() {
         reset(users, auth, mail, redis);
-        Object profileTarget = org.springframework.test.util.AopTestUtils.getUltimateTargetObject(customerProfiles);
+        Object profileTarget =
+                org.springframework.test.util.AopTestUtils.getUltimateTargetObject(
+                        customerProfiles);
         reset(profileTarget);
         users.deleteAll();
         roles.deleteAll();
@@ -63,20 +66,31 @@ abstract class RegisterTestSupport extends AuthIntegrationTestSupport {
         }
     }
 
-    Map<String,Object> form() {
-        var form = new LinkedHashMap<String,Object>();
-        form.put("fullName", "Nguyễn Văn An"); form.put("email", EMAIL); form.put("phone", "0901234567");
-        form.put("password", PASSWORD); form.put("passwordConfirmation", PASSWORD); form.put("termsAccepted", true);
+    Map<String, Object> form() {
+        var form = new LinkedHashMap<String, Object>();
+        form.put("fullName", "Nguyễn Văn An");
+        form.put("email", EMAIL);
+        form.put("phone", "0901234567");
+        form.put("password", PASSWORD);
+        form.put("passwordConfirmation", PASSWORD);
+        form.put("termsAccepted", true);
         return form;
     }
+
     MvcResult postJson(String path, Object body, int status) throws Exception {
-        return mvc.perform(post(path).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsBytes(body)))
-                .andExpect(status().is(status)).andReturn();
+        return mvc.perform(
+                        post(path)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(json.writeValueAsBytes(body)))
+                .andExpect(status().is(status))
+                .andReturn();
     }
+
     User registered() throws Exception {
         postJson(ROOT, form(), 201);
         return users.findByEmailIgnoreCase(EMAIL).orElseThrow();
     }
+
     String otp() {
         var capture = ArgumentCaptor.forClass(SimpleMailMessage.class);
         verify(mail, atLeastOnce()).send(capture.capture());
@@ -86,31 +100,45 @@ abstract class RegisterTestSupport extends AuthIntegrationTestSupport {
         assertThat(messages.getLast().getText()).contains("5 minutes");
         return matcher.group(1);
     }
-    String key(User user) { return RegisterService.OTP_PREFIX + user.getId(); }
-    String verifyBody(String code) throws Exception { return json.writeValueAsString(Map.of("email",EMAIL,"otp",code)); }
+
+    String key(User user) {
+        return RegisterService.OTP_PREFIX + user.getId();
+    }
+
+    String verifyBody(String code) throws Exception {
+        return json.writeValueAsString(Map.of("email", EMAIL, "otp", code));
+    }
 }
 
-@org.junit.jupiter.api.extension.ExtendWith(org.springframework.boot.test.system.OutputCaptureExtension.class)
+@org.junit.jupiter.api.extension.ExtendWith(
+        org.springframework.boot.test.system.OutputCaptureExtension.class)
 class RegisterApiIntegrationTest extends RegisterTestSupport {
-    @Test void registersPendingAndActivatesUsingExistingJwtSession() throws Exception {
+    @Test
+    void registersPendingAndActivatesUsingExistingJwtSession() throws Exception {
         User user = registered();
         assertThat(user.getStatus()).isEqualTo(UserStatus.PENDING_ACTIVATION);
         assertThat(user.getFullName()).isEqualTo("Nguyễn Văn An");
         assertThat(encoder.matches(PASSWORD, user.getPasswordHash())).isTrue();
         assertThat(user.getUsername()).isEqualTo("customer-" + user.getId());
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM customers WHERE user_id=?",Integer.class,user.getId())).isZero();
-        postJson("/api/v1/auth/login", Map.of("email",EMAIL,"password",PASSWORD),403);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM customers WHERE user_id=?",
+                                Integer.class,
+                                user.getId()))
+                .isZero();
+        postJson("/api/v1/auth/login", Map.of("email", EMAIL, "password", PASSWORD), 403);
         String code = otp();
-        assertThat(redis.opsForHash().get(key(user),"hash")).isNotEqualTo(code);
-        assertThat(redis.getExpire(key(user))).isBetween(290L,300L);
-        var result = postJson(ROOT+"/verifications", Map.of("email",EMAIL,"otp",code),200);
+        assertThat(redis.opsForHash().get(key(user), "hash")).isNotEqualTo(code);
+        assertThat(redis.getExpire(key(user))).isBetween(290L, 300L);
+        var result = postJson(ROOT + "/verifications", Map.of("email", EMAIL, "otp", code), 200);
         var body = json.readTree(result.getResponse().getContentAsString());
         String access = body.path("data").path("access_token").asText();
         assertThat(access).isNotBlank();
         assertThat(body.path("data").path("user").path("roles").toString()).contains("CUSTOMER");
         assertThat(result.getResponse().getHeader("Cache-Control")).contains("no-store");
-        assertThat(users.findById(user.getId()).orElseThrow().getStatus()).isEqualTo(UserStatus.ACTIVE);
-        var profile=jdbc.queryForMap("SELECT * FROM customers WHERE user_id=?",user.getId());
+        assertThat(users.findById(user.getId()).orElseThrow().getStatus())
+                .isEqualTo(UserStatus.ACTIVE);
+        var profile = jdbc.queryForMap("SELECT * FROM customers WHERE user_id=?", user.getId());
         assertThat(profile.get("customer_name")).isEqualTo(user.getFullName());
         assertThat(profile.get("email")).isEqualTo(user.getEmail());
         assertThat(profile.get("phone")).isEqualTo(user.getPhone());
@@ -122,48 +150,66 @@ class RegisterApiIntegrationTest extends RegisterTestSupport {
         assertThat(profile.get("created_at")).isNotNull();
         assertThat(profile.get("updated_at")).isNotNull();
         assertThat(redis.hasKey(key(user))).isFalse();
-        postJson(ROOT+"/verifications",Map.of("email",EMAIL,"otp",code),409);
-        mvc.perform(post("/api/v1/auth/logout").header("Authorization","Bearer "+access)).andExpect(status().isOk());
+        postJson(ROOT + "/verifications", Map.of("email", EMAIL, "otp", code), 409);
+        mvc.perform(post("/api/v1/auth/logout").header("Authorization", "Bearer " + access))
+                .andExpect(status().isOk());
     }
 
-    @Test void rejectsDuplicateCaseInsensitiveEmailOrPhoneWithoutOverwritingPending() throws Exception {
+    @Test
+    void rejectsDuplicateCaseInsensitiveEmailOrPhoneWithoutOverwritingPending() throws Exception {
         User user = registered();
-        var duplicate = form(); duplicate.put("email", EMAIL.toUpperCase(Locale.ROOT)); duplicate.put("phone","0912345678");
-        postJson(ROOT,duplicate,409);
-        duplicate.put("email","other@example.test"); duplicate.put("phone",user.getPhone());
-        postJson(ROOT,duplicate,409);
+        var duplicate = form();
+        duplicate.put("email", EMAIL.toUpperCase(Locale.ROOT));
+        duplicate.put("phone", "0912345678");
+        postJson(ROOT, duplicate, 409);
+        duplicate.put("email", "other@example.test");
+        duplicate.put("phone", user.getPhone());
+        postJson(ROOT, duplicate, 409);
         assertThat(users.count()).isEqualTo(1);
-        assertThat(users.findById(user.getId()).orElseThrow().getPasswordHash()).isEqualTo(user.getPasswordHash());
+        assertThat(users.findById(user.getId()).orElseThrow().getPasswordHash())
+                .isEqualTo(user.getPasswordHash());
     }
 
-    @Test void validatesWithoutPersistingAndDoesNotExposePassword(org.springframework.boot.test.system.CapturedOutput output) throws Exception {
+    @Test
+    void validatesWithoutPersistingAndDoesNotExposePassword(
+            org.springframework.boot.test.system.CapturedOutput output) throws Exception {
         var invalid = form();
-        invalid.put("password","DontLogTheseCredentials987!");
-        invalid.put("passwordConfirmation","NeverLogThisConfirmation654!"); invalid.put("termsAccepted",false);
-        var response = postJson(ROOT,invalid,400).getResponse().getContentAsString();
-        assertThat(response).contains("SYS_003","passwordConfirmation","termsAccepted").doesNotContain(PASSWORD);
-        assertThat(output.getAll()).doesNotContain("DontLogTheseCredentials987!", "NeverLogThisConfirmation654!");
+        invalid.put("password", "DontLogTheseCredentials987!");
+        invalid.put("passwordConfirmation", "NeverLogThisConfirmation654!");
+        invalid.put("termsAccepted", false);
+        var response = postJson(ROOT, invalid, 400).getResponse().getContentAsString();
+        assertThat(response)
+                .contains("SYS_003", "passwordConfirmation", "termsAccepted")
+                .doesNotContain(PASSWORD);
+        assertThat(output.getAll())
+                .doesNotContain("DontLogTheseCredentials987!", "NeverLogThisConfirmation654!");
         assertThat(users.count()).isZero();
         mvc.perform(post(ROOT).contentType(MediaType.APPLICATION_JSON).content("{"))
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("SYS_002"));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("SYS_002"));
     }
 
-    @Test void preservesExactPublicAllowlistAndIgnoresPrivilegeInjection() throws Exception {
-        for (String path : List.of(ROOT,ROOT+"/verifications",ROOT+"/otp-resends")) {
+    @Test
+    void preservesExactPublicAllowlistAndIgnoresPrivilegeInjection() throws Exception {
+        for (String path : List.of(ROOT, ROOT + "/verifications", ROOT + "/otp-resends")) {
             mvc.perform(get(path)).andExpect(status().isUnauthorized());
         }
-        mvc.perform(post(ROOT+"/arbitrary")).andExpect(status().isUnauthorized());
-        var forged = form(); forged.put("roles",List.of("ADMIN")); forged.put("status","ACTIVE");
-        postJson(ROOT,forged,201);
+        mvc.perform(post(ROOT + "/arbitrary")).andExpect(status().isUnauthorized());
+        var forged = form();
+        forged.put("roles", List.of("ADMIN"));
+        forged.put("status", "ACTIVE");
+        postJson(ROOT, forged, 201);
         User user = users.findWithRolesAndPermissionsByEmailIgnoreCase(EMAIL).orElseThrow();
         assertThat(user.getStatus()).isEqualTo(UserStatus.PENDING_ACTIVATION);
         assertThat(user.getRoles()).extracting(Role::getRoleName).containsExactly("CUSTOMER");
     }
 
-    @Test void missingOrInactiveCustomerRoleFailsClosed() throws Exception {
-        roles.deleteAll(); postJson(ROOT,form(),503);
-        roles.save(new Role(UUID.randomUUID(),"CUSTOMER","Customer",false,null,Set.of()));
-        postJson(ROOT,form(),503);
+    @Test
+    void missingOrInactiveCustomerRoleFailsClosed() throws Exception {
+        roles.deleteAll();
+        postJson(ROOT, form(), 503);
+        roles.save(new Role(UUID.randomUUID(), "CUSTOMER", "Customer", false, null, Set.of()));
+        postJson(ROOT, form(), 503);
         assertThat(users.count()).isZero();
     }
 }

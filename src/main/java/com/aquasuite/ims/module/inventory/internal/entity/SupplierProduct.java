@@ -15,8 +15,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class SupplierProduct {
 
-    @EmbeddedId
-    private SupplierProductId id;
+    @EmbeddedId private SupplierProductId id;
 
     @Column(name = "supplier_sku", length = 100)
     private String supplierSku;

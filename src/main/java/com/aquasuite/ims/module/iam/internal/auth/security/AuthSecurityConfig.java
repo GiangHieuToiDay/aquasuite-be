@@ -41,37 +41,53 @@ public class AuthSecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config)
+            throws Exception {
         return config.getAuthenticationManager();
     }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(AbstractHttpConfigurer::disable)
+        http.csrf(AbstractHttpConfigurer::disable)
                 .cors(AbstractHttpConfigurer::disable)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
-                        .requestMatchers(HttpMethod.POST,
-                                "/api/v1/customer-registrations",
-                                "/api/v1/customer-registrations/verifications",
-                                "/api/v1/customer-registrations/otp-resends").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").authenticated()
-                        .anyRequest().authenticated()
-                )
-                .oauth2ResourceServer(oauth2 -> oauth2
-                        .jwt(jwt -> jwt
-                                .decoder(jwtDecoderConfig)
-                                .jwtAuthenticationConverter(accessAuthenticationConverter)
-                        )
-                        .authenticationEntryPoint(authSecurityErrorHandlers.authenticationEntryPoint())
-                        .accessDeniedHandler(authSecurityErrorHandlers.accessDeniedHandler())
-                )
-                .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint(authSecurityErrorHandlers.authenticationEntryPoint())
-                        .accessDeniedHandler(authSecurityErrorHandlers.accessDeniedHandler())
-                );
+                .sessionManagement(
+                        session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(
+                        auth ->
+                                auth.requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/v1/auth/login",
+                                                "/api/v1/auth/refresh")
+                                        .permitAll()
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/v1/customer-registrations",
+                                                "/api/v1/customer-registrations/verifications",
+                                                "/api/v1/customer-registrations/otp-resends")
+                                        .permitAll()
+                                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/logout")
+                                        .authenticated()
+                                        .anyRequest()
+                                        .authenticated())
+                .oauth2ResourceServer(
+                        oauth2 ->
+                                oauth2.jwt(
+                                                jwt ->
+                                                        jwt.decoder(jwtDecoderConfig)
+                                                                .jwtAuthenticationConverter(
+                                                                        accessAuthenticationConverter))
+                                        .authenticationEntryPoint(
+                                                authSecurityErrorHandlers
+                                                        .authenticationEntryPoint())
+                                        .accessDeniedHandler(
+                                                authSecurityErrorHandlers.accessDeniedHandler()))
+                .exceptionHandling(
+                        ex ->
+                                ex.authenticationEntryPoint(
+                                                authSecurityErrorHandlers
+                                                        .authenticationEntryPoint())
+                                        .accessDeniedHandler(
+                                                authSecurityErrorHandlers.accessDeniedHandler()));
 
         return http.build();
     }

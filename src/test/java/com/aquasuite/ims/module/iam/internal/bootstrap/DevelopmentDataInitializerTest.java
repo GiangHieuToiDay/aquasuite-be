@@ -62,11 +62,14 @@ class DevelopmentDataInitializerTest {
         configuredPassword = "StrongDevPassword123!";
 
         // Wire transactionTemplate to synchronously execute the callback
-        doAnswer(invocation -> {
-            Consumer<TransactionStatus> callback = invocation.getArgument(0);
-            callback.accept(mock(TransactionStatus.class));
-            return null;
-        }).when(transactionTemplate).executeWithoutResult(any());
+        doAnswer(
+                        invocation -> {
+                            Consumer<TransactionStatus> callback = invocation.getArgument(0);
+                            callback.accept(mock(TransactionStatus.class));
+                            return null;
+                        })
+                .when(transactionTemplate)
+                .executeWithoutResult(any());
 
         // Default mock behaviors
         when(roleRepository.save(any(Role.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -76,20 +79,21 @@ class DevelopmentDataInitializerTest {
     }
 
     private void createInitializer() {
-        when(environment.getProperty("aquasuite.iam.dev-seed.enabled")).thenReturn(String.valueOf(enabled));
-        initializer = new DevelopmentDataInitializer(
-                roleRepository,
-                userRepository,
-                passwordEncoder,
-                transactionTemplate,
-                environment
-        );
+        when(environment.getProperty("aquasuite.iam.dev-seed.enabled"))
+                .thenReturn(String.valueOf(enabled));
+        initializer =
+                new DevelopmentDataInitializer(
+                        roleRepository,
+                        userRepository,
+                        passwordEncoder,
+                        transactionTemplate,
+                        environment);
         initializer.setPasswordSupplier(() -> configuredPassword);
     }
 
     private void setDevEnvironment() {
         enabled = true;
-        when(environment.getActiveProfiles()).thenReturn(new String[]{"dev"});
+        when(environment.getActiveProfiles()).thenReturn(new String[] {"dev"});
         when(environment.getProperty("aquasuite.config.environment")).thenReturn("dev");
         createInitializer();
     }
@@ -102,7 +106,7 @@ class DevelopmentDataInitializerTest {
         @DisplayName("Flag false: no seed and zero repository calls")
         void shouldSkipWhenDisabled() {
             enabled = false;
-            when(environment.getActiveProfiles()).thenReturn(new String[]{"dev"});
+            when(environment.getActiveProfiles()).thenReturn(new String[] {"dev"});
             when(environment.getProperty("aquasuite.config.environment")).thenReturn("dev");
             createInitializer();
 
@@ -131,7 +135,7 @@ class DevelopmentDataInitializerTest {
         @DisplayName("Test profile only: zero writes and fail-closed")
         void shouldBlockOnTestProfile() {
             enabled = true;
-            when(environment.getActiveProfiles()).thenReturn(new String[]{"test"});
+            when(environment.getActiveProfiles()).thenReturn(new String[] {"test"});
             when(environment.getProperty("aquasuite.config.environment")).thenReturn("dev");
             createInitializer();
 
@@ -145,7 +149,7 @@ class DevelopmentDataInitializerTest {
         @DisplayName("Prod profile: zero writes even if flag is true")
         void shouldBlockOnProdProfile() {
             enabled = true;
-            when(environment.getActiveProfiles()).thenReturn(new String[]{"prod"});
+            when(environment.getActiveProfiles()).thenReturn(new String[] {"prod"});
             when(environment.getProperty("aquasuite.config.environment")).thenReturn("dev");
             createInitializer();
 
@@ -159,7 +163,7 @@ class DevelopmentDataInitializerTest {
         @DisplayName("Multiple profiles containing prod + dev: zero writes")
         void shouldBlockOnProdAndDevProfiles() {
             enabled = true;
-            when(environment.getActiveProfiles()).thenReturn(new String[]{"dev", "prod"});
+            when(environment.getActiveProfiles()).thenReturn(new String[] {"dev", "prod"});
             when(environment.getProperty("aquasuite.config.environment")).thenReturn("dev");
             createInitializer();
 
@@ -173,7 +177,7 @@ class DevelopmentDataInitializerTest {
         @DisplayName("Default / unknown environment: zero writes")
         void shouldBlockOnDefaultEnvironment() {
             enabled = true;
-            when(environment.getActiveProfiles()).thenReturn(new String[]{"dev"});
+            when(environment.getActiveProfiles()).thenReturn(new String[] {"dev"});
             when(environment.getProperty("aquasuite.config.environment")).thenReturn("default");
             createInitializer();
 
@@ -236,16 +240,17 @@ class DevelopmentDataInitializerTest {
             verify(roleRepository, times(6)).save(roleCaptor.capture());
 
             List<Role> savedRoles = roleCaptor.getAllValues();
-            Set<String> savedRoleNames = savedRoles.stream().map(Role::getRoleName).collect(Collectors.toSet());
+            Set<String> savedRoleNames =
+                    savedRoles.stream().map(Role::getRoleName).collect(Collectors.toSet());
 
-            assertThat(savedRoleNames).containsExactlyInAnyOrder(
-                    "SHOP_OWNER",
-                    "SALES_STAFF",
-                    "ACCOUNTANT",
-                    "TECHNICAL_STAFF",
-                    "SHIPPER",
-                    "CUSTOMER"
-            );
+            assertThat(savedRoleNames)
+                    .containsExactlyInAnyOrder(
+                            "SHOP_OWNER",
+                            "SALES_STAFF",
+                            "ACCOUNTANT",
+                            "TECHNICAL_STAFF",
+                            "SHIPPER",
+                            "CUSTOMER");
 
             assertThat(savedRoleNames).doesNotContain("GUEST");
             assertThat(savedRoleNames).doesNotContain("ROLE_SHOP_OWNER");
@@ -262,9 +267,18 @@ class DevelopmentDataInitializerTest {
         void shouldReuseExistingRoles() {
             setDevEnvironment();
 
-            for (DevelopmentDataInitializer.RoleDefinition def : DevelopmentDataInitializer.CANONICAL_ROLES) {
-                Role existing = new Role(UUID.randomUUID(), def.name(), def.description(), true, null, Set.of());
-                when(roleRepository.findByRoleNameIgnoreCase(def.name())).thenReturn(Optional.of(existing));
+            for (DevelopmentDataInitializer.RoleDefinition def :
+                    DevelopmentDataInitializer.CANONICAL_ROLES) {
+                Role existing =
+                        new Role(
+                                UUID.randomUUID(),
+                                def.name(),
+                                def.description(),
+                                true,
+                                null,
+                                Set.of());
+                when(roleRepository.findByRoleNameIgnoreCase(def.name()))
+                        .thenReturn(Optional.of(existing));
             }
 
             initializer.initialize();
@@ -280,8 +294,10 @@ class DevelopmentDataInitializerTest {
         void shouldThrowOnRoleCaseMismatch() {
             setDevEnvironment();
 
-            Role mismatchRole = new Role(UUID.randomUUID(), "shop_owner", "Chủ cửa hàng", true, null, Set.of());
-            when(roleRepository.findByRoleNameIgnoreCase("SHOP_OWNER")).thenReturn(Optional.of(mismatchRole));
+            Role mismatchRole =
+                    new Role(UUID.randomUUID(), "shop_owner", "Chủ cửa hàng", true, null, Set.of());
+            when(roleRepository.findByRoleNameIgnoreCase("SHOP_OWNER"))
+                    .thenReturn(Optional.of(mismatchRole));
 
             assertThatThrownBy(() -> initializer.initialize())
                     .isInstanceOf(DevelopmentDataInitializer.SeedConflictException.class)
@@ -293,8 +309,11 @@ class DevelopmentDataInitializerTest {
         void shouldThrowOnInactiveRole() {
             setDevEnvironment();
 
-            Role inactiveRole = new Role(UUID.randomUUID(), "SHOP_OWNER", "Chủ cửa hàng", false, null, Set.of());
-            when(roleRepository.findByRoleNameIgnoreCase("SHOP_OWNER")).thenReturn(Optional.of(inactiveRole));
+            Role inactiveRole =
+                    new Role(
+                            UUID.randomUUID(), "SHOP_OWNER", "Chủ cửa hàng", false, null, Set.of());
+            when(roleRepository.findByRoleNameIgnoreCase("SHOP_OWNER"))
+                    .thenReturn(Optional.of(inactiveRole));
 
             assertThatThrownBy(() -> initializer.initialize())
                     .isInstanceOf(DevelopmentDataInitializer.SeedConflictException.class)
@@ -307,7 +326,8 @@ class DevelopmentDataInitializerTest {
     class OwnerSeedTests {
 
         @Test
-        @DisplayName("Creates owner with exact email, username, ACTIVE status, BCrypt hash and SHOP_OWNER role")
+        @DisplayName(
+                "Creates owner with exact email, username, ACTIVE status, BCrypt hash and SHOP_OWNER role")
         void shouldCreateOwnerCorrectly() {
             setDevEnvironment();
 
@@ -322,7 +342,8 @@ class DevelopmentDataInitializerTest {
             assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
             assertThat(user.getId()).isNotNull();
 
-            assertThat(passwordEncoder.matches("StrongDevPassword123!", user.getPasswordHash())).isTrue();
+            assertThat(passwordEncoder.matches("StrongDevPassword123!", user.getPasswordHash()))
+                    .isTrue();
 
             assertThat(user.getRoles()).hasSize(1);
             Role assignedRole = user.getRoles().iterator().next();
@@ -330,14 +351,27 @@ class DevelopmentDataInitializerTest {
         }
 
         @Test
-        @DisplayName("Existing matching owner retains record and BCrypt hash without save/overwrite")
+        @DisplayName(
+                "Existing matching owner retains record and BCrypt hash without save/overwrite")
         void shouldRetainMatchingOwner() {
             setDevEnvironment();
 
-            Role ownerRole = new Role(UUID.randomUUID(), "SHOP_OWNER", "Chủ cửa hàng", true, null, Set.of());
-            for (DevelopmentDataInitializer.RoleDefinition def : DevelopmentDataInitializer.CANONICAL_ROLES) {
-                Role r = def.name().equals("SHOP_OWNER") ? ownerRole : new Role(UUID.randomUUID(), def.name(), def.description(), true, null, Set.of());
-                when(roleRepository.findByRoleNameIgnoreCase(def.name())).thenReturn(Optional.of(r));
+            Role ownerRole =
+                    new Role(UUID.randomUUID(), "SHOP_OWNER", "Chủ cửa hàng", true, null, Set.of());
+            for (DevelopmentDataInitializer.RoleDefinition def :
+                    DevelopmentDataInitializer.CANONICAL_ROLES) {
+                Role r =
+                        def.name().equals("SHOP_OWNER")
+                                ? ownerRole
+                                : new Role(
+                                        UUID.randomUUID(),
+                                        def.name(),
+                                        def.description(),
+                                        true,
+                                        null,
+                                        Set.of());
+                when(roleRepository.findByRoleNameIgnoreCase(def.name()))
+                        .thenReturn(Optional.of(r));
             }
 
             String existingHash = passwordEncoder.encode("StrongDevPassword123!");
@@ -349,8 +383,10 @@ class DevelopmentDataInitializerTest {
             existingOwner.setPasswordHash(existingHash);
             existingOwner.setRoles(new HashSet<>(Set.of(ownerRole)));
 
-            when(userRepository.findByEmailIgnoreCase("owner@aquasuite.local")).thenReturn(Optional.of(existingOwner));
-            when(userRepository.findByUsernameIgnoreCase("owner_test")).thenReturn(Optional.of(existingOwner));
+            when(userRepository.findByEmailIgnoreCase("owner@aquasuite.local"))
+                    .thenReturn(Optional.of(existingOwner));
+            when(userRepository.findByUsernameIgnoreCase("owner_test"))
+                    .thenReturn(Optional.of(existingOwner));
 
             boolean result = initializer.initialize();
 
@@ -360,12 +396,15 @@ class DevelopmentDataInitializerTest {
         }
 
         @Test
-        @DisplayName("CR-V6-02: Existing owner with email case mismatch throws SeedConflictException")
+        @DisplayName(
+                "CR-V6-02: Existing owner with email case mismatch throws SeedConflictException")
         void shouldThrowOnOwnerEmailCaseMismatch() {
             setDevEnvironment();
 
-            Role ownerRole = new Role(UUID.randomUUID(), "SHOP_OWNER", "Chủ cửa hàng", true, null, Set.of());
-            when(roleRepository.findByRoleNameIgnoreCase("SHOP_OWNER")).thenReturn(Optional.of(ownerRole));
+            Role ownerRole =
+                    new Role(UUID.randomUUID(), "SHOP_OWNER", "Chủ cửa hàng", true, null, Set.of());
+            when(roleRepository.findByRoleNameIgnoreCase("SHOP_OWNER"))
+                    .thenReturn(Optional.of(ownerRole));
 
             User existingOwner = new User();
             existingOwner.setId(UUID.randomUUID());
@@ -375,8 +414,10 @@ class DevelopmentDataInitializerTest {
             existingOwner.setPasswordHash(passwordEncoder.encode("StrongDevPassword123!"));
             existingOwner.setRoles(new HashSet<>(Set.of(ownerRole)));
 
-            when(userRepository.findByEmailIgnoreCase("owner@aquasuite.local")).thenReturn(Optional.of(existingOwner));
-            when(userRepository.findByUsernameIgnoreCase("owner_test")).thenReturn(Optional.of(existingOwner));
+            when(userRepository.findByEmailIgnoreCase("owner@aquasuite.local"))
+                    .thenReturn(Optional.of(existingOwner));
+            when(userRepository.findByUsernameIgnoreCase("owner_test"))
+                    .thenReturn(Optional.of(existingOwner));
 
             assertThatThrownBy(() -> initializer.initialize())
                     .isInstanceOf(DevelopmentDataInitializer.SeedConflictException.class)
@@ -386,12 +427,15 @@ class DevelopmentDataInitializerTest {
         }
 
         @Test
-        @DisplayName("CR-V6-02: Existing owner with username case mismatch throws SeedConflictException")
+        @DisplayName(
+                "CR-V6-02: Existing owner with username case mismatch throws SeedConflictException")
         void shouldThrowOnOwnerUsernameCaseMismatch() {
             setDevEnvironment();
 
-            Role ownerRole = new Role(UUID.randomUUID(), "SHOP_OWNER", "Chủ cửa hàng", true, null, Set.of());
-            when(roleRepository.findByRoleNameIgnoreCase("SHOP_OWNER")).thenReturn(Optional.of(ownerRole));
+            Role ownerRole =
+                    new Role(UUID.randomUUID(), "SHOP_OWNER", "Chủ cửa hàng", true, null, Set.of());
+            when(roleRepository.findByRoleNameIgnoreCase("SHOP_OWNER"))
+                    .thenReturn(Optional.of(ownerRole));
 
             User existingOwner = new User();
             existingOwner.setId(UUID.randomUUID());
@@ -401,8 +445,10 @@ class DevelopmentDataInitializerTest {
             existingOwner.setPasswordHash(passwordEncoder.encode("StrongDevPassword123!"));
             existingOwner.setRoles(new HashSet<>(Set.of(ownerRole)));
 
-            when(userRepository.findByEmailIgnoreCase("owner@aquasuite.local")).thenReturn(Optional.of(existingOwner));
-            when(userRepository.findByUsernameIgnoreCase("owner_test")).thenReturn(Optional.of(existingOwner));
+            when(userRepository.findByEmailIgnoreCase("owner@aquasuite.local"))
+                    .thenReturn(Optional.of(existingOwner));
+            when(userRepository.findByUsernameIgnoreCase("owner_test"))
+                    .thenReturn(Optional.of(existingOwner));
 
             assertThatThrownBy(() -> initializer.initialize())
                     .isInstanceOf(DevelopmentDataInitializer.SeedConflictException.class)
@@ -416,8 +462,10 @@ class DevelopmentDataInitializerTest {
         void shouldThrowOnPasswordMismatch() {
             setDevEnvironment();
 
-            Role ownerRole = new Role(UUID.randomUUID(), "SHOP_OWNER", "Chủ cửa hàng", true, null, Set.of());
-            when(roleRepository.findByRoleNameIgnoreCase("SHOP_OWNER")).thenReturn(Optional.of(ownerRole));
+            Role ownerRole =
+                    new Role(UUID.randomUUID(), "SHOP_OWNER", "Chủ cửa hàng", true, null, Set.of());
+            when(roleRepository.findByRoleNameIgnoreCase("SHOP_OWNER"))
+                    .thenReturn(Optional.of(ownerRole));
 
             String differentHash = passwordEncoder.encode("DifferentPassword!");
             User existingOwner = new User();
@@ -428,8 +476,10 @@ class DevelopmentDataInitializerTest {
             existingOwner.setPasswordHash(differentHash);
             existingOwner.setRoles(new HashSet<>(Set.of(ownerRole)));
 
-            when(userRepository.findByEmailIgnoreCase("owner@aquasuite.local")).thenReturn(Optional.of(existingOwner));
-            when(userRepository.findByUsernameIgnoreCase("owner_test")).thenReturn(Optional.of(existingOwner));
+            when(userRepository.findByEmailIgnoreCase("owner@aquasuite.local"))
+                    .thenReturn(Optional.of(existingOwner));
+            when(userRepository.findByUsernameIgnoreCase("owner_test"))
+                    .thenReturn(Optional.of(existingOwner));
 
             assertThatThrownBy(() -> initializer.initialize())
                     .isInstanceOf(DevelopmentDataInitializer.SeedConflictException.class)
@@ -443,8 +493,10 @@ class DevelopmentDataInitializerTest {
         void shouldThrowOnNonActiveStatus() {
             setDevEnvironment();
 
-            Role ownerRole = new Role(UUID.randomUUID(), "SHOP_OWNER", "Chủ cửa hàng", true, null, Set.of());
-            when(roleRepository.findByRoleNameIgnoreCase("SHOP_OWNER")).thenReturn(Optional.of(ownerRole));
+            Role ownerRole =
+                    new Role(UUID.randomUUID(), "SHOP_OWNER", "Chủ cửa hàng", true, null, Set.of());
+            when(roleRepository.findByRoleNameIgnoreCase("SHOP_OWNER"))
+                    .thenReturn(Optional.of(ownerRole));
 
             User existingOwner = new User();
             existingOwner.setId(UUID.randomUUID());
@@ -454,8 +506,10 @@ class DevelopmentDataInitializerTest {
             existingOwner.setPasswordHash(passwordEncoder.encode("StrongDevPassword123!"));
             existingOwner.setRoles(new HashSet<>(Set.of(ownerRole)));
 
-            when(userRepository.findByEmailIgnoreCase("owner@aquasuite.local")).thenReturn(Optional.of(existingOwner));
-            when(userRepository.findByUsernameIgnoreCase("owner_test")).thenReturn(Optional.of(existingOwner));
+            when(userRepository.findByEmailIgnoreCase("owner@aquasuite.local"))
+                    .thenReturn(Optional.of(existingOwner));
+            when(userRepository.findByUsernameIgnoreCase("owner_test"))
+                    .thenReturn(Optional.of(existingOwner));
 
             assertThatThrownBy(() -> initializer.initialize())
                     .isInstanceOf(DevelopmentDataInitializer.SeedConflictException.class)
@@ -467,9 +521,18 @@ class DevelopmentDataInitializerTest {
         void shouldThrowOnRoleSetMismatch() {
             setDevEnvironment();
 
-            Role ownerRole = new Role(UUID.randomUUID(), "SHOP_OWNER", "Chủ cửa hàng", true, null, Set.of());
-            Role salesRole = new Role(UUID.randomUUID(), "SALES_STAFF", "Nhân viên bán hàng", true, null, Set.of());
-            when(roleRepository.findByRoleNameIgnoreCase("SHOP_OWNER")).thenReturn(Optional.of(ownerRole));
+            Role ownerRole =
+                    new Role(UUID.randomUUID(), "SHOP_OWNER", "Chủ cửa hàng", true, null, Set.of());
+            Role salesRole =
+                    new Role(
+                            UUID.randomUUID(),
+                            "SALES_STAFF",
+                            "Nhân viên bán hàng",
+                            true,
+                            null,
+                            Set.of());
+            when(roleRepository.findByRoleNameIgnoreCase("SHOP_OWNER"))
+                    .thenReturn(Optional.of(ownerRole));
 
             User existingOwner = new User();
             existingOwner.setId(UUID.randomUUID());
@@ -479,8 +542,10 @@ class DevelopmentDataInitializerTest {
             existingOwner.setPasswordHash(passwordEncoder.encode("StrongDevPassword123!"));
             existingOwner.setRoles(new HashSet<>(Set.of(ownerRole, salesRole)));
 
-            when(userRepository.findByEmailIgnoreCase("owner@aquasuite.local")).thenReturn(Optional.of(existingOwner));
-            when(userRepository.findByUsernameIgnoreCase("owner_test")).thenReturn(Optional.of(existingOwner));
+            when(userRepository.findByEmailIgnoreCase("owner@aquasuite.local"))
+                    .thenReturn(Optional.of(existingOwner));
+            when(userRepository.findByUsernameIgnoreCase("owner_test"))
+                    .thenReturn(Optional.of(existingOwner));
 
             assertThatThrownBy(() -> initializer.initialize())
                     .isInstanceOf(DevelopmentDataInitializer.SeedConflictException.class)
@@ -488,7 +553,8 @@ class DevelopmentDataInitializerTest {
         }
 
         @Test
-        @DisplayName("Owner identity collision between different users throws SeedConflictException")
+        @DisplayName(
+                "Owner identity collision between different users throws SeedConflictException")
         void shouldThrowOnIdentityCollision() {
             setDevEnvironment();
 
@@ -500,8 +566,10 @@ class DevelopmentDataInitializerTest {
             user2.setId(UUID.randomUUID());
             user2.setUsername("owner_test");
 
-            when(userRepository.findByEmailIgnoreCase("owner@aquasuite.local")).thenReturn(Optional.of(user1));
-            when(userRepository.findByUsernameIgnoreCase("owner_test")).thenReturn(Optional.of(user2));
+            when(userRepository.findByEmailIgnoreCase("owner@aquasuite.local"))
+                    .thenReturn(Optional.of(user1));
+            when(userRepository.findByUsernameIgnoreCase("owner_test"))
+                    .thenReturn(Optional.of(user2));
 
             assertThatThrownBy(() -> initializer.initialize())
                     .isInstanceOf(DevelopmentDataInitializer.SeedConflictException.class)
@@ -509,7 +577,8 @@ class DevelopmentDataInitializerTest {
         }
 
         @Test
-        @DisplayName("Partial owner identity collision (only email exists) throws SeedConflictException")
+        @DisplayName(
+                "Partial owner identity collision (only email exists) throws SeedConflictException")
         void shouldThrowOnPartialCollisionEmail() {
             setDevEnvironment();
 
@@ -517,8 +586,10 @@ class DevelopmentDataInitializerTest {
             user1.setId(UUID.randomUUID());
             user1.setEmail("owner@aquasuite.local");
 
-            when(userRepository.findByEmailIgnoreCase("owner@aquasuite.local")).thenReturn(Optional.of(user1));
-            when(userRepository.findByUsernameIgnoreCase("owner_test")).thenReturn(Optional.empty());
+            when(userRepository.findByEmailIgnoreCase("owner@aquasuite.local"))
+                    .thenReturn(Optional.of(user1));
+            when(userRepository.findByUsernameIgnoreCase("owner_test"))
+                    .thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> initializer.initialize())
                     .isInstanceOf(DevelopmentDataInitializer.SeedConflictException.class)
@@ -526,7 +597,8 @@ class DevelopmentDataInitializerTest {
         }
 
         @Test
-        @DisplayName("Partial owner identity collision (only username exists) throws SeedConflictException")
+        @DisplayName(
+                "Partial owner identity collision (only username exists) throws SeedConflictException")
         void shouldThrowOnPartialCollisionUsername() {
             setDevEnvironment();
 
@@ -534,8 +606,10 @@ class DevelopmentDataInitializerTest {
             user1.setId(UUID.randomUUID());
             user1.setUsername("owner_test");
 
-            when(userRepository.findByEmailIgnoreCase("owner@aquasuite.local")).thenReturn(Optional.empty());
-            when(userRepository.findByUsernameIgnoreCase("owner_test")).thenReturn(Optional.of(user1));
+            when(userRepository.findByEmailIgnoreCase("owner@aquasuite.local"))
+                    .thenReturn(Optional.empty());
+            when(userRepository.findByUsernameIgnoreCase("owner_test"))
+                    .thenReturn(Optional.of(user1));
 
             assertThatThrownBy(() -> initializer.initialize())
                     .isInstanceOf(DevelopmentDataInitializer.SeedConflictException.class)
@@ -548,7 +622,8 @@ class DevelopmentDataInitializerTest {
     class TransactionTests {
 
         @Test
-        @DisplayName("Late owner conflict after roles created propagates exception out of callback for transaction rollback")
+        @DisplayName(
+                "Late owner conflict after roles created propagates exception out of callback for transaction rollback")
         void shouldPropagateExceptionWhenOwnerConflictOccursAfterRolesCreated() {
             setDevEnvironment();
 
@@ -561,8 +636,10 @@ class DevelopmentDataInitializerTest {
             conflictUser.setPasswordHash(passwordEncoder.encode("StrongDevPassword123!"));
             conflictUser.setRoles(Set.of());
 
-            when(userRepository.findByEmailIgnoreCase("owner@aquasuite.local")).thenReturn(Optional.of(conflictUser));
-            when(userRepository.findByUsernameIgnoreCase("owner_test")).thenReturn(Optional.of(conflictUser));
+            when(userRepository.findByEmailIgnoreCase("owner@aquasuite.local"))
+                    .thenReturn(Optional.of(conflictUser));
+            when(userRepository.findByUsernameIgnoreCase("owner_test"))
+                    .thenReturn(Optional.of(conflictUser));
 
             // Roles are saved first during callback execution
             assertThatThrownBy(() -> initializer.initialize())
@@ -573,7 +650,8 @@ class DevelopmentDataInitializerTest {
             verify(roleRepository, times(6)).save(any(Role.class));
             // Verify owner was NOT saved
             verify(userRepository, never()).save(any());
-            // Because the exception escaped the TransactionTemplate callback, the transaction rolls back
+            // Because the exception escaped the TransactionTemplate callback, the transaction rolls
+            // back
         }
     }
 
@@ -582,7 +660,8 @@ class DevelopmentDataInitializerTest {
     class SpringContextWiringTests {
 
         @Test
-        @DisplayName("Spring ApplicationContext creates DevelopmentDataInitializer using single constructor without ambiguity")
+        @DisplayName(
+                "Spring ApplicationContext creates DevelopmentDataInitializer using single constructor without ambiguity")
         void shouldBeCreatedBySpringContextWithoutConstructorAmbiguity() {
             new ApplicationContextRunner()
                     .withBean(RoleRepository.class, () -> roleRepository)
@@ -590,10 +669,11 @@ class DevelopmentDataInitializerTest {
                     .withBean(PasswordEncoder.class, () -> passwordEncoder)
                     .withBean(TransactionTemplate.class, () -> transactionTemplate)
                     .withBean(DevelopmentDataInitializer.class)
-                    .run(context -> {
-                        assertThat(context).hasNotFailed();
-                        assertThat(context).hasSingleBean(DevelopmentDataInitializer.class);
-                    });
+                    .run(
+                            context -> {
+                                assertThat(context).hasNotFailed();
+                                assertThat(context).hasSingleBean(DevelopmentDataInitializer.class);
+                            });
         }
     }
 }

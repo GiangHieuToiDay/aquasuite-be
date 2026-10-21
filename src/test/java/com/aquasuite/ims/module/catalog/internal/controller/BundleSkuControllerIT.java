@@ -16,7 +16,8 @@ class BundleSkuControllerIT extends BundleCoreTestSupport {
                         + " SELECT ?,product_id,'AAA-INACTIVE',variant_name,unit,conversion_rate,weight,"
                         + "cost_price,selling_price,serial_tracking,'INACTIVE' FROM product_variants"
                         + " WHERE variant_id=?",
-                java.util.UUID.randomUUID(), SKU);
+                java.util.UUID.randomUUID(),
+                SKU);
         mvc.perform(get("/api/v1/catalog/admin/bundle-skus").param("size", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.totalElements").value(1))

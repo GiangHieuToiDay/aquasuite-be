@@ -23,8 +23,7 @@ public class ImportProgressDto implements Serializable {
     private int errorRows;
     private int percentage; // (processedRows * 100) / totalRows
     private String message;
-    @Builder.Default
-    private List<ExcelRowError> errors = new ArrayList<>();
+    @Builder.Default private List<ExcelRowError> errors = new ArrayList<>();
     private Instant startedAt;
     private Instant finishedAt;
 }

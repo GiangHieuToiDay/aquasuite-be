@@ -24,13 +24,15 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<ApiResponse<LoginResponse>> login(
+            @Valid @RequestBody LoginRequest request) {
         LoginResponse response = authService.login(request);
         return ResponseEntity.ok(ApiResponse.ok(response, "Đăng nhập thành công"));
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<ApiResponse<TokenResponse>> refresh(@Valid @RequestBody RefreshRequest request) {
+    public ResponseEntity<ApiResponse<TokenResponse>> refresh(
+            @Valid @RequestBody RefreshRequest request) {
         TokenResponse response = authService.refresh(request);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }

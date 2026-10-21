@@ -67,8 +67,7 @@ public class User {
             name = "user_roles",
             schema = "public",
             joinColumns = @JoinColumn(name = "user_id"),
-            inverseJoinColumns = @JoinColumn(name = "role_id")
-    )
+            inverseJoinColumns = @JoinColumn(name = "role_id"))
     @lombok.Builder.Default
     private Set<Role> roles = new HashSet<>();
 

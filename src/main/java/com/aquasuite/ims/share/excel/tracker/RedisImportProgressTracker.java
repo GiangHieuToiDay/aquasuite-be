@@ -23,21 +23,23 @@ public class RedisImportProgressTracker {
     private final RedisTemplate<String, Object> redisTemplate;
 
     public void initJob(String jobId, int totalRows) {
-        ImportProgressDto dto = ImportProgressDto.builder()
-                .jobId(jobId)
-                .status(ImportJobStatus.PROCESSING)
-                .totalRows(totalRows)
-                .processedRows(0)
-                .successRows(0)
-                .errorRows(0)
-                .percentage(0)
-                .message("Bắt đầu xử lý dữ liệu...")
-                .startedAt(Instant.now())
-                .build();
+        ImportProgressDto dto =
+                ImportProgressDto.builder()
+                        .jobId(jobId)
+                        .status(ImportJobStatus.PROCESSING)
+                        .totalRows(totalRows)
+                        .processedRows(0)
+                        .successRows(0)
+                        .errorRows(0)
+                        .percentage(0)
+                        .message("Bắt đầu xử lý dữ liệu...")
+                        .startedAt(Instant.now())
+                        .build();
         save(jobId, dto);
     }
 
-    public void updateBatchProgress(String jobId, int batchProcessed, int batchSuccess, List<ExcelRowError> batchErrors) {
+    public void updateBatchProgress(
+            String jobId, int batchProcessed, int batchSuccess, List<ExcelRowError> batchErrors) {
         ImportProgressDto dto = getProgress(jobId);
         dto.setProcessedRows(dto.getProcessedRows() + batchProcessed);
         dto.setSuccessRows(dto.getSuccessRows() + batchSuccess);
@@ -45,18 +47,25 @@ public class RedisImportProgressTracker {
         if (!batchErrors.isEmpty()) {
             dto.getErrors().addAll(batchErrors);
         }
-        int percent = dto.getTotalRows() > 0
-                ? Math.min(99, (dto.getProcessedRows() * 100) / dto.getTotalRows())
-                : 0;
+        int percent =
+                dto.getTotalRows() > 0
+                        ? Math.min(99, (dto.getProcessedRows() * 100) / dto.getTotalRows())
+                        : 0;
         dto.setPercentage(percent);
-        dto.setMessage(String.format("Đã xử lý %d / %d dòng (%d%%)", dto.getProcessedRows(), dto.getTotalRows(), percent));
+        dto.setMessage(
+                String.format(
+                        "Đã xử lý %d / %d dòng (%d%%)",
+                        dto.getProcessedRows(), dto.getTotalRows(), percent));
         save(jobId, dto);
     }
 
     public void markCompleted(String jobId, String finalMessage) {
         ImportProgressDto dto = getProgress(jobId);
         dto.setPercentage(100);
-        dto.setStatus(dto.getErrorRows() > 0 ? ImportJobStatus.COMPLETED_WITH_ERRORS : ImportJobStatus.COMPLETED);
+        dto.setStatus(
+                dto.getErrorRows() > 0
+                        ? ImportJobStatus.COMPLETED_WITH_ERRORS
+                        : ImportJobStatus.COMPLETED);
         dto.setMessage(finalMessage);
         dto.setFinishedAt(Instant.now());
         save(jobId, dto);

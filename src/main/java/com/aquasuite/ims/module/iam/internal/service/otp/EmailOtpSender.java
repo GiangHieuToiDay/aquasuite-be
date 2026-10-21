@@ -27,12 +27,18 @@ public class EmailOtpSender implements OtpSenderStrategy {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setTo(toEmail);
             message.setSubject("[AquaSuite] Password Recovery Verification Code");
-            message.setText("Your 6-digit password reset code is: " + otpCode 
-                    + "\nThis code will expire in 10 minutes. If you did not request this, please ignore this email.");
+            message.setText(
+                    "Your 6-digit password reset code is: "
+                            + otpCode
+                            + "\nThis code will expire in 10 minutes. If you did not request this, please ignore this email.");
             mailSender.send(message);
             log.info("Dispatched password recovery OTP to email: {}", toEmail);
         } catch (Exception e) {
-            log.error("Failed to send password recovery OTP to email {}: {}", toEmail, e.getMessage(), e);
+            log.error(
+                    "Failed to send password recovery OTP to email {}: {}",
+                    toEmail,
+                    e.getMessage(),
+                    e);
         }
     }
 }

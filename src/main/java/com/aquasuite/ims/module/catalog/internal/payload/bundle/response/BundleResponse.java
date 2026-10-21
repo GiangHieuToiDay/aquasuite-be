@@ -1,5 +1,7 @@
-package com.aquasuite.ims.module.catalog.internal.payload;
+package com.aquasuite.ims.module.catalog.internal.payload.bundle.response;
 
+import com.aquasuite.ims.module.catalog.internal.payload.bundle.request.BundleComponentGroupRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.bundle.request.BundleItemRequest;
 import jakarta.validation.constraints.*;
 
 import java.math.BigDecimal;

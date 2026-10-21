@@ -28,8 +28,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class UserDetailsServiceImplTest {
 
-    @Mock
-    private UserRepository userRepository;
+    @Mock private UserRepository userRepository;
 
     private CurrentAuthoritiesService currentAuthoritiesService;
     private UserDetailsServiceImpl userDetailsService;
@@ -64,7 +63,8 @@ class UserDetailsServiceImplTest {
         assertThat(details.getUsername()).isEqualTo(email);
         assertThat(details.getPassword()).isEqualTo("$2a$12$hash...");
         assertThat(details.isEnabled()).isTrue();
-        assertThat(details.getAuthorities()).extracting("authority")
+        assertThat(details.getAuthorities())
+                .extracting("authority")
                 .containsExactlyInAnyOrder("ROLE_ADMIN", "iam:user:view");
     }
 

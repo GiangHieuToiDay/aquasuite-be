@@ -22,14 +22,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles(value = "prod", inheritProfiles = false)
 class AuthProductionSecurityTest extends AuthIntegrationTestSupport {
 
-    @Autowired
-    private MockMvc mockMvc;
+    @Autowired private MockMvc mockMvc;
 
-    @Autowired
-    private Environment environment;
+    @Autowired private Environment environment;
 
     @Test
-    @DisplayName("W-04 & AC-11: Xác minh cấu hình production độc lập và vô hiệu hóa các thuộc tính Springdoc/Swagger")
+    @DisplayName(
+            "W-04 & AC-11: Xác minh cấu hình production độc lập và vô hiệu hóa các thuộc tính Springdoc/Swagger")
     void shouldVerifyProductionConfigurationAndDisabledSwaggerProperties() {
         // Assert only prod profile is active, not mixed with test profile
         assertThat(environment.getActiveProfiles()).containsExactly("prod");
@@ -41,9 +40,11 @@ class AuthProductionSecurityTest extends AuthIntegrationTestSupport {
     }
 
     @Test
-    @DisplayName("AC-11: Swagger và OpenAPI documentation không bao giờ public, đều bị chặn bởi SecurityFilterChain yêu cầu 401 AUTH_001")
+    @DisplayName(
+            "AC-11: Swagger và OpenAPI documentation không bao giờ public, đều bị chặn bởi SecurityFilterChain yêu cầu 401 AUTH_001")
     void shouldDenyUnauthenticatedAccessToSwaggerAndApiDocs() throws Exception {
-        // Even if Springdoc is present on classpath or activated, SecurityFilterChain restricts access
+        // Even if Springdoc is present on classpath or activated, SecurityFilterChain restricts
+        // access
         mockMvc.perform(get("/swagger-ui/index.html"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(CommonErrorCode.UNAUTHORIZED.getCode()))
@@ -60,11 +61,19 @@ class AuthProductionSecurityTest extends AuthIntegrationTestSupport {
     }
 
     @Test
-    @DisplayName("Login, refresh and the three registration POST routes are public; other routes remain protected")
+    @DisplayName(
+            "Login, refresh and the three registration POST routes are public; other routes remain protected")
     void shouldEnforceExactPublicMethodPathMatchers() throws Exception {
-        for (String path : java.util.List.of("/api/v1/customer-registrations",
-                "/api/v1/customer-registrations/verifications", "/api/v1/customer-registrations/otp-resends")) {
-            mockMvc.perform(post(path).contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{}"))
+        for (String path :
+                java.util.List.of(
+                        "/api/v1/customer-registrations",
+                        "/api/v1/customer-registrations/verifications",
+                        "/api/v1/customer-registrations/otp-resends")) {
+            mockMvc.perform(
+                            post(path)
+                                    .contentType(
+                                            org.springframework.http.MediaType.APPLICATION_JSON)
+                                    .content("{}"))
                     .andExpect(status().isBadRequest());
             mockMvc.perform(get(path)).andExpect(status().isUnauthorized());
         }

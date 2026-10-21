@@ -5,7 +5,8 @@ import com.aquasuite.ims.module.catalog.internal.entity.BundleComponentGroup;
 import com.aquasuite.ims.module.catalog.internal.entity.BundleItem;
 import com.aquasuite.ims.module.catalog.internal.entity.Product;
 import com.aquasuite.ims.module.catalog.internal.entity.ProductVariant;
-import com.aquasuite.ims.module.catalog.internal.payload.*;
+import com.aquasuite.ims.module.catalog.internal.payload.bundle.request.*;
+import com.aquasuite.ims.module.catalog.internal.payload.bundle.response.*;
 import com.aquasuite.ims.module.catalog.internal.service.BundlePricingService.Price;
 
 import org.mapstruct.Mapper;
@@ -37,7 +38,9 @@ public interface BundleCoreMapper {
 
     /** Chuyển whitelist lưu trong cấu hình sang DTO; kiểm SKU và giá thuộc trách nhiệm service. */
     default BundleComponentGroupRequest group(BundleComponentGroup group) {
-        return new BundleComponentGroupRequest(group.getGroupId(), group.getDefaultVariantId(),
+        return new BundleComponentGroupRequest(
+                group.getGroupId(),
+                group.getDefaultVariantId(),
                 java.util.List.of(group.getAllowedVariantIds()));
     }
 

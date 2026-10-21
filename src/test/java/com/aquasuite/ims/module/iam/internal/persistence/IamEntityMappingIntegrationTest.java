@@ -35,19 +35,16 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @SpringBootTest
 class IamEntityMappingIntegrationTest extends PostgreSqlIntegrationTestSupport {
 
-    @Autowired
-    private EntityManager entityManager;
+    @Autowired private EntityManager entityManager;
 
-    @Autowired
-    private PlatformTransactionManager transactionManager;
+    @Autowired private PlatformTransactionManager transactionManager;
 
-    @Autowired
-    private DataSource dataSource;
+    @Autowired private DataSource dataSource;
 
     @AfterEach
     void cleanUp() throws Exception {
         try (Connection conn = dataSource.getConnection();
-             Statement stmt = conn.createStatement()) {
+                Statement stmt = conn.createStatement()) {
             stmt.executeUpdate("DELETE FROM public.role_permissions");
             stmt.executeUpdate("DELETE FROM public.user_roles");
             stmt.executeUpdate("DELETE FROM public.permissions");
@@ -59,14 +56,19 @@ class IamEntityMappingIntegrationTest extends PostgreSqlIntegrationTestSupport {
     @Test
     @DisplayName("AC-06: Target architecture package structure and encapsulation")
     void testPackageEncapsulation() {
-        assertThat(User.class.getPackageName()).isEqualTo("com.aquasuite.ims.module.iam.internal.user.entity");
-        assertThat(Role.class.getPackageName()).isEqualTo("com.aquasuite.ims.module.iam.internal.authorization.entity");
-        assertThat(Permission.class.getPackageName()).isEqualTo("com.aquasuite.ims.module.iam.internal.authorization.entity");
-        assertThat(UserStatus.class.getPackageName()).isEqualTo("com.aquasuite.ims.module.iam.internal.user.enums");
+        assertThat(User.class.getPackageName())
+                .isEqualTo("com.aquasuite.ims.module.iam.internal.user.entity");
+        assertThat(Role.class.getPackageName())
+                .isEqualTo("com.aquasuite.ims.module.iam.internal.authorization.entity");
+        assertThat(Permission.class.getPackageName())
+                .isEqualTo("com.aquasuite.ims.module.iam.internal.authorization.entity");
+        assertThat(UserStatus.class.getPackageName())
+                .isEqualTo("com.aquasuite.ims.module.iam.internal.user.enums");
     }
 
     @Test
-    @DisplayName("AC-07: Exactly two ManyToMany LAZY associations, empty cascade, exact JoinTable metadata, no join entity or embedded IDs")
+    @DisplayName(
+            "AC-07: Exactly two ManyToMany LAZY associations, empty cascade, exact JoinTable metadata, no join entity or embedded IDs")
     void testAssociationCountAndLazyNoCascade() throws NoSuchFieldException {
         List<Class<?>> entities = List.of(User.class, Role.class, Permission.class);
         int totalManyToManyCount = 0;
@@ -117,7 +119,8 @@ class IamEntityMappingIntegrationTest extends PostgreSqlIntegrationTestSupport {
     }
 
     @Test
-    @DisplayName("AC-02: Application generates UUID prior to persist when null and preserves assigned UUID")
+    @DisplayName(
+            "AC-02: Application generates UUID prior to persist when null and preserves assigned UUID")
     void testApplicationGeneratedUuidPrePersist() {
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
 
@@ -125,11 +128,12 @@ class IamEntityMappingIntegrationTest extends PostgreSqlIntegrationTestSupport {
         user1.setUsername("uuid_user1");
         user1.setEmail("uuid_user1@test.com");
         user1.setPasswordHash("hash");
-        tx.execute(status -> {
-            entityManager.persist(user1);
-            entityManager.flush();
-            return null;
-        });
+        tx.execute(
+                status -> {
+                    entityManager.persist(user1);
+                    entityManager.flush();
+                    return null;
+                });
         assertThat(user1.getId()).isNotNull();
 
         UUID presetId = UUID.randomUUID();
@@ -138,76 +142,89 @@ class IamEntityMappingIntegrationTest extends PostgreSqlIntegrationTestSupport {
         user2.setUsername("uuid_user2");
         user2.setEmail("uuid_user2@test.com");
         user2.setPasswordHash("hash");
-        tx.execute(status -> {
-            entityManager.persist(user2);
-            entityManager.flush();
-            return null;
-        });
+        tx.execute(
+                status -> {
+                    entityManager.persist(user2);
+                    entityManager.flush();
+                    return null;
+                });
         assertThat(user2.getId()).isEqualTo(presetId);
     }
 
     @Test
-    @DisplayName("AC-16: Database generates created_at on persist for both users and roles, reloaded into Instant, immutable on update")
+    @DisplayName(
+            "AC-16: Database generates created_at on persist for both users and roles, reloaded into Instant, immutable on update")
     void testDatabaseGeneratedCreatedAtAndImmutable() {
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
 
         // 1. Verify User created_at
-        UUID userId = tx.execute(status -> {
-            User user = new User();
-            user.setUsername("timestamp_user");
-            user.setEmail("timestamp_user@test.com");
-            user.setPasswordHash("hash");
-            user.setPhone("0900000001");
-            entityManager.persist(user);
-            entityManager.flush();
-            return user.getId();
-        });
+        UUID userId =
+                tx.execute(
+                        status -> {
+                            User user = new User();
+                            user.setUsername("timestamp_user");
+                            user.setEmail("timestamp_user@test.com");
+                            user.setPasswordHash("hash");
+                            user.setPhone("0900000001");
+                            entityManager.persist(user);
+                            entityManager.flush();
+                            return user.getId();
+                        });
 
-        Instant initialUserCreatedAt = tx.execute(status -> {
-            User reloaded = entityManager.find(User.class, userId);
-            assertThat(reloaded).isNotNull();
-            assertThat(reloaded.getCreatedAt()).isNotNull();
-            reloaded.setPhone("0900000002");
-            entityManager.merge(reloaded);
-            entityManager.flush();
-            return reloaded.getCreatedAt();
-        });
+        Instant initialUserCreatedAt =
+                tx.execute(
+                        status -> {
+                            User reloaded = entityManager.find(User.class, userId);
+                            assertThat(reloaded).isNotNull();
+                            assertThat(reloaded.getCreatedAt()).isNotNull();
+                            reloaded.setPhone("0900000002");
+                            entityManager.merge(reloaded);
+                            entityManager.flush();
+                            return reloaded.getCreatedAt();
+                        });
 
-        tx.execute(status -> {
-            User reloadedAgain = entityManager.find(User.class, userId);
-            assertThat(reloadedAgain).isNotNull();
-            assertThat(reloadedAgain.getPhone()).isEqualTo("0900000002");
-            assertThat(reloadedAgain.getCreatedAt()).isEqualTo(initialUserCreatedAt);
-            return null;
-        });
+        tx.execute(
+                status -> {
+                    User reloadedAgain = entityManager.find(User.class, userId);
+                    assertThat(reloadedAgain).isNotNull();
+                    assertThat(reloadedAgain.getPhone()).isEqualTo("0900000002");
+                    assertThat(reloadedAgain.getCreatedAt()).isEqualTo(initialUserCreatedAt);
+                    return null;
+                });
 
         // 2. Verify Role created_at (Spec AC-16)
-        UUID roleId = tx.execute(status -> {
-            Role role = new Role();
-            role.setRoleName("TIMESTAMP_ROLE");
-            role.setDescription("Initial role description");
-            entityManager.persist(role);
-            entityManager.flush();
-            return role.getRoleId();
-        });
+        UUID roleId =
+                tx.execute(
+                        status -> {
+                            Role role = new Role();
+                            role.setRoleName("TIMESTAMP_ROLE");
+                            role.setDescription("Initial role description");
+                            entityManager.persist(role);
+                            entityManager.flush();
+                            return role.getRoleId();
+                        });
 
-        Instant initialRoleCreatedAt = tx.execute(status -> {
-            Role reloadedRole = entityManager.find(Role.class, roleId);
-            assertThat(reloadedRole).isNotNull();
-            assertThat(reloadedRole.getCreatedAt()).isNotNull();
-            reloadedRole.setDescription("Updated role description");
-            entityManager.merge(reloadedRole);
-            entityManager.flush();
-            return reloadedRole.getCreatedAt();
-        });
+        Instant initialRoleCreatedAt =
+                tx.execute(
+                        status -> {
+                            Role reloadedRole = entityManager.find(Role.class, roleId);
+                            assertThat(reloadedRole).isNotNull();
+                            assertThat(reloadedRole.getCreatedAt()).isNotNull();
+                            reloadedRole.setDescription("Updated role description");
+                            entityManager.merge(reloadedRole);
+                            entityManager.flush();
+                            return reloadedRole.getCreatedAt();
+                        });
 
-        tx.execute(status -> {
-            Role reloadedRoleAgain = entityManager.find(Role.class, roleId);
-            assertThat(reloadedRoleAgain).isNotNull();
-            assertThat(reloadedRoleAgain.getDescription()).isEqualTo("Updated role description");
-            assertThat(reloadedRoleAgain.getCreatedAt()).isEqualTo(initialRoleCreatedAt);
-            return null;
-        });
+        tx.execute(
+                status -> {
+                    Role reloadedRoleAgain = entityManager.find(Role.class, roleId);
+                    assertThat(reloadedRoleAgain).isNotNull();
+                    assertThat(reloadedRoleAgain.getDescription())
+                            .isEqualTo("Updated role description");
+                    assertThat(reloadedRoleAgain.getCreatedAt()).isEqualTo(initialRoleCreatedAt);
+                    return null;
+                });
     }
 
     @Test
@@ -216,97 +233,118 @@ class IamEntityMappingIntegrationTest extends PostgreSqlIntegrationTestSupport {
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
 
         for (UserStatus statusVal : UserStatus.values()) {
-            UUID id = tx.execute(status -> {
-                User user = new User();
-                user.setUsername("status_" + statusVal.name().toLowerCase());
-                user.setEmail("status_" + statusVal.name().toLowerCase() + "@test.com");
-                user.setPasswordHash("hash");
-                user.setStatus(statusVal);
-                entityManager.persist(user);
-                entityManager.flush();
-                return user.getId();
-            });
+            UUID id =
+                    tx.execute(
+                            status -> {
+                                User user = new User();
+                                user.setUsername("status_" + statusVal.name().toLowerCase());
+                                user.setEmail(
+                                        "status_" + statusVal.name().toLowerCase() + "@test.com");
+                                user.setPasswordHash("hash");
+                                user.setStatus(statusVal);
+                                entityManager.persist(user);
+                                entityManager.flush();
+                                return user.getId();
+                            });
 
-            tx.execute(status -> {
-                User reloaded = entityManager.find(User.class, id);
-                assertThat(reloaded.getStatus()).isEqualTo(statusVal);
+            tx.execute(
+                    status -> {
+                        User reloaded = entityManager.find(User.class, id);
+                        assertThat(reloaded.getStatus()).isEqualTo(statusVal);
 
-                String rawStatus = (String) entityManager.createNativeQuery(
-                        "SELECT status FROM public.users WHERE id = :id")
-                        .setParameter("id", id)
-                        .getSingleResult();
-                assertThat(rawStatus).isEqualTo(statusVal.name());
-                return null;
-            });
+                        String rawStatus =
+                                (String)
+                                        entityManager
+                                                .createNativeQuery(
+                                                        "SELECT status FROM public.users WHERE id = :id")
+                                                .setParameter("id", id)
+                                                .getSingleResult();
+                        assertThat(rawStatus).isEqualTo(statusVal.name());
+                        return null;
+                    });
         }
     }
 
     @Test
-    @DisplayName("AC-07: ManyToMany association persistence, lazy traversal, join row removal, and restrict delete")
+    @DisplayName(
+            "AC-07: ManyToMany association persistence, lazy traversal, join row removal, and restrict delete")
     void testManyToManyLifecycleAndRestrictDelete() {
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
 
         // 1. Create role and user, link role to user
-        UUID[] ids = tx.execute(status -> {
-            Role role = new Role();
-            role.setRoleName("ROLE_MANAGER");
-            entityManager.persist(role);
+        UUID[] ids =
+                tx.execute(
+                        status -> {
+                            Role role = new Role();
+                            role.setRoleName("ROLE_MANAGER");
+                            entityManager.persist(role);
 
-            Permission perm = new Permission();
-            perm.setCode("MANAGE_USERS");
-            entityManager.persist(perm);
+                            Permission perm = new Permission();
+                            perm.setCode("MANAGE_USERS");
+                            entityManager.persist(perm);
 
-            role.getPermissions().add(perm);
-            entityManager.flush();
+                            role.getPermissions().add(perm);
+                            entityManager.flush();
 
-            User user = new User();
-            user.setUsername("m2m_user");
-            user.setEmail("m2m@test.com");
-            user.setPasswordHash("hash");
-            user.getRoles().add(role);
-            entityManager.persist(user);
-            entityManager.flush();
+                            User user = new User();
+                            user.setUsername("m2m_user");
+                            user.setEmail("m2m@test.com");
+                            user.setPasswordHash("hash");
+                            user.getRoles().add(role);
+                            entityManager.persist(user);
+                            entityManager.flush();
 
-            return new UUID[]{user.getId(), role.getRoleId(), perm.getId()};
-        });
+                            return new UUID[] {user.getId(), role.getRoleId(), perm.getId()};
+                        });
 
         UUID userId = ids[0];
         UUID roleId = ids[1];
         UUID permId = ids[2];
 
         // 2. Traversal within transaction
-        tx.execute(status -> {
-            User reloadedUser = entityManager.find(User.class, userId);
-            assertThat(reloadedUser.getRoles()).hasSize(1);
-            Role linkedRole = reloadedUser.getRoles().iterator().next();
-            assertThat(linkedRole.getRoleId()).isEqualTo(roleId);
-            assertThat(linkedRole.getPermissions()).hasSize(1);
-            assertThat(linkedRole.getPermissions().iterator().next().getId()).isEqualTo(permId);
-            return null;
-        });
+        tx.execute(
+                status -> {
+                    User reloadedUser = entityManager.find(User.class, userId);
+                    assertThat(reloadedUser.getRoles()).hasSize(1);
+                    Role linkedRole = reloadedUser.getRoles().iterator().next();
+                    assertThat(linkedRole.getRoleId()).isEqualTo(roleId);
+                    assertThat(linkedRole.getPermissions()).hasSize(1);
+                    assertThat(linkedRole.getPermissions().iterator().next().getId())
+                            .isEqualTo(permId);
+                    return null;
+                });
 
-        // 3. Deleting referenced target (role) while join row exists is rejected by foreign key RESTRICT
-        assertThatThrownBy(() -> tx.execute(status -> {
-            Role roleToDelete = entityManager.find(Role.class, roleId);
-            entityManager.remove(roleToDelete);
-            entityManager.flush();
-            return null;
-        })).isInstanceOf(Exception.class);
+        // 3. Deleting referenced target (role) while join row exists is rejected by foreign key
+        // RESTRICT
+        assertThatThrownBy(
+                        () ->
+                                tx.execute(
+                                        status -> {
+                                            Role roleToDelete =
+                                                    entityManager.find(Role.class, roleId);
+                                            entityManager.remove(roleToDelete);
+                                            entityManager.flush();
+                                            return null;
+                                        }))
+                .isInstanceOf(Exception.class);
 
-        // 4. Removing role from user.getRoles() deletes only join row in user_roles, leaves user and role intact
-        tx.execute(status -> {
-            User user = entityManager.find(User.class, userId);
-            user.getRoles().clear();
-            entityManager.flush();
-            return null;
-        });
+        // 4. Removing role from user.getRoles() deletes only join row in user_roles, leaves user
+        // and role intact
+        tx.execute(
+                status -> {
+                    User user = entityManager.find(User.class, userId);
+                    user.getRoles().clear();
+                    entityManager.flush();
+                    return null;
+                });
 
-        tx.execute(status -> {
-            User user = entityManager.find(User.class, userId);
-            assertThat(user.getRoles()).isEmpty();
-            Role role = entityManager.find(Role.class, roleId);
-            assertThat(role).isNotNull(); // Role is still preserved
-            return null;
-        });
+        tx.execute(
+                status -> {
+                    User user = entityManager.find(User.class, userId);
+                    assertThat(user.getRoles()).isEmpty();
+                    Role role = entityManager.find(Role.class, roleId);
+                    assertThat(role).isNotNull(); // Role is still preserved
+                    return null;
+                });
     }
 }

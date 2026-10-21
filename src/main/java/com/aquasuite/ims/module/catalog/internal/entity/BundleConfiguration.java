@@ -42,7 +42,9 @@ public class BundleConfiguration {
     // Nhóm option thuộc vòng đời cấu hình; tải theo lô để tránh N+1 khi lấy danh sách combo.
     @BatchSize(size = 100)
     @ElementCollection
-    @CollectionTable(name = "bundle_component_groups", joinColumns = @JoinColumn(name = "bundle_product_id"))
+    @CollectionTable(
+            name = "bundle_component_groups",
+            joinColumns = @JoinColumn(name = "bundle_product_id"))
     @OrderBy("groupId")
     private List<BundleComponentGroup> componentGroups = new ArrayList<>();
 

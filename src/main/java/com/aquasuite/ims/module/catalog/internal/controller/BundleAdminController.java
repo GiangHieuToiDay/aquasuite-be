@@ -2,7 +2,8 @@ package com.aquasuite.ims.module.catalog.internal.controller;
 
 import com.aquasuite.ims.module.catalog.internal.entity.BundleConfiguration.PublicationStatus;
 import com.aquasuite.ims.module.catalog.internal.entity.enums.ProductStatus;
-import com.aquasuite.ims.module.catalog.internal.payload.*;
+import com.aquasuite.ims.module.catalog.internal.payload.bundle.request.*;
+import com.aquasuite.ims.module.catalog.internal.payload.bundle.response.*;
 import com.aquasuite.ims.module.catalog.internal.service.BundleAdminService;
 import com.aquasuite.ims.share.dto.ApiResponse;
 import com.aquasuite.ims.share.exception.*;
@@ -64,7 +65,8 @@ public class BundleAdminController {
             @Valid @RequestBody BundleCoreCreateRequest payload, HttpServletRequest request) {
         validateQueryParameters(request, Set.of());
         var detail = service.create(payload);
-        return ResponseEntity.created(URI.create("/api/v1/catalog/admin/bundles/" + detail.bundleId()))
+        return ResponseEntity.created(
+                        URI.create("/api/v1/catalog/admin/bundles/" + detail.bundleId()))
                 .body(ApiResponse.ok(detail, "Đã tạo combo."));
     }
 
@@ -107,16 +109,20 @@ public class BundleAdminController {
 
     /** Công bố sau khi service khóa cấu hình, kiểm version, giá SKU/option và lịch hiệu lực. */
     @PostMapping("/bundles/{bundleId}/publish")
-    public ApiResponse<BundleResponse> publish(@PathVariable UUID bundleId,
-            @Valid @RequestBody BundleVersionRequest payload, HttpServletRequest request) {
+    public ApiResponse<BundleResponse> publish(
+            @PathVariable UUID bundleId,
+            @Valid @RequestBody BundleVersionRequest payload,
+            HttpServletRequest request) {
         validateQueryParameters(request, Set.of());
         return ApiResponse.ok(service.publish(bundleId, payload), "MSG44");
     }
 
     /** Ngừng hiển thị combo trên API xem hàng sau khi transaction hoàn tất. */
     @PostMapping("/bundles/{bundleId}/unpublish")
-    public ApiResponse<BundleResponse> unpublish(@PathVariable UUID bundleId,
-            @Valid @RequestBody BundleVersionRequest payload, HttpServletRequest request) {
+    public ApiResponse<BundleResponse> unpublish(
+            @PathVariable UUID bundleId,
+            @Valid @RequestBody BundleVersionRequest payload,
+            HttpServletRequest request) {
         validateQueryParameters(request, Set.of());
         return ApiResponse.ok(service.unpublish(bundleId, payload));
     }
@@ -138,7 +144,8 @@ public class BundleAdminController {
      * Chặn tên query ngoài danh sách cho phép hoặc một query bị gửi nhiều lần.
      * Ví dụ page=0&page=1 hoặc tham số viết sai trả 400 SYS_002 thay vì bị bỏ qua.
      */
-    private void validateQueryParameters(HttpServletRequest request, Set<String> allowedParameters) {
+    private void validateQueryParameters(
+            HttpServletRequest request, Set<String> allowedParameters) {
         for (var parameter : request.getParameterMap().entrySet()) {
             boolean unknownParameter = !allowedParameters.contains(parameter.getKey());
             boolean repeatedParameter = parameter.getValue().length != 1;

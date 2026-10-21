@@ -40,7 +40,8 @@ public class AccessAuthenticationConverter implements Converter<Jwt, AbstractAut
         } catch (Exception e) {
             log.warn("Failed to parse UUID subject from access token: {}", e.getMessage());
             setAuthError(CommonErrorCode.UNAUTHORIZED);
-            throw new OAuth2AuthenticationException(new OAuth2Error("invalid_token", "Invalid sub claim", null));
+            throw new OAuth2AuthenticationException(
+                    new OAuth2Error("invalid_token", "Invalid sub claim", null));
         }
 
         // 1. Load current user and status/authorities from PostgreSQL
@@ -50,30 +51,35 @@ public class AccessAuthenticationConverter implements Converter<Jwt, AbstractAut
             if (userOpt.isEmpty()) {
                 log.warn("User {} not found in PostgreSQL", userId);
                 setAuthError(CommonErrorCode.UNAUTHORIZED);
-                throw new OAuth2AuthenticationException(new OAuth2Error("invalid_token", "User not found", null));
+                throw new OAuth2AuthenticationException(
+                        new OAuth2Error("invalid_token", "User not found", null));
             }
             user = userOpt.get();
         } catch (DataAccessException e) {
             log.error("PostgreSQL failure during user lookup for userId: {}", userId, e);
             setAuthError(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE);
-            throw new OAuth2AuthenticationException(new OAuth2Error("service_unavailable", "Database unavailable", null));
+            throw new OAuth2AuthenticationException(
+                    new OAuth2Error("service_unavailable", "Database unavailable", null));
         } catch (OAuth2AuthenticationException e) {
             throw e;
         } catch (Exception e) {
             log.error("Unexpected error looking up user {}", userId, e);
             setAuthError(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE);
-            throw new OAuth2AuthenticationException(new OAuth2Error("service_unavailable", "Database error", null));
+            throw new OAuth2AuthenticationException(
+                    new OAuth2Error("service_unavailable", "Database error", null));
         }
 
         // 2. Check ACTIVE status
         if (user.getStatus() != UserStatus.ACTIVE) {
             log.info("User {} account status is {} (not ACTIVE)", userId, user.getStatus());
             setAuthError(AuthErrorCode.ACCOUNT_NOT_ACTIVE);
-            throw new OAuth2AuthenticationException(new OAuth2Error("account_not_active", "Account not active", null));
+            throw new OAuth2AuthenticationException(
+                    new OAuth2Error("account_not_active", "Account not active", null));
         }
 
         // 3. Resolve current granted authorities
-        Collection<GrantedAuthority> authorities = currentAuthoritiesService.resolveAuthorities(user.getRoles());
+        Collection<GrantedAuthority> authorities =
+                currentAuthoritiesService.resolveAuthorities(user.getRoles());
 
         return new JwtAuthenticationToken(jwt, authorities, user.getUsername());
     }
@@ -81,7 +87,9 @@ public class AccessAuthenticationConverter implements Converter<Jwt, AbstractAut
     private void setAuthError(BaseErrorCode errorCode) {
         RequestAttributes attr = RequestContextHolder.getRequestAttributes();
         if (attr instanceof ServletRequestAttributes servletRequestAttributes) {
-            servletRequestAttributes.getRequest().setAttribute(AuthSecurityErrorHandlers.AUTH_ERROR_ATTRIBUTE, errorCode);
+            servletRequestAttributes
+                    .getRequest()
+                    .setAttribute(AuthSecurityErrorHandlers.AUTH_ERROR_ATTRIBUTE, errorCode);
         }
     }
 }

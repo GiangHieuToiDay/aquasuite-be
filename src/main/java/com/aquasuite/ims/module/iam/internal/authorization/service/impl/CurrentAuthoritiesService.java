@@ -33,7 +33,9 @@ public class CurrentAuthoritiesService {
 
     private final UserRepository userRepository;
 
-    public CurrentAuthoritiesService(@org.springframework.beans.factory.annotation.Autowired(required = false) UserRepository userRepository) {
+    public CurrentAuthoritiesService(
+            @org.springframework.beans.factory.annotation.Autowired(required = false)
+                    UserRepository userRepository) {
         this.userRepository = userRepository;
     }
 
@@ -72,15 +74,23 @@ public class CurrentAuthoritiesService {
 
             String roleName = role.getRoleName();
             if (roleName == null || roleName.trim().isEmpty()) {
-                log.warn("Encountered role with null or blank roleName for roleId: {}", role.getRoleId());
+                log.warn(
+                        "Encountered role with null or blank roleName for roleId: {}",
+                        role.getRoleId());
                 continue;
             }
 
             String trimmed = roleName.trim().toUpperCase(Locale.ROOT);
-            String suffix = trimmed.startsWith(ROLE_PREFIX) ? trimmed.substring(ROLE_PREFIX.length()) : trimmed;
+            String suffix =
+                    trimmed.startsWith(ROLE_PREFIX)
+                            ? trimmed.substring(ROLE_PREFIX.length())
+                            : trimmed;
 
             if (suffix.isEmpty() || !ROLE_SUFFIX_PATTERN.matcher(suffix).matches()) {
-                log.warn("Invalid role name '{}' for roleId: {}, skipping", roleName, role.getRoleId());
+                log.warn(
+                        "Invalid role name '{}' for roleId: {}, skipping",
+                        roleName,
+                        role.getRoleId());
                 continue;
             }
 
@@ -101,8 +111,10 @@ public class CurrentAuthoritiesService {
             }
 
             if (uniqueRoleIds.size() > 1) {
-                log.warn("Role authority collision detected for '{}' across role IDs: {}. Disqualifying colliding roles.",
-                        normalizedAuth, uniqueRoleIds);
+                log.warn(
+                        "Role authority collision detected for '{}' across role IDs: {}. Disqualifying colliding roles.",
+                        normalizedAuth,
+                        uniqueRoleIds);
                 // Do not grant role authority and do not grant permissions from colliding roles
                 continue;
             }
@@ -122,9 +134,12 @@ public class CurrentAuthoritiesService {
                         continue;
                     }
 
-                    // Namespace rule: permission code starting with ROLE_ (case-insensitive) is forbidden
+                    // Namespace rule: permission code starting with ROLE_ (case-insensitive) is
+                    // forbidden
                     if (code.trim().toUpperCase(Locale.ROOT).startsWith(ROLE_PREFIX)) {
-                        log.warn("Permission code '{}' uses forbidden ROLE_ namespace. Disqualifying from authority grant.", code);
+                        log.warn(
+                                "Permission code '{}' uses forbidden ROLE_ namespace. Disqualifying from authority grant.",
+                                code);
                         continue;
                     }
 
@@ -159,7 +174,10 @@ public class CurrentAuthoritiesService {
             }
 
             String trimmed = roleName.trim().toUpperCase(Locale.ROOT);
-            String suffix = trimmed.startsWith(ROLE_PREFIX) ? trimmed.substring(ROLE_PREFIX.length()) : trimmed;
+            String suffix =
+                    trimmed.startsWith(ROLE_PREFIX)
+                            ? trimmed.substring(ROLE_PREFIX.length())
+                            : trimmed;
 
             if (suffix.isEmpty() || !ROLE_SUFFIX_PATTERN.matcher(suffix).matches()) {
                 continue;

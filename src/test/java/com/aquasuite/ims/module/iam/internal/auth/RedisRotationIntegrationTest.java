@@ -30,17 +30,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest
 class RedisRotationIntegrationTest extends AuthIntegrationTestSupport {
 
-    @Autowired
-    private RedisSessionStore redisSessionStore;
+    @Autowired private RedisSessionStore redisSessionStore;
 
-    @Autowired
-    private StringRedisTemplate redisTemplate;
+    @Autowired private StringRedisTemplate redisTemplate;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+    @Autowired private ObjectMapper objectMapper;
 
-    @Autowired
-    private JwtTokenService jwtTokenService;
+    @Autowired private JwtTokenService jwtTokenService;
 
     @BeforeEach
     void setUp() {
@@ -64,7 +60,8 @@ class RedisRotationIntegrationTest extends AuthIntegrationTestSupport {
 
         redisSessionStore.createSession(sid, userId, jti1, now, absExp);
 
-        RedisSessionStore.RotationOutcome outcome = redisSessionStore.rotateRefresh(sid, userId, jti1, jti2, oldExp, now);
+        RedisSessionStore.RotationOutcome outcome =
+                redisSessionStore.rotateRefresh(sid, userId, jti1, jti2, oldExp, now);
         assertThat(outcome).isEqualTo(RedisSessionStore.RotationOutcome.SUCCESS);
 
         RedisSessionStore.SessionData session = redisSessionStore.getSessionData(sid);
@@ -94,11 +91,13 @@ class RedisRotationIntegrationTest extends AuthIntegrationTestSupport {
         redisSessionStore.createSession(sid, userId, jti1, now, absExp);
 
         // First rotation succeeds
-        RedisSessionStore.RotationOutcome outcome1 = redisSessionStore.rotateRefresh(sid, userId, jti1, jti2, oldExp, now);
+        RedisSessionStore.RotationOutcome outcome1 =
+                redisSessionStore.rotateRefresh(sid, userId, jti1, jti2, oldExp, now);
         assertThat(outcome1).isEqualTo(RedisSessionStore.RotationOutcome.SUCCESS);
 
         // Replaying consumed jti1 triggers REPLAY
-        RedisSessionStore.RotationOutcome outcome2 = redisSessionStore.rotateRefresh(sid, userId, jti1, jti3, oldExp, now);
+        RedisSessionStore.RotationOutcome outcome2 =
+                redisSessionStore.rotateRefresh(sid, userId, jti1, jti3, oldExp, now);
         assertThat(outcome2).isEqualTo(RedisSessionStore.RotationOutcome.REPLAY);
 
         // Session must be deleted
@@ -115,7 +114,8 @@ class RedisRotationIntegrationTest extends AuthIntegrationTestSupport {
     }
 
     @Test
-    @DisplayName("V2 Unknown Token: Token không khớp current và chưa từng tiêu thụ bị từ chối UNKNOWN_TOKEN")
+    @DisplayName(
+            "V2 Unknown Token: Token không khớp current và chưa từng tiêu thụ bị từ chối UNKNOWN_TOKEN")
     void shouldRejectUnknownToken() {
         UUID sid = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
@@ -129,7 +129,8 @@ class RedisRotationIntegrationTest extends AuthIntegrationTestSupport {
 
         redisSessionStore.createSession(sid, userId, jti1, now, absExp);
 
-        RedisSessionStore.RotationOutcome outcome = redisSessionStore.rotateRefresh(sid, userId, unknownJti, newJti, oldExp, now);
+        RedisSessionStore.RotationOutcome outcome =
+                redisSessionStore.rotateRefresh(sid, userId, unknownJti, newJti, oldExp, now);
         assertThat(outcome).isEqualTo(RedisSessionStore.RotationOutcome.UNKNOWN_TOKEN);
 
         // Original session is untouched
@@ -161,21 +162,29 @@ class RedisRotationIntegrationTest extends AuthIntegrationTestSupport {
 
         List<Future<Void>> futures = new ArrayList<>();
         for (int i = 0; i < threads; i++) {
-            futures.add(executor.submit(() -> {
-                readyLatch.countDown();
-                startLatch.await();
+            futures.add(
+                    executor.submit(
+                            () -> {
+                                readyLatch.countDown();
+                                startLatch.await();
 
-                UUID candidateNewJti = UUID.randomUUID();
-                RedisSessionStore.RotationOutcome outcome = redisSessionStore.rotateRefresh(
-                        sid, userId, jti1, candidateNewJti, oldExp, Instant.now()
-                );
-                if (outcome == RedisSessionStore.RotationOutcome.SUCCESS) {
-                    successCount.incrementAndGet();
-                } else if (outcome == RedisSessionStore.RotationOutcome.REPLAY || outcome == RedisSessionStore.RotationOutcome.REVOKED) {
-                    replayOrRevokedCount.incrementAndGet();
-                }
-                return null;
-            }));
+                                UUID candidateNewJti = UUID.randomUUID();
+                                RedisSessionStore.RotationOutcome outcome =
+                                        redisSessionStore.rotateRefresh(
+                                                sid,
+                                                userId,
+                                                jti1,
+                                                candidateNewJti,
+                                                oldExp,
+                                                Instant.now());
+                                if (outcome == RedisSessionStore.RotationOutcome.SUCCESS) {
+                                    successCount.incrementAndGet();
+                                } else if (outcome == RedisSessionStore.RotationOutcome.REPLAY
+                                        || outcome == RedisSessionStore.RotationOutcome.REVOKED) {
+                                    replayOrRevokedCount.incrementAndGet();
+                                }
+                                return null;
+                            }));
         }
 
         readyLatch.await(5, TimeUnit.SECONDS);
@@ -208,10 +217,12 @@ class RedisRotationIntegrationTest extends AuthIntegrationTestSupport {
         redisSessionStore.revokeSession(sid, userId, "LOGOUT");
 
         // Validate session returns REVOKED
-        assertThat(redisSessionStore.validateSession(sid, userId)).isEqualTo(RedisSessionStore.ValidationState.REVOKED);
+        assertThat(redisSessionStore.validateSession(sid, userId))
+                .isEqualTo(RedisSessionStore.ValidationState.REVOKED);
 
         // Attempting rotateRefresh on revoked session returns REVOKED
-        RedisSessionStore.RotationOutcome outcome = redisSessionStore.rotateRefresh(sid, userId, jti1, jti2, oldExp, now);
+        RedisSessionStore.RotationOutcome outcome =
+                redisSessionStore.rotateRefresh(sid, userId, jti1, jti2, oldExp, now);
         assertThat(outcome).isEqualTo(RedisSessionStore.RotationOutcome.REVOKED);
     }
 }

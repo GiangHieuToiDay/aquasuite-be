@@ -42,11 +42,11 @@ public class AuthServiceImpl implements AuthService {
 
     public AuthServiceImpl(
             AuthenticationManager authenticationManager,
-            @org.springframework.beans.factory.annotation.Autowired(required = false) UserRepository userRepository,
+            @org.springframework.beans.factory.annotation.Autowired(required = false)
+                    UserRepository userRepository,
             JwtTokenService jwtTokenService,
             RedisSessionStore redisSessionStore,
-            CurrentAuthoritiesService currentAuthoritiesService
-    ) {
+            CurrentAuthoritiesService currentAuthoritiesService) {
         this.authenticationManager = authenticationManager;
         this.userRepository = userRepository;
         this.jwtTokenService = jwtTokenService;
@@ -57,14 +57,15 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public LoginResponse login(LoginRequest request) {
         if (userRepository == null) {
-            throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "User repository unavailable");
+            throw new AppException(
+                    AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "User repository unavailable");
         }
         String email = request.getEmail() != null ? request.getEmail().trim() : "";
 
         try {
-            Authentication auth = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(email, request.getPassword())
-            );
+            Authentication auth =
+                    authenticationManager.authenticate(
+                            new UsernamePasswordAuthenticationToken(email, request.getPassword()));
         } catch (DisabledException e) {
             log.info("User with email '{}' is disabled/not active", email);
             throw new AppException(AuthErrorCode.ACCOUNT_NOT_ACTIVE);
@@ -75,11 +76,14 @@ public class AuthServiceImpl implements AuthService {
             throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE);
         }
 
-        User user = userRepository.findWithRolesAndPermissionsByEmailIgnoreCase(email)
-                .orElseThrow(() -> new AppException(AuthErrorCode.INVALID_CREDENTIALS));
+        User user =
+                userRepository
+                        .findWithRolesAndPermissionsByEmailIgnoreCase(email)
+                        .orElseThrow(() -> new AppException(AuthErrorCode.INVALID_CREDENTIALS));
 
         if (user.getStatus() != UserStatus.ACTIVE) {
-            log.info("User {} exists but status is {} (not ACTIVE)", user.getId(), user.getStatus());
+            log.info(
+                    "User {} exists but status is {} (not ACTIVE)", user.getId(), user.getStatus());
             throw new AppException(AuthErrorCode.ACCOUNT_NOT_ACTIVE);
         }
 
@@ -88,8 +92,10 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public LoginResponse loginRegisteredUser(UUID userId) {
-        User user = currentAuthoritiesService.loadCurrentUser(userId)
-                .orElseThrow(() -> new AppException(AuthErrorCode.INVALID_CREDENTIALS));
+        User user =
+                currentAuthoritiesService
+                        .loadCurrentUser(userId)
+                        .orElseThrow(() -> new AppException(AuthErrorCode.INVALID_CREDENTIALS));
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new AppException(AuthErrorCode.ACCOUNT_NOT_ACTIVE);
         }
@@ -103,43 +109,46 @@ public class AuthServiceImpl implements AuthService {
         Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         Instant absoluteExpiresAt = now.plusSeconds(jwtTokenService.getSessionAbsoluteTtlSeconds());
 
-        JwtTokenService.TokenPair tokenPair = jwtTokenService.issueTokenPair(
-                user.getId(),
-                sessionId,
-                refreshJti,
-                now,
-                absoluteExpiresAt
-        );
+        JwtTokenService.TokenPair tokenPair =
+                jwtTokenService.issueTokenPair(
+                        user.getId(), sessionId, refreshJti, now, absoluteExpiresAt);
 
         // Commit Redis V2 session before returning
-        redisSessionStore.createSession(sessionId, user.getId(), refreshJti, now, absoluteExpiresAt);
+        redisSessionStore.createSession(
+                sessionId, user.getId(), refreshJti, now, absoluteExpiresAt);
 
-        List<String> cleanRoleNames = currentAuthoritiesService.resolveActiveRoleNames(user.getRoles());
+        List<String> cleanRoleNames =
+                currentAuthoritiesService.resolveActiveRoleNames(user.getRoles());
 
         return LoginResponse.builder()
                 .accessToken(tokenPair.accessToken())
                 .refreshToken(tokenPair.refreshToken())
                 .tokenType("Bearer")
                 .expiresIn(tokenPair.expiresInSeconds())
-                .user(LoginResponse.UserSummary.builder()
-                        .id(user.getId())
-                        .username(user.getUsername())
-                        .email(user.getEmail())
-                        .roles(cleanRoleNames)
-                        .build())
+                .user(
+                        LoginResponse.UserSummary.builder()
+                                .id(user.getId())
+                                .username(user.getUsername())
+                                .email(user.getEmail())
+                                .roles(cleanRoleNames)
+                                .build())
                 .build();
     }
 
     @Override
     public TokenResponse refresh(RefreshRequest request) {
         // 1. Verify cryptographic validity, issuer, audience, token_type=REFRESH, auth_version=2
-        JwtTokenService.RefreshClaims claims = jwtTokenService.parseAndValidateRefreshToken(request.getRefreshToken());
+        JwtTokenService.RefreshClaims claims =
+                jwtTokenService.parseAndValidateRefreshToken(request.getRefreshToken());
 
         // 2. Load current user and verify ACTIVE status from PostgreSQL
         User user;
         try {
-            user = currentAuthoritiesService.loadCurrentUser(claims.userId())
-                    .orElseThrow(() -> new AppException(AuthErrorCode.INVALID_REFRESH_TOKEN));
+            user =
+                    currentAuthoritiesService
+                            .loadCurrentUser(claims.userId())
+                            .orElseThrow(
+                                    () -> new AppException(AuthErrorCode.INVALID_REFRESH_TOKEN));
         } catch (DataAccessException e) {
             log.error("Database failure looking up user by id for refresh", e);
             throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE);
@@ -151,18 +160,20 @@ public class AuthServiceImpl implements AuthService {
         }
 
         // 3. Read active session from Redis to check absolute deadline
-        RedisSessionStore.SessionData sessionData = redisSessionStore.getSessionData(claims.sessionId());
+        RedisSessionStore.SessionData sessionData =
+                redisSessionStore.getSessionData(claims.sessionId());
         if (sessionData == null) {
-            // Session is absent in Redis. Let atomic rotateRefresh determine if valid tombstone exists (401 AUTH_007)
+            // Session is absent in Redis. Let atomic rotateRefresh determine if valid tombstone
+            // exists (401 AUTH_007)
             // or if it is a replay (401 AUTH_006) or unknown token (401 AUTH_004)
-            RedisSessionStore.RotationOutcome outcome = redisSessionStore.rotateRefresh(
-                    claims.sessionId(),
-                    user.getId(),
-                    claims.jti(),
-                    UUID.randomUUID(),
-                    claims.expiresAt(),
-                    Instant.now()
-            );
+            RedisSessionStore.RotationOutcome outcome =
+                    redisSessionStore.rotateRefresh(
+                            claims.sessionId(),
+                            user.getId(),
+                            claims.jti(),
+                            UUID.randomUUID(),
+                            claims.expiresAt(),
+                            Instant.now());
             if (outcome == RedisSessionStore.RotationOutcome.REVOKED) {
                 throw new AppException(AuthErrorCode.SESSION_REVOKED);
             } else if (outcome == RedisSessionStore.RotationOutcome.REPLAY) {
@@ -187,23 +198,19 @@ public class AuthServiceImpl implements AuthService {
 
         // 4. Generate successor token pair in memory
         UUID newRefreshJti = UUID.randomUUID();
-        JwtTokenService.TokenPair successor = jwtTokenService.issueTokenPair(
-                user.getId(),
-                claims.sessionId(),
-                newRefreshJti,
-                now,
-                absoluteExpiresAt
-        );
+        JwtTokenService.TokenPair successor =
+                jwtTokenService.issueTokenPair(
+                        user.getId(), claims.sessionId(), newRefreshJti, now, absoluteExpiresAt);
 
         // 5. Execute atomic rotation in Redis
-        RedisSessionStore.RotationOutcome outcome = redisSessionStore.rotateRefresh(
-                claims.sessionId(),
-                user.getId(),
-                claims.jti(),
-                newRefreshJti,
-                claims.expiresAt(),
-                now
-        );
+        RedisSessionStore.RotationOutcome outcome =
+                redisSessionStore.rotateRefresh(
+                        claims.sessionId(),
+                        user.getId(),
+                        claims.jti(),
+                        newRefreshJti,
+                        claims.expiresAt(),
+                        now);
 
         switch (outcome) {
             case SUCCESS -> {
@@ -215,7 +222,9 @@ public class AuthServiceImpl implements AuthService {
                         .build();
             }
             case REPLAY -> {
-                log.warn("Confirmed replay detected for sid: {}, revoked whole session", claims.sessionId());
+                log.warn(
+                        "Confirmed replay detected for sid: {}, revoked whole session",
+                        claims.sessionId());
                 throw new AppException(AuthErrorCode.REFRESH_TOKEN_REUSED);
             }
             case REVOKED -> {
@@ -227,15 +236,24 @@ public class AuthServiceImpl implements AuthService {
                 throw new AppException(AuthErrorCode.EXPIRED_REFRESH_TOKEN);
             }
             case INCONSISTENT, UNKNOWN -> {
-                log.error("Inconsistent or unknown Redis state during refresh rotation for sid: {}, outcome: {}", claims.sessionId(), outcome);
+                log.error(
+                        "Inconsistent or unknown Redis state during refresh rotation for sid: {}, outcome: {}",
+                        claims.sessionId(),
+                        outcome);
                 throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE);
             }
             case UNKNOWN_TOKEN, INVALID -> {
-                log.warn("Invalid refresh token or token mismatch during refresh rotation for sid: {}, outcome: {}", claims.sessionId(), outcome);
+                log.warn(
+                        "Invalid refresh token or token mismatch during refresh rotation for sid: {}, outcome: {}",
+                        claims.sessionId(),
+                        outcome);
                 throw new AppException(AuthErrorCode.INVALID_REFRESH_TOKEN);
             }
             default -> {
-                log.warn("Unhandled outcome during refresh rotation for sid: {}, outcome: {}", claims.sessionId(), outcome);
+                log.warn(
+                        "Unhandled outcome during refresh rotation for sid: {}, outcome: {}",
+                        claims.sessionId(),
+                        outcome);
                 throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE);
             }
         }

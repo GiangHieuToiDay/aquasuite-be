@@ -37,15 +37,22 @@ public abstract class AuthIntegrationTestSupport extends PostgreSqlIntegrationTe
     private static StringRedisTemplate directControlTemplate;
 
     static {
-        if (EXTERNAL_REDIS_HOST != null && !EXTERNAL_REDIS_HOST.isBlank()
-                && EXTERNAL_REDIS_PORT != null && !EXTERNAL_REDIS_PORT.isBlank()) {
+        if (EXTERNAL_REDIS_HOST != null
+                && !EXTERNAL_REDIS_HOST.isBlank()
+                && EXTERNAL_REDIS_PORT != null
+                && !EXTERNAL_REDIS_PORT.isBlank()) {
             redisContainer = null;
-            faultProxy = new RespTransportFaultProxy(EXTERNAL_REDIS_HOST, Integer.parseInt(EXTERNAL_REDIS_PORT));
+            faultProxy =
+                    new RespTransportFaultProxy(
+                            EXTERNAL_REDIS_HOST, Integer.parseInt(EXTERNAL_REDIS_PORT));
         } else {
-            redisContainer = new GenericContainer<>(DockerImageName.parse(REDIS_IMAGE))
-                    .withExposedPorts(6379);
+            redisContainer =
+                    new GenericContainer<>(DockerImageName.parse(REDIS_IMAGE))
+                            .withExposedPorts(6379);
             redisContainer.start();
-            faultProxy = new RespTransportFaultProxy(redisContainer.getHost(), redisContainer.getMappedPort(6379));
+            faultProxy =
+                    new RespTransportFaultProxy(
+                            redisContainer.getHost(), redisContainer.getMappedPort(6379));
         }
         faultProxy.start();
     }
@@ -58,8 +65,10 @@ public abstract class AuthIntegrationTestSupport extends PostgreSqlIntegrationTe
         registry.add("spring.data.redis.password", () -> "");
         registry.add("spring.data.redis.timeout", () -> "3000ms");
 
-        registry.add("aquasuite.security.jwt.secret",
-                () -> "dGVzdC1zZWNyZXQta2V5LWZvci11bml0LXRlc3RzLW11c3QtYmUtYXQtbGVhc3QtNjQtYnl0ZXMtbG9uZy1zby10aGlzLXNob3VsZC13b3JrIQ==");
+        registry.add(
+                "aquasuite.security.jwt.secret",
+                () ->
+                        "dGVzdC1zZWNyZXQta2V5LWZvci11bml0LXRlc3RzLW11c3QtYmUtYXQtbGVhc3QtNjQtYnl0ZXMtbG9uZy1zby10aGlzLXNob3VsZC13b3JrIQ==");
     }
 
     public static GenericContainer<?> getRedisContainer() {
@@ -73,7 +82,10 @@ public abstract class AuthIntegrationTestSupport extends PostgreSqlIntegrationTe
     public static synchronized StringRedisTemplate getDirectControlTemplate() {
         if (directControlTemplate == null) {
             String host = redisContainer != null ? redisContainer.getHost() : EXTERNAL_REDIS_HOST;
-            int port = redisContainer != null ? redisContainer.getMappedPort(6379) : Integer.parseInt(EXTERNAL_REDIS_PORT);
+            int port =
+                    redisContainer != null
+                            ? redisContainer.getMappedPort(6379)
+                            : Integer.parseInt(EXTERNAL_REDIS_PORT);
             LettuceConnectionFactory factory = new LettuceConnectionFactory(host, port);
             factory.afterPropertiesSet();
             directControlTemplate = new StringRedisTemplate(factory);
@@ -190,7 +202,7 @@ public abstract class AuthIntegrationTestSupport extends PostgreSqlIntegrationTe
 
         private void handleClientToBackend(Socket clientSocket, Socket backendSocket) {
             try (InputStream clientIn = clientSocket.getInputStream();
-                 OutputStream backendOut = backendSocket.getOutputStream()) {
+                    OutputStream backendOut = backendSocket.getOutputStream()) {
 
                 while (running.get() && !clientSocket.isClosed() && !backendSocket.isClosed()) {
                     byte[] frame = readNextRespCommandFrame(clientIn);
@@ -199,7 +211,8 @@ public abstract class AuthIntegrationTestSupport extends PostgreSqlIntegrationTe
                     }
 
                     List<String> commandArgs = parseRespArrayStrings(frame);
-                    String commandName = !commandArgs.isEmpty() ? commandArgs.get(0).toUpperCase() : "";
+                    String commandName =
+                            !commandArgs.isEmpty() ? commandArgs.get(0).toUpperCase() : "";
 
                     boolean isTarget = false;
                     String targetSha = this.targetScriptSha;
@@ -216,7 +229,11 @@ public abstract class AuthIntegrationTestSupport extends PostgreSqlIntegrationTe
                             }
                         }
                     } else {
-                        if ("EVALSHA".equals(commandName) || "EVAL".equals(commandName) || "SET".equals(commandName) || "GET".equals(commandName) || "DEL".equals(commandName)) {
+                        if ("EVALSHA".equals(commandName)
+                                || "EVAL".equals(commandName)
+                                || "SET".equals(commandName)
+                                || "GET".equals(commandName)
+                                || "DEL".equals(commandName)) {
                             isTarget = true;
                         }
                     }
@@ -266,7 +283,7 @@ public abstract class AuthIntegrationTestSupport extends PostgreSqlIntegrationTe
 
         private void handleBackendToClient(Socket clientSocket, Socket backendSocket) {
             try (InputStream backendIn = backendSocket.getInputStream();
-                 OutputStream clientOut = clientSocket.getOutputStream()) {
+                    OutputStream clientOut = clientSocket.getOutputStream()) {
 
                 byte[] buffer = new byte[8192];
                 while (running.get() && !backendSocket.isClosed() && !clientSocket.isClosed()) {
@@ -275,7 +292,9 @@ public abstract class AuthIntegrationTestSupport extends PostgreSqlIntegrationTe
 
                     if (mode == FaultMode.AFTER_BACKEND_REPLY && !recordedEvents.isEmpty()) {
                         ProxyEventRecord lastEvent = recordedEvents.get(recordedEvents.size() - 1);
-                        if (lastEvent.targetMatched && lastEvent.forwarded && !lastEvent.backendReplyComplete) {
+                        if (lastEvent.targetMatched
+                                && lastEvent.forwarded
+                                && !lastEvent.backendReplyComplete) {
                             lastEvent.backendReplyComplete = true;
                             lastEvent.backendReply = true;
                             lastEvent.clientReplyWithheld = true;

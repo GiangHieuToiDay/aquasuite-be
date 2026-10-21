@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-import com.aquasuite.ims.module.catalog.internal.payload.BundleCoreStatusRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.bundle.request.BundleCoreStatusRequest;
 import com.aquasuite.ims.support.BundleCoreTestSupport;
 
 import org.junit.jupiter.api.Test;
@@ -14,29 +14,38 @@ class BundleCoreHttpIT extends BundleCoreTestSupport {
     @Test
     void sharedItemPayloadKeepsCreateAndUpdateContractsDistinct() throws Exception {
         var detail = create();
-        var body = (com.fasterxml.jackson.databind.node.ObjectNode)
-                json.valueToTree(request(detail.productCode()));
+        var body =
+                (com.fasterxml.jackson.databind.node.ObjectNode)
+                        json.valueToTree(request(detail.productCode()));
         body.put("expectedVersion", detail.version());
-        mvc.perform(post("/api/v1/catalog/admin/bundles")
-                        .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+        mvc.perform(
+                        post("/api/v1/catalog/admin/bundles")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body.toString()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("SYS_002"));
         body.remove("expectedVersion");
-        mvc.perform(put("/api/v1/catalog/admin/bundles/" + detail.bundleId())
-                        .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+        mvc.perform(
+                        put("/api/v1/catalog/admin/bundles/" + detail.bundleId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body.toString()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("SYS_003"));
         body.put("expectedVersion", detail.version());
         var item = (com.fasterxml.jackson.databind.node.ObjectNode) body.get("items").get(0);
         item.put("quantity", "1");
-        mvc.perform(put("/api/v1/catalog/admin/bundles/" + detail.bundleId())
-                        .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+        mvc.perform(
+                        put("/api/v1/catalog/admin/bundles/" + detail.bundleId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body.toString()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("SYS_002"));
         item.put("quantity", 1);
         item.put("unexpected", true);
-        mvc.perform(put("/api/v1/catalog/admin/bundles/" + detail.bundleId())
-                        .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+        mvc.perform(
+                        put("/api/v1/catalog/admin/bundles/" + detail.bundleId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body.toString()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("SYS_002"));
         assertThat(service.get(detail.bundleId()).version()).isEqualTo(detail.version());
@@ -64,7 +73,8 @@ class BundleCoreHttpIT extends BundleCoreTestSupport {
                                 .param("publicationStatus", "DRAFT"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.totalElements").value(1))
-                .andExpect(jsonPath("$.data.items[0].bundleId").value(active.bundleId().toString()));
+                .andExpect(
+                        jsonPath("$.data.items[0].bundleId").value(active.bundleId().toString()));
         mvc.perform(get("/api/v1/catalog/admin/bundles").param("publicationStatus", "PUBLISHED"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items").isEmpty());
@@ -77,8 +87,11 @@ class BundleCoreHttpIT extends BundleCoreTestSupport {
     void deletedBundleCannotBeUpdatedOrToggledEvenWithOldVersion() throws Exception {
         var d = create();
         service.delete(d.bundleId(), d.version());
-        Long deletedVersion = jdbc.queryForObject(
-                "select version from bundle_configurations where bundle_product_id=?", Long.class, d.bundleId());
+        Long deletedVersion =
+                jdbc.queryForObject(
+                        "select version from bundle_configurations where bundle_product_id=?",
+                        Long.class,
+                        d.bundleId());
         for (long version : new long[] {d.version(), deletedVersion}) {
             var body =
                     (com.fasterxml.jackson.databind.node.ObjectNode)

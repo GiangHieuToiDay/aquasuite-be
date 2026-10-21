@@ -40,7 +40,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@org.springframework.context.annotation.Import(CurrentAuthorityIntegrationTest.TestSecurityController.class)
+@org.springframework.context.annotation.Import(
+        CurrentAuthorityIntegrationTest.TestSecurityController.class)
 class CurrentAuthorityIntegrationTest extends AuthIntegrationTestSupport {
 
     @RestController
@@ -66,26 +67,19 @@ class CurrentAuthorityIntegrationTest extends AuthIntegrationTestSupport {
         }
     }
 
-    @Autowired
-    private MockMvc mockMvc;
+    @Autowired private MockMvc mockMvc;
 
-    @Autowired
-    private UserRepository userRepository;
+    @Autowired private UserRepository userRepository;
 
-    @Autowired
-    private RoleRepository roleRepository;
+    @Autowired private RoleRepository roleRepository;
 
-    @Autowired
-    private PermissionRepository permissionRepository;
+    @Autowired private PermissionRepository permissionRepository;
 
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    @Autowired private PasswordEncoder passwordEncoder;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+    @Autowired private ObjectMapper objectMapper;
 
-    @Autowired
-    private StringRedisTemplate redisTemplate;
+    @Autowired private StringRedisTemplate redisTemplate;
 
     @BeforeEach
     void setUp() {
@@ -99,7 +93,8 @@ class CurrentAuthorityIntegrationTest extends AuthIntegrationTestSupport {
     }
 
     @Test
-    @DisplayName("AC-05: Thay đổi trạng thái tài khoản sang LOCKED trong DB có hiệu lực ngay ở request kế tiếp (403 AUTH_008)")
+    @DisplayName(
+            "AC-05: Thay đổi trạng thái tài khoản sang LOCKED trong DB có hiệu lực ngay ở request kế tiếp (403 AUTH_008)")
     void shouldRevokeAccessImmediatelyWhenUserStatusChangesInDatabase() throws Exception {
         Role role = new Role(UUID.randomUUID(), "ADMIN", "Admin", true, null, Set.of());
         roleRepository.save(role);
@@ -114,17 +109,27 @@ class CurrentAuthorityIntegrationTest extends AuthIntegrationTestSupport {
         userRepository.save(user);
 
         // 1. Login
-        LoginRequest req = LoginRequest.builder().email("bob@aquasuite.com").password("Pass123!").build();
-        MvcResult res = mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isOk()).andReturn();
+        LoginRequest req =
+                LoginRequest.builder().email("bob@aquasuite.com").password("Pass123!").build();
+        MvcResult res =
+                mockMvc.perform(
+                                post("/api/v1/auth/login")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(objectMapper.writeValueAsString(req)))
+                        .andExpect(status().isOk())
+                        .andReturn();
 
-        String accessToken = objectMapper.readTree(res.getResponse().getContentAsString()).path("data").path("access_token").asText();
+        String accessToken =
+                objectMapper
+                        .readTree(res.getResponse().getContentAsString())
+                        .path("data")
+                        .path("access_token")
+                        .asText();
 
         // 2. Access protected endpoint -> 200 OK
-        mockMvc.perform(get("/api/v1/test-auth/admin-only")
-                        .header("Authorization", "Bearer " + accessToken))
+        mockMvc.perform(
+                        get("/api/v1/test-auth/admin-only")
+                                .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk());
 
         // 3. Directly lock user in PostgreSQL
@@ -132,15 +137,18 @@ class CurrentAuthorityIntegrationTest extends AuthIntegrationTestSupport {
         userRepository.save(user);
 
         // 4. Next protected request with same valid token is rejected with 403 AUTH_008!
-        mockMvc.perform(get("/api/v1/test-auth/admin-only")
-                        .header("Authorization", "Bearer " + accessToken))
+        mockMvc.perform(
+                        get("/api/v1/test-auth/admin-only")
+                                .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value(AuthErrorCode.ACCOUNT_NOT_ACTIVE.getCode()))
-                .andExpect(jsonPath("$.message").value(AuthErrorCode.ACCOUNT_NOT_ACTIVE.getMessage()));
+                .andExpect(
+                        jsonPath("$.message").value(AuthErrorCode.ACCOUNT_NOT_ACTIVE.getMessage()));
     }
 
     @Test
-    @DisplayName("AC-05: Vô hiệu hóa Role (isActive = false) trong DB có hiệu lực ngay ở request kế tiếp (403 AUTH_002)")
+    @DisplayName(
+            "AC-05: Vô hiệu hóa Role (isActive = false) trong DB có hiệu lực ngay ở request kế tiếp (403 AUTH_002)")
     void shouldStripAuthoritiesImmediatelyWhenRoleDeactivated() throws Exception {
         Role role = new Role(UUID.randomUUID(), "ADMIN", "Admin", true, null, Set.of());
         roleRepository.save(role);
@@ -154,17 +162,27 @@ class CurrentAuthorityIntegrationTest extends AuthIntegrationTestSupport {
         user.setRoles(Set.of(role));
         userRepository.save(user);
 
-        LoginRequest req = LoginRequest.builder().email("charlie@aquasuite.com").password("Pass123!").build();
-        MvcResult res = mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isOk()).andReturn();
+        LoginRequest req =
+                LoginRequest.builder().email("charlie@aquasuite.com").password("Pass123!").build();
+        MvcResult res =
+                mockMvc.perform(
+                                post("/api/v1/auth/login")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(objectMapper.writeValueAsString(req)))
+                        .andExpect(status().isOk())
+                        .andReturn();
 
-        String accessToken = objectMapper.readTree(res.getResponse().getContentAsString()).path("data").path("access_token").asText();
+        String accessToken =
+                objectMapper
+                        .readTree(res.getResponse().getContentAsString())
+                        .path("data")
+                        .path("access_token")
+                        .asText();
 
         // 1. Success
-        mockMvc.perform(get("/api/v1/test-auth/admin-only")
-                        .header("Authorization", "Bearer " + accessToken))
+        mockMvc.perform(
+                        get("/api/v1/test-auth/admin-only")
+                                .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isOk());
 
         // 2. Deactivate role in DB
@@ -172,21 +190,25 @@ class CurrentAuthorityIntegrationTest extends AuthIntegrationTestSupport {
         roleRepository.save(role);
 
         // 3. Next request is denied with 403 AUTH_002
-        mockMvc.perform(get("/api/v1/test-auth/admin-only")
-                        .header("Authorization", "Bearer " + accessToken))
+        mockMvc.perform(
+                        get("/api/v1/test-auth/admin-only")
+                                .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value(CommonErrorCode.ACCESS_DENIED.getCode()))
                 .andExpect(jsonPath("$.message").value(CommonErrorCode.ACCESS_DENIED.getMessage()));
     }
 
     @Test
-    @DisplayName("AC-09: User chỉ có permission ROLE_ADMIN (không có role ADMIN) thì cả hasRole('ADMIN') và hasAuthority('ROLE_ADMIN') đều bị từ chối 403")
+    @DisplayName(
+            "AC-09: User chỉ có permission ROLE_ADMIN (không có role ADMIN) thì cả hasRole('ADMIN') và hasAuthority('ROLE_ADMIN') đều bị từ chối 403")
     void shouldPreventPrivilegeEscalationFromRoleAdminPermission() throws Exception {
         // Permission has code "ROLE_ADMIN"
-        Permission permRoleAdmin = new Permission(UUID.randomUUID(), "ROLE_ADMIN", "Malicious permission code");
+        Permission permRoleAdmin =
+                new Permission(UUID.randomUUID(), "ROLE_ADMIN", "Malicious permission code");
         permissionRepository.save(permRoleAdmin);
 
-        Role viewerRole = new Role(UUID.randomUUID(), "VIEWER", "Viewer", true, null, Set.of(permRoleAdmin));
+        Role viewerRole =
+                new Role(UUID.randomUUID(), "VIEWER", "Viewer", true, null, Set.of(permRoleAdmin));
         roleRepository.save(viewerRole);
 
         User user = new User();
@@ -198,22 +220,33 @@ class CurrentAuthorityIntegrationTest extends AuthIntegrationTestSupport {
         user.setRoles(Set.of(viewerRole));
         userRepository.save(user);
 
-        LoginRequest req = LoginRequest.builder().email("david@aquasuite.com").password("Pass123!").build();
-        MvcResult res = mockMvc.perform(post("/api/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isOk()).andReturn();
+        LoginRequest req =
+                LoginRequest.builder().email("david@aquasuite.com").password("Pass123!").build();
+        MvcResult res =
+                mockMvc.perform(
+                                post("/api/v1/auth/login")
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .content(objectMapper.writeValueAsString(req)))
+                        .andExpect(status().isOk())
+                        .andReturn();
 
-        String accessToken = objectMapper.readTree(res.getResponse().getContentAsString()).path("data").path("access_token").asText();
+        String accessToken =
+                objectMapper
+                        .readTree(res.getResponse().getContentAsString())
+                        .path("data")
+                        .path("access_token")
+                        .asText();
 
         // Both endpoints must deny access with 403 AUTH_002
-        mockMvc.perform(get("/api/v1/test-auth/admin-only")
-                        .header("Authorization", "Bearer " + accessToken))
+        mockMvc.perform(
+                        get("/api/v1/test-auth/admin-only")
+                                .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value(CommonErrorCode.ACCESS_DENIED.getCode()));
 
-        mockMvc.perform(get("/api/v1/test-auth/perm-role-admin")
-                        .header("Authorization", "Bearer " + accessToken))
+        mockMvc.perform(
+                        get("/api/v1/test-auth/perm-role-admin")
+                                .header("Authorization", "Bearer " + accessToken))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value(CommonErrorCode.ACCESS_DENIED.getCode()));
     }

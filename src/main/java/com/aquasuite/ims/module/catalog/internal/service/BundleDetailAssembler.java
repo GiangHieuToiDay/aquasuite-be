@@ -3,7 +3,7 @@ package com.aquasuite.ims.module.catalog.internal.service;
 import com.aquasuite.ims.module.catalog.internal.entity.*;
 import com.aquasuite.ims.module.catalog.internal.entity.enums.*;
 import com.aquasuite.ims.module.catalog.internal.mapper.BundleCoreMapper;
-import com.aquasuite.ims.module.catalog.internal.payload.BundleResponse;
+import com.aquasuite.ims.module.catalog.internal.payload.bundle.response.BundleResponse;
 
 import lombok.RequiredArgsConstructor;
 
@@ -40,8 +40,10 @@ public class BundleDetailAssembler {
         for (BundleItem item : items) {
             ProductVariant variant = variants.get(item.getVariantId());
             Product parent = variant == null ? null : parents.get(variant.getProductId());
-            priceLines.add(new BundlePricingService.Line(
-                    variant == null ? null : variant.getSellingPrice(), item.getQuantity()));
+            priceLines.add(
+                    new BundlePricingService.Line(
+                            variant == null ? null : variant.getSellingPrice(),
+                            item.getQuantity()));
             itemViews.add(mapper.item(item, variant, isSellable(variant, parent)));
         }
         var price = pricing.preview(priceLines, configuration.getPackagePrice());

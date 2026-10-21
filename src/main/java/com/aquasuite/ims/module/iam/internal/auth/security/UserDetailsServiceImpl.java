@@ -23,9 +23,9 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     private final CurrentAuthoritiesService currentAuthoritiesService;
 
     public UserDetailsServiceImpl(
-            @org.springframework.beans.factory.annotation.Autowired(required = false) UserRepository userRepository,
-            CurrentAuthoritiesService currentAuthoritiesService
-    ) {
+            @org.springframework.beans.factory.annotation.Autowired(required = false)
+                    UserRepository userRepository,
+            CurrentAuthoritiesService currentAuthoritiesService) {
         this.userRepository = userRepository;
         this.currentAuthoritiesService = currentAuthoritiesService;
     }
@@ -41,11 +41,17 @@ public class UserDetailsServiceImpl implements UserDetailsService {
             throw new UsernameNotFoundException("User repository is unavailable");
         }
 
-        User user = userRepository.findWithRolesAndPermissionsByEmailIgnoreCase(email.trim())
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
+        User user =
+                userRepository
+                        .findWithRolesAndPermissionsByEmailIgnoreCase(email.trim())
+                        .orElseThrow(
+                                () ->
+                                        new UsernameNotFoundException(
+                                                "User not found with email: " + email));
 
         boolean enabled = (user.getStatus() == UserStatus.ACTIVE);
-        Collection<GrantedAuthority> authorities = currentAuthoritiesService.resolveAuthorities(user.getRoles());
+        Collection<GrantedAuthority> authorities =
+                currentAuthoritiesService.resolveAuthorities(user.getRoles());
 
         return org.springframework.security.core.userdetails.User.builder()
                 .username(user.getEmail())

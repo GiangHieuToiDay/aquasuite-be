@@ -32,8 +32,10 @@ class BundleCoreMigrationIT {
                 var statement = admin.createStatement()) {
             statement.execute("CREATE DATABASE " + database);
             migration().target("1").load().migrate();
-            try (var c = open(); var st = c.createStatement()) {
-                st.execute("""
+            try (var c = open();
+                    var st = c.createStatement()) {
+                st.execute(
+                        """
                     INSERT INTO products(product_id,category_id,product_code,product_name,product_type,status) VALUES
                     ('10000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000099','NORMAL','Normal','NORMAL','ACTIVE'),
                     ('10000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000099','LEGACY','Legacy','BUNDLE','INACTIVE'),
@@ -58,9 +60,17 @@ class BundleCoreMigrationIT {
 
     private org.flywaydb.core.api.configuration.FluentConfiguration migration() {
         var pg = BundleCoreTestSupport.DB;
-        return Flyway.configure().dataSource(
-                "jdbc:postgresql://" + pg.getHost() + ":" + pg.getMappedPort(5432) + "/" + database,
-                pg.getUsername(), pg.getPassword()).cleanDisabled(true);
+        return Flyway.configure()
+                .dataSource(
+                        "jdbc:postgresql://"
+                                + pg.getHost()
+                                + ":"
+                                + pg.getMappedPort(5432)
+                                + "/"
+                                + database,
+                        pg.getUsername(),
+                        pg.getPassword())
+                .cleanDisabled(true);
     }
 
     private int count(String query) throws Exception {
@@ -76,8 +86,10 @@ class BundleCoreMigrationIT {
     void flywayBackfillRetryAndChecksumMismatch() throws Exception {
         isolated(
                 () -> {
-                    assertThat(migration().target("2").load().migrate().migrationsExecuted).isEqualTo(1);
-                    assertThat(migration().target("2").load().migrate().migrationsExecuted).isZero();
+                    assertThat(migration().target("2").load().migrate().migrationsExecuted)
+                            .isEqualTo(1);
+                    assertThat(migration().target("2").load().migrate().migrationsExecuted)
+                            .isZero();
                     assertThat(
                                     count(
                                             "select count(*) from bundle_configurations where package_price is null and publication_status='DRAFT'"))
@@ -90,11 +102,26 @@ class BundleCoreMigrationIT {
                             .isEqualTo(2);
                     Path temp = Files.createTempDirectory("uc13-checksum-");
                     try {
-                        for (String f : List.of("V1__Initial_legacy_schema.sql", "V2__SCRUM14_phase1_combo_core.sql"))
-                            Files.copy(Path.of("src/main/resources/db/migration/" + f), temp.resolve(f));
-                        Files.writeString(temp.resolve("V2__SCRUM14_phase1_combo_core.sql"),
-                                "\nSELECT 42;", StandardOpenOption.APPEND);
-                        assertThatThrownBy(() -> migration().target("2").locations("filesystem:" + temp.toAbsolutePath()).load().validate())
+                        for (String f :
+                                List.of(
+                                        "V1__Initial_legacy_schema.sql",
+                                        "V2__SCRUM14_phase1_combo_core.sql"))
+                            Files.copy(
+                                    Path.of("src/main/resources/db/migration/" + f),
+                                    temp.resolve(f));
+                        Files.writeString(
+                                temp.resolve("V2__SCRUM14_phase1_combo_core.sql"),
+                                "\nSELECT 42;",
+                                StandardOpenOption.APPEND);
+                        assertThatThrownBy(
+                                        () ->
+                                                migration()
+                                                        .target("2")
+                                                        .locations(
+                                                                "filesystem:"
+                                                                        + temp.toAbsolutePath())
+                                                        .load()
+                                                        .validate())
                                 .isInstanceOf(FlywayException.class);
                     } finally {
                         try (var entries = Files.list(temp)) {
@@ -113,7 +140,8 @@ class BundleCoreMigrationIT {
                             var st = c.createStatement()) {
                         st.execute("update bundle_items set quantity=0");
                     }
-                    assertThatThrownBy(() -> migration().target("2").load().migrate()).isInstanceOf(FlywayException.class);
+                    assertThatThrownBy(() -> migration().target("2").load().migrate())
+                            .isInstanceOf(FlywayException.class);
                     assertThat(
                                     count(
                                             "select count(*) from information_schema.tables where table_schema='public' and table_name in ('bundle_configurations','audit_entries')"))
@@ -125,7 +153,8 @@ class BundleCoreMigrationIT {
     void databaseConstraintsRejectInvalidAndPreserveBaseTables() throws Exception {
         isolated(
                 () -> {
-                    assertThat(migration().target("2").load().migrate().migrationsExecuted).isEqualTo(1);
+                    assertThat(migration().target("2").load().migrate().migrationsExecuted)
+                            .isEqualTo(1);
                     try (var c = open();
                             var st = c.createStatement()) {
                         assertThatThrownBy(() -> st.execute("update bundle_items set quantity=0"))
