@@ -1,141 +1,260 @@
-# Feature Delivery Workflow and Review Gates
+# AquaSuite Lean Feature Delivery Workflow
 
-## Purpose and Scope
+## Purpose
 
-Tài liệu này xác lập quy trình chuẩn từ khâu đặc tả yêu cầu đến khi bàn giao tính năng trong kho lưu trữ AquaSuite backend. Mục tiêu là đảm bảo chất lượng kỹ thuật, tính toàn vẹn của kiến trúc và sự phối hợp nhịp nhàng giữa kỹ sư con người và AI Agent.
+Quy trình này tối ưu vòng đời phát triển với AI theo nguyên tắc: kiểm soát theo rủi ro, một nguồn trạng thái duy nhất và ưu tiên bằng chứng chạy được hơn tài liệu lặp lại.
 
----
-
-## Delivery Stages and Quality Gates
-
-Quy trình triển khai mỗi tính năng phân tách rõ ràng giữa tiền điều kiện cấp dự án (project-level precondition) và chuỗi cổng kiểm soát chất lượng của Global Workflow v2:
+Các ràng buộc kiến trúc, bảo mật, module boundary và Git safety trong `AGENTS.md` luôn có hiệu lực, không phụ thuộc mức rủi ro của công việc.
 
 ```text
-[Tiền điều kiện dự án: Lập Feature Spec]
-         │
-         ▼ (Thẩm quyền dự án: Spec Review Được Phê Duyệt)
-[Khởi tạo Kế hoạch: $plan-feature]
-         │
-         ▼ (Cổng kiểm duyệt: PLAN_REVIEW: APPROVED)
-[Thực thi Kỹ thuật & Kiểm thử: ANTI_DEV]
-         │
-         ▼ (Cổng bàn giao: IMPLEMENTATION_STATUS: READY_FOR_REVIEW)
-         ▼ (Cổng duyệt mã: CODE_REVIEW: APPROVED)
-         │
-         ▼ (Cổng nghiệm thu cuối: FINAL_GATE: PASS)
+Intake & Risk Classification
+          |
+          v
+Delivery Brief / Feature Spec (khi cần)
+          |
+          v
+Implement in Small Vertical Slices <-> Targeted Tests
+          |
+          v
+One Review Gate
+          |
+          v
+Done
 ```
 
-### Stage 1: Specification Creation and Spec Review (Project Precondition)
-1. **Lập đặc tả**: Tác giả (Kỹ sư hoặc AI) khởi tạo Feature Spec theo mẫu `docs/templates/feature-spec.md`.
-2. **Nội dung trọng yếu**: Phải xác định rõ Owning Module, ranh giới package, mô hình dữ liệu, hợp đồng API/Event, các tiêu chí nghiệm thu (AC) và ma trận kiểm thử (AC-to-Test).
-3. **Tiền điều kiện cấp dự án (project-level precondition)**:
-   - Đánh giá tính khả thi và sự phù hợp với ranh giới kiến trúc trong `docs/architecture/Architecture-Aquasuite.md`.
-   - Thẩm quyền đánh giá và xác nhận hoàn thành Spec Review thuộc về Product Owner hoặc Lead Architect cấp dự án.
-   - Vai trò CODEX_PLAN hoàn toàn không quản lý hay xác nhận thẩm định Spec Review; vai trò này chỉ tiếp nhận bản đặc tả đã được dự án đồng thuận làm căn cứ đầu vào.
-   - Chỉ khi tiền điều kiện Spec Review đã hoàn tất ở cấp dự án, quy trình kỹ thuật mới được phép kích hoạt bước lập kế hoạch thông qua lệnh `$plan-feature`.
+---
 
-### Stage 2: Implementation Planning and Plan Review (Global Workflow v2)
-1. **Lập kế hoạch thực thi qua `$plan-feature`**: Khởi tạo kế hoạch chi tiết (Active Plan) xác định rõ:
-   - `PLAN_ID`, `PLAN_VERSION`, `SCOPE`.
-   - Repository Map và ranh giới Git root.
-   - Danh sách file cụ thể sẽ thay đổi hoặc tạo mới.
-   - Các lane triển khai tuần tự hoặc song song (phân định file ownership để tránh xung đột).
-2. **Cổng kiểm duyệt kế hoạch (Plan Review Gate)**:
-   - Kế hoạch phải được kiểm tra độc lập và cấp trạng thái `PLAN_REVIEW: APPROVED`.
-   - Mọi thay đổi nội dung của plan sau khi duyệt sẽ làm tăng `PLAN_VERSION` và khiến review cũ mất hiệu lực (stale).
+## 1. Classify the Work
 
-### Approval Metadata Reconciliation
+Mọi công việc phải được phân loại trước khi lập kế hoạch. Mức rủi ro cao nhất áp dụng nếu công việc khớp nhiều nhóm.
 
-`WORKFLOW_AMENDMENT_ID: APPROVAL-METADATA-RECONCILIATION`
-`AMENDMENT_STATUS: HUMAN_AUTHORIZED`
-`AUTHORIZATION_ROLE: PROJECT_OWNER_WORKFLOW_OWNER`
-`AUTHORIZATION_DATE: 2026-10-19`
+| Level | Typical Work | Required Artifact | Approval Before Coding |
+|---|---|---|---|
+| `S` — Small | Bug nhỏ, refactor nội bộ, bổ sung test, tài liệu hoặc config không đổi contract | Delivery Brief ngắn | Không; trừ khi còn quyết định nghiệp vụ |
+| `M` — Standard | Endpoint/CRUD trong một module, migration additive đơn giản, thay đổi nghiệp vụ giới hạn | Delivery Brief đầy đủ | Một lần xác nhận scope/AC bởi owner |
+| `L` — High Risk | Authentication/authorization, tiền, tồn kho, concurrency, migration có rủi ro dữ liệu, public API/event hoặc thay đổi xuyên module | Feature Spec + Delivery Brief | Một Design Review bởi đúng owner |
 
-`PLAN_REVIEW` trong active Plan là snapshot metadata được ghi tại thời điểm
-tạo hoặc cập nhật Plan; nó không phải một approval gate độc lập. Canonical
-`.agent/reviews/plan-review.md` là nguồn xác thực trạng thái Plan Review khi
-đồng thời thỏa mãn toàn bộ điều kiện sau:
+Không dùng số file hoặc số dòng làm tiêu chí chính. Phân loại dựa trên tác động, khả năng hoàn tác và mức độ không chắc chắn.
 
-1. Canonical review ghi `PLAN_REVIEW: APPROVED`.
-2. `PLAN_ID` của review khớp active Plan.
-3. `PLAN_VERSION` của review khớp active Plan.
-4. SHA-256 byte UTF-8 của active Plan khớp tuyệt đối với `PLAN_SHA256` trong
-   canonical review.
-5. Không có approval mới hơn đã supersede hoặc revoke approval hiện tại.
+### Mandatory Intake Questions
 
-Khi các điều kiện trên đạt, `CODEX_REVIEW` và `ANTI_DEV` dùng canonical review
-để xác định Plan Review approval và implementation authorization. Không yêu
-cầu, và không được thực hiện, việc sửa active Plan chỉ để đổi
-`PLAN_REVIEW: PENDING` thành `PLAN_REVIEW: APPROVED`; việc sửa đó sẽ làm thay
-đổi Plan hash và có thể làm approval stale.
+1. Mục tiêu và giá trị nghiệp vụ là gì?
+2. Acceptance Criteria nào chứng minh công việc hoàn thành?
+3. Module nào sở hữu dữ liệu và logic?
+4. Có thay đổi HTTP API, Java API hoặc Domain Event công khai không?
+5. Có thay đổi schema, migration hoặc dữ liệu hiện hữu không?
+6. Có rủi ro security, tiền, tồn kho, concurrency hoặc mất dữ liệu không?
 
-Quy tắc này không áp dụng nếu Plan hash khác approved SHA, ID/version khác,
-canonical review không `APPROVED`, approval đã bị supersede/revoke, hoặc có
-thay đổi technical content sau approval. Các trường hợp đó phải đi qua Plan
-Revision và Plan Review mới theo workflow.
-
-### Stage 3: Implementation, Verification, and Handoff
-1. **Thẩm quyền triển khai (Authorization Gate)**:
-   - Agent hoặc kỹ sư chỉ được phép sửa mã nguồn khi có đúng một active plan kèm phê duyệt `PLAN_REVIEW: APPROVED` còn hiệu lực và mã băm SHA-256 khớp tuyệt đối.
-2. **Quy tắc thực thi (Implementation Rules)**:
-   - Chỉ chỉnh sửa trong phạm vi file đã đăng ký trong plan.
-   - Tuân thủ coding guardrails và package visibility.
-   - Chạy đầy đủ các bước kiểm thử tự động, build và verification được nêu trong plan.
-3. **Cổng bàn giao thực thi (Implementation Handoff Gate)**:
-   - Sau khi hoàn thành các lane và bước kiểm tra thực tế, Agent/kỹ sư triển khai bắt buộc phải xuất artifact bàn giao tổng hợp (Handoff Artifact) lưu tại `<PROJECT_ROOT>/.agent/handoffs/<PLAN_ID>.md` (hiển thị `IMPLEMENTATION_STATUS: READY_FOR_REVIEW`).
-   - Yêu cầu cấu trúc bắt buộc:
-     - `IMPLEMENTATION_STATUS: READY_FOR_REVIEW`
-     - `PLAN_ID: <PLAN_ID>`
-     - `PLAN_VERSION: <PLAN_VERSION>`
-     - `## Lanes Completed` (xác nhận hoàn tất toàn bộ các lane tuần tự/song song theo plan)
-     - `## Files Changed` (ghi rõ `Repository` ID và `Relative Path` cho từng file)
-     - `## Implementation Summary`
-     - `## Tests Added / Updated`
-     - `## Verification Performed` (`PASS`, `FAIL`, `NOT_RUN`, `NOT_APPLICABLE` có thể tái lập)
-     - `## Contract Verification` (đối chiếu API/data contract)
-     - `## Deviations From Approved Plan` (`None` nếu tuân thủ tuyệt đối)
-     - `## Known Limitations`
-   - Chỉ khi artifact handoff này tồn tại trên đĩa và đầy đủ thì cổng Code Review mới được phép kích hoạt. Thiếu handoff, Code Review sẽ bị chặn ngay tại precondition (`CODE_REVIEW: BLOCKED`).
-4. **Cổng duyệt mã nguồn (Code Review Gate)**:
-   - Kiểm tra mã nguồn thực tế so với kế hoạch đã duyệt và tiêu chuẩn kiến trúc.
-   - Đánh giá kết quả kiểm thử thực tế (`PASS`, `FAIL`, `NOT_RUN`, `NOT_APPLICABLE`).
-   - Kết quả đánh giá đạt chuẩn cấp trạng thái: `CODE_REVIEW: APPROVED`. Nếu có phát hiện lỗi: Đưa ra `CHANGES_REQUESTED`. Đội triển khai phải sửa chữa và bàn giao lại.
-
-### Stage 4: Final Gate and Integration
-- Xác nhận toàn bộ tiêu chí AC đã đạt và kiểm thử tự động vượt qua.
-- Kết quả nghiệm thu cuối cùng cấp trạng thái: `FINAL_GATE: PASS`.
-- Đóng gói tài liệu bàn giao và hoàn tất tính năng.
+Nếu câu trả lời chưa đủ để triển khai an toàn, ghi quyết định mở trong Delivery Brief và chỉ dừng phần công việc phụ thuộc quyết định đó.
 
 ---
 
-## Workflow State and Governance
+## 2. Single Source of Workflow State
 
-- Thư mục `.agent/` là nơi lưu trữ workflow state mang tính chất local-only tại `PROJECT_ROOT`, được loại trừ khỏi Git theo cấu hình `.gitignore`.
-- Mặc dù mang tính chất local-only trên môi trường phát triển, Agent bắt buộc phải duy trì tính toàn vẹn của Global Workflow v2:
-  - Duy trì tính duy nhất của active plan trong `.agent/plans/active/`.
-  - Tuân thủ mã băm toàn vẹn SHA-256 (`PLAN_SHA256`) và ngăn chặn stale approval.
-  - Tuyệt đối bảo toàn nguyên vẹn mọi workflow artifacts trong `archive/`, `cancelled/`, và `paused/` (không sửa đổi, không xóa, không tái cấu trúc).
+Mỗi work item đang hoạt động sử dụng đúng một Delivery Brief:
+
+```text
+.agent/work/<WORK_ID>.md
+```
+
+Delivery Brief là nguồn trạng thái duy nhất. Không tạo riêng plan review, implementation handoff, code review hoặc final gate artifact. Không dùng SHA-256 của plan làm điều kiện cấp quyền triển khai.
+
+### Minimum Delivery Brief
+
+```markdown
+# <WORK_ID> — <Title>
+
+STATUS: DRAFT | DESIGN_REVIEW | READY | IN_PROGRESS | REVIEW | CHANGES_REQUESTED | BLOCKED | DONE | CANCELLED
+RISK: S | M | L
+OWNER_MODULE: <module>
+SPEC: <path | NOT_REQUIRED>
+DESIGN_REVIEW: NOT_REQUIRED | PENDING | APPROVED | CHANGES_REQUESTED
+
+## Goal
+<Outcome cần đạt>
+
+## Acceptance Criteria
+- [ ] AC-01 ...
+
+## Scope
+### In
+- ...
+### Out
+- ...
+
+## Decisions and Constraints
+- ...
+
+## Contract / Schema Impact
+- None | ...
+
+## Implementation Notes
+- Các component/vertical slice dự kiến; không cần khóa danh sách file.
+
+## Verification
+- [ ] Targeted tests: <command/result>
+- [ ] Full suite: <command/result hoặc lý do N/A>
+- [ ] Contract/security/manual checks: <result>
+
+## Review Findings
+- [ ] <finding hoặc None>
+
+## Completion
+- Files/components changed: ...
+- Known limitations: ...
+```
+
+Artifact cũ trong `.agent/plans/archive`, `.agent/plans/cancelled` và các thư mục lịch sử được bảo toàn nguyên trạng. Không cần chuyển đổi lịch sử sang format mới.
+
+### Status and Design Review Rules
+
+- `DRAFT`: Requirement hoặc quyết định bắt buộc chưa đủ để chuyển giao.
+- `DESIGN_REVIEW`: Risk L đã đủ thông tin để CODEX_REVIEW đánh giá thiết kế.
+- `READY`: Work item đủ điều kiện để ANTI_DEV triển khai.
+- `IN_PROGRESS`: ANTI_DEV đang triển khai và kiểm thử.
+- `REVIEW`: Implementation và verification đã sẵn sàng cho CODEX_REVIEW.
+- `CHANGES_REQUESTED`: Còn review findings cần xử lý.
+- `BLOCKED`: Cần quyết định hoặc điều kiện bên ngoài để tiếp tục.
+- `DONE`: AC và verification đạt, không còn blocking finding.
+- `CANCELLED`: Chỉ dùng khi người dùng hủy work item rõ ràng.
+
+`DESIGN_REVIEW` được dùng như sau:
+
+- Risk S/M: `DESIGN_REVIEW: NOT_REQUIRED`.
+- Risk L chưa review: `DESIGN_REVIEW: PENDING` cùng `STATUS: DESIGN_REVIEW`.
+- Risk L đạt review: `DESIGN_REVIEW: APPROVED` cùng `STATUS: READY`.
+- Risk L chưa đạt: `DESIGN_REVIEW: CHANGES_REQUESTED` cùng `STATUS: CHANGES_REQUESTED`.
 
 ---
 
-## Contract and Specification Change Management
+## 3. Specification and Planning Depth
 
-Khi tính năng đã bước vào giai đoạn triển khai hoặc đã hoàn thành mà phát sinh yêu cầu thay đổi:
+### Risk S
 
-1. **Thay đổi Hợp đồng API / Event hoặc Specification**:
-   - Nếu thay đổi ảnh hưởng đến Consumer ở module khác hoặc Frontend: **Bắt buộc dừng việc triển khai ngay lập tức**.
-   - Phải báo cáo leo thang (`ESCALATION: PLAN_REVISION_REQUIRED`).
-   - Cập nhật lại Feature Spec và được dự án xác nhận lại tiền điều kiện. Sau đó lập phiên bản mới của Active Plan, tăng số hiệu phiên bản (`PLAN_VERSION`), và thực hiện kiểm duyệt lại để nhận `PLAN_REVIEW: APPROVED` mới.
-2. **Thay đổi Logic Nội bộ trong Package `internal`**:
-   - Các điều chỉnh hiện thực không làm thay đổi public contract, schema hay ranh giới module có thể được điều chỉnh trong cùng phiên bản kế hoạch nếu được Code Review chấp thuận.
+- Goal, AC, scope và verification trong Delivery Brief.
+- Có thể triển khai ngay nếu không có quyết định nghiệp vụ hoặc contract còn mở.
+
+### Risk M
+
+- Delivery Brief đầy đủ.
+- Owner xác nhận scope và AC một lần trước khi triển khai.
+- Ghi contract/schema impact nếu có.
+
+### Risk L
+
+- Feature Spec theo `docs/templates/feature-spec.md`.
+- Design Review tập trung vào quyết định có chi phí hoàn tác cao: security model, public contract, schema/data migration, transaction và concurrency.
+- Sau khi Design Review được duyệt, implementation không cần một Plan Review thứ hai.
+
+Kế hoạch mô tả component hoặc vertical slice, không khóa theo danh sách file. Agent được phép thêm hoặc sửa file phát hiện trong lúc triển khai nếu vẫn nằm trong owning module, scope, contract/schema decision và AC đã duyệt.
 
 ---
 
-## Git Safety and Automation Boundaries
+## 4. Implementation Loop
 
-Để bảo vệ lịch sử và sự ổn định của repository:
+Triển khai theo vertical slice nhỏ:
 
-> [!CAUTION]
-> 1. **Cấm tự động Git Mutation**: AI Agent tuyệt đối không tự ý thực hiện các lệnh: `git commit`, `git push`, `git reset`, `git clean`, `git rebase`, hoặc `git checkout --force`.
-> 2. **Bảo toàn thay đổi chưa commit**: Khi bắt đầu bất kỳ phiên làm việc nào, Agent phải kiểm tra `git status` và bảo vệ toàn bộ các file chưa commit của lập trình viên.
-> 3. **Quyền sở hữu Commit**: Mọi thao tác commit và push lên remote repository phải do kỹ sư con người trực tiếp rà soát và thực thi.
+```text
+Inspect current behavior
+→ Implement one coherent slice
+→ Run targeted tests
+→ Inspect diff and boundaries
+→ Repeat
+```
+
+Với backend, một slice có thể đi từ migration/entity đến repository/service, controller/security và integration test. Không chờ hoàn thành toàn bộ feature mới kiểm thử.
+
+Trong quá trình thực thi:
+
+- Bảo toàn mọi thay đổi chưa commit có sẵn của người dùng.
+- Tuân thủ `api/` và `internal/` boundary.
+- Không mở rộng scope chỉ để “tiện thể” refactor.
+- Ghi quyết định mới có ý nghĩa vào Delivery Brief, không tạo artifact phụ.
+- Cập nhật `STATUS: REVIEW` khi implementation và verification đã sẵn sàng để đánh giá.
+
+---
+
+## 5. One Review Gate
+
+Một review duy nhất đánh giá:
+
+1. Acceptance Criteria và behavior thực tế.
+2. Module boundary và kiến trúc.
+3. Public contract và schema compatibility.
+4. Security, dữ liệu nhạy cảm và secret exposure.
+5. Test evidence thực tế.
+6. Diff ngoài scope và known limitations.
+
+Kết quả review được ghi trực tiếp vào Delivery Brief:
+
+- `DONE`: AC đạt, verification phù hợp rủi ro và không còn finding bắt buộc.
+- `CHANGES_REQUESTED`: có finding cụ thể cần sửa.
+- `BLOCKED`: cần quyết định hoặc điều kiện bên ngoài mà nhóm không thể tự giải quyết.
+
+Khi có `CHANGES_REQUESTED`, bổ sung checklist finding vào cùng Delivery Brief, sửa code, chạy regression test và review lại. Không tạo version plan, handoff, RCA hoặc review artifact mới cho mỗi vòng.
+
+RCA riêng chỉ cần cho incident production, security incident, mất/corrupt dữ liệu hoặc defect nghiêm trọng tái diễn.
+
+---
+
+## 6. Definition of Done
+
+Work item chỉ chuyển thành `DONE` khi:
+
+- Tất cả AC đã đạt.
+- Targeted tests pass.
+- Full test suite pass; hoặc ghi rõ lý do hợp lệ cho `NOT_APPLICABLE`/`NOT_RUN`.
+- Contract, schema và security checks áp dụng đã hoàn thành.
+- Không còn review finding bắt buộc hoặc quyết định mở cản trở release.
+- Delivery Brief ghi các component/file đã thay đổi và known limitations.
+- Diff đã được kiểm tra để tránh rò rỉ credential.
+
+Review đạt cùng test evidence chính là final gate; không tạo Final Gate artifact riêng.
+
+---
+
+## 7. Change and Escalation Rules
+
+Phải dừng phần implementation bị ảnh hưởng và xin quyết định khi phát sinh:
+
+- Breaking change đối với HTTP API, Java API hoặc Domain Event công khai.
+- Migration có nguy cơ mất, ghi đè hoặc diễn giải lại dữ liệu.
+- Thay đổi ownership hoặc dependency giữa module.
+- Thay đổi authentication, authorization hoặc permission semantics chưa được duyệt.
+- AC/spec mâu thuẫn với running code hoặc với tài liệu kiến trúc.
+- Scope mới làm thay đổi đáng kể risk classification.
+
+Không cần re-plan hoặc re-approval cho:
+
+- Thêm test, fixture hoặc test helper.
+- Đổi tên/tách private implementation trong `internal/`.
+- Sửa mapper, validation hoặc error handling để đáp ứng AC.
+- Thêm file trong cùng module và scope.
+- Điều chỉnh implementation không làm đổi public contract hoặc schema decision.
+
+Nếu escalation làm thay đổi mục tiêu, AC, public contract hoặc schema decision, cập nhật cùng Delivery Brief; với Risk L, cập nhật Feature Spec liên quan và review lại đúng phần thay đổi.
+
+---
+
+## 8. Git and Artifact Safety
+
+- Agent không tự ý chạy `git commit`, `git push`, `git reset`, `git clean`, `git rebase` hoặc `git checkout --force`.
+- Commit và push thuộc quyền quyết định của con người.
+- `.agent/` là local-only và được ignore bởi Git.
+- Không sửa, xóa hoặc tái cấu trúc artifact đã archive/cancelled từ workflow cũ.
+- Work item mới chỉ dùng `.agent/work/`; khi hoàn thành có thể chuyển nguyên file sang `.agent/archive/` mà không nhân bản.
+- Không ghi secret thật vào source, tài liệu hoặc workflow artifact.
+
+---
+
+## 9. Workflow Health Metrics
+
+Sau mỗi 2–3 work item, theo dõi:
+
+- Thời gian từ intake đến lần chạy code/test đầu tiên.
+- Số lần cần con người phê duyệt.
+- Số artifact trên mỗi work item.
+- Số vòng `CHANGES_REQUESTED`.
+- Defect lọt qua review/test.
+
+Mục tiêu mặc định: một workflow artifact cho mỗi work item, tối đa một approval trước coding và không tạo tài liệu không hỗ trợ một quyết định hoặc bằng chứng kiểm chứng cụ thể.

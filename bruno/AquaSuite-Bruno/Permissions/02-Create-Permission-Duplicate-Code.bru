@@ -1,0 +1,35 @@
+meta {
+  name: 02 - Create Permission - Duplicate Code (409 IAM_005)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/iam/permissions
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "code": "{{permissionCode}}",
+    "description": "Thử tạo trùng lặp permission code"
+  }
+}
+
+tests {
+  test('Returns HTTP 409 Conflict with IAM_005', function () {
+    expect(res.getStatus()).to.equal(409);
+    const body = res.getBody();
+    expect(body.success).to.equal(false);
+    expect(body.code).to.equal('IAM_005');
+  });
+}

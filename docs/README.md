@@ -35,14 +35,15 @@ Hệ thống tài liệu backend bao gồm các tài liệu chuyên đề sau:
 
 ### 3. Specifications and Templates
 - [`templates/feature-spec.md`](templates/feature-spec.md):
-  - Mẫu tài liệu đặc tả tính năng chuẩn hóa.
-  - Phân loại độ sâu tài liệu theo mức độ rủi ro (Risk-Based Depth).
-  - Quy định đầy đủ về Metadata, Actor, Business Rules, Data Model, API/Event Contracts, Concurrency và Ma trận AC-to-Test.
+  - Mẫu đặc tả gọn dành cho work item Risk L.
+  - Chỉ yêu cầu các phần contract, dữ liệu, concurrency và failure safety thực sự áp dụng.
+  - Risk S/M sử dụng trực tiếp Delivery Brief thay vì tạo thêm Feature Spec.
 
 ### 4. Development Workflow
 - [`workflow/feature-delivery.md`](workflow/feature-delivery.md):
-  - Quy trình quản trị phân tầng: Tiền điều kiện cấp dự án (Spec Review) trước khi lập kế hoạch, tiếp nối bởi chuỗi cổng kiểm duyệt của Global Workflow v2 (Plan Review -> Implementation & Handoff -> Code Review -> Final Gate).
-  - Quy định thẩm quyền triển khai, cổng bàn giao thực thi (Implementation Handoff Gate) và quản lý thay đổi hợp đồng.
+  - AquaSuite Lean Workflow phân loại công việc theo Risk S/M/L.
+  - Mỗi work item dùng một Delivery Brief làm nguồn trạng thái duy nhất; Risk L bổ sung Feature Spec và một Design Review.
+  - Một review gate hợp nhất verification, code review và final gate; không khóa kế hoạch theo file hoặc SHA-256.
   - Quy tắc an toàn Git: Nghiêm cấm Agent tự ý commit, push, reset hoặc clean mã nguồn.
 
 ### 5. Migrations
@@ -58,4 +59,4 @@ Khi tiếp cận dự án để nghiên cứu hoặc triển khai công việc m
 1. Đọc [`../AGENTS.md`](../AGENTS.md) tại thư mục gốc để nắm các chỉ thị an toàn và nguyên tắc cốt lõi.
 2. Đọc [`architecture/Architecture-Aquasuite.md`](architecture/Architecture-Aquasuite.md) để nắm rõ ranh giới module và trạng thái hệ thống.
 3. Đọc [`contracts/api-conventions.md`](contracts/api-conventions.md) và [`architecture/module-contracts.md`](architecture/module-contracts.md) trước khi thiết kế bất kỳ API hoặc Event nào.
-4. Đọc [`workflow/feature-delivery.md`](workflow/feature-delivery.md) để tuân thủ đúng các cổng phê duyệt trước khi lập trình.
+4. Đọc [`workflow/feature-delivery.md`](workflow/feature-delivery.md) để phân loại rủi ro và áp dụng đúng mức kiểm soát trước khi lập trình.

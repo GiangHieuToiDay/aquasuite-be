@@ -1,11 +1,11 @@
 package com.aquasuite.ims.module.iam.internal.auth.config;
 
-import com.aquasuite.ims.module.iam.internal.authorization.entity.Role;
-import com.aquasuite.ims.module.iam.internal.authorization.repository.RoleRepository;
-import com.aquasuite.ims.module.iam.internal.user.entity.User;
-import com.aquasuite.ims.module.iam.internal.user.enums.AuthProvider;
-import com.aquasuite.ims.module.iam.internal.user.enums.UserStatus;
-import com.aquasuite.ims.module.iam.internal.user.repository.UserRepository;
+import com.aquasuite.ims.module.iam.internal.entity.AuthProvider;
+import com.aquasuite.ims.module.iam.internal.entity.Role;
+import com.aquasuite.ims.module.iam.internal.entity.User;
+import com.aquasuite.ims.module.iam.internal.entity.UserStatus;
+import com.aquasuite.ims.module.iam.internal.repository.RoleRepository;
+import com.aquasuite.ims.module.iam.internal.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;

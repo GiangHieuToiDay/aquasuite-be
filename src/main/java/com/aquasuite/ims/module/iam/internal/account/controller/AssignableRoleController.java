@@ -23,7 +23,7 @@ import java.util.List;
 public class AssignableRoleController {
     UserAccountService service;
 
-    @GetMapping
+    @GetMapping(params = "assignable")
     public ApiResponse<List<RoleOptionResponse>> roles(@RequestParam(defaultValue = "true") boolean assignable) {
         return ApiResponse.ok(service.assignableRoles());
     }

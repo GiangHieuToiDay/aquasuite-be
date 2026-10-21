@@ -4,8 +4,8 @@ import com.aquasuite.ims.module.iam.internal.account.dto.request.CreateUserAccou
 import com.aquasuite.ims.module.iam.internal.account.dto.request.UpdateUserAccountRequest;
 import com.aquasuite.ims.module.iam.internal.account.dto.response.RoleOptionResponse;
 import com.aquasuite.ims.module.iam.internal.account.dto.response.UserAccountResponse;
-import com.aquasuite.ims.module.iam.internal.authorization.entity.Role;
-import com.aquasuite.ims.module.iam.internal.user.entity.User;
+import com.aquasuite.ims.module.iam.internal.entity.Role;
+import com.aquasuite.ims.module.iam.internal.entity.User;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingConstants;

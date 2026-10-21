@@ -15,7 +15,8 @@ public enum InventoryErrorCode implements BaseErrorCode {
     INVALID_STOCK_COUNT_STATUS("INV_005", "Trạng thái phiếu kiểm kho không hợp lệ: {0}", HttpStatus.BAD_REQUEST),
     SUPPLIER_NOT_FOUND("INV_006", "Không tìm thấy nhà cung cấp: {0}", HttpStatus.NOT_FOUND),
     DUPLICATE_STOCK_COUNT_ITEM("INV_007", "Mã SKU bị lặp lại nhiều lần trong cùng phiếu kiểm kê: {0}", HttpStatus.BAD_REQUEST),
-    INVALID_ADJUST_QUANTITY("INV_008", "Số lượng điều chỉnh kho phải khác 0", HttpStatus.BAD_REQUEST);
+    INVALID_ADJUST_QUANTITY("INV_008", "Số lượng điều chỉnh kho phải khác 0", HttpStatus.BAD_REQUEST),
+    INVENTORY_NOT_EMPTY("INV_009", "Không thể xóa tồn kho vì SKU vẫn còn tồn, đang giữ hoặc đã có lịch sử kho", HttpStatus.CONFLICT);
 
     private final String code;
     private final String message;

@@ -1,0 +1,56 @@
+meta {
+  name: 02 - Create Child Category
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/categories
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "code": "{{childCategoryCode}}",
+    "name": "Danh mục con kiểm thử WORK-013",
+    "description": "Mô tả danh mục con",
+    "status": "ACTIVE",
+    "parentId": "{{categoryId}}"
+  }
+}
+
+vars:pre-request {
+  childCategoryCode: CAT_CHILD_001
+}
+
+script:pre-request {
+  const uniqueCode = 'CHILD_' + Math.floor(Date.now() / 1000);
+  bru.setVar('childCategoryCode', uniqueCode);
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (res.getStatus() === 201 && body && body.data && body.data.id) {
+    bru.setVar('childCategoryId', body.data.id);
+  }
+}
+
+tests {
+  test('Returns HTTP 201 Created with parentId set', function () {
+    expect(res.getStatus()).to.equal(201);
+    const body = res.getBody();
+    expect(body.success).to.equal(true);
+    expect(body.data.id).to.be.a('string').and.not.empty;
+    expect(body.data.code).to.equal(bru.getVar('childCategoryCode'));
+    expect(body.data.parentId).to.equal(bru.getVar('categoryId'));
+  });
+}

@@ -1,0 +1,44 @@
+meta {
+  name: 05 - List Permissions
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/v1/iam/permissions?page=0&size=20&search={{permissionCode}}&sortBy=code&direction=asc
+  body: none
+  auth: bearer
+}
+
+params:query {
+  page: 0
+  size: 20
+  search: {{permissionCode}}
+  sortBy: code
+  direction: asc
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('Returns HTTP 200 with stable paged shape', function () {
+    expect(res.getStatus()).to.equal(200);
+    const body = res.getBody();
+    expect(body.success).to.equal(true);
+    expect(body.code).to.equal('SUCCESS');
+    expect(body.data.items).to.be.an('array');
+    expect(body.data.page).to.equal(0);
+    expect(body.data.size).to.equal(20);
+    expect(body.data.totalElements).to.be.at.least(1);
+    expect(body.data.totalPages).to.be.at.least(1);
+  });
+
+  test('Found created permission in items', function () {
+    const body = res.getBody();
+    const match = body.data.items.find(p => p.code === bru.getVar('permissionCode'));
+    expect(match).to.not.be.undefined;
+    expect(match.id).to.equal(bru.getVar('permissionId'));
+  });
+}

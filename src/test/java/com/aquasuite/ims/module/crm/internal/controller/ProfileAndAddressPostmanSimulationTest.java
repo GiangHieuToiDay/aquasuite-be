@@ -5,12 +5,12 @@ import com.aquasuite.ims.module.crm.internal.payload.req.UpdateDeliveryAddressRe
 import com.aquasuite.ims.module.crm.internal.payload.req.UpdateProfileRequest;
 import com.aquasuite.ims.module.crm.internal.repository.CustomerAddressRepository;
 import com.aquasuite.ims.module.crm.internal.repository.CustomerRepository;
-import com.aquasuite.ims.module.iam.internal.auth.dto.request.LoginRequest;
-import com.aquasuite.ims.module.iam.internal.authorization.entity.Role;
-import com.aquasuite.ims.module.iam.internal.authorization.repository.RoleRepository;
-import com.aquasuite.ims.module.iam.internal.user.entity.User;
-import com.aquasuite.ims.module.iam.internal.user.enums.UserStatus;
-import com.aquasuite.ims.module.iam.internal.user.repository.UserRepository;
+import com.aquasuite.ims.module.iam.internal.payload.request.LoginRequest;
+import com.aquasuite.ims.module.iam.internal.entity.Role;
+import com.aquasuite.ims.module.iam.internal.repository.RoleRepository;
+import com.aquasuite.ims.module.iam.internal.entity.User;
+import com.aquasuite.ims.module.iam.internal.entity.UserStatus;
+import com.aquasuite.ims.module.iam.internal.repository.UserRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
@@ -39,7 +39,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.datasource.username=postgres",
         "spring.datasource.password=123",
         "spring.data.redis.host=127.0.0.1",
-        "spring.data.redis.port=6379"
+        "spring.data.redis.port=6379",
+        "spring.flyway.enabled=false"
 })
 @AutoConfigureMockMvc
 class ProfileAndAddressPostmanSimulationTest {

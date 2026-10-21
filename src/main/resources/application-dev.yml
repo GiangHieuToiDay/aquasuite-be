@@ -13,3 +13,8 @@ aquasuite:
   config:
     environment: dev
     auth-generation: 2
+  iam:
+    dev-seed:
+      # Opt-in development data initializer (FEATURE-009)
+      # Yeu cau bien moi truong AQUASUITE_DEV_OWNER_PASSWORD khi enabled=true
+      enabled: ${AQUASUITE_DEV_SEED_ENABLED:true}
