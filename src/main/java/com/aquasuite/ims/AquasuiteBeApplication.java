@@ -22,14 +22,16 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
         "com.aquasuite.ims.module.iam.internal.authorization.entity",
         "com.aquasuite.ims.module.audit.internal.entity",
         "com.aquasuite.ims.module.inventory.internal.entity",
-        "com.aquasuite.ims.module.catalog.internal.entity"
+        "com.aquasuite.ims.module.catalog.internal.entity",
+        "com.aquasuite.ims.module.crm.internal.entity"
 })
 @EnableJpaRepositories(basePackages = {
         "com.aquasuite.ims.module.iam.internal.user.repository",
         "com.aquasuite.ims.module.iam.internal.authorization.repository",
         "com.aquasuite.ims.module.audit.internal.repository",
         "com.aquasuite.ims.module.inventory.internal.repository",
-        "com.aquasuite.ims.module.catalog.internal.repository"
+        "com.aquasuite.ims.module.catalog.internal.repository",
+        "com.aquasuite.ims.module.crm.internal.repository"
 })
 public class AquasuiteBeApplication {
 

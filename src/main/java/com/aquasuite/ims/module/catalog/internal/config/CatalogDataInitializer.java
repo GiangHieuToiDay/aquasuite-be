@@ -10,14 +10,14 @@ import com.aquasuite.ims.module.catalog.internal.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
 @Slf4j
-@Configuration
+@Component
 @RequiredArgsConstructor
 public class CatalogDataInitializer implements CommandLineRunner {
 

@@ -74,6 +74,17 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceeded(org.springframework.web.multipart.MaxUploadSizeExceededException ex) {
+        log.warn("Max upload size exceeded: {}", ex.getMessage());
+        return ResponseEntity
+                .status(org.springframework.http.HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(
+                        "MSG17",
+                        "Avatar must be a JPEG, PNG, or WEBP image under 5MB."
+                ));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleFallbackException(Exception ex) {
         log.error("Unhandled exception: ", ex);
