@@ -1,7 +1,7 @@
 package com.aquasuite.ims.module.crm.internal.service.impl;
 
 import com.aquasuite.ims.module.crm.internal.entity.Customer;
-import com.aquasuite.ims.module.crm.internal.exception.CrmErrorCode;
+import com.aquasuite.ims.module.crm.internal.error.CrmErrorCode;
 import com.aquasuite.ims.module.crm.internal.payload.req.UpdateProfileRequest;
 import com.aquasuite.ims.module.crm.internal.payload.res.AvatarUploadResponse;
 import com.aquasuite.ims.module.crm.internal.payload.res.DeliveryAddressResponse;

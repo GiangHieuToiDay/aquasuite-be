@@ -1,6 +1,6 @@
 package com.aquasuite.ims.module.iam.internal.registration;
 
-import com.aquasuite.ims.module.iam.internal.registration.payload.RegisterRequest;
+import com.aquasuite.ims.module.iam.internal.payload.request.RegisterRequest;
 import jakarta.validation.Validation;
 import org.junit.jupiter.api.Test;
 import java.util.Set;

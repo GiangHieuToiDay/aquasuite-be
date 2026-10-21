@@ -1,6 +1,6 @@
 package com.aquasuite.ims.module.crm.internal.entity;
 
-import com.aquasuite.ims.module.crm.internal.entity.enums.CustomerType;
+import com.aquasuite.ims.module.crm.internal.enums.CustomerType;
 import jakarta.persistence.*;
 import lombok.*;
 

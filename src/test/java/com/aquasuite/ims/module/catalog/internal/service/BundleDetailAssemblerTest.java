@@ -3,7 +3,9 @@ package com.aquasuite.ims.module.catalog.internal.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.aquasuite.ims.module.catalog.internal.entity.*;
-import com.aquasuite.ims.module.catalog.internal.entity.enums.*;
+import com.aquasuite.ims.module.catalog.internal.enums.ProductStatus;
+import com.aquasuite.ims.module.catalog.internal.enums.ProductType;
+import com.aquasuite.ims.module.catalog.internal.enums.VariantStatus;
 import com.aquasuite.ims.module.catalog.internal.mapper.BundleCoreMapper;
 
 import org.junit.jupiter.api.BeforeEach;

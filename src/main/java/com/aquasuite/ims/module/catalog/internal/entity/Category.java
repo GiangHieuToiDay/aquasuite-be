@@ -1,10 +1,10 @@
 package com.aquasuite.ims.module.catalog.internal.entity;
 
 
-import com.aquasuite.ims.module.catalog.internal.entity.enums.CategoryStatus;
+import com.aquasuite.ims.module.catalog.internal.enums.CategoryStatus;
 import jakarta.persistence.*;
 import lombok.*;
-import java.time.LocalDateTime;
+
 import java.util.UUID;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

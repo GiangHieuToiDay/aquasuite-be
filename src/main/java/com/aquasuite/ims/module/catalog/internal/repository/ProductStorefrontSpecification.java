@@ -1,7 +1,7 @@
 package com.aquasuite.ims.module.catalog.internal.repository;
 
 import com.aquasuite.ims.module.catalog.internal.entity.Product;
-import com.aquasuite.ims.module.catalog.internal.entity.enums.ProductStatus;
+import com.aquasuite.ims.module.catalog.internal.enums.ProductStatus;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 

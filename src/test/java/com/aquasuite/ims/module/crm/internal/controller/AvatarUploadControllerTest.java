@@ -1,6 +1,6 @@
 package com.aquasuite.ims.module.crm.internal.controller;
 
-import com.aquasuite.ims.module.crm.internal.exception.CrmErrorCode;
+import com.aquasuite.ims.module.crm.internal.error.CrmErrorCode;
 import com.aquasuite.ims.module.crm.internal.payload.res.AvatarUploadResponse;
 import com.aquasuite.ims.module.crm.internal.service.UserProfileService;
 import com.aquasuite.ims.module.iam.api.IamApi;

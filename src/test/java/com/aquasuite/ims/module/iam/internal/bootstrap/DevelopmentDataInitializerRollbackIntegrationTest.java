@@ -1,5 +1,6 @@
 package com.aquasuite.ims.module.iam.internal.bootstrap;
 
+import com.aquasuite.ims.module.iam.internal.config.DevelopmentDataInitializer;
 import com.aquasuite.ims.module.iam.internal.entity.User;
 import com.aquasuite.ims.module.iam.internal.entity.UserStatus;
 import com.aquasuite.ims.module.iam.internal.repository.RoleRepository;
@@ -11,7 +12,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.core.env.Environment;
 import org.springframework.mock.env.MockEnvironment;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.support.TransactionTemplate;

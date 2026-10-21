@@ -2,8 +2,8 @@ package com.aquasuite.ims.module.crm.internal.service.impl;
 
 import com.aquasuite.ims.module.crm.internal.entity.Customer;
 import com.aquasuite.ims.module.crm.internal.entity.CustomerAddress;
-import com.aquasuite.ims.module.crm.internal.entity.enums.CustomerType;
-import com.aquasuite.ims.module.crm.internal.exception.CrmErrorCode;
+import com.aquasuite.ims.module.crm.internal.enums.CustomerType;
+import com.aquasuite.ims.module.crm.internal.error.CrmErrorCode;
 import com.aquasuite.ims.module.crm.internal.payload.req.CreateDeliveryAddressRequest;
 import com.aquasuite.ims.module.crm.internal.payload.req.UpdateDeliveryAddressRequest;
 import com.aquasuite.ims.module.crm.internal.payload.res.DeliveryAddressResponse;

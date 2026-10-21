@@ -1,11 +1,10 @@
 package com.aquasuite.ims.module.catalog.internal.service;
 
-import com.aquasuite.ims.module.catalog.internal.entity.Category;
 import com.aquasuite.ims.module.catalog.internal.error.CatalogErrorCode;
-import com.aquasuite.ims.module.catalog.internal.payload.request.CreateBrandRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.request.CreateCategoryRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.request.UpdateCategoryRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.response.CategoryResponse;
+import com.aquasuite.ims.module.catalog.internal.payload.req.CreateBrandRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.CreateCategoryRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateCategoryRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.res.CategoryResponse;
 import com.aquasuite.ims.module.catalog.internal.repository.CategoryRepository;
 import com.aquasuite.ims.share.exception.AppException;
 import com.aquasuite.ims.testsupport.PostgreSqlIntegrationTestSupport;

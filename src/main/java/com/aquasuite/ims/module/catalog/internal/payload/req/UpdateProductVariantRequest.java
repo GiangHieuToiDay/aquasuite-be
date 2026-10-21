@@ -1,6 +1,6 @@
 package com.aquasuite.ims.module.catalog.internal.payload.req;
 
-import com.aquasuite.ims.module.catalog.internal.entity.enums.VariantStatus;
+import com.aquasuite.ims.module.catalog.internal.enums.VariantStatus;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

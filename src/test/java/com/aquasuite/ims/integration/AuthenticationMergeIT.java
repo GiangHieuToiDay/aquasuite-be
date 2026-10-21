@@ -1,8 +1,10 @@
 package com.aquasuite.ims.integration;
 
 import com.aquasuite.ims.AquasuiteBeApplication;
-import com.aquasuite.ims.module.catalog.internal.payload.bundle.request.*;
-import com.aquasuite.ims.module.catalog.internal.payload.bundle.response.*;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundleCoreCreateRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundleItemRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundleVersionRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundleResponse;
 import com.aquasuite.ims.module.catalog.internal.service.BundleAdminService;
 import com.aquasuite.ims.module.iam.internal.entity.User;
 import com.aquasuite.ims.module.iam.internal.entity.UserStatus;

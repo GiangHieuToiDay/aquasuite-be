@@ -1,9 +1,9 @@
 package com.aquasuite.ims.module.catalog.internal.controller;
 
-import com.aquasuite.ims.module.catalog.internal.payload.request.CreateBrandRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.request.CreateCategoryRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.request.UpdateBrandRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.request.UpdateCategoryRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.CreateBrandRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.CreateCategoryRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateBrandRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateCategoryRequest;
 import com.aquasuite.ims.testsupport.AuthIntegrationTestSupport;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -28,7 +28,6 @@ import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;

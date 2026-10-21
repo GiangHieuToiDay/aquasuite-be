@@ -8,8 +8,8 @@ import com.aquasuite.ims.module.catalog.internal.payload.excel.ProductImportLook
 import com.aquasuite.ims.module.catalog.internal.entity.Product;
 import com.aquasuite.ims.module.catalog.internal.entity.ProductImage;
 import com.aquasuite.ims.module.catalog.internal.entity.ProductVariant;
-import com.aquasuite.ims.module.catalog.internal.entity.enums.ProductStatus;
-import com.aquasuite.ims.module.catalog.internal.entity.enums.VariantStatus;
+import com.aquasuite.ims.module.catalog.internal.enums.ProductStatus;
+import com.aquasuite.ims.module.catalog.internal.enums.VariantStatus;
 import com.aquasuite.ims.module.catalog.internal.mapper.ProductExcelMapper;
 import com.aquasuite.ims.module.catalog.internal.repository.*;
 import com.aquasuite.ims.share.excel.dto.ExcelRowError;

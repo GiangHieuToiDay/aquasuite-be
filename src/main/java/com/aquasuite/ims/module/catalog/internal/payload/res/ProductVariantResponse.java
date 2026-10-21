@@ -1,6 +1,6 @@
 package com.aquasuite.ims.module.catalog.internal.payload.res;
 
-import com.aquasuite.ims.module.catalog.internal.entity.enums.VariantStatus;
+import com.aquasuite.ims.module.catalog.internal.enums.VariantStatus;
 import lombok.Builder;
 
 import java.math.BigDecimal;

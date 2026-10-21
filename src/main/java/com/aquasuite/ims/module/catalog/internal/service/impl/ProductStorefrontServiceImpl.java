@@ -1,9 +1,8 @@
 package com.aquasuite.ims.module.catalog.internal.service.impl;
 
 import com.aquasuite.ims.module.catalog.internal.entity.*;
-import com.aquasuite.ims.module.catalog.internal.entity.enums.ProductStatus;
-import com.aquasuite.ims.module.catalog.internal.entity.enums.ProductType;
-import com.aquasuite.ims.module.catalog.internal.entity.enums.VariantStatus;
+import com.aquasuite.ims.module.catalog.internal.enums.ProductStatus;
+import com.aquasuite.ims.module.catalog.internal.enums.VariantStatus;
 import com.aquasuite.ims.module.catalog.internal.exception.CatalogErrorCode;
 import com.aquasuite.ims.module.catalog.internal.payload.req.ProductSearchCriteria;
 import com.aquasuite.ims.module.catalog.internal.payload.res.*;

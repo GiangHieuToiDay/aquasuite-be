@@ -5,8 +5,9 @@ import com.aquasuite.ims.module.catalog.internal.entity.BundleComponentGroup;
 import com.aquasuite.ims.module.catalog.internal.entity.BundleItem;
 import com.aquasuite.ims.module.catalog.internal.entity.Product;
 import com.aquasuite.ims.module.catalog.internal.entity.ProductVariant;
-import com.aquasuite.ims.module.catalog.internal.payload.bundle.request.*;
-import com.aquasuite.ims.module.catalog.internal.payload.bundle.response.*;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundleComponentGroupRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundleResponse;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundleSkuResponse;
 import com.aquasuite.ims.module.catalog.internal.service.BundlePricingService.Price;
 
 import org.mapstruct.Mapper;

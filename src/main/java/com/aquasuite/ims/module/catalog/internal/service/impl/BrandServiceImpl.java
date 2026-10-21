@@ -1,19 +1,18 @@
 package com.aquasuite.ims.module.catalog.internal.service.impl;
 
 import com.aquasuite.ims.module.catalog.internal.entity.Brand;
-import com.aquasuite.ims.module.catalog.internal.entity.enums.BrandStatus;
+import com.aquasuite.ims.module.catalog.internal.enums.BrandStatus;
 import com.aquasuite.ims.module.catalog.internal.error.CatalogConstraintExceptionTranslator;
 import com.aquasuite.ims.module.catalog.internal.error.CatalogErrorCode;
 import com.aquasuite.ims.module.catalog.internal.mapper.BrandMapper;
-import com.aquasuite.ims.module.catalog.internal.payload.request.CreateBrandRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.request.UpdateBrandRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.response.BrandPageResponse;
-import com.aquasuite.ims.module.catalog.internal.payload.response.BrandResponse;
+import com.aquasuite.ims.module.catalog.internal.payload.req.CreateBrandRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateBrandRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.res.BrandPageResponse;
+import com.aquasuite.ims.module.catalog.internal.payload.res.BrandResponse;
 import com.aquasuite.ims.module.catalog.internal.repository.BrandRepository;
 import com.aquasuite.ims.module.catalog.internal.service.BrandService;
 import com.aquasuite.ims.share.exception.AppException;
 import com.aquasuite.ims.share.exception.CommonErrorCode;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;

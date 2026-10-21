@@ -1,5 +1,6 @@
 package com.aquasuite.ims.module.iam.internal.bootstrap;
 
+import com.aquasuite.ims.module.iam.internal.config.DevelopmentDataInitializer;
 import com.aquasuite.ims.module.iam.internal.entity.Role;
 import com.aquasuite.ims.module.iam.internal.entity.User;
 import com.aquasuite.ims.module.iam.internal.entity.UserStatus;
@@ -15,10 +16,8 @@ import org.springframework.core.env.Environment;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.TransactionStatus;
-import org.springframework.transaction.support.TransactionCallbackWithoutResult;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;

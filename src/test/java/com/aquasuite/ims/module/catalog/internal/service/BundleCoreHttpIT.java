@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-import com.aquasuite.ims.module.catalog.internal.payload.bundle.request.BundleCoreStatusRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundleCoreStatusRequest;
 import com.aquasuite.ims.support.BundleCoreTestSupport;
 
 import org.junit.jupiter.api.Test;

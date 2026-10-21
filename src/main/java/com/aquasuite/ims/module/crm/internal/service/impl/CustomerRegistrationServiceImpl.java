@@ -3,6 +3,7 @@ package com.aquasuite.ims.module.crm.internal.service.impl;
 import com.aquasuite.ims.module.crm.api.CustomerRegistrationApi;
 import com.aquasuite.ims.module.crm.api.dto.*;
 import com.aquasuite.ims.module.crm.internal.entity.Customer;
+import com.aquasuite.ims.module.crm.internal.enums.CustomerType;
 import com.aquasuite.ims.module.crm.internal.repository.CustomerRepository;
 import com.aquasuite.ims.share.exception.AppException;
 import com.aquasuite.ims.share.exception.CommonErrorCode;
@@ -40,7 +41,7 @@ public class CustomerRegistrationServiceImpl implements CustomerRegistrationApi 
         profile.setCustomerName(request.fullName());
         profile.setPhone(request.phone());
         profile.setEmail(request.email());
-        profile.setCustomerType(com.aquasuite.ims.module.crm.internal.entity.enums.CustomerType.RETAIL);
+        profile.setCustomerType(CustomerType.RETAIL);
         profile.setStatus("ACTIVE");
         customers.saveAndFlush(profile);
         return new CustomerRegistrationResponse(id, profile.getCustomerCode());

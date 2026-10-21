@@ -1,6 +1,8 @@
 package com.aquasuite.ims.module.iam.internal.registration;
 
-import com.aquasuite.ims.module.iam.internal.registration.payload.*;
+import com.aquasuite.ims.module.iam.internal.payload.request.RegisterRequest;
+import com.aquasuite.ims.module.iam.internal.payload.request.ResendRegistrationOtpRequest;
+import com.aquasuite.ims.module.iam.internal.payload.request.VerifyRegistrationRequest;
 import com.aquasuite.ims.share.exception.AppException;
 import org.junit.jupiter.api.Test;
 import java.util.List;

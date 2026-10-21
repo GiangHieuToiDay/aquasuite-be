@@ -1,7 +1,7 @@
 package com.aquasuite.ims.module.catalog.internal.payload.res;
 
-import com.aquasuite.ims.module.catalog.internal.entity.enums.ProductStatus;
-import com.aquasuite.ims.module.catalog.internal.entity.enums.ProductType;
+import com.aquasuite.ims.module.catalog.internal.enums.ProductStatus;
+import com.aquasuite.ims.module.catalog.internal.enums.ProductType;
 import lombok.Builder;
 
 import java.time.LocalDateTime;

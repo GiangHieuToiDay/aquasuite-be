@@ -1,6 +1,6 @@
 package com.aquasuite.ims.module.catalog.internal.payload.req;
 
-import com.aquasuite.ims.module.catalog.internal.entity.enums.ProductStatus;
+import com.aquasuite.ims.module.catalog.internal.enums.ProductStatus;
 import jakarta.validation.constraints.NotNull;
 import lombok.Builder;
 

@@ -1,7 +1,7 @@
 package com.aquasuite.ims.module.catalog.internal.mapper;
 
 import com.aquasuite.ims.module.catalog.internal.entity.ProductVariant;
-import com.aquasuite.ims.module.catalog.internal.variant.dto.VariantResponse;
+import com.aquasuite.ims.module.catalog.internal.payload.res.VariantResponse;
 import org.mapstruct.Mapper;
 import org.mapstruct.ReportingPolicy;
 

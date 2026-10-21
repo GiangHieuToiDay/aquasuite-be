@@ -1,6 +1,6 @@
 package com.aquasuite.ims.module.catalog.internal.entity;
 
-import com.aquasuite.ims.module.catalog.internal.entity.enums.BrandStatus;
+import com.aquasuite.ims.module.catalog.internal.enums.BrandStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

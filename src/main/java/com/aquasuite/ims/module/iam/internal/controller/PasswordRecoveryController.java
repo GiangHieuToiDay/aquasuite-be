@@ -19,10 +19,21 @@ import java.util.UUID;
 @RequestMapping("/api/v1/iam/password")
 @RequiredArgsConstructor
 public class PasswordRecoveryController {
+
     private final PasswordRecoveryService service;
-    @PostMapping("/change") public ResponseEntity<ApiResponse<PasswordActionResponse>> change(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody ChangePasswordRequest request) {
+
+    @PostMapping("/change")
+    public ResponseEntity<ApiResponse<PasswordActionResponse>> change(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody ChangePasswordRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(service.changePassword(UUID.fromString(jwt.getSubject()), request)));
     }
-    @PostMapping("/forgot") public ResponseEntity<ApiResponse<PasswordActionResponse>> forgot(@Valid @RequestBody ForgotPasswordRequest request) { return ResponseEntity.ok(ApiResponse.ok(service.requestRecovery(request))); }
-    @PostMapping("/reset") public ResponseEntity<ApiResponse<PasswordActionResponse>> reset(@Valid @RequestBody ResetPasswordWithOtpRequest request) { return ResponseEntity.ok(ApiResponse.ok(service.resetPassword(request))); }
+
+    @PostMapping("/forgot")
+    public ResponseEntity<ApiResponse<PasswordActionResponse>> forgot(@Valid @RequestBody ForgotPasswordRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(service.requestRecovery(request)));
+    }
+
+    @PostMapping("/reset")
+    public ResponseEntity<ApiResponse<PasswordActionResponse>> reset(@Valid @RequestBody ResetPasswordWithOtpRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(service.resetPassword(request)));
+    }
 }

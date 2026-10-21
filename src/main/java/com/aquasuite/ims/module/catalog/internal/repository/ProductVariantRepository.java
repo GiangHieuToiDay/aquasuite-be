@@ -1,7 +1,7 @@
 package com.aquasuite.ims.module.catalog.internal.repository;
 
 import com.aquasuite.ims.module.catalog.internal.entity.ProductVariant;
-import com.aquasuite.ims.module.catalog.internal.entity.enums.VariantStatus;
+import com.aquasuite.ims.module.catalog.internal.enums.VariantStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

@@ -1,6 +1,6 @@
 package com.aquasuite.ims.module.crm.internal.service.impl;
 
-import com.aquasuite.ims.module.crm.internal.exception.CrmErrorCode;
+import com.aquasuite.ims.module.crm.internal.error.CrmErrorCode;
 import com.aquasuite.ims.module.crm.internal.service.CloudinaryStorageService;
 import com.aquasuite.ims.share.exception.AppException;
 import com.cloudinary.Cloudinary;

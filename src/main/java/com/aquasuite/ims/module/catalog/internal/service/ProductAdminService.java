@@ -1,7 +1,7 @@
 package com.aquasuite.ims.module.catalog.internal.service;
 
-import com.aquasuite.ims.module.catalog.internal.entity.enums.ProductStatus;
-import com.aquasuite.ims.module.catalog.internal.entity.enums.ProductType;
+import com.aquasuite.ims.module.catalog.internal.enums.ProductStatus;
+import com.aquasuite.ims.module.catalog.internal.enums.ProductType;
 import com.aquasuite.ims.module.catalog.internal.payload.req.CreateProductRequest;
 import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateProductRequest;
 import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateProductStatusRequest;

@@ -1,20 +1,19 @@
 package com.aquasuite.ims.module.catalog.internal.service.impl;
 
 import com.aquasuite.ims.module.catalog.internal.entity.Category;
-import com.aquasuite.ims.module.catalog.internal.entity.enums.CategoryStatus;
+import com.aquasuite.ims.module.catalog.internal.enums.CategoryStatus;
 import com.aquasuite.ims.module.catalog.internal.error.CatalogConstraintExceptionTranslator;
 import com.aquasuite.ims.module.catalog.internal.error.CatalogErrorCode;
 import com.aquasuite.ims.module.catalog.internal.mapper.CategoryMapper;
-import com.aquasuite.ims.module.catalog.internal.payload.request.CreateCategoryRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.request.UpdateCategoryRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.response.CategoryPageResponse;
-import com.aquasuite.ims.module.catalog.internal.payload.response.CategoryResponse;
+import com.aquasuite.ims.module.catalog.internal.payload.req.CreateCategoryRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateCategoryRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.res.CategoryPageResponse;
+import com.aquasuite.ims.module.catalog.internal.payload.res.CategoryResponse;
 import com.aquasuite.ims.module.catalog.internal.repository.CategoryRepository;
 import com.aquasuite.ims.module.catalog.internal.repository.projection.CategoryHierarchyProjection;
 import com.aquasuite.ims.module.catalog.internal.service.CategoryService;
 import com.aquasuite.ims.share.exception.AppException;
 import com.aquasuite.ims.share.exception.CommonErrorCode;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;

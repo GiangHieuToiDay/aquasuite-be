@@ -1,6 +1,5 @@
 package com.aquasuite.ims.module.crm.internal.service;
 
-import com.aquasuite.ims.module.crm.internal.exception.CrmErrorCode;
 import com.aquasuite.ims.module.crm.internal.service.impl.CloudinaryStorageServiceImpl;
 import com.aquasuite.ims.share.exception.AppException;
 import org.junit.jupiter.api.BeforeEach;

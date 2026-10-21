@@ -1,6 +1,6 @@
 package com.aquasuite.ims.module.catalog.internal.service;
 
-import com.aquasuite.ims.module.catalog.internal.exception.BundleErrorCode;
+import com.aquasuite.ims.module.catalog.internal.error.BundleErrorCode;
 import com.aquasuite.ims.share.exception.AppException;
 
 import org.springframework.stereotype.Service;

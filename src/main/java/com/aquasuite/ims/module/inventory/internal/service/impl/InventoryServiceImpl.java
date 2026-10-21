@@ -9,7 +9,7 @@ import com.aquasuite.ims.module.inventory.api.dto.VariantInventoryUsage;
 import com.aquasuite.ims.module.inventory.api.event.LowStockAlertEvent;
 import com.aquasuite.ims.module.inventory.internal.entity.Inventory;
 import com.aquasuite.ims.module.inventory.internal.entity.StockMovement;
-import com.aquasuite.ims.module.inventory.internal.exception.InventoryErrorCode;
+import com.aquasuite.ims.module.inventory.internal.error.InventoryErrorCode;
 import com.aquasuite.ims.module.inventory.internal.repository.InventoryRepository;
 import com.aquasuite.ims.module.inventory.internal.repository.StockMovementRepository;
 import com.aquasuite.ims.module.inventory.internal.repository.StockCountItemRepository;

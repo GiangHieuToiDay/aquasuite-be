@@ -2,7 +2,7 @@ package com.aquasuite.ims.module.crm.internal.config;
 
 import com.aquasuite.ims.module.crm.internal.entity.Customer;
 import com.aquasuite.ims.module.crm.internal.entity.CustomerAddress;
-import com.aquasuite.ims.module.crm.internal.entity.enums.CustomerType;
+import com.aquasuite.ims.module.crm.internal.enums.CustomerType;
 import com.aquasuite.ims.module.crm.internal.repository.CustomerAddressRepository;
 import com.aquasuite.ims.module.crm.internal.repository.CustomerRepository;
 import com.aquasuite.ims.module.iam.api.IamApi;

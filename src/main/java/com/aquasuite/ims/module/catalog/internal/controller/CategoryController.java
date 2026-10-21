@@ -1,9 +1,9 @@
 package com.aquasuite.ims.module.catalog.internal.controller;
 
-import com.aquasuite.ims.module.catalog.internal.payload.request.CreateCategoryRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.request.UpdateCategoryRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.response.CategoryPageResponse;
-import com.aquasuite.ims.module.catalog.internal.payload.response.CategoryResponse;
+import com.aquasuite.ims.module.catalog.internal.payload.req.CreateCategoryRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateCategoryRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.res.CategoryPageResponse;
+import com.aquasuite.ims.module.catalog.internal.payload.res.CategoryResponse;
 import com.aquasuite.ims.module.catalog.internal.service.CategoryService;
 import com.aquasuite.ims.share.dto.ApiResponse;
 import jakarta.validation.Valid;

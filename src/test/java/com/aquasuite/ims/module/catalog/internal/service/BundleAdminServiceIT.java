@@ -2,7 +2,9 @@ package com.aquasuite.ims.module.catalog.internal.service;
 
 import static org.assertj.core.api.Assertions.*;
 
-import com.aquasuite.ims.module.catalog.internal.payload.bundle.request.*;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundleCoreCreateRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundleCoreUpdateRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundleItemRequest;
 import com.aquasuite.ims.share.exception.AppException;
 import com.aquasuite.ims.support.BundleCoreTestSupport;
 

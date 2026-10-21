@@ -1,6 +1,6 @@
 package com.aquasuite.ims.module.inventory.internal.entity;
 
-import com.aquasuite.ims.module.inventory.internal.entity.enums.StockCountStatus;
+import com.aquasuite.ims.module.inventory.internal.enums.StockCountStatus;
 import jakarta.persistence.*;
 import lombok.*;
 

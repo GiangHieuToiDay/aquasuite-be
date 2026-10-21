@@ -1,8 +1,8 @@
 package com.aquasuite.ims.module.catalog.internal.service;
 
+import com.aquasuite.ims.module.catalog.internal.payload.req.*;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundleResponse;
 import com.aquasuite.ims.support.BundleCoreTestSupport;
-import com.aquasuite.ims.module.catalog.internal.payload.bundle.request.*;
-import com.aquasuite.ims.module.catalog.internal.payload.bundle.response.*;
 import com.aquasuite.ims.share.exception.AppException;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;

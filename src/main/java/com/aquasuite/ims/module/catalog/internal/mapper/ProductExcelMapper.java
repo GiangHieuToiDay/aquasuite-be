@@ -2,9 +2,9 @@ package com.aquasuite.ims.module.catalog.internal.mapper;
 
 import com.aquasuite.ims.module.catalog.internal.payload.excel.ProductExcelRowDto;
 import com.aquasuite.ims.module.catalog.internal.entity.*;
-import com.aquasuite.ims.module.catalog.internal.entity.enums.ProductStatus;
-import com.aquasuite.ims.module.catalog.internal.entity.enums.ProductType;
-import com.aquasuite.ims.module.catalog.internal.entity.enums.VariantStatus;
+import com.aquasuite.ims.module.catalog.internal.enums.ProductStatus;
+import com.aquasuite.ims.module.catalog.internal.enums.ProductType;
+import com.aquasuite.ims.module.catalog.internal.enums.VariantStatus;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;

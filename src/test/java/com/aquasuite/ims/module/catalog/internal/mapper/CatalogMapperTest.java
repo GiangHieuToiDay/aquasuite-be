@@ -2,12 +2,12 @@ package com.aquasuite.ims.module.catalog.internal.mapper;
 
 import com.aquasuite.ims.module.catalog.internal.entity.Brand;
 import com.aquasuite.ims.module.catalog.internal.entity.Category;
-import com.aquasuite.ims.module.catalog.internal.entity.enums.BrandStatus;
-import com.aquasuite.ims.module.catalog.internal.entity.enums.CategoryStatus;
-import com.aquasuite.ims.module.catalog.internal.payload.response.BrandPageResponse;
-import com.aquasuite.ims.module.catalog.internal.payload.response.BrandResponse;
-import com.aquasuite.ims.module.catalog.internal.payload.response.CategoryPageResponse;
-import com.aquasuite.ims.module.catalog.internal.payload.response.CategoryResponse;
+import com.aquasuite.ims.module.catalog.internal.enums.BrandStatus;
+import com.aquasuite.ims.module.catalog.internal.enums.CategoryStatus;
+import com.aquasuite.ims.module.catalog.internal.payload.res.BrandPageResponse;
+import com.aquasuite.ims.module.catalog.internal.payload.res.BrandResponse;
+import com.aquasuite.ims.module.catalog.internal.payload.res.CategoryPageResponse;
+import com.aquasuite.ims.module.catalog.internal.payload.res.CategoryResponse;
 import com.aquasuite.ims.testsupport.PostgreSqlIntegrationTestSupport;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

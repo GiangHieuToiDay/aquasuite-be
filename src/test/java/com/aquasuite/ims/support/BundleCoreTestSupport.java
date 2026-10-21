@@ -3,8 +3,10 @@ package com.aquasuite.ims.support;
 import com.aquasuite.ims.module.catalog.internal.config.BundleClockConfig;
 import com.aquasuite.ims.module.catalog.internal.controller.*;
 import com.aquasuite.ims.module.catalog.internal.mapper.BundleCoreMapperImpl;
-import com.aquasuite.ims.module.catalog.internal.payload.bundle.request.*;
-import com.aquasuite.ims.module.catalog.internal.payload.bundle.response.*;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundleCoreCreateRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundleCoreUpdateRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundleItemRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundleResponse;
 import com.aquasuite.ims.module.catalog.internal.service.*;
 import com.aquasuite.ims.share.exception.GlobalExceptionHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -24,7 +26,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
 
-import java.time.*;
 import java.util.*;
 
 @SpringBootTest(classes = BundleCoreTestSupport.Config.class)

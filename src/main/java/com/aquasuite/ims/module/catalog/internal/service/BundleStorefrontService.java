@@ -3,10 +3,14 @@ package com.aquasuite.ims.module.catalog.internal.service;
 import static com.aquasuite.ims.module.catalog.internal.service.BundleDetailAssembler.isSellable;
 
 import com.aquasuite.ims.module.catalog.internal.entity.*;
-import com.aquasuite.ims.module.catalog.internal.entity.enums.*;
-import com.aquasuite.ims.module.catalog.internal.exception.BundleErrorCode;
-import com.aquasuite.ims.module.catalog.internal.payload.bundle.request.*;
-import com.aquasuite.ims.module.catalog.internal.payload.bundle.response.*;
+import com.aquasuite.ims.module.catalog.internal.enums.ProductStatus;
+import com.aquasuite.ims.module.catalog.internal.enums.ProductType;
+import com.aquasuite.ims.module.catalog.internal.error.BundleErrorCode;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundleComponentGroupRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundleEvaluationRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundleEvaluation;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundlePage;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundleResponse;
 import com.aquasuite.ims.module.catalog.internal.repository.*;
 import com.aquasuite.ims.module.inventory.api.InventoryApi;
 import com.aquasuite.ims.share.exception.*;

@@ -4,7 +4,7 @@ import com.aquasuite.ims.AquasuiteBeApplication;
 import com.aquasuite.ims.module.iam.internal.service.AuthService;
 import com.aquasuite.ims.module.iam.internal.entity.Role;
 import com.aquasuite.ims.module.iam.internal.repository.RoleRepository;
-import com.aquasuite.ims.module.iam.internal.registration.service.RegisterService;
+import com.aquasuite.ims.module.iam.internal.service.RegisterService;
 import com.aquasuite.ims.module.iam.internal.entity.User;
 import com.aquasuite.ims.module.iam.internal.entity.UserStatus;
 import com.aquasuite.ims.module.iam.internal.repository.UserRepository;

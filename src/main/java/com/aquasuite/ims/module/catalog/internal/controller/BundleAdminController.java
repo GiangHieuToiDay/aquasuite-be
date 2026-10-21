@@ -1,9 +1,14 @@
 package com.aquasuite.ims.module.catalog.internal.controller;
 
 import com.aquasuite.ims.module.catalog.internal.entity.BundleConfiguration.PublicationStatus;
-import com.aquasuite.ims.module.catalog.internal.entity.enums.ProductStatus;
-import com.aquasuite.ims.module.catalog.internal.payload.bundle.request.*;
-import com.aquasuite.ims.module.catalog.internal.payload.bundle.response.*;
+import com.aquasuite.ims.module.catalog.internal.enums.ProductStatus;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundleCoreCreateRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundleCoreStatusRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundleCoreUpdateRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundleVersionRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundlePage;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundleResponse;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundleSkuResponse;
 import com.aquasuite.ims.module.catalog.internal.service.BundleAdminService;
 import com.aquasuite.ims.share.dto.ApiResponse;
 import com.aquasuite.ims.share.exception.*;

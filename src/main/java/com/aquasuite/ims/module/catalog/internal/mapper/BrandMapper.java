@@ -1,8 +1,8 @@
 package com.aquasuite.ims.module.catalog.internal.mapper;
 
 import com.aquasuite.ims.module.catalog.internal.entity.Brand;
-import com.aquasuite.ims.module.catalog.internal.payload.response.BrandPageResponse;
-import com.aquasuite.ims.module.catalog.internal.payload.response.BrandResponse;
+import com.aquasuite.ims.module.catalog.internal.payload.res.BrandPageResponse;
+import com.aquasuite.ims.module.catalog.internal.payload.res.BrandResponse;
 import org.mapstruct.InjectionStrategy;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;

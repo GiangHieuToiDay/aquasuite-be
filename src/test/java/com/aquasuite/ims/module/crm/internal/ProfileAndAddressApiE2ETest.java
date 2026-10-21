@@ -5,7 +5,7 @@ import com.aquasuite.ims.module.crm.internal.controller.DeliveryAddressControlle
 import com.aquasuite.ims.module.crm.internal.controller.UserProfileController;
 import com.aquasuite.ims.module.crm.internal.entity.Customer;
 import com.aquasuite.ims.module.crm.internal.entity.CustomerAddress;
-import com.aquasuite.ims.module.crm.internal.entity.enums.CustomerType;
+import com.aquasuite.ims.module.crm.internal.enums.CustomerType;
 import com.aquasuite.ims.module.crm.internal.payload.req.CreateDeliveryAddressRequest;
 import com.aquasuite.ims.module.crm.internal.payload.req.UpdateDeliveryAddressRequest;
 import com.aquasuite.ims.module.crm.internal.payload.req.UpdateProfileRequest;

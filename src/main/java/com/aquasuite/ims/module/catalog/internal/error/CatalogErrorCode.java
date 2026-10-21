@@ -27,6 +27,8 @@ public enum CatalogErrorCode implements BaseErrorCode {
     CATEGORY_REFERENCED("CAT_016", "Danh mục đang được tham chiếu bởi sản phẩm", HttpStatus.CONFLICT),
     BRAND_REFERENCED("CAT_017", "Thương hiệu đang được tham chiếu bởi sản phẩm", HttpStatus.CONFLICT);
 
+
+
     private final String code;
     private final String message;
     private final HttpStatus status;

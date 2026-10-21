@@ -1,9 +1,9 @@
 package com.aquasuite.ims.module.catalog.internal.service;
 
-import com.aquasuite.ims.module.catalog.internal.payload.request.CreateCategoryRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.request.UpdateCategoryRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.response.CategoryPageResponse;
-import com.aquasuite.ims.module.catalog.internal.payload.response.CategoryResponse;
+import com.aquasuite.ims.module.catalog.internal.payload.req.CreateCategoryRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateCategoryRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.res.CategoryPageResponse;
+import com.aquasuite.ims.module.catalog.internal.payload.res.CategoryResponse;
 
 import java.util.UUID;
 

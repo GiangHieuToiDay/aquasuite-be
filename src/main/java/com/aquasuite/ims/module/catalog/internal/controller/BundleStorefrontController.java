@@ -1,7 +1,9 @@
 package com.aquasuite.ims.module.catalog.internal.controller;
 
-import com.aquasuite.ims.module.catalog.internal.payload.bundle.request.*;
-import com.aquasuite.ims.module.catalog.internal.payload.bundle.response.*;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundleEvaluationRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundleEvaluation;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundlePage;
+import com.aquasuite.ims.module.catalog.internal.payload.req.BundleResponse;
 import com.aquasuite.ims.module.catalog.internal.service.BundleStorefrontService;
 import com.aquasuite.ims.share.dto.ApiResponse;
 import com.aquasuite.ims.share.exception.*;

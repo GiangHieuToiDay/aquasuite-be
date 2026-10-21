@@ -1,9 +1,9 @@
 package com.aquasuite.ims.module.catalog.internal.service;
 
-import com.aquasuite.ims.module.catalog.internal.payload.request.CreateBrandRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.request.UpdateBrandRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.response.BrandPageResponse;
-import com.aquasuite.ims.module.catalog.internal.payload.response.BrandResponse;
+import com.aquasuite.ims.module.catalog.internal.payload.req.CreateBrandRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateBrandRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.res.BrandPageResponse;
+import com.aquasuite.ims.module.catalog.internal.payload.res.BrandResponse;
 
 import java.util.UUID;
 
