@@ -17,17 +17,33 @@ import java.util.UUID;
 public interface ProductVariantRepository extends JpaRepository<ProductVariant, UUID> {
 
     Optional<ProductVariant> findBySku(String sku);
+
     Optional<ProductVariant> findBySkuIgnoreCase(String sku);
 
     List<ProductVariant> findBySkuIn(Collection<String> skus);
 
     List<ProductVariant> findByProductId(UUID productId);
+
     Page<ProductVariant> findByProductIdAndStatusNot(UUID productId, com.aquasuite.ims.module.catalog.internal.entity.enums.VariantStatus status, Pageable pageable);
+
     boolean existsBySkuIgnoreCase(String sku);
-    @Query("SELECT v FROM ProductVariant v WHERE v.productId = :productId AND v.status <> 'DELETED' AND (:status IS NULL OR v.status = :status) AND (:keyword IS NULL OR lower(v.sku) LIKE lower(concat('%', :keyword, '%')) OR lower(v.variantName) LIKE lower(concat('%', :keyword, '%')) OR lower(coalesce(v.color, '')) LIKE lower(concat('%', :keyword, '%')))")
-    Page<ProductVariant> search(@Param("productId") UUID productId, @Param("keyword") String keyword, @Param("status") com.aquasuite.ims.module.catalog.internal.entity.enums.VariantStatus status, Pageable pageable);
+
+    @Query("SELECT v FROM ProductVariant v WHERE v.productId = :productId AND v.status <> 'DELETED' " +
+            "AND (:status IS NULL OR v.status = :status) " +
+            "AND (:keyword IS NULL " +
+            "OR lower(v.sku) LIKE cast(:keyword as String) " +
+            "OR lower(v.variantName) LIKE cast(:keyword as String) " +
+            "OR lower(coalesce(v.color, '')) LIKE cast(:keyword as String))")
+    Page<ProductVariant> search(
+            @Param("productId") UUID productId,
+            @Param("keyword") String keyword,
+            @Param("status") com.aquasuite.ims.module.catalog.internal.entity.enums.VariantStatus status,
+            Pageable pageable);
+
     long countByProductIdAndStatusNot(UUID productId, com.aquasuite.ims.module.catalog.internal.entity.enums.VariantStatus status);
+
     long countByProductIdAndStatus(UUID productId, com.aquasuite.ims.module.catalog.internal.entity.enums.VariantStatus status);
+
     long countByProductIdAndStatusNotAndSellingPriceIsNull(UUID productId,
-                                                            com.aquasuite.ims.module.catalog.internal.entity.enums.VariantStatus status);
+                                                           com.aquasuite.ims.module.catalog.internal.entity.enums.VariantStatus status);
 }

@@ -14,4 +14,5 @@ public record VariantUpsertRequest(@NotBlank String sku, @NotBlank String varian
                                    String color, String size, @NotNull @DecimalMin("0") BigDecimal weight,
                                    Map<String, Object> technicalSpec, @DecimalMin("0") BigDecimal costPrice,
                                    @DecimalMin("0") BigDecimal sellingPrice, UUID warrantyPolicyId,
-                                   Boolean serialTracking, VariantStatus status, boolean acknowledgeBelowCost) { }
+                                   Boolean serialTracking, VariantStatus status, boolean acknowledgeBelowCost) {
+}

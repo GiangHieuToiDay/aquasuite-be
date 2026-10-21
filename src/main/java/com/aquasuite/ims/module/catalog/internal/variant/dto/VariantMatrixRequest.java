@@ -5,4 +5,5 @@ import jakarta.validation.constraints.NotEmpty;
 
 import java.util.List;
 
-public record VariantMatrixRequest(@NotEmpty List<@Valid VariantUpsertRequest> variants) { }
+public record VariantMatrixRequest(@NotEmpty List<@Valid VariantUpsertRequest> variants) {
+}

@@ -7,4 +7,5 @@ public record VariantDeletionEligibilityResponse(UUID variantId, BigDecimal onHa
                                                  long goodsReceiptCount, long stockMovementCount, long dispatchCount,
                                                  long quotationCount, long orderCount, long invoiceCount,
                                                  long stockCountItemCount, long activeBundleCount, long cartItemCount,
-                                                 boolean eligible) { }
+                                                 boolean eligible) {
+}

@@ -5,6 +5,7 @@ import com.aquasuite.ims.module.catalog.internal.entity.Product;
 import com.aquasuite.ims.module.catalog.internal.entity.ProductVariant;
 import com.aquasuite.ims.module.catalog.internal.entity.enums.ProductStatus;
 import com.aquasuite.ims.module.catalog.internal.entity.enums.VariantStatus;
+import com.aquasuite.ims.module.catalog.internal.mapper.VariantMapper;
 import com.aquasuite.ims.module.catalog.internal.repository.ProductRepository;
 import com.aquasuite.ims.module.catalog.internal.repository.ProductVariantRepository;
 import com.aquasuite.ims.module.catalog.internal.variant.dto.VariantUpsertRequest;
@@ -19,6 +20,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
@@ -47,15 +49,15 @@ class VariantServiceImplTest {
     @Mock private JdbcTemplate jdbcTemplate;
     @Mock private IamApi iamApi;
     @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private VariantMapper variantMapper;
 
+    @InjectMocks
     private VariantServiceImpl service;
     private UUID productId;
 
     @BeforeEach
     void setUp() {
         productId = UUID.randomUUID();
-        service = new VariantServiceImpl(productRepository, variantRepository, inventoryApi, salesVariantUsageApi,
-                jdbcTemplate, iamApi, eventPublisher);
         Product product = new Product();
         product.setProductId(productId);
         product.setStatus(ProductStatus.ACTIVE);

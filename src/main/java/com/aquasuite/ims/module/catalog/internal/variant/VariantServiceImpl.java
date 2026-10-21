@@ -4,6 +4,7 @@ import com.aquasuite.ims.module.catalog.internal.entity.ProductVariant;
 import com.aquasuite.ims.module.catalog.api.event.ProductVariantChangedEvent;
 import com.aquasuite.ims.module.catalog.internal.entity.enums.ProductStatus;
 import com.aquasuite.ims.module.catalog.internal.entity.enums.VariantStatus;
+import com.aquasuite.ims.module.catalog.internal.mapper.VariantMapper;
 import com.aquasuite.ims.module.catalog.internal.repository.ProductRepository;
 import com.aquasuite.ims.module.catalog.internal.repository.ProductVariantRepository;
 import com.aquasuite.ims.module.catalog.internal.variant.dto.*;
@@ -13,7 +14,9 @@ import com.aquasuite.ims.module.sales.api.SalesVariantUsageApi;
 import com.aquasuite.ims.module.sales.api.dto.VariantDocumentUsage;
 import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.share.exception.AppException;
+import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
+import lombok.experimental.FieldDefaults;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -27,20 +30,27 @@ import java.util.*;
 
 @Service
 @RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class VariantServiceImpl implements VariantService {
-    private final ProductRepository productRepository;
-    private final ProductVariantRepository variantRepository;
-    private final InventoryApi inventoryApi;
-    private final SalesVariantUsageApi salesVariantUsageApi;
-    private final JdbcTemplate jdbcTemplate;
-    private final IamApi iamApi;
-    private final ApplicationEventPublisher eventPublisher;
+    ProductRepository productRepository;
+    ProductVariantRepository variantRepository;
+    InventoryApi inventoryApi;
+    SalesVariantUsageApi salesVariantUsageApi;
+    JdbcTemplate jdbcTemplate;
+    IamApi iamApi;
+    ApplicationEventPublisher eventPublisher;
+    VariantMapper variantMapper;
 
     @Override
     @Transactional(readOnly = true)
-    public Page<VariantResponse> list(UUID productId, String keyword, String status, Pageable pageable) {
+    public Page<VariantResponse> list(UUID productId, String keyword, VariantStatus status, Pageable pageable) {
         requireProduct(productId);
-        return variantRepository.search(productId, blankToNull(keyword), parseStatus(status), pageable).map(this::response);
+        String searchKeyword = (keyword == null || keyword.trim().isEmpty())
+                ? null
+                : "%" + keyword.trim().toLowerCase() + "%";
+
+        Page<ProductVariant> result = variantRepository.search(productId, searchKeyword, status, pageable);
+        return result.map(variantMapper::toResponse);
     }
 
     @Override
@@ -81,8 +91,12 @@ public class VariantServiceImpl implements VariantService {
         List<ProductVariant> saved = new ArrayList<>();
         for (VariantUpsertRequest item : request.variants()) {
             ProductVariant variant = new ProductVariant();
-            apply(item, variant); variant.setProductId(productId); persist(variant);
-            inventoryApi.initializeMainWarehouseInventory(variant.getVariantId()); publish(variant, "CREATED", Map.of(), null); saved.add(variant);
+            apply(item, variant);
+            variant.setProductId(productId);
+            persist(variant);
+            inventoryApi.initializeMainWarehouseInventory(variant.getVariantId());
+            publish(variant, "CREATED", Map.of(), null);
+            saved.add(variant);
         }
         return saved.stream().map(this::response).toList();
     }
@@ -92,7 +106,9 @@ public class VariantServiceImpl implements VariantService {
     public VariantResponse update(UUID productId, UUID variantId, VariantUpsertRequest request) {
         ProductVariant variant = requireVariant(productId, variantId);
         ensureUniqueSku(request.sku(), variantId);
-        Map<String, Object> oldData = snapshot(variant); apply(request, variant); persist(variant);
+        Map<String, Object> oldData = snapshot(variant);
+        apply(request, variant);
+        persist(variant);
         publish(variant, "UPDATED", oldData, null);
         return response(variant);
     }
@@ -102,9 +118,12 @@ public class VariantServiceImpl implements VariantService {
     public VariantResponse changeStatus(UUID productId, UUID variantId, VariantStatusRequest request) {
         ProductVariant variant = requireVariant(productId, variantId);
         if (request.status() == VariantStatus.DELETED) throw new AppException(CatalogVariantErrorCode.INVALID_STATUS);
-        if (request.status() == VariantStatus.ACTIVE && variant.getSellingPrice() == null) throw new AppException(CatalogVariantErrorCode.RETAIL_PRICE_REQUIRED);
-        Map<String, Object> oldData = snapshot(variant); variant.setStatus(request.status());
-        ProductVariant saved = variantRepository.save(variant); publish(saved, "STATUS_CHANGED", oldData, null);
+        if (request.status() == VariantStatus.ACTIVE && variant.getSellingPrice() == null)
+            throw new AppException(CatalogVariantErrorCode.RETAIL_PRICE_REQUIRED);
+        Map<String, Object> oldData = snapshot(variant);
+        variant.setStatus(request.status());
+        ProductVariant saved = variantRepository.save(variant);
+        publish(saved, "STATUS_CHANGED", oldData, null);
         return response(saved);
     }
 
@@ -153,53 +172,84 @@ public class VariantServiceImpl implements VariantService {
         if (cost != null && retail != null && retail.compareTo(cost) < 0 && !request.acknowledgeBelowCost()) {
             throw new AppException(CatalogVariantErrorCode.PRICE_WARNING_ACK_REQUIRED);
         }
-        target.setSku(normalizeSku(request.sku())); target.setVariantName(request.variantName().trim()); target.setUnit(request.unit().trim());
-        target.setConversionRate(request.conversionRate()); target.setColor(blankToNull(request.color())); target.setSize(blankToNull(request.size()));
-        target.setWeight(request.weight()); target.setTechnicalSpec(request.technicalSpec()); target.setCostPrice(cost == null ? BigDecimal.ZERO : cost);
-        target.setSellingPrice(retail); target.setWarrantyPolicyId(request.warrantyPolicyId()); target.setSerialTracking(Boolean.TRUE.equals(request.serialTracking()));
+        target.setSku(normalizeSku(request.sku()));
+        target.setVariantName(request.variantName().trim());
+        target.setUnit(request.unit().trim());
+        target.setConversionRate(request.conversionRate());
+        target.setColor(blankToNull(request.color()));
+        target.setSize(blankToNull(request.size()));
+        target.setWeight(request.weight());
+        target.setTechnicalSpec(request.technicalSpec());
+        target.setCostPrice(cost == null ? BigDecimal.ZERO : cost);
+        target.setSellingPrice(retail);
+        target.setWarrantyPolicyId(request.warrantyPolicyId());
+        target.setSerialTracking(Boolean.TRUE.equals(request.serialTracking()));
         target.setStatus(retail == null ? VariantStatus.INACTIVE : request.status() == null ? VariantStatus.ACTIVE : request.status());
     }
 
     private void ensureUniqueSku(String sku, UUID currentId) {
         variantRepository.findBySkuIgnoreCase(normalizeSku(sku)).filter(existing -> !existing.getVariantId().equals(currentId))
-                .ifPresent(existing -> { throw new AppException(CatalogVariantErrorCode.DUPLICATE_SKU); });
+                .ifPresent(existing -> {
+                    throw new AppException(CatalogVariantErrorCode.DUPLICATE_SKU);
+                });
     }
+
     private void persist(ProductVariant variant) {
-        try { variantRepository.saveAndFlush(variant); }
-        catch (DataIntegrityViolationException exception) { throw new AppException(CatalogVariantErrorCode.DUPLICATE_SKU); }
+        try {
+            variantRepository.saveAndFlush(variant);
+        } catch (DataIntegrityViolationException exception) {
+            throw new AppException(CatalogVariantErrorCode.DUPLICATE_SKU);
+        }
     }
+
     private void requireProduct(UUID productId) {
         productRepository.findById(productId).filter(product -> product.getStatus() != ProductStatus.DELETED)
                 .orElseThrow(() -> new AppException(CatalogVariantErrorCode.PRODUCT_NOT_FOUND));
     }
+
     private ProductVariant requireVariant(UUID productId, UUID variantId) {
         requireProduct(productId);
         return variantRepository.findById(variantId).filter(variant -> variant.getProductId().equals(productId))
                 .orElseThrow(() -> new AppException(CatalogVariantErrorCode.VARIANT_NOT_FOUND));
     }
+
     private VariantResponse response(ProductVariant value) {
         return new VariantResponse(value.getVariantId(), value.getProductId(), value.getSku(), value.getVariantName(), value.getUnit(),
                 value.getConversionRate(), value.getColor(), value.getSize(), value.getWeight(), value.getTechnicalSpec(), value.getCostPrice(),
                 value.getSellingPrice(), value.getWarrantyPolicyId(), Boolean.TRUE.equals(value.getSerialTracking()), value.getStatus().name());
     }
+
     private Map<String, Object> snapshot(ProductVariant value) {
         Map<String, Object> data = new LinkedHashMap<>();
-        data.put("sku", value.getSku()); data.put("variantName", value.getVariantName()); data.put("status", value.getStatus().name());
-        data.put("costPrice", value.getCostPrice()); data.put("sellingPrice", value.getSellingPrice()); data.put("productId", value.getProductId());
+        data.put("sku", value.getSku());
+        data.put("variantName", value.getVariantName());
+        data.put("status", value.getStatus().name());
+        data.put("costPrice", value.getCostPrice());
+        data.put("sellingPrice", value.getSellingPrice());
+        data.put("productId", value.getProductId());
         return data;
     }
+
     private void publish(ProductVariant value, String action, Map<String, Object> oldData, String reason) {
         eventPublisher.publishEvent(new ProductVariantChangedEvent(iamApi.getCurrentUserId(), value.getVariantId(), action, oldData, snapshot(value), reason));
     }
-    private String normalizeSku(String value) { return value == null ? "" : value.trim(); }
-    private String blankToNull(String value) { return value == null || value.isBlank() ? null : value.trim(); }
+
+    private String normalizeSku(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
     private VariantStatus parseStatus(String value) {
         if (value == null || value.isBlank()) return null;
         try {
             VariantStatus status = VariantStatus.valueOf(value.trim().toUpperCase(Locale.ROOT));
             if (status == VariantStatus.DELETED) throw new AppException(CatalogVariantErrorCode.INVALID_STATUS);
             return status;
+        } catch (IllegalArgumentException exception) {
+            throw new AppException(CatalogVariantErrorCode.INVALID_STATUS);
         }
-        catch (IllegalArgumentException exception) { throw new AppException(CatalogVariantErrorCode.INVALID_STATUS); }
     }
 }
