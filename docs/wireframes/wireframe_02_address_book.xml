@@ -1,0 +1,174 @@
+<mxfile host="app.diagrams.net" modified="2026-10-21T18:30:00.000Z" agent="AquaSuite" version="24.0.0">
+  <diagram id="address-book-wireframe" name="2. So Dia Chi (Address Book)">
+    <mxGraphModel dx="1400" dy="850" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1250" pageHeight="850" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- BROWSER WINDOW FRAME -->
+        <mxCell id="wnd" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#CBD5E1;strokeWidth=1;arcSize=2;" vertex="1" parent="1">
+          <mxGeometry x="40" y="30" width="1160" height="780" as="geometry" />
+        </mxCell>
+
+        <!-- WINDOW HEADER BAR -->
+        <mxCell id="wnd_top" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E2E8F0;strokeColor=#CBD5E1;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="30" width="1160" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="dot_red" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#EF4444;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="55" y="42" width="12" height="12" as="geometry" />
+        </mxCell>
+        <mxCell id="dot_yellow" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F59E0B;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="75" y="42" width="12" height="12" as="geometry" />
+        </mxCell>
+        <mxCell id="dot_green" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#10B981;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="95" y="42" width="12" height="12" as="geometry" />
+        </mxCell>
+        <mxCell id="wnd_url" value="https://aquasuite.vn/account/addresses" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#CBD5E1;fontFamily=Segoe UI;fontSize=11;fontColor=#64748B;align=center;" vertex="1" parent="1">
+          <mxGeometry x="350" y="36" width="540" height="22" as="geometry" />
+        </mxCell>
+
+        <!-- TOPBAR NAVIGATION -->
+        <mxCell id="topbar" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#E2E8F0;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="65" width="1160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="logo" value="&lt;b&gt;AQUA&lt;font color='#0284C7'&gt;SUITE&lt;/font&gt;&lt;/b&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Segoe UI;fontSize=18;fontColor=#0F172A;" vertex="1" parent="1">
+          <mxGeometry x="65" y="78" width="140" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="search_box" value="&amp;#128269;  Tìm kiếm sản phẩm, thiết bị vệ sinh, ống nước..." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F1F5F9;strokeColor=#E2E8F0;fontFamily=Segoe UI;fontSize=12;fontColor=#94A3B8;align=left;spacingLeft=15;" vertex="1" parent="1">
+          <mxGeometry x="230" y="78" width="450" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="user_pill" value="&lt;b&gt;Nguyễn Văn A&lt;/b&gt; (Khách hàng)  &amp;#9662;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#E2E8F0;fontFamily=Segoe UI;fontSize=12;fontColor=#334155;align=center;" vertex="1" parent="1">
+          <mxGeometry x="980" y="78" width="195" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="user_avatar_mini" value="&lt;b&gt;A&lt;/b&gt;" style="ellipse;whiteSpace=wrap;html=1;fillColor=#0284C7;strokeColor=none;fontFamily=Segoe UI;fontSize=12;fontColor=#FFFFFF;align=center;" vertex="1" parent="1">
+          <mxGeometry x="985" y="82" width="26" height="26" as="geometry" />
+        </mxCell>
+
+        <!-- SIDEBAR -->
+        <mxCell id="sidebar" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#E2E8F0;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="65" y="145" width="240" height="635" as="geometry" />
+        </mxCell>
+        <mxCell id="sb_avatar_lg" value="&lt;b&gt;A&lt;/b&gt;" style="ellipse;whiteSpace=wrap;html=1;fillColor=#0284C7;strokeColor=none;fontFamily=Segoe UI;fontSize=24;fontColor=#FFFFFF;align=center;" vertex="1" parent="1">
+          <mxGeometry x="90" y="170" width="56" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="sb_username" value="&lt;b&gt;Nguyễn Văn A&lt;/b&gt;&lt;br&gt;&lt;font color='#64748B' size='11'&gt;@demo_customer&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Segoe UI;fontSize=13;fontColor=#0F172A;" vertex="1" parent="1">
+          <mxGeometry x="155" y="170" width="135" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="sb_badge_tier" value="Khách lẻ (RETAIL)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EFF6FF;strokeColor=#BFDBFE;fontFamily=Segoe UI;fontSize=10;fontColor=#1D4ED8;align=center;" vertex="1" parent="1">
+          <mxGeometry x="155" y="210" width="115" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="sb_divider1" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=#E2E8F0;" vertex="1" parent="1">
+          <mxGeometry x="75" y="245" width="220" height="8" as="geometry" />
+        </mxCell>
+
+        <!-- MENU ITEMS -->
+        <mxCell id="menu_profile" value="&amp;#128100;   Hồ sơ cá nhân" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=none;fontFamily=Segoe UI;fontSize=13;fontColor=#475569;align=left;spacingLeft=16;" vertex="1" parent="1">
+          <mxGeometry x="80" y="265" width="210" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="menu_address" value="&amp;#128205;   Sổ địa chỉ nhận hàng" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0F2FE;strokeColor=#BAE6FD;fontFamily=Segoe UI;fontSize=13;fontColor=#0369A1;align=left;spacingLeft=16;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="315" width="210" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="menu_orders" value="&amp;#128230;   Đơn hàng của tôi" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=none;fontFamily=Segoe UI;fontSize=13;fontColor=#475569;align=left;spacingLeft=16;" vertex="1" parent="1">
+          <mxGeometry x="80" y="365" width="210" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="menu_password" value="&amp;#128274;   Đổi mật khẩu" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=none;fontFamily=Segoe UI;fontSize=13;fontColor=#475569;align=left;spacingLeft=16;" vertex="1" parent="1">
+          <mxGeometry x="80" y="415" width="210" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="menu_logout" value="&amp;#128682;   Đăng xuất" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=none;fontFamily=Segoe UI;fontSize=13;fontColor=#EF4444;align=left;spacingLeft=16;" vertex="1" parent="1">
+          <mxGeometry x="80" y="465" width="210" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- MAIN CARD: ADDRESS BOOK -->
+        <mxCell id="main_card" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#E2E8F0;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="325" y="145" width="850" height="635" as="geometry" />
+        </mxCell>
+
+        <!-- HEADER & ADD BUTTON -->
+        <mxCell id="card_title" value="&lt;b&gt;Địa chỉ của tôi&lt;/b&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Segoe UI;fontSize=18;fontColor=#0F172A;" vertex="1" parent="1">
+          <mxGeometry x="355" y="165" width="200" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="card_desc" value="Quản lý danh sách địa chỉ nhận hàng để thuận tiện khi mua sắm và giao nhận thiết bị." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Segoe UI;fontSize=12;fontColor=#64748B;" vertex="1" parent="1">
+          <mxGeometry x="355" y="195" width="500" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="btn_add_address" value="&amp;#43;  Thêm địa chỉ mới" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0284C7;strokeColor=none;fontFamily=Segoe UI;fontSize=13;fontColor=#FFFFFF;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="975" y="170" width="170" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="card_div1" value="" style="line;strokeWidth=1;fillColor=none;align=left;verticalAlign=middle;spacingTop=-1;spacingLeft=3;spacingRight=3;rotatable=0;labelPosition=right;points=[];portConstraint=eastwest;strokeColor=#E2E8F0;" vertex="1" parent="1">
+          <mxGeometry x="355" y="230" width="790" height="8" as="geometry" />
+        </mxCell>
+
+        <!-- ADDRESS CARD 1 (DEFAULT) -->
+        <mxCell id="addr_card_1" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#0284C7;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="355" y="255" width="790" height="150" as="geometry" />
+        </mxCell>
+        <!-- Recipient & Phone -->
+        <mxCell id="ac1_name" value="&lt;b&gt;Nguyễn Văn A&lt;/b&gt;   &lt;font color='#94A3B8'&gt;|&lt;/font&gt;   &lt;font color='#475569'&gt;0987654321&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Segoe UI;fontSize=14;fontColor=#0F172A;" vertex="1" parent="1">
+          <mxGeometry x="375" y="270" width="280" height="25" as="geometry" />
+        </mxCell>
+        <!-- Badges -->
+        <mxCell id="ac1_badge_def" value="&amp;#9733; Mặc định" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DCFCE7;strokeColor=#86EFAC;fontFamily=Segoe UI;fontSize=11;fontColor=#15803D;fontStyle=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="670" y="271" width="85" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="ac1_badge_label" value="Nhà riêng" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EFF6FF;strokeColor=#BFDBFE;fontFamily=Segoe UI;fontSize=11;fontColor=#1D4ED8;align=center;" vertex="1" parent="1">
+          <mxGeometry x="765" y="271" width="75" height="22" as="geometry" />
+        </mxCell>
+        <!-- Address Details -->
+        <mxCell id="ac1_street" value="Số 123 Đường Duy Tân" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Segoe UI;fontSize=13;fontColor=#334155;" vertex="1" parent="1">
+          <mxGeometry x="375" y="305" width="550" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="ac1_admin" value="Phường Dịch Vọng, Quận Cầu Giấy, TP Hà Nội" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Segoe UI;fontSize=12;fontColor=#64748B;" vertex="1" parent="1">
+          <mxGeometry x="375" y="330" width="550" height="20" as="geometry" />
+        </mxCell>
+        <!-- Bottom Action Bar of Card 1 -->
+        <mxCell id="ac1_actions_div" value="" style="line;strokeWidth=1;fillColor=none;strokeColor=#E2E8F0;" vertex="1" parent="1">
+          <mxGeometry x="375" y="360" width="750" height="5" as="geometry" />
+        </mxCell>
+        <mxCell id="ac1_status_text" value="&lt;font color='#0284C7'&gt;&amp;#10003; Địa chỉ nhận hàng mặc định&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontFamily=Segoe UI;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="375" y="372" width="220" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="ac1_btn_edit" value="&amp;#9998; Cập nhật" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#CBD5E1;fontFamily=Segoe UI;fontSize=12;fontColor=#334155;" vertex="1" parent="1">
+          <mxGeometry x="930" y="368" width="90" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="ac1_btn_del" value="&amp;#128465; Xóa" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F1F5F9;strokeColor=#E2E8F0;fontFamily=Segoe UI;fontSize=12;fontColor=#94A3B8;" vertex="1" parent="1">
+          <mxGeometry x="1030" y="368" width="75" height="28" as="geometry" />
+        </mxCell>
+
+        <!-- ADDRESS CARD 2 (SECONDARY) -->
+        <mxCell id="addr_card_2" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#E2E8F0;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="355" y="425" width="790" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="ac2_name" value="&lt;b&gt;Trần Thị Bích&lt;/b&gt;   &lt;font color='#94A3B8'&gt;|&lt;/font&gt;   &lt;font color='#475569'&gt;0912345678&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Segoe UI;fontSize=14;fontColor=#0F172A;" vertex="1" parent="1">
+          <mxGeometry x="375" y="440" width="280" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="ac2_badge_label" value="Văn phòng" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E8FF;strokeColor=#D8B4FE;fontFamily=Segoe UI;fontSize=11;fontColor=#7E22CE;align=center;" vertex="1" parent="1">
+          <mxGeometry x="670" y="441" width="85" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="ac2_street" value="Tầng 5, Tòa Handico, Đường Phạm Hùng" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Segoe UI;fontSize=13;fontColor=#334155;" vertex="1" parent="1">
+          <mxGeometry x="375" y="475" width="550" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="ac2_admin" value="Phường Mỹ Đình 1, Quận Nam Từ Liêm, TP Hà Nội" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Segoe UI;fontSize=12;fontColor=#64748B;" vertex="1" parent="1">
+          <mxGeometry x="375" y="500" width="550" height="20" as="geometry" />
+        </mxCell>
+        <!-- Bottom Action Bar of Card 2 -->
+        <mxCell id="ac2_actions_div" value="" style="line;strokeWidth=1;fillColor=none;strokeColor=#E2E8F0;" vertex="1" parent="1">
+          <mxGeometry x="375" y="530" width="750" height="5" as="geometry" />
+        </mxCell>
+        <mxCell id="ac2_btn_setdef" value="Thiết lập mặc định" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0284C7;fontFamily=Segoe UI;fontSize=12;fontColor=#0284C7;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="375" y="538" width="140" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="ac2_btn_edit" value="&amp;#9998; Cập nhật" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#CBD5E1;fontFamily=Segoe UI;fontSize=12;fontColor=#334155;" vertex="1" parent="1">
+          <mxGeometry x="930" y="538" width="90" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="ac2_btn_del" value="&amp;#128465; Xóa" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#FCA5A5;fontFamily=Segoe UI;fontSize=12;fontColor=#DC2626;" vertex="1" parent="1">
+          <mxGeometry x="1030" y="538" width="75" height="28" as="geometry" />
+        </mxCell>
+
+        <!-- HELPER NOTE BOX -->
+        <mxCell id="note_box" value="&lt;b&gt;&amp;#128161; Quy tắc nghiệp vụ:&lt;/b&gt; Bạn có thể lưu tối đa nhiều địa chỉ nhận hàng. Địa chỉ mặc định sẽ luôn được tự động điền sẵn khi tạo đơn hàng hoặc lập báo giá." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#FDE68A;fontFamily=Segoe UI;fontSize=12;fontColor=#92400E;align=left;spacingLeft=15;" vertex="1" parent="1">
+          <mxGeometry x="355" y="605" width="790" height="45" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
