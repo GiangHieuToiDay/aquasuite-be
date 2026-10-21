@@ -20,7 +20,7 @@ public class BundleStorefrontController {
     private final BundleStorefrontService service;
 
     @GetMapping
-    public ApiResponse<BundlePage<BundleCoreSummary>> list(@RequestParam(defaultValue="0") int page,
+    public ApiResponse<BundlePage<BundleResponse>> list(@RequestParam(defaultValue="0") int page,
             @RequestParam(defaultValue="20") int size, @RequestParam(required=false) String keyword,
             HttpServletRequest request) {
         validateQuery(request, Set.of("page", "size", "keyword"));
@@ -28,7 +28,7 @@ public class BundleStorefrontController {
     }
 
     @GetMapping("/{bundleId}")
-    public ApiResponse<BundleCoreDetail> get(@PathVariable UUID bundleId, HttpServletRequest request) {
+    public ApiResponse<BundleResponse> get(@PathVariable UUID bundleId, HttpServletRequest request) {
         validateQuery(request, Set.of());
         return ApiResponse.ok(service.get(bundleId));
     }

@@ -1,5 +1,7 @@
 package com.aquasuite.ims.module.catalog.internal.service;
 
+import static com.aquasuite.ims.module.catalog.internal.service.BundleDetailAssembler.isSellable;
+
 import com.aquasuite.ims.module.catalog.internal.entity.*;
 import com.aquasuite.ims.module.catalog.internal.entity.BundleConfiguration.PublicationStatus;
 import com.aquasuite.ims.module.catalog.internal.entity.enums.*;
@@ -57,12 +59,12 @@ public class BundleAdminService {
 
     /**
      * Lọc Product BUNDLE chưa xóa trước phân trang → đọc config/items/SKU theo lô
-     * → assembler tạo detail và MapStruct rút thành summary; không thay version.
+     * → assembler tạo response đầy đủ; không thay version.
      */
     @Transactional(
             readOnly = true,
             isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
-    public BundlePage<BundleCoreSummary> list(
+    public BundlePage<BundleResponse> list(
             int page,
             int size,
             String keyword,
@@ -105,7 +107,7 @@ public class BundleAdminService {
         var details = loadDetails(result.getContent());
         return new BundlePage<>(
                 result.getContent().stream()
-                        .map(p -> mapper.summary(details.get(p.getProductId())))
+                        .map(p -> details.get(p.getProductId()))
                         .toList(),
                 page,
                 size,
@@ -170,7 +172,7 @@ public class BundleAdminService {
     @Transactional(
             readOnly = true,
             isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
-    public BundleCoreDetail get(UUID id) {
+    public BundleResponse get(UUID id) {
         return loadDetail(findBundleProduct(id, false));
     }
 
@@ -179,7 +181,7 @@ public class BundleAdminService {
      * Mọi ghi cùng transaction; lỗi ở bất kỳ bước nào rollback toàn bộ.
      */
     @Transactional
-    public BundleCoreDetail create(BundleCoreCreateRequest payload) {
+    public BundleResponse create(BundleCoreCreateRequest payload) {
         validateRequest(payload);
         validateDefinition(payload.categoryId(), payload.brandId(), payload.items(), payload.packagePrice());
         validatePublicationDefinition(payload.validFrom(), payload.validUntil(), payload.items(), payload.componentGroups());
@@ -214,7 +216,7 @@ public class BundleAdminService {
      * → thay definition/items, giữ mã và ID item còn dùng → tăng version và trả detail.
      */
     @Transactional
-    public BundleCoreDetail update(UUID id, BundleCoreUpdateRequest payload) {
+    public BundleResponse update(UUID id, BundleCoreUpdateRequest payload) {
         validateRequest(payload);
         var configuration = lockConfiguration(id, payload.expectedVersion(), false);
         var product = findBundleProduct(id, false);
@@ -242,34 +244,33 @@ public class BundleAdminService {
      * Cùng trạng thái và version hiện tại là no-op; version cũ vẫn bị từ chối.
      */
     @Transactional
-    public BundleCoreMutationResult status(UUID id, BundleCoreStatusRequest payload) {
+    public BundleResponse status(UUID id, BundleCoreStatusRequest payload) {
         validateRequest(payload);
         var configuration = lockConfiguration(id, payload.expectedVersion(), false);
         var product = findBundleProduct(id, false);
         var target = ProductStatus.valueOf(payload.productStatus().name());
-        if (product.getStatus() == target) return mapper.mutation(product, configuration);
+        if (product.getStatus() == target) return loadDetail(product);
         product.setStatus(target);
         product.setUpdatedAt(LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC));
         products.save(product);
         markConfigurationUpdated(configuration);
-        return mapper.mutation(product, configuration);
+        return loadDetail(product);
     }
 
     /**
      * Khóa và kiểm version → đặt Product DELETED, giữ mã và các item để truy vết.
-     * Retry bằng version hiện tại trả tombstone không ghi lại; version cũ trả 409.
+     * Retry bằng version hiện tại không ghi lại; version cũ trả 409.
      */
     @Transactional
-    public BundleCoreMutationResult delete(UUID id, long expectedVersion) {
+    public void delete(UUID id, long expectedVersion) {
         if (expectedVersion < 0) throw new AppException(CommonErrorCode.INVALID_REQUEST_PARAM);
         var configuration = lockConfiguration(id, expectedVersion, true);
         var product = findBundleProduct(id, true);
-        if (product.getStatus() == ProductStatus.DELETED) return mapper.mutation(product, configuration);
+        if (product.getStatus() == ProductStatus.DELETED) return;
         product.setStatus(ProductStatus.DELETED);
         product.setUpdatedAt(LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC));
         products.save(product);
         markConfigurationUpdated(configuration);
-        return mapper.mutation(product, configuration);
     }
 
     /**
@@ -278,7 +279,7 @@ public class BundleAdminService {
      * Combo ACTIVE đã PUBLISHED với version hiện tại là no-op; không đọc hoặc giữ tồn.
      */
     @Transactional
-    public BundleCoreDetail publish(UUID id, BundleVersionRequest payload) {
+    public BundleResponse publish(UUID id, BundleVersionRequest payload) {
         validateRequest(payload);
         var config = lockConfiguration(id, payload.expectedVersion(), false);
         var product = findBundleProduct(id, false);
@@ -301,7 +302,7 @@ public class BundleAdminService {
      * Retry UNPUBLISHED với version hiện tại không ghi lại; version cũ vẫn bị từ chối.
      */
     @Transactional
-    public BundleCoreDetail unpublish(UUID id, BundleVersionRequest payload) {
+    public BundleResponse unpublish(UUID id, BundleVersionRequest payload) {
         validateRequest(payload);
         var config = lockConfiguration(id, payload.expectedVersion(), false);
         if (config.getPublicationStatus() == PublicationStatus.DRAFT)
@@ -351,10 +352,8 @@ public class BundleAdminService {
             for (var id : group.allowedVariantIds()) {
                 var variant = optionVariants.get(id);
                 var parent = variant == null ? null : optionProducts.get(variant.getProductId());
-                if (base == null || base.getSellingPrice() == null || variant == null
-                        || variant.getSellingPrice() == null || variant.getStatus() != VariantStatus.ACTIVE
-                        || parent == null || parent.getStatus() != ProductStatus.ACTIVE
-                        || parent.getProductType() != ProductType.NORMAL
+                if (base == null || base.getSellingPrice() == null || !isSellable(variant, parent)
+                        || variant.getSellingPrice() == null
                         || variant.getSellingPrice().compareTo(base.getSellingPrice()) != 0)
                     throw new AppException(BundleErrorCode.INVALID_COMPONENT);
             }
@@ -435,11 +434,7 @@ public class BundleAdminService {
         for (var id : ids) {
             var v = vs.get(id);
             var p = v == null ? null : ps.get(v.getProductId());
-            if (v == null
-                    || v.getStatus() != VariantStatus.ACTIVE
-                    || p == null
-                    || p.getProductType() != ProductType.NORMAL
-                    || p.getStatus() != ProductStatus.ACTIVE)
+            if (!isSellable(v, p))
                 throw new AppException(BundleErrorCode.INVALID_COMPONENT);
         }
         pricing.validate(
@@ -485,14 +480,14 @@ public class BundleAdminService {
     /**
      * Dùng chung luồng đọc theo lô cho một combo để không lặp logic ghép DTO.
      */
-    private BundleCoreDetail loadDetail(Product p) {
+    private BundleResponse loadDetail(Product p) {
         return loadDetails(List.of(p)).get(p.getProductId());
     }
 
     /**
      * Đọc config/items/SKU/sản phẩm cha theo lô → assembler tạo detail cho từng combo.
      */
-    Map<UUID, BundleCoreDetail> loadDetails(List<Product> ps) {
+    Map<UUID, BundleResponse> loadDetails(List<Product> ps) {
         if (ps.isEmpty()) return Map.of();
         var ids = ps.stream().map(Product::getProductId).toList();
         var cs =
@@ -503,6 +498,7 @@ public class BundleAdminService {
                                         Function.identity()));
         var its = items.findByBundleProductIdIn(ids);
         its.sort(Comparator.comparing(BundleItem::getBundleItemId));
+        var itemsByBundle = its.stream().collect(Collectors.groupingBy(BundleItem::getBundleProductId));
         var vs =
                 variants.findAllById(its.stream().map(BundleItem::getVariantId).toList()).stream()
                         .collect(
@@ -514,7 +510,7 @@ public class BundleAdminService {
                                 vs.values().stream().map(ProductVariant::getProductId).toList())
                         .stream()
                         .collect(Collectors.toMap(Product::getProductId, Function.identity()));
-        Map<UUID, BundleCoreDetail> out = new HashMap<>();
+        Map<UUID, BundleResponse> out = new HashMap<>();
         for (var p : ps) {
             var c = cs.get(p.getProductId());
             if (c == null)
@@ -525,9 +521,7 @@ public class BundleAdminService {
                     detailAssembler.detail(
                             p,
                             c,
-                            its.stream()
-                                    .filter(i -> i.getBundleProductId().equals(p.getProductId()))
-                                    .toList(),
+                            itemsByBundle.getOrDefault(p.getProductId(), List.of()),
                             vs,
                             parents));
         }

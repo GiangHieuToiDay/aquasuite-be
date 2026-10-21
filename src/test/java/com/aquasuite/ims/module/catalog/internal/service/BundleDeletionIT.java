@@ -10,8 +10,9 @@ class BundleDeletionIT extends BundleCoreTestSupport {
     @Test
     void softDeleteRetainsRowsAndCode() {
         var d = create();
-        var deleted = service.delete(d.bundleId(), d.version());
-        assertThat(deleted.productStatus()).isEqualTo("DELETED");
+        service.delete(d.bundleId(), d.version());
+        assertThat(jdbc.queryForObject("select status from products where product_id=?", String.class, d.bundleId()))
+                .isEqualTo("DELETED");
         assertThat(jdbc.queryForObject("select count(*) from bundle_items", Integer.class))
                 .isEqualTo(1);
         assertThat(
@@ -29,10 +30,15 @@ class BundleDeletionIT extends BundleCoreTestSupport {
     @Test
     void retryUsesCurrentVersion() {
         var d = create();
-        var deleted = service.delete(d.bundleId(), d.version());
+        service.delete(d.bundleId(), d.version());
+        long deletedVersion = jdbc.queryForObject(
+                "select version from bundle_configurations where bundle_product_id=?", Long.class, d.bundleId());
         assertThatThrownBy(() -> service.delete(d.bundleId(), d.version()))
                 .hasMessageContaining("thay đổi");
-        assertThat(service.delete(d.bundleId(), deleted.version())).isEqualTo(deleted);
+        service.delete(d.bundleId(), deletedVersion);
+        assertThat(jdbc.queryForObject(
+                "select version from bundle_configurations where bundle_product_id=?", Long.class, d.bundleId()))
+                .isEqualTo(deletedVersion);
         assertThat(jdbc.queryForObject("select count(*) from audit_entries", Integer.class))
                 .isZero();
     }

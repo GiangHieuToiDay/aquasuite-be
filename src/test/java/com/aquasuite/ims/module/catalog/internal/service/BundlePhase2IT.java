@@ -29,7 +29,7 @@ class BundlePhase2IT extends BundleCoreTestSupport {
         jdbc.update("INSERT INTO product_variants(variant_id,product_id,sku,variant_name,unit,conversion_rate,weight,cost_price,selling_price,serial_tracking,status) VALUES(?,?,?,?,'piece',1,0,0,110000000,false,'ACTIVE')",
                 OPTION, NORMAL, "SKU-2", "Option");
     }
-    BundleCoreDetail published() {
+    BundleResponse published() {
         option();
         var now = Instant.now();
         var d = service.create(definition("PUBLIC", now.minusSeconds(60), now.plusSeconds(3600), groups()));

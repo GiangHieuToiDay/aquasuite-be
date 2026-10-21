@@ -17,12 +17,16 @@ class BundleStatusIT extends BundleCoreTestSupport {
                         new BundleCoreStatusRequest(
                                 d.version(), BundleCoreStatusRequest.Status.INACTIVE));
         assertThat(off.publicationStatus()).isEqualTo("DRAFT");
+        var persistedOff = service.get(d.bundleId());
+        assertThat(off).usingRecursiveComparison().ignoringFields("updatedAt").isEqualTo(persistedOff);
+        assertThat(off.updatedAt()).isCloseTo(persistedOff.updatedAt(), within(1, java.time.temporal.ChronoUnit.MICROS));
+        assertThat(off.items()).isEqualTo(d.items());
         assertThat(
                         service.status(
                                 d.bundleId(),
                                 new BundleCoreStatusRequest(
                                         off.version(), BundleCoreStatusRequest.Status.INACTIVE)))
-                .isEqualTo(off);
+                .isEqualTo(persistedOff);
         assertThatThrownBy(
                         () ->
                                 service.status(
@@ -36,13 +40,13 @@ class BundleStatusIT extends BundleCoreTestSupport {
                         d.bundleId(),
                         new BundleCoreStatusRequest(
                                 off.version(), BundleCoreStatusRequest.Status.ACTIVE));
-        var deleted = service.delete(d.bundleId(), on.version());
+        service.delete(d.bundleId(), on.version());
         assertThatThrownBy(
                         () ->
                                 service.status(
                                         d.bundleId(),
                                         new BundleCoreStatusRequest(
-                                                deleted.version(),
+                                                on.version() + 1,
                                                 BundleCoreStatusRequest.Status.ACTIVE)))
                 .isInstanceOf(RuntimeException.class);
     }

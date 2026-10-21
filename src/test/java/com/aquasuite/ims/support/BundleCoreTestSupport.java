@@ -1,6 +1,5 @@
 package com.aquasuite.ims.support;
 
-import com.aquasuite.ims.module.audit.internal.service.AuditService;
 import com.aquasuite.ims.module.catalog.internal.config.BundleClockConfig;
 import com.aquasuite.ims.module.catalog.internal.controller.*;
 import com.aquasuite.ims.module.catalog.internal.mapper.BundleCoreMapperImpl;
@@ -62,7 +61,6 @@ public abstract class BundleCoreTestSupport {
                 "com.aquasuite.ims.module.iam.internal.entity",
                 "com.aquasuite.ims.module.iam.internal.user.entity",
                 "com.aquasuite.ims.module.iam.internal.authorization.entity",
-                "com.aquasuite.ims.module.audit.internal.entity",
                 "com.aquasuite.ims.module.inventory.internal.entity"
             })
     @EnableJpaRepositories(
@@ -70,7 +68,6 @@ public abstract class BundleCoreTestSupport {
                 "com.aquasuite.ims.module.catalog.internal.repository",
                 "com.aquasuite.ims.module.iam.internal.repository",
                 "com.aquasuite.ims.module.iam.internal.user.repository",
-                "com.aquasuite.ims.module.audit.internal.repository",
                 "com.aquasuite.ims.module.inventory.internal.repository"
             })
     @Import({
@@ -82,7 +79,6 @@ public abstract class BundleCoreTestSupport {
         BundleCoreMapperImpl.class,
         BundleDetailAssembler.class,
         BundleClockConfig.class,
-        AuditService.class,
         BundleAdminController.class,
         GlobalExceptionHandler.class
     })
@@ -163,11 +159,11 @@ public abstract class BundleCoreTestSupport {
                 new java.math.BigDecimal("95000000.00"));
     }
 
-    protected BundleCoreDetail create() {
+    protected BundleResponse create() {
         return service.create(request("BUNDLE-1"));
     }
 
-    protected BundleCoreUpdateRequest update(BundleCoreDetail d) {
+    protected BundleCoreUpdateRequest update(BundleResponse d) {
         return new BundleCoreUpdateRequest(
                 d.productCode(),
                 "Updated combo",

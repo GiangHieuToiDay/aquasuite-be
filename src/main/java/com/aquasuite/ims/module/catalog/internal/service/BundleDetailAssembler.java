@@ -3,7 +3,7 @@ package com.aquasuite.ims.module.catalog.internal.service;
 import com.aquasuite.ims.module.catalog.internal.entity.*;
 import com.aquasuite.ims.module.catalog.internal.entity.enums.*;
 import com.aquasuite.ims.module.catalog.internal.mapper.BundleCoreMapper;
-import com.aquasuite.ims.module.catalog.internal.payload.BundleCoreDetail;
+import com.aquasuite.ims.module.catalog.internal.payload.BundleResponse;
 
 import lombok.RequiredArgsConstructor;
 
@@ -29,14 +29,14 @@ public class BundleDetailAssembler {
     /**
      * Ghép item/SKU theo ID, tính sellable và preview giá rồi truyền dữ liệu đã xử lý cho MapStruct.
      */
-    public BundleCoreDetail detail(
+    public BundleResponse detail(
             Product product,
             BundleConfiguration configuration,
             List<BundleItem> items,
             Map<UUID, ProductVariant> variants,
             Map<UUID, Product> parents) {
         var priceLines = new ArrayList<BundlePricingService.Line>();
-        var itemViews = new ArrayList<BundleCoreDetail.Item>();
+        var itemViews = new ArrayList<BundleResponse.Item>();
         for (BundleItem item : items) {
             ProductVariant variant = variants.get(item.getVariantId());
             Product parent = variant == null ? null : parents.get(variant.getProductId());
@@ -51,7 +51,7 @@ public class BundleDetailAssembler {
     /**
      * SKU và sản phẩm cha phải ACTIVE, cha phải NORMAL; đây không phải kiểm tra tồn kho.
      */
-    private boolean isSellable(ProductVariant variant, Product parent) {
+    static boolean isSellable(ProductVariant variant, Product parent) {
         return variant != null
                 && variant.getStatus() == VariantStatus.ACTIVE
                 && parent != null

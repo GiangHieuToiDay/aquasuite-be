@@ -76,8 +76,10 @@ class BundleCoreHttpIT extends BundleCoreTestSupport {
     @Test
     void deletedBundleCannotBeUpdatedOrToggledEvenWithOldVersion() throws Exception {
         var d = create();
-        var deleted = service.delete(d.bundleId(), d.version());
-        for (long version : new long[] {d.version(), deleted.version()}) {
+        service.delete(d.bundleId(), d.version());
+        Long deletedVersion = jdbc.queryForObject(
+                "select version from bundle_configurations where bundle_product_id=?", Long.class, d.bundleId());
+        for (long version : new long[] {d.version(), deletedVersion}) {
             var body =
                     (com.fasterxml.jackson.databind.node.ObjectNode)
                             json.valueToTree(request(d.productCode()));
@@ -106,9 +108,9 @@ class BundleCoreHttpIT extends BundleCoreTestSupport {
                 .andExpect(jsonPath("$.code").value("CATALOG_BUNDLE_003"));
         mvc.perform(
                         delete("/api/v1/catalog/admin/bundles/" + d.bundleId())
-                                .param("expectedVersion", deleted.version().toString()))
+                                .param("expectedVersion", deletedVersion.toString()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.version").value(deleted.version().intValue()));
+                .andExpect(jsonPath("$.data").doesNotExist());
         assertThat(jdbc.queryForObject("select count(*) from bundle_items", Integer.class))
                 .isEqualTo(1);
     }
@@ -128,7 +130,9 @@ class BundleCoreHttpIT extends BundleCoreTestSupport {
         long v = d.get("version").asLong();
         mvc.perform(get("/api/v1/catalog/admin/bundles"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.totalElements").value(1));
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.items[0].items[0].quantity").value(1))
+                .andExpect(jsonPath("$.data.items[0].categoryId").value(CATEGORY.toString()));
         mvc.perform(get("/api/v1/catalog/admin/bundles").param("page", "100"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items").isEmpty());
@@ -142,6 +146,8 @@ class BundleCoreHttpIT extends BundleCoreTestSupport {
                                         .contentType(MediaType.APPLICATION_JSON)
                                         .content(put.toString()))
                         .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.data.items[0].quantity").value(1))
+                        .andExpect(jsonPath("$.data.categoryId").value(CATEGORY.toString()))
                         .andReturn();
         v =
                 json.readTree(changed.getResponse().getContentAsByteArray())
@@ -160,13 +166,18 @@ class BundleCoreHttpIT extends BundleCoreTestSupport {
                                                         + v
                                                         + ",\"productStatus\":\"INACTIVE\"}"))
                         .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.data.productStatus").value("INACTIVE"))
+                        .andExpect(jsonPath("$.data.items[0].quantity").value(1))
+                        .andExpect(jsonPath("$.data.categoryId").value(CATEGORY.toString()))
                         .andReturn();
         v = json.readTree(off.getResponse().getContentAsByteArray()).at("/data/version").asLong();
         mvc.perform(
                         delete("/api/v1/catalog/admin/bundles/" + id)
                                 .param("expectedVersion", Long.toString(v)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.productStatus").value("DELETED"));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Đã xóa combo."))
+                .andExpect(jsonPath("$.data").doesNotExist());
         mvc.perform(get("/api/v1/catalog/admin/bundles/" + id)).andExpect(status().isNotFound());
         assertThat(jdbc.queryForObject("select count(*) from audit_entries", Integer.class))
                 .isZero();

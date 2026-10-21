@@ -29,11 +29,11 @@ public interface BundleCoreMapper {
     @Mapping(target = "createdAt", source = "configuration.createdAt")
     @Mapping(target = "updatedAt", source = "configuration.updatedAt")
     @Mapping(target = "linkedItemsCount", expression = "java(items.size())")
-    BundleCoreDetail detail(
+    BundleResponse detail(
             Product product,
             BundleConfiguration configuration,
             Price price,
-            List<BundleCoreDetail.Item> items);
+            List<BundleResponse.Item> items);
 
     /** Chuyển whitelist lưu trong cấu hình sang DTO; kiểm SKU và giá thuộc trách nhiệm service. */
     default BundleComponentGroupRequest group(BundleComponentGroup group) {
@@ -41,15 +41,9 @@ public interface BundleCoreMapper {
                 java.util.List.of(group.getAllowedVariantIds()));
     }
 
-    BundleCoreSummary summary(BundleCoreDetail detail);
-
     @Mapping(target = "variantId", source = "item.variantId")
     @Mapping(target = "name", source = "variant.variantName")
-    BundleCoreDetail.Item item(BundleItem item, ProductVariant variant, boolean sellable);
-
-    @Mapping(target = "bundleId", source = "product.productId")
-    @Mapping(target = "productStatus", source = "product.status")
-    BundleCoreMutationResult mutation(Product product, BundleConfiguration configuration);
+    BundleResponse.Item item(BundleItem item, ProductVariant variant, boolean sellable);
 
     @Mapping(target = "productId", source = "variant.productId")
     BundleSkuResponse sku(ProductVariant variant, Product product);

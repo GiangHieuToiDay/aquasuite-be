@@ -34,7 +34,7 @@ class AuthenticationMergeIT extends AuthIntegrationTestSupport {
     @Autowired BundleAdminService bundles;
     final UUID userId = UUID.randomUUID(), category = UUID.randomUUID(), product = UUID.randomUUID(), sku = UUID.randomUUID();
     final String password = UUID.randomUUID() + "Aa!1";
-    BundleCoreDetail bundle;
+    BundleResponse bundle;
 
     @BeforeEach void fixture() {
         getFaultProxy().disarm();

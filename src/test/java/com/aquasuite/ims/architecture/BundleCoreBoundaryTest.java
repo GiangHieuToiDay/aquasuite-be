@@ -19,8 +19,7 @@ class BundleCoreBoundaryTest {
                         "BundleDetailAssembler",
                         "BundleStorefrontService",
                         "BundleStorefrontController",
-                        "BundleCoreMapperImpl",
-                        "AuditService");
+                        "BundleCoreMapperImpl");
         for (var c : classes)
             if (names.contains(c.getSimpleName()))
                 for (var dep : c.getDirectDependenciesFromSelf()) {

@@ -1,6 +1,6 @@
 # Hướng dẫn code UC13 — Phase 1 và Phase 2: Quản lý combo
 
-Đối chiếu spec/plan 0.11.0 và code hiện tại, cập nhật ngày 2026-10-20. Giữ tên file cũ để các liên kết đang có tiếp tục hoạt động. [Spec đầy đủ](specs/SCRUM14-UC13-product-combos.md), [plan và tiến độ](../.agent/plans/SCRUM14-UC13.md), [handoff Phase 1](../.agent/handoffs/SCRUM14-UC13-phase1-verification.md), [handoff Phase 2](../.agent/handoffs/SCRUM14-UC13-phase2-verification.md), [handoff authentication](../.agent/handoffs/authentication-merge-verification.md).
+Đối chiếu spec 0.13.0 và code hiện tại, cập nhật ngày 2026-10-21; plan 0.11.0 là bằng chứng tích hợp authentication trước thay đổi response. Giữ tên file cũ để các liên kết đang có tiếp tục hoạt động. [Spec đầy đủ](specs/SCRUM14-UC13-product-combos.md), [plan và tiến độ](../.agent/plans/SCRUM14-UC13.md), [handoff Phase 1](../.agent/handoffs/SCRUM14-UC13-phase1-verification.md), [handoff Phase 2](../.agent/handoffs/SCRUM14-UC13-phase2-verification.md), [handoff authentication](../.agent/handoffs/authentication-merge-verification.md).
 
 ## Phạm vi và đường đi request
 
@@ -16,11 +16,11 @@ Mọi API combo hiện yêu cầu `Authorization: Bearer <access-token>` qua b�
 | BundleAdminService | Điều phối CRUD/lookup SKU, validation, transaction và version; dùng chung repository/mapper |
 | BundlePricingService | BigDecimal, tổng giá lẻ, tiết kiệm và phần trăm giảm |
 | BundleDetailAssembler | Tính giá/sellable từ dữ liệu đã truy vấn, gọi mapper tạo response |
-| BundleCoreMapper | Interface MapStruct map field detail/summary/item/mutation/SKU, không chứa nghiệp vụ hoặc gọi repository |
+| BundleCoreMapper | Interface MapStruct map response/item/SKU, không chứa nghiệp vụ hoặc gọi repository |
 | BundleCoreCreateRequest/UpdateRequest | Định nghĩa combo đầu vào; update thêm expectedVersion |
 | BundleCoreStatusRequest | ACTIVE/INACTIVE và expectedVersion |
-| BundleCoreSummary/Detail | Response danh sách/chi tiết |
-| BundleCoreMutationResult | Kết quả status/delete và version mới |
+| BundleResponse | Response đầy đủ dùng chung cho danh sách, GET, create, update, status, publish/unpublish |
+| DELETE response | ApiResponse<Void>, HTTP 200 và message thành công, không có data |
 | BundleItemRequest | variantId/quantity dùng chung cho create/update |
 | BundleJsonDeserializers | StrictInteger/StrictLong/StrictMoney dùng chung |
 | BundleConfiguration | Giá gói, lịch UTC, publication, timestamp, @Version và các nhóm option |
@@ -44,7 +44,9 @@ Giá đọc theo sellingPrice SKU hiện tại. PricingService trả priceIssue 
 
 Spring bind các query đã khai báo nhưng có thể bỏ qua tên query lạ hoặc lấy một giá trị khi query bị lặp. validateQueryParameters giữ contract 400 SYS_002 cho `?surprise=x` hoặc `?page=0&page=1`; mỗi endpoint khai báo danh sách tên được phép. Helper này là validation đầu vào, không phải Auth. Khi bỏ helper, phải thay contract và test tương ứng.
 
-Create/update có các field definition, items, packagePrice, validFrom/validUntil và componentGroups; tách DTO vì create không nhận expectedVersion còn update bắt buộc có. List dùng summary để không trả JSON items/description/lịch/nhóm của detail. Không gộp bằng inheritance/validation groups hoặc response đầy field nullable. MapStruct sinh chuyển detail → summary; request dùng chung BundleItemRequest, BundleComponentGroupRequest và các bộ đọc số strict.
+Create/update có các field definition, items, packagePrice, validFrom/validUntil và componentGroups; tách DTO vì create không nhận expectedVersion còn update bắt buộc có. List/get/create/update/status/publish/unpublish dùng chung BundleResponse đầy đủ, gồm items/mô tả/lịch/nhóm. Không còn summary/mutation DTO hoặc bước map detail sang summary. Request dùng chung BundleItemRequest, BundleComponentGroupRequest và các bộ đọc số strict.
+
+DELETE trả HTTP 200 ApiResponse<Void> với message “Đã xóa combo.”, không có data/version. Client bỏ dòng sau thành công; retry với version trước khi xóa vẫn trả 409 theo rule hiện tại. Status trả BundleResponse đầy đủ cùng version mới; no-op giữ nguyên version. JSON danh sách lớn hơn do trả cả cấu hình chi tiết.
 
 MapStruct dùng componentModel Spring và unmappedTargetPolicy ERROR để build lỗi khi thiếu field target mới. Processor dùng chung compile/testCompile, thêm Lombok binding theo [hướng dẫn MapStruct](https://mapstruct.org/documentation/1.6/reference/html/#_lombok). Generated implementation nằm trong target, không đưa lên Git.
 
@@ -56,7 +58,7 @@ JavaDoc trước controller/service/DTO mô tả mục đích, caller và luồn
 
 ## Dấu vết và Audit
 
-Product và BundleConfiguration giữ timestamp; config giữ version; Product.status lưu tombstone. Đây là dấu vết gần nhất, không phải lịch sử mọi lần sửa. Authentication và kiểu actor UUID đã tích hợp nhưng CRUD combo chưa ghi Audit nghiệp vụ mới. Module/bảng audit_entries vẫn tồn tại; việc có JWT không đồng nghĩa đã có lịch sử mọi lần sửa combo.
+Product và BundleConfiguration giữ timestamp; config giữ version; Product.status lưu tombstone. Đây là dấu vết gần nhất, không phải lịch sử mọi lần sửa. Theo yêu cầu người dùng ngày 2026-10-21 (spec 0.13.0), module Java Audit chưa được sử dụng đã được bỏ. Bảng audit_entries và migration V2/V4 vẫn giữ nguyên để bảo toàn tương thích/dữ liệu lịch sử; CRUD combo không ghi audit.
 
 createdBy/updatedBy/deletedBy chưa được tích hợp vào luồng CRUD combo; khi bổ sung phải lấy từ IAM, không dùng User giả. Bảng lưu từng phiên bản giá/thành phần chưa triển khai.
 
@@ -76,7 +78,7 @@ Flyway là cơ chế migration duy nhất: V1 tạo schema legacy, V2 bổ sung/
 
 ## Phase 2: API và luồng dùng lại
 
-Code Catalog nằm tại `src/main/java/com/aquasuite/ims/module/catalog/internal/`. `BundleStorefrontService` tách khỏi service quản trị vì có điều kiện hiển thị/lựa chọn/preview riêng, nhưng dùng lại validatePageRequest/loadDetails, pricing và mapper. Luồng: JWT → BundleStorefrontController → BundleStorefrontService → Catalog; evaluation gọi thêm `module/inventory/api/InventoryAvailabilityApi`. Catalog không import internal của Inventory.
+Code Catalog nằm tại `src/main/java/com/aquasuite/ims/module/catalog/internal/`. `BundleStorefrontService` tách khỏi service quản trị vì có điều kiện hiển thị/lựa chọn/preview riêng, nhưng dùng lại validatePageRequest/loadDetails và pricing. Mapper được gọi qua luồng loadDetails dùng chung. Luồng: JWT → BundleStorefrontController → BundleStorefrontService → Catalog; evaluation gọi thêm `module/inventory/api/InventoryAvailabilityApi`. Catalog không import internal của Inventory.
 
 Các endpoint bổ sung dưới `/api/v1/catalog` đều yêu cầu JWT:
 
@@ -84,7 +86,7 @@ Các endpoint bổ sung dưới `/api/v1/catalog` đều yêu cầu JWT:
 |---|---|---|
 | POST | `/admin/bundles/{id}/publish` | JSON expectedVersion → detail |
 | POST | `/admin/bundles/{id}/unpublish` | JSON expectedVersion → detail |
-| GET | `/bundles` | page, size, keyword → trang summary |
+| GET | `/bundles` | page, size, keyword → trang BundleResponse đầy đủ |
 | GET | `/bundles/{id}` | Detail đang hiển thị; bị ẩn trả 404 |
 | POST | `/bundles/{id}/evaluations` | quantity, expectedVersion tùy chọn, selections → preview |
 

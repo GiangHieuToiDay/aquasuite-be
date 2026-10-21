@@ -4,7 +4,6 @@ import com.aquasuite.ims.module.catalog.internal.entity.*;
 import com.aquasuite.ims.module.catalog.internal.entity.enums.*;
 import com.aquasuite.ims.module.catalog.internal.payload.*;
 import com.aquasuite.ims.module.catalog.internal.repository.*;
-import com.aquasuite.ims.module.catalog.internal.mapper.BundleCoreMapper;
 import com.aquasuite.ims.module.inventory.api.InventoryAvailabilityApi;
 import com.aquasuite.ims.share.exception.AppException;
 import jakarta.validation.Validation;
@@ -26,17 +25,17 @@ class BundleStorefrontServiceTest {
     final BundleAdminService admin = mock(BundleAdminService.class);
     final InventoryAvailabilityApi inventory = mock(InventoryAvailabilityApi.class);
     final BundleConfiguration config = new BundleConfiguration();
-    BundleCoreDetail detail;
+    BundleResponse detail;
     jakarta.validation.ValidatorFactory validatorFactory;
 
     @BeforeEach void setup() {
         validatorFactory = Validation.buildDefaultValidatorFactory();
         config.setPublicationStatus(BundleConfiguration.PublicationStatus.PUBLISHED);
         config.setValidFrom(from); config.setValidUntil(until);
-        detail = new BundleCoreDetail(id, "CODE", "Bundle", "ACTIVE", "PUBLISHED", 1L, 1,
+        detail = new BundleResponse(id, "CODE", "Bundle", "ACTIVE", "PUBLISHED", 1L, 1,
                 new BigDecimal("110"), new BigDecimal("95"), new BigDecimal("15"), new BigDecimal("13.6"),
                 null, from, from, UUID.randomUUID(), null, null,
-                List.of(new BundleCoreDetail.Item(UUID.randomUUID(), sku, "SKU", "Item", 2, new BigDecimal("55"), true)),
+                List.of(new BundleResponse.Item(UUID.randomUUID(), sku, "SKU", "Item", 2, new BigDecimal("55"), true)),
                 from, until, List.of());
         when(configs.findById(id)).thenReturn(Optional.of(config));
         when(admin.get(id)).thenReturn(detail);
@@ -49,7 +48,7 @@ class BundleStorefrontServiceTest {
     }
     @AfterEach void close() { validatorFactory.close(); }
     BundleStorefrontService at(Instant instant) {
-        return new BundleStorefrontService(products, variants, configs, admin, mock(BundleCoreMapper.class),
+        return new BundleStorefrontService(products, variants, configs, admin,
                 new BundlePricingService(), inventory, validatorFactory.getValidator(), Clock.fixed(instant, ZoneOffset.UTC));
     }
     @ParameterizedTest

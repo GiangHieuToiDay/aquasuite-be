@@ -1,9 +1,10 @@
 package com.aquasuite.ims.module.catalog.internal.service;
 
+import static com.aquasuite.ims.module.catalog.internal.service.BundleDetailAssembler.isSellable;
+
 import com.aquasuite.ims.module.catalog.internal.entity.*;
 import com.aquasuite.ims.module.catalog.internal.entity.enums.*;
 import com.aquasuite.ims.module.catalog.internal.exception.BundleErrorCode;
-import com.aquasuite.ims.module.catalog.internal.mapper.BundleCoreMapper;
 import com.aquasuite.ims.module.catalog.internal.payload.*;
 import com.aquasuite.ims.module.catalog.internal.repository.*;
 import com.aquasuite.ims.module.inventory.api.InventoryAvailabilityApi;
@@ -34,13 +35,12 @@ public class BundleStorefrontService {
     private final ProductVariantRepository variants;
     private final BundleConfigurationRepository configs;
     private final BundleAdminService admin;
-    private final BundleCoreMapper mapper;
     private final BundlePricingService pricing;
     private final InventoryAvailabilityApi inventory;
     private final Validator validator;
     private final Clock clock;
 
-    public BundlePage<BundleCoreSummary> list(int page, int size, String keyword) {
+    public BundlePage<BundleResponse> list(int page, int size, String keyword) {
         admin.validatePageRequest(page, size, keyword);
         Instant now = clock.instant();
         String term = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
@@ -61,16 +61,16 @@ public class BundleStorefrontService {
         var result = products.findAll(visible, PageRequest.of(page, size,
                 Sort.by(Sort.Order.desc("createdAt"), Sort.Order.asc("productId"))));
         var details = admin.loadDetails(result.getContent());
-        return new BundlePage<>(result.stream().map(p -> mapper.summary(details.get(p.getProductId()))).toList(),
+        return new BundlePage<>(result.stream().map(p -> details.get(p.getProductId())).toList(),
                 page, size, result.getTotalElements(), result.getTotalPages());
     }
 
-    public BundleCoreDetail get(UUID id) {
+    public BundleResponse get(UUID id) {
         return visibleDetail(id, clock.instant());
     }
 
     /** Combo chỉ hiển thị trong khoảng UTC [validFrom, validUntil); combo bị ẩn cũng trả 404. */
-    private BundleCoreDetail visibleDetail(UUID id, Instant now) {
+    private BundleResponse visibleDetail(UUID id, Instant now) {
         var config = configs.findById(id).orElseThrow(() -> new AppException(CommonErrorCode.RESOURCE_NOT_FOUND));
         if (config.getPublicationStatus() != BundleConfiguration.PublicationStatus.PUBLISHED
                 || config.getValidFrom() == null || config.getValidUntil() == null
@@ -120,12 +120,10 @@ public class BundleStorefrontService {
             var item = detail.items().get(index);
             var variant = current.get(selectedIds.get(index));
             var parent = variant == null ? null : parents.get(variant.getProductId());
-            boolean componentSellable = variant != null && variant.getStatus() == VariantStatus.ACTIVE
-                    && parent != null && parent.getStatus() == ProductStatus.ACTIVE
-                    && parent.getProductType() == ProductType.NORMAL;
+            boolean componentSellable = isSellable(variant, parent);
             sellable &= componentSellable;
             // Giá SKU có thể đổi sau khi publish: option phải còn bán được và bằng giá mặc định.
-            if (!selectedIds.get(index).equals(item.variantId()) && (!componentSellable || variant == null
+            if (!selectedIds.get(index).equals(item.variantId()) && (!componentSellable
                     || variant.getSellingPrice() == null || item.sellingPrice() == null
                     || variant.getSellingPrice().compareTo(item.sellingPrice()) != 0))
                 throw new AppException(BundleErrorCode.INVALID_COMPONENT);

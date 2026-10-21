@@ -15,6 +15,28 @@ import java.util.*;
 
 class BundleAdminServiceIT extends BundleCoreTestSupport {
     @Test
+    void listingMultipleBundlesKeepsEachBundlesOwnItemsAndPrice() {
+        var first = create();
+        var second = service.create(new BundleCoreCreateRequest(
+                "BUNDLE-2", "Second combo", CATEGORY, null, null,
+                List.of(new BundleItemRequest(SKU, 2)), new BigDecimal("95000000.00")));
+
+        var page = service.list(0, 20, null, null, null);
+
+        assertThat(page.totalElements()).isEqualTo(2);
+        assertThat(page.items()).filteredOn(b -> b.bundleId().equals(first.bundleId()))
+                .singleElement().satisfies(b -> {
+                    assertThat(b.linkedItemsCount()).isEqualTo(1);
+                    assertThat(b.originalTotal()).isEqualByComparingTo("110000000.00");
+                });
+        assertThat(page.items()).filteredOn(b -> b.bundleId().equals(second.bundleId()))
+                .singleElement().satisfies(b -> {
+                    assertThat(b.linkedItemsCount()).isEqualTo(1);
+                    assertThat(b.originalTotal()).isEqualByComparingTo("220000000.00");
+                });
+    }
+
+    @Test
     void failedReplacementRestoresDefinitionItemsAndVersion() {
         var original = service.get(create().bundleId());
         var replacementSku = UUID.randomUUID();

@@ -1,5 +1,9 @@
 # AquaSuite Backend Documentation Index
 
+UC-13 update 0.13.0 (2026-10-21, user-authorized): removed the unused Java audit module and its provider tests; audit_entries and V1-V7 migrations are retained. Clean verify PASS: 205 Surefire + 70 Failsafe = 275 tests, zero failures/errors/skipped. See [plan](../.agent/plans/REMOVE-UNUSED-AUDIT.md), [handoff](../.agent/handoffs/REMOVE-UNUSED-AUDIT.md). Previous response verification below remains historical; independent review pending.
+
+UC-13 response update 0.12.0 (2026-10-21, user-authorized): shared `BundleResponse` for list/get/create/update/status/publish/unpublish; DELETE returns HTTP 200 success envelope without data. Clean verify PASS: 205 Surefire + 72 Failsafe = 277 tests, zero failures/errors/skipped. See [spec](specs/SCRUM14-UC13-product-combos.md), [scoped plan](../.agent/plans/COMBO-RESPONSE-SIMPLIFICATION.md), [handoff](../.agent/handoffs/COMBO-RESPONSE-SIMPLIFICATION.md). Independent review pending; prior verification counts below are historical.
+
 ## Purpose and Document Hierarchy
 
 Tài liệu này là bản đồ chỉ mục cho toàn bộ hệ thống tài liệu phát triển backend của dự án AquaSuite. Để giải quyết các mâu thuẫn thông tin có thể phát sinh trong quá trình phát triển, thứ tự ưu tiên nguồn sự thật (Source of Truth) được quy định như sau:

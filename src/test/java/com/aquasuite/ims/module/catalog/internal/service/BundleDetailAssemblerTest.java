@@ -82,7 +82,6 @@ class BundleDetailAssemblerTest {
         assertThat(line.quantity()).isEqualTo(1);
         assertThat(line.sellingPrice()).isEqualByComparingTo("110000000.00");
         assertThat(line.sellable()).isTrue();
-        assertThat(mapper.summary(detail)).usingRecursiveComparison().isEqualTo(detail);
     }
 
     @ParameterizedTest
@@ -134,13 +133,7 @@ class BundleDetailAssemblerTest {
     }
 
     @Test
-    void generatedMutationAndLookupUseTheirOwnContracts() {
-        bundle.setStatus(ProductStatus.INACTIVE);
-        var mutation = mapper.mutation(bundle, configuration);
-        assertThat(mutation.bundleId()).isEqualTo(bundle.getProductId());
-        assertThat(mutation.productStatus()).isEqualTo("INACTIVE");
-        assertThat(mutation.publicationStatus()).isEqualTo("DRAFT");
-        assertThat(mutation.version()).isEqualTo(3L);
+    void generatedLookupUsesSkuContract() {
         var sku = mapper.sku(variant, parent);
         assertThat(sku.variantId()).isEqualTo(variant.getVariantId());
         assertThat(sku.productId()).isEqualTo(parent.getProductId());

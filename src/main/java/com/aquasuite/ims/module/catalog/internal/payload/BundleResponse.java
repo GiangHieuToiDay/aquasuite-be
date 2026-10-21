@@ -7,11 +7,11 @@ import java.time.Instant;
 import java.util.*;
 
 /**
- * Response chi tiết dùng sau GET, tạo hoặc sửa combo, gồm definition và các SKU thành phần.
+ * Response dùng chung cho danh sách, GET, tạo, sửa và đổi trạng thái combo.
  * Luồng: service đọc dữ liệu → assembler tính giá/sellable → MapStruct ánh xạ sang DTO.
  * Timestamp/version thuộc cấu hình combo; không chứa tồn kho, quyền hoặc entity JPA.
  */
-public record BundleCoreDetail(
+public record BundleResponse(
         UUID bundleId,
         String productCode,
         String name,

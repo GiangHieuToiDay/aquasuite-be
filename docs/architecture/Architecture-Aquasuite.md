@@ -9,6 +9,7 @@ Tài liệu này xác lập tiêu chuẩn kiến trúc backend cho hệ thống 
 - **Runtime & Framework**: Java 21, Spring Boot 3.5.16 (quản lý qua `pom.xml`, BOM quản lý Spring Framework 6.2.x và Spring Security 6.5.x).
 - **Base Package**: Toàn bộ mã nguồn hiện tại nằm dưới gói `com.aquasuite.ims`.
 - **Database Baseline**: PostgreSQL là hệ thống cơ sở dữ liệu chuẩn duy nhất.
+- **Audit hiện tại (2026-10-21)**: Theo yêu cầu người dùng, module Java `audit` chưa có caller nghiệp vụ đã được loại bỏ. Bảng `audit_entries` và migration V2/V4 được giữ để tương thích schema/dữ liệu; FE-02 trong kiến trúc mục tiêu chưa có provider hiện thực.
 - **Existing Components**:
   - `com.aquasuite.ims.AquasuiteBeApplication`: Main class khởi chạy ứng dụng.
   - `com.aquasuite.ims.share.dto.ApiResponse<T>`: Cấu trúc response chuẩn cho HTTP API (`success`, `code`, `message`, `data`, `errors`, `timestamp`).
@@ -63,7 +64,7 @@ com.aquasuite.ims
 3. **Cấm liên kết JPA Entity chéo Module**: Không sử dụng `@ManyToOne`, `@OneToMany`, `@OneToOne`, `@ManyToMany` trực tiếp giữa hai `@Entity` thuộc hai module khác nhau. Quan hệ chéo module trong mô hình đối tượng Java chỉ được lưu dưới dạng ID thuần (`UUID`, `Long` hoặc `String`).
 4. **Hợp đồng không dùng Entity**: Public contract không được nhận vào hoặc trả về JPA Entity; chỉ sử dụng primitive/scalar types, public DTOs hoặc event records thuộc `api/`.
 5. **Ràng buộc khóa ngoại ở mức Database**: Việc cấm JPA entity relationship chéo module không đồng nghĩa với việc cấm Foreign Key ở mức database schema trên PostgreSQL. Việc thiết lập khóa ngoại, chỉ mục (index) hoặc trigger toàn vẹn dữ liệu trong cơ sở dữ liệu sẽ do schema design của từng use case quyết định để đảm bảo toàn vẹn dữ liệu vật lý.
-6. **Kiểm tra ranh giới bằng ArchUnit**: Workspace đã có dependency ArchUnit và `BundleCoreBoundaryTest` kiểm tra các class combo/audit thuộc phạm vi UC-13. Không coi kiểm tra có phạm vi này là bằng chứng toàn bộ mã legacy đã tuân thủ kiến trúc. Contract actor mới của IAM nằm trong `iam/api`; không thêm import chéo `internal`.
+6. **Kiểm tra ranh giới bằng ArchUnit**: Workspace đã có dependency ArchUnit và `BundleCoreBoundaryTest` kiểm tra các class combo thuộc phạm vi UC-13. Không coi kiểm tra có phạm vi này là bằng chứng toàn bộ mã legacy đã tuân thủ kiến trúc. Contract actor mới của IAM nằm trong `iam/api`; không thêm import chéo `internal`.
 
 ---
 
@@ -178,4 +179,4 @@ inventory (Xác nhận Phiếu nhập kho - GRN)
 3. **Guardrail 3 - Idempotency & Deduplication**:
    - Mọi Consumer lắng nghe Event hoặc API xử lý thanh toán/tồn kho phải kiểm tra tính lặp lại (idempotency key / event ID) trước khi thay đổi trạng thái dữ liệu.
 4. **Guardrail 4 - Audit Trail Invariant (FE-02)**:
-   - Các thao tác nhạy cảm (thay đổi giá bán, chỉnh sửa tồn kho, hủy/sửa đơn hàng, điều chỉnh công nợ) bắt buộc phải phát sinh bản ghi kiểm toán kèm theo dữ liệu trước (`beforeValue`) và sau (`afterValue`).
+   - Trong thiết kế mục tiêu FE-02, các thao tác nhạy cảm (thay đổi giá bán, chỉnh sửa tồn kho, hủy/sửa đơn hàng, điều chỉnh công nợ) cần phát sinh bản ghi kiểm toán kèm dữ liệu trước/sau. Module Java audit hiện đã được bỏ theo yêu cầu người dùng; không coi yêu cầu mục tiêu này là chức năng đã có hoặc điều kiện của CRUD combo hiện tại. Việc bổ sung lại cần phạm vi và hợp đồng được phê duyệt riêng.

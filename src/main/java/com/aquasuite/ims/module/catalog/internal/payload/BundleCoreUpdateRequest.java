@@ -15,8 +15,10 @@ import java.util.UUID;
  * Mã combo phải giữ nguyên; omit/null brandId hoặc description sẽ xóa giá trị cũ.
  */
 public record BundleCoreUpdateRequest(
-        @NotBlank @Size(max = 100) String productCode,
-        @NotBlank @Size(max = 255) String name,
+        @NotBlank @Size(max = 100)
+        String productCode,
+        @NotBlank @Size(max = 255)
+        String name,
         @NotNull UUID categoryId,
         UUID brandId,
         @Size(max = 10000) String description,

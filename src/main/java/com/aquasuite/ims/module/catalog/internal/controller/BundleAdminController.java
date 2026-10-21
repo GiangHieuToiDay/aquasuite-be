@@ -31,10 +31,10 @@ public class BundleAdminController {
     private final BundleAdminService service;
 
     /**
-     * Nhận bộ lọc/phân trang → service đọc combo chưa xóa → trả trang summary.
+     * Nhận bộ lọc/phân trang → service đọc combo chưa xóa → trả trang response đầy đủ.
      */
     @GetMapping("/bundles")
-    public ApiResponse<BundlePage<BundleCoreSummary>> list(
+    public ApiResponse<BundlePage<BundleResponse>> list(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String keyword,
@@ -50,7 +50,7 @@ public class BundleAdminController {
      * Nhận UUID combo → service đọc và ghép chi tiết; combo không tồn tại/đã xóa trả 404.
      */
     @GetMapping("/bundles/{bundleId}")
-    public ApiResponse<BundleCoreDetail> get(
+    public ApiResponse<BundleResponse> get(
             @PathVariable UUID bundleId, HttpServletRequest request) {
         validateQueryParameters(request, Set.of());
         return ApiResponse.ok(service.get(bundleId));
@@ -60,7 +60,7 @@ public class BundleAdminController {
      * Nhận dữ liệu tạo → service lưu aggregate nguyên tử → trả 201, Location và detail mới.
      */
     @PostMapping("/bundles")
-    public ResponseEntity<ApiResponse<BundleCoreDetail>> create(
+    public ResponseEntity<ApiResponse<BundleResponse>> create(
             @Valid @RequestBody BundleCoreCreateRequest payload, HttpServletRequest request) {
         validateQueryParameters(request, Set.of());
         var detail = service.create(payload);
@@ -72,7 +72,7 @@ public class BundleAdminController {
      * Nhận toàn bộ definition và expectedVersion → service kiểm xung đột rồi thay nội dung.
      */
     @PutMapping("/bundles/{bundleId}")
-    public ApiResponse<BundleCoreDetail> update(
+    public ApiResponse<BundleResponse> update(
             @PathVariable UUID bundleId,
             @Valid @RequestBody BundleCoreUpdateRequest payload,
             HttpServletRequest request) {
@@ -81,22 +81,23 @@ public class BundleAdminController {
     }
 
     /**
-     * Nhận expectedVersion qua query → xóa mềm và trả trạng thái/version để client retry.
+     * Nhận expectedVersion qua query → xóa mềm và trả thông báo thành công, không có data.
      */
     @DeleteMapping("/bundles/{bundleId}")
-    public ApiResponse<BundleCoreMutationResult> delete(
+    public ApiResponse<Void> delete(
             @PathVariable UUID bundleId,
             @RequestParam long expectedVersion,
             HttpServletRequest request) {
         validateQueryParameters(request, Set.of("expectedVersion"));
-        return ApiResponse.ok(service.delete(bundleId, expectedVersion), "Đã xóa combo.");
+        service.delete(bundleId, expectedVersion);
+        return ApiResponse.ok(null, "Đã xóa combo.");
     }
 
     /**
      * Nhận ACTIVE/INACTIVE và expectedVersion → đổi trạng thái nội bộ, không tự publish.
      */
     @PatchMapping("/bundles/{bundleId}/status")
-    public ApiResponse<BundleCoreMutationResult> status(
+    public ApiResponse<BundleResponse> status(
             @PathVariable UUID bundleId,
             @Valid @RequestBody BundleCoreStatusRequest payload,
             HttpServletRequest request) {
@@ -106,7 +107,7 @@ public class BundleAdminController {
 
     /** Công bố sau khi service khóa cấu hình, kiểm version, giá SKU/option và lịch hiệu lực. */
     @PostMapping("/bundles/{bundleId}/publish")
-    public ApiResponse<BundleCoreDetail> publish(@PathVariable UUID bundleId,
+    public ApiResponse<BundleResponse> publish(@PathVariable UUID bundleId,
             @Valid @RequestBody BundleVersionRequest payload, HttpServletRequest request) {
         validateQueryParameters(request, Set.of());
         return ApiResponse.ok(service.publish(bundleId, payload), "MSG44");
@@ -114,7 +115,7 @@ public class BundleAdminController {
 
     /** Ngừng hiển thị combo trên API xem hàng sau khi transaction hoàn tất. */
     @PostMapping("/bundles/{bundleId}/unpublish")
-    public ApiResponse<BundleCoreDetail> unpublish(@PathVariable UUID bundleId,
+    public ApiResponse<BundleResponse> unpublish(@PathVariable UUID bundleId,
             @Valid @RequestBody BundleVersionRequest payload, HttpServletRequest request) {
         validateQueryParameters(request, Set.of());
         return ApiResponse.ok(service.unpublish(bundleId, payload));

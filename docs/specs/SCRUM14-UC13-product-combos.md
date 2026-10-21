@@ -1,5 +1,9 @@
 # SCRUM14 / UC-13 — View and Manage Product Combos
 
+> Revision 0.13.0 (2026-10-21): Người dùng yêu cầu bỏ module Java audit chưa có caller nghiệp vụ. Không còn AuditApi/AuditService/entity/repository trong source. Giữ bảng audit_entries, dữ liệu lịch sử và toàn bộ migration V1-V7. Các mô tả provider Audit bên dưới chỉ còn là thiết kế lịch sử/tương lai, không thuộc chức năng hiện tại; hợp đồng response 0.12.0 và nghiệp vụ combo giữ nguyên.
+
+> Revision 0.12.0, theo chỉ đạo người dùng ngày 2026-10-21: list/get/create/update/status/publish/unpublish dùng chung BundleResponse đầy đủ; DELETE trả HTTP 200 ApiResponse<Void>, message thành công và bỏ data. Quy định này thay thế mô tả summary/detail/mutation response trong các phần lịch sử và thiết kế cũ bên dưới. Request, validation, transaction/version, xóa mềm, evaluation và event giữ nguyên. DELETE không trả version mới; retry với version trước xóa vẫn 409, current-version no-op vẫn giữ nguyên. JSON danh sách lớn hơn do bao gồm items/mô tả/lịch/nhóm.
+
 ## Metadata and Governance
 
 | Thông tin | Giá trị |
@@ -7,8 +11,8 @@
 | Work item | `SCRUM14` (theo yêu cầu người dùng; chưa đối chiếu hệ thống quản lý ticket). |
 | Feature ID / Use Case | `FE-03 / UC-13`. |
 | Feature Name | View and Manage Product Combos — Xem và quản lý combo sản phẩm |
-| Version | `0.11.0`. |
-| Status | IMPLEMENTATION_READY_FOR_REVIEW; authentication integration 0.11.0 verified; independent technical/code review PENDING. |
+| Version | `0.13.0`. |
+| Status | Java audit removal authorized by user; clean verify PASS (205 Surefire + 70 Failsafe = 275 tests, 2026-10-21); independent technical/code review PENDING. Response 0.12.0 verification is historical. |
 | Owner / Author / Reviewer | QuangNB; cần người phụ trách nghiệp vụ và kỹ thuật review. |
 | Owning Module | `catalog`. |
 | Repository Scope | `BE (aquasuite-be)`. |
@@ -190,7 +194,7 @@ Các ma trận actor/quyền và hợp đồng IAM/Audit trong phần thiết k�
 | createdBy/updatedBy/deletedBy | Deferred đến IAM; không nhận Actor ID client tự khai hoặc ghi User giả |
 | deletedAt / lịch sử giá-thành phần | Có thể bổ sung bằng migration riêng nếu cần; chưa thêm trong lần sửa này |
 
-Core không gọi AuditApi khi chưa có danh tính actor. Bảng audit_entries/module Audit có sẵn được giữ để tương thích migration nhưng không có bản ghi CRUD combo mới. Không sửa file migration đã phát hành hoặc xóa lịch sử cũ.
+Core không ghi Audit nghiệp vụ. Module Java Audit đã được bỏ; chỉ giữ bảng audit_entries để tương thích migration và dữ liệu lịch sử, không có bản ghi CRUD combo mới. Không sửa file migration đã phát hành hoặc xóa lịch sử cũ.
 
 Timestamp/status/version chỉ giúp truy vết trạng thái gần nhất, không đáp ứng lịch sử before/after từng lần sửa. Nếu nghiệp vụ cần lịch sử đầy đủ mà không dùng module Audit, có thể thiết kế bảng BundleRevision/BundleRevisionItem riêng chứa bản sao definition theo version và ghi cùng transaction. Đây là phương án chưa triển khai, cần chốt thời hạn lưu và migration. Không nhân bản actor fields ở mọi bảng child nếu có thể lấy từ aggregate.
 
@@ -277,7 +281,7 @@ D01, D04, D06-read, D09-audit/media và phần auth/upload của D10 là thiết
 | ACTIVE | B12 INACTIVE | INACTIVE | Version khớp; timestamp/version; không đổi publication |
 | INACTIVE | B12 ACTIVE | ACTIVE | Version khớp; timestamp/version; không đổi publication |
 | ACTIVE/INACTIVE | B11 | DELETED | Version khớp; timestamp/version; giữ dữ liệu vật lý |
-| DELETED | B11 lặp cùng version hiện tại | DELETED | 200 tombstone, không tăng version lần hai |
+| DELETED | B11 lặp cùng version hiện tại | DELETED | 200 success envelope không data, không tăng version lần hai |
 | DELETED | B06/B12 hoặc restore | Không cho phép | 404; chưa có restore API |
 
 ### Trạng thái và xử lý khi không thành công
@@ -670,9 +674,9 @@ Ví dụ lỗi validation (field path dùng index bắt đầu từ 0):
 
 | API | Contract core cụ thể |
 |---|---|
-| B03 listAdminBundles | GET admin/bundles; page 0 mặc định, size 20 (1..100), keyword trim <=255, productStatus ACTIVE/INACTIVE optional, publicationStatus DRAFT/UNPUBLISHED/PUBLISHED optional; query lạ trả 400 SYS_002. Sort createdAt DESC, bundleId ASC; filter BUNDLE và không DELETED trước paging; trả BundlePage<BundleCoreSummary> 200, rỗng/page vượt cuối 200; không gọi inventory |
-| B04 getAdminBundle | GET admin/bundles/{bundleId}; UUID; 200 BundleCoreDetail, 404 không thấy/khác BUNDLE/DELETED; GET không tăng version/audit; không nhận availability giả |
-| B05 createBundle | POST admin/bundles, JSON CoreCreateRequest; 201 ApiResponse<BundleCoreDetail> + Location; message “Đã tạo combo.”; MSG44 vẫn dành cho publish về sau. Product ACTIVE, publication DRAFT, definition/config/items nguyên tử, không gọi Audit; retry code trùng 409 DB_001, không tự tạo bản sao |
+| B03 listAdminBundles | GET admin/bundles; page 0 mặc định, size 20 (1..100), keyword trim <=255, productStatus ACTIVE/INACTIVE optional, publicationStatus DRAFT/UNPUBLISHED/PUBLISHED optional; query lạ trả 400 SYS_002. Sort createdAt DESC, bundleId ASC; filter BUNDLE và không DELETED trước paging; trả BundlePage<BundleResponse> 200, rỗng/page vượt cuối 200; không gọi inventory |
+| B04 getAdminBundle | GET admin/bundles/{bundleId}; UUID; 200 BundleResponse, 404 không thấy/khác BUNDLE/DELETED; GET không tăng version/audit; không nhận availability giả |
+| B05 createBundle | POST admin/bundles, JSON CoreCreateRequest; 201 ApiResponse<BundleResponse> + Location; message “Đã tạo combo.”; MSG44 vẫn dành cho publish về sau. Product ACTIVE, publication DRAFT, definition/config/items nguyên tử, không gọi Audit; retry code trùng 409 DB_001, không tự tạo bản sao |
 | B06 updateBundle | PUT admin/bundles/{bundleId}, JSON CoreUpdateRequest; 200 detail mới. Version cũ 409 CATALOG_BUNDLE_003; PUBLISHED 409 CATALOG_BUNDLE_006; không thấy/đã xóa 404; full replacement core, không reset ảnh/ngày/option không thuộc contract. Nếu đã có groups sau nâng cấp thì core-only writer không được bỏ qua cấu hình đó: contract phải được nâng cấp trước |
 
 Mọi API core B03-B06/C01/B11/B12 ở Phase 1 chấp nhận request không Authorization, không gọi CurrentActorApi/AuditApi và không yêu cầu cấu hình IAM. 401/403 do quyền combo không thuộc nghiệm thu hiện tại. Phase sau dùng provider IAM chung khi contract được chốt; không tự xây login/JWT verifier hoặc tạo User giả.
@@ -692,9 +696,8 @@ Request core không nhận dates/bannerAssetId/componentGroups/selections/produc
 
 | Response core | Field / nullability |
 |---|---|
-| BundleCoreSummary | bundleId UUID, productCode/name String, productStatus ACTIVE/INACTIVE, publicationStatus, version Long, linkedItemsCount int, originalTotal decimal nullable khi SKU không thể định giá, packagePrice decimal nullable legacy, savingAmount/discountPercent decimal nullable, priceIssue string nullable, createdAt/updatedAt ISO-8601 theo offset server quy định |
-| BundleCoreDetail | Summary + categoryId UUID, brandId UUID nullable, description nullable, items [{bundleItemId UUID, variantId UUID, sku/name String, quantity int, sellingPrice decimal nullable, sellable boolean}]. Nếu SKU inactive sau tạo thì vẫn giữ dòng và sellable=false để Owner sửa |
-| Xóa / đổi trạng thái | BundleCoreMutationResult: bundleId, productStatus, publicationStatus, version. Không response data null 204 vì cần envelope/version để retry |
+| BundleResponse | bundleId UUID, productCode/name String, productStatus, publicationStatus, version Long, linkedItemsCount int, originalTotal/packagePrice/savingAmount/discountPercent nullable theo rule giá, priceIssue nullable, createdAt/updatedAt, categoryId, brandId nullable, description nullable, items [{bundleItemId,variantId,sku,name,quantity,sellingPrice,sellable}], validFrom/validUntil nullable, componentGroups. Dùng chung cho list/get/create/update/status/publish/unpublish; giữ SKU inactive với sellable=false |
+| Xóa / đổi trạng thái | DELETE trả 200 ApiResponse<Void>, message thành công và không có data. Status trả 200 ApiResponse<BundleResponse> đầy đủ |
 | Không có trong core response | availability, availableBundleQty, evaluatedAt, media verification, hiệu lực public hoặc purchasable mang ý nghĩa giao dịch; không giả giá trị còn hàng |
 
 ```json
@@ -708,7 +711,7 @@ Request core không nhận dates/bannerAssetId/componentGroups/selections/produc
 | Endpoint / operation | DELETE /api/v1/catalog/admin/bundles/{bundleId}; deleteBundle |
 | Input | UUID path; query expectedVersion Long >=0 bắt buộc; không DELETE body để tránh client/proxy bỏ body; Phase 1 không yêu cầu Authorization |
 | Transaction | Lock/compare aggregate version, giữ Product/BundleConfiguration/items/code; đổi Product.status DELETED và tăng header version nguyên tử; Phase 1 không ghi audit |
-| Response | 200 ApiResponse<BundleCoreMutationResult>, message “Đã xóa combo.”; không vật lý xóa dữ liệu, không giải phóng mã |
+| Response | 200 ApiResponse<Void>, message “Đã xóa combo.”; không vật lý xóa dữ liệu, không giải phóng mã |
 | Lỗi / retry | 400 SYS_002 path/query sai hoặc thiếu expectedVersion; 404 không tồn tại/không BUNDLE; 409 CATALOG_BUNDLE_003 stale. Lookup nội bộ cho phép thấy tombstone để kiểm version trước no-op; retry version trước delete vẫn 409, version hiện tại 200 no-op, không tăng version |
 
 #### API-B12 — Bật/tắt combo nội bộ
@@ -718,7 +721,7 @@ Request core không nhận dates/bannerAssetId/componentGroups/selections/produc
 | Endpoint / operation | PATCH /api/v1/catalog/admin/bundles/{bundleId}/status; changeBundleStatus |
 | Input | UUID path; JSON {expectedVersion: Long>=0, productStatus: ACTIVE hoặc INACTIVE}, @NotNull/@Valid; Phase 1 không yêu cầu Authorization; DELETED không hợp lệ trong action này |
 | Transaction | Kiểm version rồi đổi Product.status, tăng version header trong cùng transaction, không gọi audit ở Phase 1; không đổi publication; không reserve/cancel giao dịch |
-| Response / retry | 200 ApiResponse<BundleCoreMutationResult>; cùng status và current expectedVersion trả no-op; version cũ 409 trước khi xét no-op |
+| Response / retry | 200 ApiResponse<BundleResponse>; cùng status và current expectedVersion trả no-op; version cũ 409 trước khi xét no-op |
 | Lỗi | 400 SYS_002 JSON/enum sai, 400 SYS_003 thiếu field; 404 không thấy/đã DELETED; 409 CATALOG_BUNDLE_003 stale |
 
 #### Error contract đề xuất
@@ -844,7 +847,7 @@ Mỗi interface nằm trong `com.aquasuite.ims.module.<owner>.api`, DTO trong `a
 | Transaction Behavior | readOnly REQUIRED; không lock ghi, không reserve |
 | Versioning & Compatibility | DTO trong inventory.api.dto; giữ missing khác zero; không delegate facade cũ chọn tùy dòng kho |
 
-#### AuditApi.append — deferred, không gọi từ core Phase 1
+#### AuditApi.append — thiết kế lịch sử, provider Java đã được bỏ trong revision 0.13.0
 
 | Contract Attribute | Specification Value |
 |---|---|
@@ -1111,7 +1114,7 @@ This revision supersedes conflicting P2 proposals above: D05-P = C, options at t
 
 Create/update add optional validFrom/validUntil (Instant with offset) and componentGroups (omitted/null = []). Core drafts may have no dates; otherwise both dates are required and from < until. Publish requires dates and until > now, may occur before from; public visibility is ACTIVE/PUBLISHED and from <= now < until (UTC). Each group has groupId/defaultVariantId/allowedVariantIds (distinct, contains default). Default belongs to items, at most one group per default. All options must be NORMAL ACTIVE and have the same price as default. Revalidate at save/publish; selected replacements must still match current default price at evaluation. Never add surcharges or silently change package price. PUT replaces dates/groups; unpublish before editing PUBLISHED.
 
-GET /api/v1/catalog/bundles supports page,size,keyword and returns BundlePage<BundleCoreSummary>, filtering visibility before paging. GET /{bundleId} returns BundleCoreDetail with dates/groups and no cost price; stock is read through POST /{bundleId}/evaluations. Non-visible IDs return 404. Public definition reads do not reserve or imply availability.
+GET /api/v1/catalog/bundles supports page,size,keyword and returns BundlePage<BundleResponse>, filtering visibility before paging. GET /{bundleId} returns BundleResponse with dates/groups and no cost price; stock is read through POST /{bundleId}/evaluations. Non-visible IDs return 404. Public definition reads do not reserve or imply availability.
 
 Evaluation body: quantity (integer 1..10000), expectedVersion (optional nonnegative long), selections [{groupId,variantId}] (omitted/null=[]). Unselected groups use defaults; replacements retain quantity. Duplicate groups, unknown groups, non-whitelisted choices, unequal-price replacements and duplicate final SKU return 400 CATALOG_BUNDLE_001; stale version returns 409 CATALOG_BUNDLE_003. Response BundleEvaluation: bundleId,bundleVersion,evaluatedAt,quantity,packagePrice,totalPackagePrice,originalTotal,savingAmount,discountPercent,priceIssue,availability,purchasable,missingVariantIds,items [{variantId,sku,name,requiredQty,availableQty}]. Monetary totals apply to requested quantity; packagePrice is per set, discountPercent unchanged. All multiplied totals must fit DECIMAL(15,2). Missing rows/dependency errors -> UNKNOWN, never purchasable. Known insufficient rows appear in missingVariantIds. No reservation. Retail drop/inactive components produce non-purchasable preview with priceIssue and null savings/discount.
 
