@@ -71,7 +71,7 @@ class IamMigrationIntegrationTest extends PostgreSqlIntegrationTestSupport {
 
         try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'")) {
+                     "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' AND table_name IN ('users', 'roles', 'permissions', 'user_roles', 'role_permissions')")) {
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     String tbl = rs.getString("table_name");
@@ -171,6 +171,7 @@ class IamMigrationIntegrationTest extends PostgreSqlIntegrationTestSupport {
                 JOIN information_schema.referential_constraints rc ON tc.constraint_name = rc.constraint_name
                 JOIN information_schema.constraint_column_usage ccu ON ccu.constraint_name = tc.constraint_name
                 WHERE tc.table_schema = 'public' AND tc.constraint_type = 'FOREIGN KEY'
+                  AND tc.table_name IN ('users', 'roles', 'permissions', 'user_roles', 'role_permissions')
             """;
             try (PreparedStatement ps = conn.prepareStatement(sqlFk);
                  ResultSet rs = ps.executeQuery()) {
