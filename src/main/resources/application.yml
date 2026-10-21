@@ -1,53 +1,63 @@
+
 server:
   port: ${SERVER_PORT:8080}
+
 spring:
   application:
     name: aquasuite-be
+
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/aquasuite}
-    username: ${SPRING_DATASOURCE_USERNAME}
-    password: ${SPRING_DATASOURCE_PASSWORD}
-  flyway:
-    enabled: true
-    schemas: public
-    locations: classpath:db/migration
-    baseline-on-migrate: false
-    clean-disabled: true
-    validate-on-migrate: true
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/aquasuite}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:123}
+
   jpa:
     hibernate:
-      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:validate}
+      ddl-auto: ${JPA_DDL_AUTO:update}
+
     properties:
       hibernate:
         default_schema: public
         format_sql: true
+
         jdbc:
           batch_size: 50
           batch_versioned_data: true
+
         order_inserts: true
         order_updates: true
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    schemas: public
+    locations: classpath:db/migration
+
+
   data:
     redis:
-      host: ${SPRING_DATA_REDIS_HOST:${SPRING_REDIS_HOST:${REDIS_HOST:localhost}}}
-      port: ${SPRING_DATA_REDIS_PORT:${SPRING_REDIS_PORT:${REDIS_PORT:6379}}}
-      password: ${SPRING_DATA_REDIS_PASSWORD:${SPRING_REDIS_PASSWORD:}}
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:SecureRedisPassword123!}
       timeout: 5000ms
       lettuce:
         pool:
           max-active: 16
           max-idle: 8
           min-idle: 2
+
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME}
-    password: ${MAIL_PASSWORD}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
     properties:
       mail:
         smtp:
           auth: true
           starttls:
             enable: true
+
+
 aquasuite:
   config:
     environment: default
@@ -63,4 +73,10 @@ aquasuite:
       access-token-ttl-seconds: 1800
       refresh-token-ttl-seconds: 1296000
       session-absolute-ttl-seconds: 1296000
-      secret: ${JWT_SECRET:}
+      secret: ${JWT_SECRET:dGVzdC1zZWNyZXQta2V5LWZvci11bml0LXRlc3RzLW11c3QtYmUtYXQtbGVhc3QtNjQtYnl0ZXMtbG9uZy1zby10aGlzLXNob3VsZC13b3JrIQ==}
+
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+  api-key: ${CLOUDINARY_API_KEY:}
+  api-secret: ${CLOUDINARY_API_SECRET:}
+

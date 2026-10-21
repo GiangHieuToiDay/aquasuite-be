@@ -1,19 +1,21 @@
 package com.aquasuite.ims.module.inventory.internal.listener;
 
-import com.aquasuite.ims.module.catalog.events.VariantsBulkImportedEvent;
-import com.aquasuite.ims.module.catalog.events.VariantsBulkImportedEvent.InitialStockItem;
+import com.aquasuite.ims.module.catalog.api.event.VariantsBulkImportedEvent;
+import com.aquasuite.ims.module.catalog.api.event.VariantsBulkImportedEvent.InitialStockItem;
+import com.aquasuite.ims.module.inventory.api.dto.MovementType;
 import com.aquasuite.ims.module.inventory.internal.entity.Inventory;
 import com.aquasuite.ims.module.inventory.internal.entity.StockMovement;
-import com.aquasuite.ims.module.inventory.internal.entity.enums.MovementType;
 import com.aquasuite.ims.module.inventory.internal.repository.InventoryRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -34,8 +36,8 @@ public class InventoryImportEventListener {
     private final InventoryRepository inventoryRepository;
 
     @Async("taskExecutor")
-    @EventListener
-    @Transactional
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handleVariantsBulkImported(VariantsBulkImportedEvent event) {
         if (event == null || event.items() == null || event.items().isEmpty()) {
             return;

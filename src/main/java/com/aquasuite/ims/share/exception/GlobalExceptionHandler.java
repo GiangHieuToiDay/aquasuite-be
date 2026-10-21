@@ -7,10 +7,14 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.List;
 
@@ -43,6 +47,31 @@ public class GlobalExceptionHandler {
                                 CommonErrorCode.VALIDATION_ERROR.getCode(),
                                 CommonErrorCode.VALIDATION_ERROR.getMessage(),
                                 errors));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadableException(HttpMessageNotReadableException ex) {
+        log.warn("Message not readable: {}", ex.getMessage());
+        return ResponseEntity
+                .status(CommonErrorCode.VALIDATION_ERROR.getStatus())
+                .body(ApiResponse.error(
+                        CommonErrorCode.VALIDATION_ERROR.getCode(),
+                        CommonErrorCode.VALIDATION_ERROR.getMessage()
+                ));
+    }
+
+    @ExceptionHandler({
+            MissingServletRequestParameterException.class,
+            HandlerMethodValidationException.class
+    })
+    public ResponseEntity<ApiResponse<Void>> handleInvalidRequestParamException(Exception ex) {
+        log.warn("Invalid request parameter: {}", ex.getMessage());
+        return ResponseEntity
+                .status(CommonErrorCode.INVALID_REQUEST_PARAM.getStatus())
+                .body(ApiResponse.error(
+                        CommonErrorCode.INVALID_REQUEST_PARAM.getCode(),
+                        CommonErrorCode.INVALID_REQUEST_PARAM.getMessage()
+                ));
     }
 
     @ExceptionHandler(AccessDeniedException.class)
@@ -96,6 +125,29 @@ public class GlobalExceptionHandler {
                         ApiResponse.error(
                                 CommonErrorCode.DATA_INTEGRITY_VIOLATION.getCode(),
                                 CommonErrorCode.DATA_INTEGRITY_VIOLATION.getMessage()));
+    }
+
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMethodArgumentTypeMismatch(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException ex) {
+        log.warn("Method argument type mismatch for param [{}]: {}", ex.getName(), ex.getMessage());
+        String detailMessage = String.format("Tham số '%s' không hợp lệ hoặc không đúng định dạng UUID/kiểu dữ liệu", ex.getName());
+        return ResponseEntity
+                .status(CommonErrorCode.INVALID_REQUEST_PARAM.getStatus())
+                .body(ApiResponse.error(
+                        CommonErrorCode.INVALID_REQUEST_PARAM.getCode(),
+                        detailMessage
+                ));
+    }
+
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceeded(org.springframework.web.multipart.MaxUploadSizeExceededException ex) {
+        log.warn("Max upload size exceeded: {}", ex.getMessage());
+        return ResponseEntity
+                .status(org.springframework.http.HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(
+                        "MSG17",
+                        "Avatar must be a JPEG, PNG, or WEBP image under 5MB."
+                ));
     }
 
     @ExceptionHandler(Exception.class)

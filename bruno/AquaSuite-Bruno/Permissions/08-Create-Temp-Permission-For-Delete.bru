@@ -1,0 +1,47 @@
+meta {
+  name: 08 - Create Temp Permission for Delete
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/v1/iam/permissions
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "code": "{{tempPermissionCode}}",
+    "description": "Permission tạm thời để test xóa khi chưa gán vai trò"
+  }
+}
+
+script:pre-request {
+  const code = 'TEMP_DEL_' + Math.floor(Date.now() / 1000);
+  bru.setVar('tempPermissionCode', code);
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (res.getStatus() === 201 && body && body.data && body.data.id) {
+    bru.setVar('tempPermissionId', body.data.id);
+  }
+}
+
+tests {
+  test('Returns HTTP 201 Created for temp permission', function () {
+    expect(res.getStatus()).to.equal(201);
+    const body = res.getBody();
+    expect(body.success).to.equal(true);
+    expect(body.data.id).to.be.a('string').and.not.empty;
+  });
+}

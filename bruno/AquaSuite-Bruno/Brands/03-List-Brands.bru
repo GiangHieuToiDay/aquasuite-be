@@ -1,0 +1,36 @@
+meta {
+  name: 03 - List Brands
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/brands?page=0&size=20&search={{brandCode}}&sortBy=code&direction=asc
+  body: none
+  auth: bearer
+}
+
+params:query {
+  page: 0
+  size: 20
+  search: {{brandCode}}
+  sortBy: code
+  direction: asc
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('Returns HTTP 200 with paginated brands', function () {
+    expect(res.getStatus()).to.equal(200);
+    const body = res.getBody();
+    expect(body.success).to.equal(true);
+    expect(body.code).to.equal('SUCCESS');
+    expect(body.data.items).to.be.an('array');
+    expect(body.data.page).to.equal(0);
+    expect(body.data.size).to.equal(20);
+    expect(body.data.totalElements).to.be.at.least(1);
+  });
+}

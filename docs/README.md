@@ -1,9 +1,5 @@
 # AquaSuite Backend Documentation Index
 
-UC-13 update 0.13.0 (2026-10-21, user-authorized): removed the unused Java audit module and its provider tests; audit_entries and V1-V7 migrations are retained. Clean verify PASS: 205 Surefire + 70 Failsafe = 275 tests, zero failures/errors/skipped. See [official scope and verification](specs/SCRUM14-UC13-product-combos.md#current-implementation-scope-and-verification). Previous response verification below remains historical; independent review pending.
-
-UC-13 response update 0.12.0 (2026-10-21, user-authorized): shared `BundleResponse` for list/get/create/update/status/publish/unpublish; DELETE returns HTTP 200 success envelope without data. Clean verify PASS: 205 Surefire + 72 Failsafe = 277 tests, zero failures/errors/skipped. See [official scope and verification](specs/SCRUM14-UC13-product-combos.md#current-implementation-scope-and-verification). Independent review pending; prior verification counts below are historical.
-
 ## Purpose and Document Hierarchy
 
 Tài liệu này là bản đồ chỉ mục cho toàn bộ hệ thống tài liệu phát triển backend của dự án AquaSuite. Để giải quyết các mâu thuẫn thông tin có thể phát sinh trong quá trình phát triển, thứ tự ưu tiên nguồn sự thật (Source of Truth) được quy định như sau:
@@ -38,23 +34,16 @@ Hệ thống tài liệu backend bao gồm các tài liệu chuyên đề sau:
   - Quy chuẩn đặt tên URI và phương thức HTTP cho các Feature Spec tương lai.
 
 ### 3. Specifications and Templates
-- [SCRUM08 / UC-01 Customer account registration](specifications/SCRUM08-UC01-register-customer-account.md): fixed CUSTOMER account, validation, email OTP and linked customers profile; activation/profile commit together, then reuse login JWT/session. [Implementation plan](../.agent/plans/active/SCRUM08-UC01.md), [code guide](SCRUM08-UC01-code-guide.md), [handoff](../.agent/handoffs/SCRUM08-UC01.md). Clean verify PASS: 205 Surefire + 71 Failsafe = 276 tests, zero failures/errors/skipped (2026-10-20 22:02:23 +07). Ready for review; independent review/Final Gate pending.
-- [`specs/SCRUM14-UC13-product-combos.md`](specs/SCRUM14-UC13-product-combos.md):
-  - Spec UC-13 revision `0.11.0`: combo Phase 2 và tích hợp authentication mới; User/actor UUID, JWT bắt buộc cho các API ngoài login/refresh. Một kho, option cùng giá; business Audit và media vẫn deferred.
-  - Package triển khai đã được người dùng chốt cho SCRUM14: `com.aquasuite.ims.module.catalog`; public contract mới trong `api/`.
-  - Core dùng MapStruct, gộp controller và application service CRUD/SKU lookup; pricing/assembler giữ nhiệm vụ riêng, controller/service/DTO có JavaDoc tác dụng/luồng. HTTP contract giữ nguyên. Clean verify sau gộp ngày 2026-10-20 đạt 47 unit + 38 integration = 85 tests, 0 failures/errors/skipped; sẵn sàng code review, chưa Final Gate. Public/media/tồn/options/Sales thuộc phase sau; review/hash `0.8.1` không áp dụng.
-  - [Plan 0.11.0 và báo cáo tiến độ](../.agent/plans/SCRUM14-UC13.md): ánh xạ spec → công việc → bằng chứng/việc còn lại, không tuyên bố hoàn tất toàn UC.
-  - [Implementation handoff hiện hành](../.agent/handoffs/SCRUM14-UC13-phase1-verification.md), [code guide Phase 1](SCRUM14-UC13-phase1-code-guide.md), [migration runbook](migrations/flyway.md). Thư mục handoff chỉ giữ bản mới nhất của UC-13; các bản cũ đã được bỏ theo yêu cầu người dùng ngày 2026-10-19.
-  - Hai review 0.8.1 lỗi thời đã được xóa theo yêu cầu người dùng ngày 2026-10-19; chưa có review mới. Kết quả test và log tái lập nằm trong handoff hiện hành.
 - [`templates/feature-spec.md`](templates/feature-spec.md):
-  - Mẫu tài liệu đặc tả tính năng chuẩn hóa.
-  - Phân loại độ sâu tài liệu theo mức độ rủi ro (Risk-Based Depth).
-  - Quy định đầy đủ về Metadata, Actor, Business Rules, Data Model, API/Event Contracts, Concurrency và Ma trận AC-to-Test.
+  - Mẫu đặc tả gọn dành cho work item Risk L.
+  - Chỉ yêu cầu các phần contract, dữ liệu, concurrency và failure safety thực sự áp dụng.
+  - Risk S/M sử dụng trực tiếp Delivery Brief thay vì tạo thêm Feature Spec.
 
 ### 4. Development Workflow
 - [`workflow/feature-delivery.md`](workflow/feature-delivery.md):
-  - Quy trình quản trị phân tầng: Tiền điều kiện cấp dự án (Spec Review) trước khi lập kế hoạch, tiếp nối bởi chuỗi cổng kiểm duyệt của Global Workflow v2 (Plan Review -> Implementation & Handoff -> Code Review -> Final Gate).
-  - Quy định thẩm quyền triển khai, cổng bàn giao thực thi (Implementation Handoff Gate) và quản lý thay đổi hợp đồng.
+  - AquaSuite Lean Workflow phân loại công việc theo Risk S/M/L.
+  - Mỗi work item dùng một Delivery Brief làm nguồn trạng thái duy nhất; Risk L bổ sung Feature Spec và một Design Review.
+  - Một review gate hợp nhất verification, code review và final gate; không khóa kế hoạch theo file hoặc SHA-256.
   - Quy tắc an toàn Git: Nghiêm cấm Agent tự ý commit, push, reset hoặc clean mã nguồn.
 
 ### 5. Migrations
@@ -70,18 +59,4 @@ Khi tiếp cận dự án để nghiên cứu hoặc triển khai công việc m
 1. Đọc [`../AGENTS.md`](../AGENTS.md) tại thư mục gốc để nắm các chỉ thị an toàn và nguyên tắc cốt lõi.
 2. Đọc [`architecture/Architecture-Aquasuite.md`](architecture/Architecture-Aquasuite.md) để nắm rõ ranh giới module và trạng thái hệ thống.
 3. Đọc [`contracts/api-conventions.md`](contracts/api-conventions.md) và [`architecture/module-contracts.md`](architecture/module-contracts.md) trước khi thiết kế bất kỳ API hoặc Event nào.
-4. Đọc [`workflow/feature-delivery.md`](workflow/feature-delivery.md) để tuân thủ đúng các cổng phê duyệt trước khi lập trình.
-
-- [Flyway database migration and existing database onboarding](migrations/flyway.md).
-
-Flyway-only revision: plan 0.9.6 / spec 0.9.1; clean verify 88 tests PASS (47 + 41), 2026-10-20 13:36:48 +07.
-
-
-Current Phase 2 revision: spec/plan 0.10.0, implementation authorized by user. Same-price options; one warehouse; Auth/Audit/media deferred. Adds public browsing/evaluations, publication lifecycle and dates. Clean verify PASS: 56 unit + 55 integration = 111 tests, zero failures/errors/skipped (2026-10-20 15:05:17 +07). Independent review/Final Gate pending. Phase 1 results above are historical. See [.agent/plans/SCRUM14-UC13.md](../.agent/plans/SCRUM14-UC13.md).
-
-Phase 2 evidence: [implementation handoff](../.agent/handoffs/SCRUM14-UC13-phase2-verification.md).
-
-
-Authentication integration (spec/plan 0.11.0): merge source `origin/SCRUM-1-user-login-and-authentication` at `e365cad`. User now requires JWT on all non-login/refresh APIs, including catalog storefront/admin/evaluations and inventory. User IDs and actor references use UUID; mock identity and the old credential initializer are removed. Auth/audit identity types are integrated, while new business audit writes and media remain deferred. V1/V2/V3 remain unchanged; V4 integrates IAM and V5 preserves password recovery. Verification PASS: 251 tests (186 Surefire + 65 Failsafe), zero failures/errors/skipped, 2026-10-20 17:56:28 +07. Earlier no-token descriptions/test counts are historical.
-
-Authentication merge evidence: [official record](specs/SCRUM14-UC13-product-combos.md#authentication-integration-evidence-0110-historical). The original staged/uncommitted merge status is historical; independent review remains pending.
+4. Đọc [`workflow/feature-delivery.md`](workflow/feature-delivery.md) để phân loại rủi ro và áp dụng đúng mức kiểm soát trước khi lập trình.

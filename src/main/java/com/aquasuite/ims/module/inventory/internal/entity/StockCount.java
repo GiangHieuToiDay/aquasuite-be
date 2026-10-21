@@ -8,11 +8,9 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(
-        name = "stock_counts",
-        indexes = {
-            @Index(name = "idx_stock_count_code", columnList = "stock_count_code", unique = true)
-        })
+@Table(name = "stock_counts", indexes = {
+        @Index(name = "idx_stock_count_code", columnList = "stock_count_code", unique = true)
+})
 @Getter
 @Setter
 @Builder
@@ -38,10 +36,10 @@ public class StockCount {
     private StockCountStatus status = StockCountStatus.DRAFT;
 
     @Column(name = "counted_by")
-    private UUID countedBy; // User.id
+    private UUID countedBy; // Scalar reference to IAM User.id
 
     @Column(name = "approved_by")
-    private UUID approvedBy; // User.id
+    private UUID approvedBy; // Scalar reference to IAM User.id
 
     @Column(name = "count_date")
     private LocalDateTime countDate;

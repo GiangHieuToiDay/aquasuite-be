@@ -9,7 +9,6 @@ Tài liệu này xác lập tiêu chuẩn kiến trúc backend cho hệ thống 
 - **Runtime & Framework**: Java 21, Spring Boot 3.5.16 (quản lý qua `pom.xml`, BOM quản lý Spring Framework 6.2.x và Spring Security 6.5.x).
 - **Base Package**: Toàn bộ mã nguồn hiện tại nằm dưới gói `com.aquasuite.ims`.
 - **Database Baseline**: PostgreSQL là hệ thống cơ sở dữ liệu chuẩn duy nhất.
-- **Audit hiện tại (2026-10-21)**: Theo yêu cầu người dùng, module Java `audit` chưa có caller nghiệp vụ đã được loại bỏ. Bảng `audit_entries` và migration V2/V4 được giữ để tương thích schema/dữ liệu; FE-02 trong kiến trúc mục tiêu chưa có provider hiện thực.
 - **Existing Components**:
   - `com.aquasuite.ims.AquasuiteBeApplication`: Main class khởi chạy ứng dụng.
   - `com.aquasuite.ims.share.dto.ApiResponse<T>`: Cấu trúc response chuẩn cho HTTP API (`success`, `code`, `message`, `data`, `errors`, `timestamp`).
@@ -17,7 +16,7 @@ Tài liệu này xác lập tiêu chuẩn kiến trúc backend cho hệ thống 
   - `com.aquasuite.ims.share.exception.GlobalExceptionHandler`: Bộ xử lý lỗi tập trung qua `@RestControllerAdvice` (`AppException`, `MethodArgumentNotValidException`, `AccessDeniedException`, `DataIntegrityViolationException`, `Exception`).
   - `com.aquasuite.ims.share.exception.AppException`: Ngoại lệ nghiệp vụ kế thừa `RuntimeException`, mang theo `BaseErrorCode`.
   - `com.aquasuite.ims.share.exception.CommonErrorCode`: Enum mã lỗi hệ thống (`SYS_001` đến `SYS_004`, `AUTH_001`, `AUTH_002`, `DB_001`).
-- **Implementation State**: Các module nghiệp vụ được cấu trúc dưới `com.aquasuite.ims.module.<module_name>`. Workspace đã có core/đăng bán combo và đang tích hợp authentication v2 từ nhánh SCRUM-1: User UUID, JWT và Redis session. Yêu cầu người dùng mới áp dụng JWT cho mọi API ngoài POST login/refresh, bao gồm các API combo trước đây gọi là public. Trạng thái kiểm chứng nằm trong plan UC-13 revision 0.11.0; không suy ra đã deploy hoặc nghiệm thu toàn hệ thống.
+- **Implementation State**: Các module nghiệp vụ được cấu trúc dưới `com.aquasuite.ims.module.<module_name>`. Mức độ triển khai phải được xác định từ running code của từng module; không suy diễn trạng thái hoàn thành của feature từ cây package. IAM hiện là implementation reference cho cấu trúc package nội bộ và convention mapper được mô tả bên dưới, nhưng các User service types được nêu tại mục tham chiếu IAM vẫn chỉ là skeleton.
 
 ### Target Architecture
 
@@ -25,27 +24,31 @@ Kiến trúc mục tiêu chuẩn hóa là **Modular Monolith** đặt trực ti�
 
 ```text
 com.aquasuite.ims
-├── share/                              # Cấu hình kỹ thuật và giao ước hạ tầng dùng chung (com.aquasuite.ims.share)
-│   ├── config/                         # Cấu hình framework (Security, OpenAPI, Jackson)
-│   ├── exception/                      # Quản lý lỗi hệ thống và base exceptions
-│   ├── dto/                            # Response envelopes kỹ thuật dùng chung
-│   └── util/                           # Tiện ích kỹ thuật thuần túy
-└── module/                             # Các module nghiệp vụ chuẩn hóa (com.aquasuite.ims.module)
+├── share/
+└── module/
     └── <module_name>/
-        ├── api/                        # PUBLIC CONTRACT: Interface, DTO, Event công khai cho module khác
-        │   ├── <Module>Api.java        # Interface giao tiếp đồng bộ
-        │   ├── dto/                    # DTO công khai dùng làm tham số hoặc kết quả trả về
-        │   └── event/                  # Domain Events công khai (Java Record)
-        └── internal/                   # PRIVATE IMPLEMENTATION: Cấm module khác import trực tiếp
-            ├── controller/             # REST Controller tiếp nhận HTTP request từ client
-            ├── service/                # Business logic và hiện thực của <Module>Api
+        ├── api/
+        │   ├── <Module>Api.java
+        │   ├── dto/
+        │   └── event/
+        └── internal/
+            ├── controller/
+            ├── service/
             │   └── impl/
-            ├── listener/               # Event listeners xử lý domain events
-            ├── repository/             # Spring Data JPA Repositories
-            ├── entity/                 # JPA Entities nội bộ
-            ├── mapper/                 # Bộ chuyển đổi Entity <-> DTO nội bộ
-            └── payload/                # Request/Response body phục vụ riêng REST Controller
+            ├── repository/
+            ├── entity/
+            ├── payload/
+            │   ├── request/
+            │   └── response/
+            ├── mapper/
+            ├── security/
+            ├── token/
+            ├── error/
+            ├── bootstrap/
+            └── dev/
 ```
+
+Đây là cây package chuẩn theo vai trò, không phải danh sách thư mục bắt buộc cho mọi module. Các package chuyên biệt như `security`, `token`, `bootstrap`, `dev` và các package khác chỉ xuất hiện khi module có nhu cầu thực tế; không tạo thư mục rỗng để khớp cây mẫu.
 
 ---
 
@@ -64,7 +67,30 @@ com.aquasuite.ims
 3. **Cấm liên kết JPA Entity chéo Module**: Không sử dụng `@ManyToOne`, `@OneToMany`, `@OneToOne`, `@ManyToMany` trực tiếp giữa hai `@Entity` thuộc hai module khác nhau. Quan hệ chéo module trong mô hình đối tượng Java chỉ được lưu dưới dạng ID thuần (`UUID`, `Long` hoặc `String`).
 4. **Hợp đồng không dùng Entity**: Public contract không được nhận vào hoặc trả về JPA Entity; chỉ sử dụng primitive/scalar types, public DTOs hoặc event records thuộc `api/`.
 5. **Ràng buộc khóa ngoại ở mức Database**: Việc cấm JPA entity relationship chéo module không đồng nghĩa với việc cấm Foreign Key ở mức database schema trên PostgreSQL. Việc thiết lập khóa ngoại, chỉ mục (index) hoặc trigger toàn vẹn dữ liệu trong cơ sở dữ liệu sẽ do schema design của từng use case quyết định để đảm bảo toàn vẹn dữ liệu vật lý.
-6. **Kiểm tra ranh giới bằng ArchUnit**: Workspace đã có dependency ArchUnit và `BundleCoreBoundaryTest` kiểm tra các class combo thuộc phạm vi UC-13. Không coi kiểm tra có phạm vi này là bằng chứng toàn bộ mã legacy đã tuân thủ kiến trúc. Contract actor mới của IAM nằm trong `iam/api`; không thêm import chéo `internal`.
+6. **Kiểm tra ranh giới bằng ArchUnit (Kế hoạch tương lai - Future Roadmap)**: ArchUnit được định hướng là công cụ kiểm tra tự động các vi phạm ranh giới module (cấm truy cập `internal`, chống phụ thuộc vòng lặp, kiểm tra liên kết entity). Việc thêm dependency và triển khai test suite ArchUnit sẽ được thực hiện trong một feature riêng biệt được phê duyệt; hệ thống hiện tại chưa cài đặt ArchUnit dependency hoặc test.
+
+### DTO and REST Payload Boundary
+
+- `api/dto` chỉ chứa public Java contract dành cho module khác. Đây không phải vị trí mặc định cho request/response của REST API.
+- `internal/payload/request` và `internal/payload/response` chứa HTTP REST payload riêng của module. Module khác không được import các internal payload này.
+- Không expose JPA Entity qua `api` hoặc qua response của controller. Public Java contract và REST response phải dùng DTO/payload phù hợp với boundary tương ứng.
+- Một REST endpoint có thể public đối với HTTP client nhưng request/response của nó vẫn là implementation detail của module. Không đặt REST request/response vào `api` chỉ vì endpoint được công khai qua HTTP.
+
+### Mapper Convention
+
+- Mapper nội bộ nằm trong `internal/mapper`. AquaSuite sử dụng MapStruct khi có mapping Entity/DTO thực tế cần được tách khỏi service; không tạo mapper dự phòng khi chưa có mapping.
+- MapStruct mapper sử dụng Spring component model. Service inject mapper interface qua constructor; không inject generated implementation và không gọi `Mappers.getMapper` trong production code.
+- Generated mapper implementations thuộc build output, không phải source và không được Git track. Version thư viện được xác định bởi `pom.xml`, không hardcode trong tài liệu kiến trúc.
+- Ưu tiên `ReportingPolicy.ERROR` để phát hiện target field chưa được map tại compile time.
+- Mapper chỉ thực hiện structural transformation. Mapper không được truy cập repository, gọi service, mở transaction, thực hiện authorization, chứa business decision hoặc mutate Entity.
+- Sorting, pagination wrapper hoặc null wrapper chỉ nằm trong mapper khi đó là mapping semantics đã được contract xác định. Business ordering và orchestration vẫn thuộc service.
+
+### Current IAM Implementation Reference
+
+- IAM hiện đã được chuẩn hóa về các internal package theo layer. Các namespace `iam.internal.auth`, `iam.internal.authorization` và `iam.internal.user` không còn tồn tại.
+- `PermissionMapper` và `RoleMapper` là MapStruct interfaces trong `iam.internal.mapper`, sử dụng Spring component model. Đây là reference cho convention chung về mapper, không biến mọi chi tiết riêng của IAM thành yêu cầu bắt buộc cho module khác.
+- Việc tạo authentication response vẫn nằm trong `AuthServiceImpl` vì gắn với token/session orchestration, không phải structural mapping độc lập.
+- `UserExternalService`, `UserService`, `UserServiceImpl` và `UserSummaryDto` hiện vẫn là các skeleton rỗng. Sự hiện diện của chúng không phải bằng chứng rằng public User service functionality đã được triển khai.
 
 ---
 
@@ -179,4 +205,4 @@ inventory (Xác nhận Phiếu nhập kho - GRN)
 3. **Guardrail 3 - Idempotency & Deduplication**:
    - Mọi Consumer lắng nghe Event hoặc API xử lý thanh toán/tồn kho phải kiểm tra tính lặp lại (idempotency key / event ID) trước khi thay đổi trạng thái dữ liệu.
 4. **Guardrail 4 - Audit Trail Invariant (FE-02)**:
-   - Trong thiết kế mục tiêu FE-02, các thao tác nhạy cảm (thay đổi giá bán, chỉnh sửa tồn kho, hủy/sửa đơn hàng, điều chỉnh công nợ) cần phát sinh bản ghi kiểm toán kèm dữ liệu trước/sau. Module Java audit hiện đã được bỏ theo yêu cầu người dùng; không coi yêu cầu mục tiêu này là chức năng đã có hoặc điều kiện của CRUD combo hiện tại. Việc bổ sung lại cần phạm vi và hợp đồng được phê duyệt riêng.
+   - Các thao tác nhạy cảm (thay đổi giá bán, chỉnh sửa tồn kho, hủy/sửa đơn hàng, điều chỉnh công nợ) bắt buộc phải phát sinh bản ghi kiểm toán kèm theo dữ liệu trước (`beforeValue`) và sau (`afterValue`).

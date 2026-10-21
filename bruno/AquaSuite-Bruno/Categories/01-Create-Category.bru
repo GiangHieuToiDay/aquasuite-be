@@ -1,0 +1,61 @@
+meta {
+  name: 01 - Create Category
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/categories
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "code": "{{categoryCode}}",
+    "name": "Danh mục kiểm thử tự động WORK-013",
+    "description": "Mô tả danh mục kiểm thử",
+    "status": "ACTIVE"
+  }
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:8080
+  categoryCode: 001
+}
+
+script:pre-request {
+  const uniqueCode = 'CAT_TEST_' + Math.floor(Date.now() / 1000);
+  bru.setVar('categoryCode', uniqueCode);
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (res.getStatus() === 201 && body && body.data && body.data.id) {
+    bru.setVar('categoryId', body.data.id);
+  }
+}
+
+tests {
+  test('Returns HTTP 201 Created', function () {
+    expect(res.getStatus()).to.equal(201);
+    const body = res.getBody();
+    expect(body.success).to.equal(true);
+    expect(body.code).to.equal('SUCCESS');
+    expect(body.data.id).to.be.a('string').and.not.empty;
+    expect(body.data.code).to.equal(bru.getVar('categoryCode'));
+    expect(body.data.name).to.equal('Danh mục kiểm thử tự động WORK-013');
+    expect(body.data.status).to.equal('ACTIVE');
+    expect(body.data.parentId).to.be.null;
+    expect(body.data.createdAt).to.be.a('string').and.not.empty;
+    expect(body.data.updatedAt).to.be.a('string').and.not.empty;
+  });
+}

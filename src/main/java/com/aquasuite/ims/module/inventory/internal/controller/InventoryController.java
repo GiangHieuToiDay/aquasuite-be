@@ -1,7 +1,7 @@
 package com.aquasuite.ims.module.inventory.internal.controller;
 
-import com.aquasuite.ims.module.iam.api.IamFacade;
-import com.aquasuite.ims.module.inventory.dto.StockSummaryDto;
+import com.aquasuite.ims.module.iam.api.IamApi;
+import com.aquasuite.ims.module.inventory.api.dto.StockSummaryDto;
 import com.aquasuite.ims.module.inventory.internal.entity.StockMovement;
 import com.aquasuite.ims.module.inventory.internal.payload.req.ManualStockAdjustRequest;
 import com.aquasuite.ims.module.inventory.internal.service.InventoryService;
@@ -23,14 +23,13 @@ import java.util.UUID;
 public class InventoryController {
 
     private final InventoryService inventoryService;
-    private final IamFacade iamFacade;
+    private final IamApi iamApi;
 
     /**
      * Xem thông tin tồn kho chi tiết của một biến thể (SKU)
      */
     @GetMapping("/{variantId}")
-    public ResponseEntity<ApiResponse<StockSummaryDto>> getStockSummary(
-            @PathVariable UUID variantId) {
+    public ResponseEntity<ApiResponse<StockSummaryDto>> getStockSummary(@PathVariable UUID variantId) {
         StockSummaryDto summary = inventoryService.getInventoryByVariantId(variantId);
         return ResponseEntity.ok(ApiResponse.ok(summary));
     }
@@ -41,10 +40,8 @@ public class InventoryController {
     @GetMapping("/{variantId}/movements")
     public ResponseEntity<ApiResponse<Page<StockMovement>>> getStockMovements(
             @PathVariable UUID variantId,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
-                    Pageable pageable) {
-        Page<StockMovement> movements =
-                inventoryService.getMovementsByVariantId(variantId, pageable);
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        Page<StockMovement> movements = inventoryService.getMovementsByVariantId(variantId, pageable);
         return ResponseEntity.ok(ApiResponse.ok(movements));
     }
 
@@ -52,11 +49,9 @@ public class InventoryController {
      * Điều chỉnh tồn kho thủ công có lý do (Manual adjustment)
      */
     @PostMapping("/adjust")
-    public ResponseEntity<ApiResponse<Void>> manualAdjustStock(
-            @Valid @RequestBody ManualStockAdjustRequest request) {
-        UUID actorUserId = iamFacade.getCurrentUserId();
-        inventoryService.manualAdjustStock(
-                request.variantId(), request.deltaQty(), request.reason(), actorUserId);
+    public ResponseEntity<ApiResponse<Void>> manualAdjustStock(@Valid @RequestBody ManualStockAdjustRequest request) {
+        UUID actorUserId = iamApi.getCurrentUserId();
+        inventoryService.manualAdjustStock(request.variantId(), request.deltaQty(), request.reason(), actorUserId);
         return ResponseEntity.ok(ApiResponse.ok(null, "Điều chỉnh tồn kho thành công"));
     }
 }

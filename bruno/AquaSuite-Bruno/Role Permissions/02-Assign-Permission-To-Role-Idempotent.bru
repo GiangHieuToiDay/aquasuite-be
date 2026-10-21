@@ -1,0 +1,26 @@
+meta {
+  name: 02 - Assign Permission to Role (Idempotent)
+  type: http
+  seq: 2
+}
+
+put {
+  url: {{baseUrl}}/api/v1/iam/roles/{{roleId}}/permissions/{{permissionId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('Returns HTTP 200 and does not duplicate permission', function () {
+    expect(res.getStatus()).to.equal(200);
+    const body = res.getBody();
+    expect(body.success).to.equal(true);
+    expect(body.code).to.equal('SUCCESS');
+    const matches = body.data.permissions.filter(p => p.id === bru.getVar('permissionId'));
+    expect(matches.length).to.equal(1);
+  });
+}

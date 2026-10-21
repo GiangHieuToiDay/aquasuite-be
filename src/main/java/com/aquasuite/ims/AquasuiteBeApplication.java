@@ -10,3 +10,4 @@ public class AquasuiteBeApplication {
         SpringApplication.run(AquasuiteBeApplication.class, args);
     }
 }
+

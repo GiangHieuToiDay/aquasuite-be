@@ -1,0 +1,28 @@
+meta {
+  name: 02 - Get Role Detail
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/iam/roles/{{roleId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('Returns HTTP 200 with role detail and permissions', function () {
+    expect(res.getStatus()).to.equal(200);
+    const body = res.getBody();
+    expect(body.success).to.equal(true);
+    expect(body.code).to.equal('SUCCESS');
+    expect(body.data).to.be.an('object');
+    expect(body.data.id).to.equal(bru.getVar('roleId'));
+    expect(body.data.code).to.be.a('string');
+    expect(body.data.permissions).to.be.an('array');
+  });
+}

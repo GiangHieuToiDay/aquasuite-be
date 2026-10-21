@@ -16,6 +16,6 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, UU
 
     List<StockMovement> findTop50ByVariantIdOrderByCreatedAtDesc(UUID variantId);
 
-    Page<StockMovement> findByReferenceIdOrderByCreatedAtDesc(
-            String referenceId, Pageable pageable);
+    Page<StockMovement> findByReferenceIdOrderByCreatedAtDesc(String referenceId, Pageable pageable);
+    long countByVariantId(UUID variantId);
 }

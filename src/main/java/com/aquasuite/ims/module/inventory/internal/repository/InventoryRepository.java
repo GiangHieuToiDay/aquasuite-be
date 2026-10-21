@@ -19,6 +19,8 @@ public interface InventoryRepository extends JpaRepository<Inventory, UUID> {
 
     Optional<Inventory> findByVariantId(UUID variantId);
 
+    List<Inventory> findAllByVariantId(UUID variantId);
+
     Optional<Inventory> findByVariantIdAndWarehouseCode(UUID variantId, String warehouseCode);
 
     List<Inventory> findByVariantIdIn(Collection<UUID> variantIds);
@@ -26,6 +28,12 @@ public interface InventoryRepository extends JpaRepository<Inventory, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT i FROM Inventory i WHERE i.variantId = :variantId")
     Optional<Inventory> findByVariantIdForUpdate(@Param("variantId") UUID variantId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT i FROM Inventory i WHERE i.variantId = :variantId")
+    List<Inventory> findAllByVariantIdForUpdate(@Param("variantId") UUID variantId);
+
+    void deleteByVariantId(UUID variantId);
 
     @Query("SELECT i.variantId FROM Inventory i WHERE i.variantId IN :variantIds")
     Set<UUID> findExistingVariantIds(@Param("variantIds") Collection<UUID> variantIds);
