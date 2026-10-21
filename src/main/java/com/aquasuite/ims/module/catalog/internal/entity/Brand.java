@@ -1,10 +1,12 @@
 package com.aquasuite.ims.module.catalog.internal.entity;
 
 import com.aquasuite.ims.module.catalog.internal.entity.enums.BrandStatus;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import lombok.*;
 
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
@@ -17,44 +19,18 @@ import java.util.UUID;
 public class Brand {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "brand_id", updatable = false, nullable = false)
+    @Column(name = "brand_id", nullable = false)
     private UUID brandId;
 
-    @Column(name = "brand_code", unique = true, nullable = false, length = 100)
+    @Column(name = "brand_code", nullable = false, length = 50)
     private String brandCode;
 
-    @Column(name = "brand_name", nullable = false, length = 255)
+    @Column(name = "brand_name", nullable = false, length = 100)
     private String brandName;
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 50)
-    private BrandStatus status;
-
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    public void prePersist() {
-        if (createdAt == null) {
-            createdAt = LocalDateTime.now();
-        }
-        if (updatedAt == null) {
-            updatedAt = LocalDateTime.now();
-        }
-        if (status == null) {
-            status = BrandStatus.ACTIVE;
-        }
-    }
-
-    @PreUpdate
-    public void preUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
+    @Column(name = "status", nullable = false, length = 32)
+    private BrandStatus status ;
 }

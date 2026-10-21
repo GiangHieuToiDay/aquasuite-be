@@ -31,7 +31,7 @@ Mọi Agent hoạt động trong repository này phải tuân thủ nghiêm ng�
    - Cấu trúc module chuẩn được đặt trực tiếp dưới `com.aquasuite.ims.module.<module_name>`.
    - Gói `com.aquasuite.ims.share` chỉ dành riêng cho technical shared infrastructure độc lập với nghiệp vụ (không chứa business logic, domain entity hoặc repository của module).
    - Hệ quản trị cơ sở dữ liệu chuẩn là PostgreSQL.
-   - Hệ thống chạy trên **Java 21, Spring Boot 3.5.16** (quản lý Spring Security 6.5.x qua BOM, direct dependency `spring-security-core`). Không tự ý thực hiện migration package nếu không có kế hoạch được phê duyệt riêng.
+   - Hệ thống chạy trên **Java 21, Spring Boot 3.5.16** (quản lý Spring Security 6.5.x qua BOM, direct dependency `spring-security-core`). Không tự ý thực hiện migration package ngoài scope và schema decision đã được xác nhận trong work item.
 2. **Quy tắc Đóng gói Module (Package Encapsulation)**:
    - Mỗi module gồm hai phân vùng rõ rệt: `api/` (public contract) và `internal/` (private implementation).
    - Khi giao tiếp liên module, chỉ được chia sẻ qua gói `api/`. Tuyệt đối cấm import từ `internal/` của module khác.
@@ -57,6 +57,7 @@ Mọi Agent hoạt động trong repository này phải tuân thủ nghiêm ng�
    - [`AGENTS.md`](AGENTS.md) là tài liệu governance định nghĩa các quy chuẩn cốt lõi của repository và cần được theo dõi bởi Git (tracked).
 2. **Quản lý Thư mục Workflow Artifacts (`.agent/`)**:
    - Thư mục `.agent/` là workflow state local-only của repository, được quản lý trên máy cục bộ và được ignore bởi Git (`.gitignore`).
-   - Mặc dù mang tính chất local-only, Agent vẫn phải bảo đảm tính toàn vẹn của audit trail: tuân thủ nghiêm ngặt tính duy nhất của active plan (`plans/active`), kết quả đánh giá (`reviews`), biên bản bàn giao (`handoffs`) và tài liệu lưu trữ (`archive`).
+   - Work item mới tuân theo [`docs/workflow/feature-delivery.md`](docs/workflow/feature-delivery.md) và dùng đúng một Delivery Brief tại `.agent/work/<WORK_ID>.md` làm nguồn trạng thái duy nhất. Không tạo riêng plan review, handoff, code review hoặc final gate artifact.
+   - Các artifact thuộc workflow cũ vẫn là lịch sử chỉ đọc; không cần chuyển đổi hoặc đồng bộ sang workflow mới.
    - Tuyệt đối bảo toàn và không sửa đổi, xóa hoặc tái cấu trúc các artifact đã archive hoặc cancelled (ví dụ `FEATURE-001`, `FEATURE-003`), và không tự ý sao chép artifact sang project khác.
    - Mọi thao tác stage hoặc commit [`AGENTS.md`](AGENTS.md) thuộc quyền quyết định độc quyền của con người (human-only decision). Agent không tự ý stage hoặc commit tệp này.

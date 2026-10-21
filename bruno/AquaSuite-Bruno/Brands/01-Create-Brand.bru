@@ -1,0 +1,60 @@
+meta {
+  name: 01 - Create Brand
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/brands
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "code": "{{brandCode}}",
+    "name": "Thương hiệu kiểm thử tự động WORK-013",
+    "description": "Mô tả thương hiệu kiểm thử",
+    "status": "ACTIVE"
+  }
+}
+
+vars:pre-request {
+  brandCode: 001
+  baseUrl: http://localhost:8080
+}
+
+script:pre-request {
+  const uniqueCode = 'BRAND_' + Math.floor(Date.now() / 1000);
+  bru.setVar('brandCode', uniqueCode);
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (res.getStatus() === 201 && body && body.data && body.data.id) {
+    bru.setVar('brandId', body.data.id);
+  }
+}
+
+tests {
+  test('Returns HTTP 201 Created', function () {
+    expect(res.getStatus()).to.equal(201);
+    const body = res.getBody();
+    expect(body.success).to.equal(true);
+    expect(body.code).to.equal('SUCCESS');
+    expect(body.data.id).to.be.a('string').and.not.empty;
+    expect(body.data.code).to.equal(bru.getVar('brandCode'));
+    expect(body.data.name).to.equal('Thương hiệu kiểm thử tự động WORK-013');
+    expect(body.data.status).to.equal('ACTIVE');
+    expect(body.data.createdAt).to.be.undefined;
+    expect(body.data.updatedAt).to.be.undefined;
+  });
+}

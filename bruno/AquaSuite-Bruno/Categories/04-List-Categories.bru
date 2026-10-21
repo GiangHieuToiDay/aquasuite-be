@@ -1,0 +1,36 @@
+meta {
+  name: 04 - List Categories
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/v1/categories?page=0&size=20&search={{categoryCode}}&sortBy=code&direction=asc
+  body: none
+  auth: bearer
+}
+
+params:query {
+  page: 0
+  size: 20
+  search: {{categoryCode}}
+  sortBy: code
+  direction: asc
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('Returns HTTP 200 with paginated categories', function () {
+    expect(res.getStatus()).to.equal(200);
+    const body = res.getBody();
+    expect(body.success).to.equal(true);
+    expect(body.code).to.equal('SUCCESS');
+    expect(body.data.items).to.be.an('array');
+    expect(body.data.page).to.equal(0);
+    expect(body.data.size).to.equal(20);
+    expect(body.data.totalElements).to.be.at.least(1);
+  });
+}

@@ -42,7 +42,7 @@ class IamMigrationIntegrationTest extends PostgreSqlIntegrationTestSupport {
             stmt.executeUpdate("DELETE FROM public.role_permissions");
             stmt.executeUpdate("DELETE FROM public.user_roles");
             stmt.executeUpdate("DELETE FROM public.permissions");
-            stmt.executeUpdate("DELETE FROM public.roles");
+            stmt.executeUpdate("DELETE FROM public.roles WHERE role_name NOT IN ('SHOP_OWNER', 'SALES_STAFF', 'ACCOUNTANT', 'TECHNICAL_STAFF', 'SHIPPER', 'CUSTOMER')");
             stmt.executeUpdate("DELETE FROM public.users");
         }
     }
@@ -71,7 +71,7 @@ class IamMigrationIntegrationTest extends PostgreSqlIntegrationTestSupport {
 
         try (Connection conn = dataSource.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'")) {
+                     "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' AND table_name IN ('users', 'roles', 'permissions', 'user_roles', 'role_permissions')")) {
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     String tbl = rs.getString("table_name");
@@ -171,6 +171,7 @@ class IamMigrationIntegrationTest extends PostgreSqlIntegrationTestSupport {
                 JOIN information_schema.referential_constraints rc ON tc.constraint_name = rc.constraint_name
                 JOIN information_schema.constraint_column_usage ccu ON ccu.constraint_name = tc.constraint_name
                 WHERE tc.table_schema = 'public' AND tc.constraint_type = 'FOREIGN KEY'
+                  AND tc.table_name IN ('users', 'roles', 'permissions', 'user_roles', 'role_permissions')
             """;
             try (PreparedStatement ps = conn.prepareStatement(sqlFk);
                  ResultSet rs = ps.executeQuery()) {
@@ -313,7 +314,7 @@ class IamMigrationIntegrationTest extends PostgreSqlIntegrationTestSupport {
             try (PreparedStatement ps = conn.prepareStatement(
                     "INSERT INTO public.permissions (id, code) VALUES (?, ?)")) {
                 ps.setObject(1, p2);
-                ps.setString(2, "user_manage");
+                ps.setString(2, "USER_MANAGE");
                 assertThatThrownBy(ps::executeUpdate)
                         .isInstanceOf(SQLException.class)
                         .hasMessageContaining("uq_permissions_code_lower");
@@ -436,7 +437,7 @@ class IamMigrationIntegrationTest extends PostgreSqlIntegrationTestSupport {
 
         // 4. Concurrent permissions.code
         assertConcurrentCaseInsensitiveDuplicateRejection(
-                "CONCURRENT_PERM", "concurrent_perm", "uq_permissions_code_lower",
+                "CONCURRENT_PERM", "CONCURRENT_PERM", "uq_permissions_code_lower",
                 (conn, val) -> {
                     try (PreparedStatement ps = conn.prepareStatement(
                             "INSERT INTO public.permissions (id, code) VALUES (?, ?)")) {

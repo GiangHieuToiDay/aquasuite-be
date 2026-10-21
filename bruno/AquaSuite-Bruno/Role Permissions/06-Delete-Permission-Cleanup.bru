@@ -1,0 +1,25 @@
+meta {
+  name: 06 - Delete Permission (Cleanup)
+  type: http
+  seq: 6
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/iam/permissions/{{permissionId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('Returns HTTP 200 and cleans up test permission', function () {
+    expect(res.getStatus()).to.equal(200);
+    const body = res.getBody();
+    expect(body.success).to.equal(true);
+    expect(body.code).to.equal('SUCCESS');
+    expect(body.data).to.be.undefined;
+  });
+}
