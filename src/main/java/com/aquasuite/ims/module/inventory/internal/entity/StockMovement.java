@@ -51,7 +51,7 @@ public class StockMovement {
     private String note;
 
     @Column(name = "created_by")
-    private Long createdBy; // Tham chiếu User.id từ module IAM
+    private UUID createdBy; // Scalar reference to IAM User.id
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

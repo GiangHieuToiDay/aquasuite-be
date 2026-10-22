@@ -1,6 +1,6 @@
 package com.aquasuite.ims.module.inventory.internal.entity;
 
-import com.aquasuite.ims.module.inventory.internal.entity.enums.StockCountStatus;
+import com.aquasuite.ims.module.inventory.internal.enums.StockCountStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -36,10 +36,10 @@ public class StockCount {
     private StockCountStatus status = StockCountStatus.DRAFT;
 
     @Column(name = "counted_by")
-    private Long countedBy; // User.id
+    private UUID countedBy; // Scalar reference to IAM User.id
 
     @Column(name = "approved_by")
-    private Long approvedBy; // User.id
+    private UUID approvedBy; // Scalar reference to IAM User.id
 
     @Column(name = "count_date")
     private Instant countDate;

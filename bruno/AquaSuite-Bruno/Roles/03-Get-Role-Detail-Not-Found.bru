@@ -1,0 +1,24 @@
+meta {
+  name: 03 - Get Role Detail - Not Found (404 IAM_003)
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/iam/roles/00000000-0000-0000-0000-000000000000
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('Returns HTTP 404 with error IAM_003', function () {
+    expect(res.getStatus()).to.equal(404);
+    const body = res.getBody();
+    expect(body.success).to.equal(false);
+    expect(body.code).to.equal('IAM_003');
+  });
+}

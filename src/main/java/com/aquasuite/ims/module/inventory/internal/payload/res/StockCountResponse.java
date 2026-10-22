@@ -1,6 +1,6 @@
 package com.aquasuite.ims.module.inventory.internal.payload.res;
 
-import com.aquasuite.ims.module.inventory.internal.entity.enums.StockCountStatus;
+import com.aquasuite.ims.module.inventory.internal.enums.StockCountStatus;
 import lombok.Builder;
 
 import java.time.Instant;
@@ -13,10 +13,11 @@ public record StockCountResponse(
         String stockCountCode,
         String warehouseCode,
         StockCountStatus status,
-        Long countedBy,
-        Long approvedBy,
+        UUID countedBy,
+        UUID approvedBy,
         Instant countDate,
         String note,
         Instant createdAt,
         List<StockCountItemResponse> items
 ) {}
+

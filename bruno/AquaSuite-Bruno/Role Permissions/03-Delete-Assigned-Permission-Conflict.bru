@@ -1,0 +1,25 @@
+meta {
+  name: 03 - Delete Assigned Permission - Conflict (409 IAM_006)
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/iam/permissions/{{permissionId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('Returns HTTP 409 Conflict with IAM_006 when permission is assigned to a role', function () {
+    expect(res.getStatus()).to.equal(409);
+    const body = res.getBody();
+    expect(body.success).to.equal(false);
+    expect(body.code).to.equal('IAM_006');
+    expect(body.message).to.equal('Không thể xóa quyền đang được gán cho vai trò');
+  });
+}

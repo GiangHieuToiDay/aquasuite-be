@@ -13,5 +13,4 @@ public record StockCountItemResponse(
         BigDecimal systemQty,
         BigDecimal actualQty,
         BigDecimal differenceQty,
-        String reason
-) {}
+        String reason) {}

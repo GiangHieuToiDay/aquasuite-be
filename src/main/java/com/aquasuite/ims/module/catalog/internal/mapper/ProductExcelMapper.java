@@ -2,9 +2,9 @@ package com.aquasuite.ims.module.catalog.internal.mapper;
 
 import com.aquasuite.ims.module.catalog.internal.payload.excel.ProductExcelRowDto;
 import com.aquasuite.ims.module.catalog.internal.entity.*;
-import com.aquasuite.ims.module.catalog.internal.entity.enums.ProductStatus;
-import com.aquasuite.ims.module.catalog.internal.entity.enums.ProductType;
-import com.aquasuite.ims.module.catalog.internal.entity.enums.VariantStatus;
+import com.aquasuite.ims.module.catalog.internal.enums.ProductStatus;
+import com.aquasuite.ims.module.catalog.internal.enums.ProductType;
+import com.aquasuite.ims.module.catalog.internal.enums.VariantStatus;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -39,7 +39,8 @@ public class ProductExcelMapper {
     /**
      * Cập nhật Bảng 8: products khi chọn chế độ OVERWRITE_EXISTING
      */
-    public void updateProduct(Product product, ProductExcelRowDto row, UUID categoryId, UUID brandId) {
+    public void updateProduct(
+            Product product, ProductExcelRowDto row, UUID categoryId, UUID brandId) {
         product.setProductName(row.productName());
         product.setCategoryId(categoryId);
         product.setBrandId(brandId);
@@ -94,21 +95,23 @@ public class ProductExcelMapper {
     /**
      * Tạo danh sách Bảng 12: product_images (Hình ảnh biến thể)
      */
-    public List<ProductImage> toVariantImages(UUID productId, UUID variantId, List<String> imageUrls) {
+    public List<ProductImage> toVariantImages(
+            UUID productId, UUID variantId, List<String> imageUrls) {
         if (imageUrls == null || imageUrls.isEmpty()) {
             return Collections.emptyList();
         }
         List<ProductImage> images = new ArrayList<>(imageUrls.size());
         Instant now = Instant.now();
         for (int i = 0; i < imageUrls.size(); i++) {
-            images.add(ProductImage.builder()
-                    .productId(productId)
-                    .variantId(variantId)
-                    .imageUrl(imageUrls.get(i))
-                    .isPrimary(i == 0)      // Ảnh đầu tiên làm Thumbnail
-                    .sortOrder(i + 1)       // Thứ tự hiển thị 1, 2, 3...
-                    .createdAt(now)
-                    .build());
+            images.add(
+                    ProductImage.builder()
+                            .productId(productId)
+                            .variantId(variantId)
+                            .imageUrl(imageUrls.get(i))
+                            .isPrimary(i == 0) // Ảnh đầu tiên làm Thumbnail
+                            .sortOrder(i + 1) // Thứ tự hiển thị 1, 2, 3...
+                            .createdAt(now)
+                            .build());
         }
         return images;
     }

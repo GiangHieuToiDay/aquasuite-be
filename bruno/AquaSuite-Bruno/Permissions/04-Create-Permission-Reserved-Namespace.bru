@@ -1,0 +1,35 @@
+meta {
+  name: 04 - Create Permission - Reserved Namespace (400 IAM_002)
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/v1/iam/permissions
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "code": "ROLE_SUPER_ADMIN",
+    "description": "Mã quyền dùng tiền tố ROLE_ bị cấm"
+  }
+}
+
+tests {
+  test('Returns HTTP 400 Bad Request with IAM_002', function () {
+    expect(res.getStatus()).to.equal(400);
+    const body = res.getBody();
+    expect(body.success).to.equal(false);
+    expect(body.code).to.equal('IAM_002');
+  });
+}

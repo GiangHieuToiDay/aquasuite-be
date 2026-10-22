@@ -1,0 +1,35 @@
+meta {
+  name: 03 - Create Permission - Invalid Format (400 IAM_001)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/iam/permissions
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "code": "123_INVALID_FORMAT",
+    "description": "Mã quyền bắt đầu bằng số (không hợp lệ)"
+  }
+}
+
+tests {
+  test('Returns HTTP 400 Bad Request with IAM_001', function () {
+    expect(res.getStatus()).to.equal(400);
+    const body = res.getBody();
+    expect(body.success).to.equal(false);
+    expect(body.code).to.equal('IAM_001');
+  });
+}

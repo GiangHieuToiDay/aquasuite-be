@@ -50,7 +50,7 @@ public class InventoryController {
      */
     @PostMapping("/adjust")
     public ResponseEntity<ApiResponse<Void>> manualAdjustStock(@Valid @RequestBody ManualStockAdjustRequest request) {
-        Long actorUserId = iamApi.getCurrentUserId();
+        UUID actorUserId = iamApi.getCurrentUserId();
         inventoryService.manualAdjustStock(request.variantId(), request.deltaQty(), request.reason(), actorUserId);
         return ResponseEntity.ok(ApiResponse.ok(null, "Điều chỉnh tồn kho thành công"));
     }

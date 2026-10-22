@@ -2,6 +2,7 @@ package com.aquasuite.ims.module.inventory.api;
 
 import com.aquasuite.ims.module.inventory.api.dto.StockAdjustCommand;
 import com.aquasuite.ims.module.inventory.api.dto.StockSummaryDto;
+import com.aquasuite.ims.module.inventory.api.dto.VariantInventoryUsage;
 
 import java.math.BigDecimal;
 import java.util.Collection;
@@ -32,4 +33,7 @@ public interface InventoryApi {
 
     /** Thay đổi số lượng tồn kho vật lý (onHandQty) và ghi thẻ kho bất biến (stock_movements) */
     void adjustPhysicalStock(StockAdjustCommand command);
+    void initializeMainWarehouseInventory(UUID variantId);
+    VariantInventoryUsage getVariantDeletionUsage(UUID variantId);
+    void deleteEmptyVariantInventory(UUID variantId);
 }

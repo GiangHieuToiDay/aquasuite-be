@@ -1,0 +1,29 @@
+meta {
+  name: 05 - List Roles - Forbidden (403 AUTH_002)
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/v1/iam/roles
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{staffAccessToken}}
+}
+
+tests {
+  test('Returns HTTP 403 with AUTH_002 when actor is not SHOP_OWNER', function () {
+    const status = res.getStatus();
+    const body = res.getBody();
+    if (status === 403) {
+      expect(body.success).to.equal(false);
+      expect(body.code).to.equal('AUTH_002');
+    } else {
+      // Khi staffAccessToken chưa được cung cấp hoặc rỗng, trả về 401
+      expect(status).to.be.oneOf([401, 403]);
+    }
+  });
+}

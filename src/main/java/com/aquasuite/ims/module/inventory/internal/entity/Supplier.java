@@ -1,6 +1,6 @@
 package com.aquasuite.ims.module.inventory.internal.entity;
 
-import com.aquasuite.ims.module.inventory.internal.entity.enums.SupplierStatus;
+import com.aquasuite.ims.module.inventory.internal.enums.SupplierStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -8,9 +8,9 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "suppliers", indexes = {
-        @Index(name = "idx_supplier_code", columnList = "supplier_code", unique = true)
-})
+@Table(
+        name = "suppliers",
+        indexes = {@Index(name = "idx_supplier_code", columnList = "supplier_code", unique = true)})
 @Getter
 @Setter
 @Builder

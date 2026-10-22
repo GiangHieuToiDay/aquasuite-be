@@ -1,0 +1,28 @@
+meta {
+  name: 03 - Logout
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/logout
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:8080
+}
+
+tests {
+  test('Logout returns HTTP 200', function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+  test('Logout reports success', function () {
+    expect(res.getBody().success).to.equal(true);
+  });
+}

@@ -10,5 +10,6 @@ import java.util.UUID;
 @Repository
 public interface SupplierRepository extends JpaRepository<Supplier, UUID> {
     Optional<Supplier> findBySupplierCode(String supplierCode);
+
     boolean existsBySupplierCode(String supplierCode);
 }

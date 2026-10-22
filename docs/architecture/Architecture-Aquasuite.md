@@ -10,13 +10,13 @@ Tài liệu này xác lập tiêu chuẩn kiến trúc backend cho hệ thống 
 - **Base Package**: Toàn bộ mã nguồn hiện tại nằm dưới gói `com.aquasuite.ims`.
 - **Database Baseline**: PostgreSQL là hệ thống cơ sở dữ liệu chuẩn duy nhất.
 - **Existing Components**:
-    - `com.aquasuite.ims.AquasuiteBeApplication`: Main class khởi chạy ứng dụng.
-    - `com.aquasuite.ims.share.dto.ApiResponse<T>`: Cấu trúc response chuẩn cho HTTP API (`success`, `code`, `message`, `data`, `errors`, `timestamp`).
-    - `com.aquasuite.ims.share.dto.FieldErrorDetail`: Chi tiết lỗi validation từng trường (`field`, `message`).
-    - `com.aquasuite.ims.share.exception.GlobalExceptionHandler`: Bộ xử lý lỗi tập trung qua `@RestControllerAdvice` (`AppException`, `MethodArgumentNotValidException`, `AccessDeniedException`, `DataIntegrityViolationException`, `Exception`).
-    - `com.aquasuite.ims.share.exception.AppException`: Ngoại lệ nghiệp vụ kế thừa `RuntimeException`, mang theo `BaseErrorCode`.
-    - `com.aquasuite.ims.share.exception.CommonErrorCode`: Enum mã lỗi hệ thống (`SYS_001` đến `SYS_004`, `AUTH_001`, `AUTH_002`, `DB_001`).
-- **Implementation State**: Các module nghiệp vụ được cấu trúc dưới `com.aquasuite.ims.module.<module_name>`. Hiện tại các skeleton (ví dụ IAM) đang ở giai đoạn khởi tạo ban đầu, chưa triển khai trọn vẹn nghiệp vụ.
+  - `com.aquasuite.ims.AquasuiteBeApplication`: Main class khởi chạy ứng dụng.
+  - `com.aquasuite.ims.share.dto.ApiResponse<T>`: Cấu trúc response chuẩn cho HTTP API (`success`, `code`, `message`, `data`, `errors`, `timestamp`).
+  - `com.aquasuite.ims.share.dto.FieldErrorDetail`: Chi tiết lỗi validation từng trường (`field`, `message`).
+  - `com.aquasuite.ims.share.exception.GlobalExceptionHandler`: Bộ xử lý lỗi tập trung qua `@RestControllerAdvice` (`AppException`, `MethodArgumentNotValidException`, `AccessDeniedException`, `DataIntegrityViolationException`, `Exception`).
+  - `com.aquasuite.ims.share.exception.AppException`: Ngoại lệ nghiệp vụ kế thừa `RuntimeException`, mang theo `BaseErrorCode`.
+  - `com.aquasuite.ims.share.exception.CommonErrorCode`: Enum mã lỗi hệ thống (`SYS_001` đến `SYS_004`, `AUTH_001`, `AUTH_002`, `DB_001`).
+- **Implementation State**: Các module nghiệp vụ được cấu trúc dưới `com.aquasuite.ims.module.<module_name>`. Mức độ triển khai phải được xác định từ running code của từng module; không suy diễn trạng thái hoàn thành của feature từ cây package. IAM hiện là implementation reference cho cấu trúc package nội bộ và convention mapper được mô tả bên dưới, nhưng các User service types được nêu tại mục tham chiếu IAM vẫn chỉ là skeleton.
 
 ### Target Architecture
 
@@ -24,27 +24,31 @@ Kiến trúc mục tiêu chuẩn hóa là **Modular Monolith** đặt trực ti�
 
 ```text
 com.aquasuite.ims
-├── share/                              # Cấu hình kỹ thuật và giao ước hạ tầng dùng chung (com.aquasuite.ims.share)
-│   ├── config/                         # Cấu hình framework (Security, OpenAPI, Jackson)
-│   ├── exception/                      # Quản lý lỗi hệ thống và base exceptions
-│   ├── dto/                            # Response envelopes kỹ thuật dùng chung
-│   └── util/                           # Tiện ích kỹ thuật thuần túy
-└── module/                             # Các module nghiệp vụ chuẩn hóa (com.aquasuite.ims.module)
+├── share/
+└── module/
     └── <module_name>/
-        ├── api/                        # PUBLIC CONTRACT: Interface, DTO, Event công khai cho module khác
-        │   ├── <Module>Api.java        # Interface giao tiếp đồng bộ
-        │   ├── dto/                    # DTO công khai dùng làm tham số hoặc kết quả trả về
-        │   └── event/                  # Domain Events công khai (Java Record)
-        └── internal/                   # PRIVATE IMPLEMENTATION: Cấm module khác import trực tiếp
-            ├── controller/             # REST Controller tiếp nhận HTTP request từ client
-            ├── service/                # Business logic và hiện thực của <Module>Api
+        ├── api/
+        │   ├── <Module>Api.java
+        │   ├── dto/
+        │   └── event/
+        └── internal/
+            ├── controller/
+            ├── service/
             │   └── impl/
-            ├── listener/               # Event listeners xử lý domain events
-            ├── repository/             # Spring Data JPA Repositories
-            ├── entity/                 # JPA Entities nội bộ
-            ├── mapper/                 # Bộ chuyển đổi Entity <-> DTO nội bộ
-            └── payload/                # Request/Response body phục vụ riêng REST Controller
+            ├── repository/
+            ├── entity/
+            ├── payload/
+            │   ├── request/
+            │   └── response/
+            ├── mapper/
+            ├── security/
+            ├── token/
+            ├── error/
+            ├── bootstrap/
+            └── dev/
 ```
+
+Đây là cây package chuẩn theo vai trò, không phải danh sách thư mục bắt buộc cho mọi module. Các package chuyên biệt như `security`, `token`, `bootstrap`, `dev` và các package khác chỉ xuất hiện khi module có nhu cầu thực tế; không tạo thư mục rỗng để khớp cây mẫu.
 
 ---
 
@@ -64,6 +68,29 @@ com.aquasuite.ims
 4. **Hợp đồng không dùng Entity**: Public contract không được nhận vào hoặc trả về JPA Entity; chỉ sử dụng primitive/scalar types, public DTOs hoặc event records thuộc `api/`.
 5. **Ràng buộc khóa ngoại ở mức Database**: Việc cấm JPA entity relationship chéo module không đồng nghĩa với việc cấm Foreign Key ở mức database schema trên PostgreSQL. Việc thiết lập khóa ngoại, chỉ mục (index) hoặc trigger toàn vẹn dữ liệu trong cơ sở dữ liệu sẽ do schema design của từng use case quyết định để đảm bảo toàn vẹn dữ liệu vật lý.
 6. **Kiểm tra ranh giới bằng ArchUnit (Kế hoạch tương lai - Future Roadmap)**: ArchUnit được định hướng là công cụ kiểm tra tự động các vi phạm ranh giới module (cấm truy cập `internal`, chống phụ thuộc vòng lặp, kiểm tra liên kết entity). Việc thêm dependency và triển khai test suite ArchUnit sẽ được thực hiện trong một feature riêng biệt được phê duyệt; hệ thống hiện tại chưa cài đặt ArchUnit dependency hoặc test.
+
+### DTO and REST Payload Boundary
+
+- `api/dto` chỉ chứa public Java contract dành cho module khác. Đây không phải vị trí mặc định cho request/response của REST API.
+- `internal/payload/request` và `internal/payload/response` chứa HTTP REST payload riêng của module. Module khác không được import các internal payload này.
+- Không expose JPA Entity qua `api` hoặc qua response của controller. Public Java contract và REST response phải dùng DTO/payload phù hợp với boundary tương ứng.
+- Một REST endpoint có thể public đối với HTTP client nhưng request/response của nó vẫn là implementation detail của module. Không đặt REST request/response vào `api` chỉ vì endpoint được công khai qua HTTP.
+
+### Mapper Convention
+
+- Mapper nội bộ nằm trong `internal/mapper`. AquaSuite sử dụng MapStruct khi có mapping Entity/DTO thực tế cần được tách khỏi service; không tạo mapper dự phòng khi chưa có mapping.
+- MapStruct mapper sử dụng Spring component model. Service inject mapper interface qua constructor; không inject generated implementation và không gọi `Mappers.getMapper` trong production code.
+- Generated mapper implementations thuộc build output, không phải source và không được Git track. Version thư viện được xác định bởi `pom.xml`, không hardcode trong tài liệu kiến trúc.
+- Ưu tiên `ReportingPolicy.ERROR` để phát hiện target field chưa được map tại compile time.
+- Mapper chỉ thực hiện structural transformation. Mapper không được truy cập repository, gọi service, mở transaction, thực hiện authorization, chứa business decision hoặc mutate Entity.
+- Sorting, pagination wrapper hoặc null wrapper chỉ nằm trong mapper khi đó là mapping semantics đã được contract xác định. Business ordering và orchestration vẫn thuộc service.
+
+### Current IAM Implementation Reference
+
+- IAM hiện đã được chuẩn hóa về các internal package theo layer. Các namespace `iam.internal.auth`, `iam.internal.authorization` và `iam.internal.user` không còn tồn tại.
+- `PermissionMapper` và `RoleMapper` là MapStruct interfaces trong `iam.internal.mapper`, sử dụng Spring component model. Đây là reference cho convention chung về mapper, không biến mọi chi tiết riêng của IAM thành yêu cầu bắt buộc cho module khác.
+- Việc tạo authentication response vẫn nằm trong `AuthServiceImpl` vì gắn với token/session orchestration, không phải structural mapping độc lập.
+- `UserExternalService`, `UserService`, `UserServiceImpl` và `UserSummaryDto` hiện vẫn là các skeleton rỗng. Sự hiện diện của chúng không phải bằng chứng rằng public User service functionality đã được triển khai.
 
 ---
 
@@ -113,9 +140,9 @@ Tài liệu kiến trúc cũ tồn tại mâu thuẫn phụ thuộc hai chiều:
 **Quy tắc chuẩn hóa:**
 - Loại bỏ hoàn toàn chiều gọi đồng bộ trực tiếp từ `crm` sang `sales`.
 - Để phục vụ màn hình tổng hợp thông tin khách hàng (bao gồm đơn hàng từ `sales`, công nợ từ `finance`, bảo hành từ `servicedesk`):
-    - **Tùy chọn A (Composition / Query Service)**: Tạo một query use case riêng biệt (ví dụ `CustomerProfileAggregationQuery`) đứng bên trên các feature để điều phối truy vấn, hoặc giải quyết ở tầng BFF / Read-Model.
-    - **Tùy chọn B (Event-Driven Read Cache)**: `crm` lắng nghe các Domain Event (`OrderConfirmedEvent`, `OrderPaymentStatusChangedEvent`) để duy trì bản sao lịch sử tóm tắt nội bộ.
-    - **Quyết định (Decision Gate)**: Đánh dấu `TBD`. Quyết định chính thức thuộc về Lead Architect khi bắt tay triển khai chi tiết tính năng FE-10.
+  - **Tùy chọn A (Composition / Query Service)**: Tạo một query use case riêng biệt (ví dụ `CustomerProfileAggregationQuery`) đứng bên trên các feature để điều phối truy vấn, hoặc giải quyết ở tầng BFF / Read-Model.
+  - **Tùy chọn B (Event-Driven Read Cache)**: `crm` lắng nghe các Domain Event (`OrderConfirmedEvent`, `OrderPaymentStatusChangedEvent`) để duy trì bản sao lịch sử tóm tắt nội bộ.
+  - **Quyết định (Decision Gate)**: Đánh dấu `TBD`. Quyết định chính thức thuộc về Lead Architect khi bắt tay triển khai chi tiết tính năng FE-10.
 
 ### Decoupled Communication via Domain Events (Eventual Consistency)
 
@@ -154,28 +181,28 @@ inventory (Xác nhận Phiếu nhập kho - GRN)
 > Cần phân biệt rõ giữa **chế độ thực thi luồng** và **giai đoạn kích hoạt transaction**:
 > 1. **Chế độ thực thi luồng**: Mặc định trong Spring Framework, Application Events chạy **đồng bộ trên cùng thread của Publisher**. Việc thực thi bất đồng bộ đa luồng (multi-threaded async) đòi hỏi cấu hình `TaskExecutor` và `@Async` riêng biệt.
 > 2. **Giai đoạn Transaction**: Annotation `@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)` chỉ bảo đảm listener được kích hoạt sau khi transaction nguồn commit thành công. Nó **không biến event thành hàng đợi tin nhắn bền vững (durable message queue)**. Nếu tiến trình bị tắt hoặc listener thất bại, event có thể bị mất nếu không có hàng đợi/outbox chuyên dụng.
-     > Do đó, mọi Event Contract bắt buộc phải chỉ định cơ chế xử lý lỗi, trạng thái chờ (pending state), và tính idempotent khi listener thực thi lại.
+> Do đó, mọi Event Contract bắt buộc phải chỉ định cơ chế xử lý lỗi, trạng thái chờ (pending state), và tính idempotent khi listener thực thi lại.
 
 ### Open Consistency Decision Gates
 
 1. **Xác nhận Đơn hàng và Giữ Tồn kho (`sales` & `inventory`)**:
-    - *Vấn đề*: Khi khách hàng xác nhận đơn hàng, việc trừ/giữ tồn kho có bắt buộc nằm trong cùng một database transaction (ACID tức thời) hay tách rời qua event (chấp nhận đơn ở trạng thái `PENDING_RESERVATION` rồi xác nhận sau)?
-    - *Trạng thái*: `TBD` (Cần Product Owner và Lead Architect quyết định dựa trên yêu cầu chịu tải bán hàng online và bán tại quầy).
+   - *Vấn đề*: Khi khách hàng xác nhận đơn hàng, việc trừ/giữ tồn kho có bắt buộc nằm trong cùng một database transaction (ACID tức thời) hay tách rời qua event (chấp nhận đơn ở trạng thái `PENDING_RESERVATION` rồi xác nhận sau)?
+   - *Trạng thái*: `TBD` (Cần Product Owner và Lead Architect quyết định dựa trên yêu cầu chịu tải bán hàng online và bán tại quầy).
 2. **Kích hoạt bảo hành khi giao hàng thành công (`fulfillment` & `servicedesk`)**:
-    - *Vấn đề*: Khi giao hàng xong, nếu listener kích hoạt bảo hành điện tử thất bại thì đơn hàng có được xem là giao thành công không?
-    - *Trạng thái*: `TBD` (Mặc định cho phép eventual consistency kèm bảng ghi nhận retry tác vụ thất bại).
+   - *Vấn đề*: Khi giao hàng xong, nếu listener kích hoạt bảo hành điện tử thất bại thì đơn hàng có được xem là giao thành công không?
+   - *Trạng thái*: `TBD` (Mặc định cho phép eventual consistency kèm bảng ghi nhận retry tác vụ thất bại).
 
 ---
 
 ## Coding Guardrails and Invariants
 
 1. **Guardrail 1 - Package Visibility**:
-    - Chỉ các Interface, DTO, Event đặt trong `module/<module_name>/api/` mới được xem là public module contract.
-    - Các class trong `internal/` (Entity, Repository, Service Implementation, Mapper, Controller) phải được thiết kế để không cho phép bên ngoài truy cập. Khi triển khai các subpackage trong `internal/`, lập trình viên phải duy trì tính đóng gói và không mở rộng quyền truy cập cho module khác.
+   - Chỉ các Interface, DTO, Event đặt trong `module/<module_name>/api/` mới được xem là public module contract.
+   - Các class trong `internal/` (Entity, Repository, Service Implementation, Mapper, Controller) phải được thiết kế để không cho phép bên ngoài truy cập. Khi triển khai các subpackage trong `internal/`, lập trình viên phải duy trì tính đóng gói và không mở rộng quyền truy cập cho module khác.
 2. **Guardrail 2 - Transaction Boundaries & Event Handling**:
-    - Khi phát Domain Event, Publisher phải bảo đảm payload chứa thông tin tối thiểu cần thiết và mã định danh nghiệp vụ.
-    - Khi Consumer nhận Event qua `@TransactionalEventListener(phase = AFTER_COMMIT)`, tác vụ ghi dữ liệu phải mở transaction mới (`@Transactional(propagation = Propagation.REQUIRES_NEW)`) và có cơ chế bắt lỗi để không làm treo luồng chính.
+   - Khi phát Domain Event, Publisher phải bảo đảm payload chứa thông tin tối thiểu cần thiết và mã định danh nghiệp vụ.
+   - Khi Consumer nhận Event qua `@TransactionalEventListener(phase = AFTER_COMMIT)`, tác vụ ghi dữ liệu phải mở transaction mới (`@Transactional(propagation = Propagation.REQUIRES_NEW)`) và có cơ chế bắt lỗi để không làm treo luồng chính.
 3. **Guardrail 3 - Idempotency & Deduplication**:
-    - Mọi Consumer lắng nghe Event hoặc API xử lý thanh toán/tồn kho phải kiểm tra tính lặp lại (idempotency key / event ID) trước khi thay đổi trạng thái dữ liệu.
+   - Mọi Consumer lắng nghe Event hoặc API xử lý thanh toán/tồn kho phải kiểm tra tính lặp lại (idempotency key / event ID) trước khi thay đổi trạng thái dữ liệu.
 4. **Guardrail 4 - Audit Trail Invariant (FE-02)**:
-    - Các thao tác nhạy cảm (thay đổi giá bán, chỉnh sửa tồn kho, hủy/sửa đơn hàng, điều chỉnh công nợ) bắt buộc phải phát sinh bản ghi kiểm toán kèm theo dữ liệu trước (`beforeValue`) và sau (`afterValue`).
+   - Các thao tác nhạy cảm (thay đổi giá bán, chỉnh sửa tồn kho, hủy/sửa đơn hàng, điều chỉnh công nợ) bắt buộc phải phát sinh bản ghi kiểm toán kèm theo dữ liệu trước (`beforeValue`) và sau (`afterValue`).

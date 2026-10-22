@@ -1,13 +1,18 @@
 package com.aquasuite.ims.module.catalog.internal.entity;
 
 import jakarta.persistence.*;
+
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "bundle_items")
+@Table(
+        name = "bundle_items",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"bundle_product_id", "variant_id"}))
 @Getter
 @Setter
 @Builder
@@ -28,6 +33,8 @@ public class BundleItem {
 
     @Builder.Default
     @Column(name = "quantity", nullable = false)
+    @NotNull
+    @Min(1)
     private Integer quantity = 1;
 
     @Column(name = "created_at", updatable = false)
@@ -39,7 +46,7 @@ public class BundleItem {
             createdAt = Instant.now();
         }
         if (quantity == null || quantity <= 0) {
-            quantity = 1;
+            throw new IllegalArgumentException("Bundle quantity must be positive");
         }
     }
 }

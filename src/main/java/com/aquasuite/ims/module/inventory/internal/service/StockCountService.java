@@ -12,12 +12,12 @@ public interface StockCountService {
     /**
      * Tạo phiếu kiểm kho dạng nháp (DRAFT)
      */
-    StockCountResponse createDraftStockCount(CreateStockCountRequest request, Long actorUserId);
+    StockCountResponse createDraftStockCount(CreateStockCountRequest request, UUID actorUserId);
 
     /**
      * Duyệt phiếu kiểm kho (APPROVE) -> Cân bằng tồn kho và ghi thẻ kho
      */
-    StockCountResponse approveStockCount(UUID stockCountId, Long approverUserId);
+    StockCountResponse approveStockCount(UUID stockCountId, UUID approverUserId);
 
     /**
      * Hủy phiếu kiểm kho

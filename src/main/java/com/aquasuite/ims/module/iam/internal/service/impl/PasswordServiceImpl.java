@@ -2,22 +2,24 @@ package com.aquasuite.ims.module.iam.internal.service.impl;
 
 import com.aquasuite.ims.module.iam.api.event.PasswordChangedEvent;
 import com.aquasuite.ims.module.iam.internal.entity.User;
-import com.aquasuite.ims.module.iam.internal.entity.enums.RecoveryChannel;
-import com.aquasuite.ims.module.iam.internal.entity.enums.UserStatus;
-import com.aquasuite.ims.module.iam.internal.exception.IamPasswordErrorCode;
-import com.aquasuite.ims.module.iam.internal.payload.ChangePasswordRequest;
-import com.aquasuite.ims.module.iam.internal.payload.ForgotPasswordRequest;
-import com.aquasuite.ims.module.iam.internal.payload.PasswordActionResponse;
-import com.aquasuite.ims.module.iam.internal.payload.ResetPasswordWithOtpRequest;
+import com.aquasuite.ims.module.iam.internal.entity.UserStatus;
+import com.aquasuite.ims.module.iam.internal.error.IamPasswordErrorCode;
+import com.aquasuite.ims.module.iam.internal.payload.request.ChangePasswordRequest;
+import com.aquasuite.ims.module.iam.internal.payload.request.ForgotPasswordRequest;
+import com.aquasuite.ims.module.iam.internal.payload.request.RecoveryChannel;
+import com.aquasuite.ims.module.iam.internal.payload.request.ResetPasswordWithOtpRequest;
+import com.aquasuite.ims.module.iam.internal.payload.response.PasswordActionResponse;
 import com.aquasuite.ims.module.iam.internal.repository.UserRepository;
-import com.aquasuite.ims.module.iam.internal.security.SecurityUtils;
 import com.aquasuite.ims.module.iam.internal.service.PasswordService;
 import com.aquasuite.ims.module.iam.internal.service.otp.OtpSenderStrategy;
 import com.aquasuite.ims.share.exception.AppException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,7 +49,7 @@ public class PasswordServiceImpl implements PasswordService {
 
     @Override
     public PasswordActionResponse changePassword(ChangePasswordRequest req) {
-        Long userId = SecurityUtils.getCurrentUserId();
+        UUID userId = resolveCurrentUserId();
         if (userId == null) {
             throw new AppException(IamPasswordErrorCode.INCORRECT_CURRENT_PASSWORD);
         }
@@ -56,7 +58,7 @@ public class PasswordServiceImpl implements PasswordService {
                 .orElseThrow(() -> new AppException(IamPasswordErrorCode.USER_NOT_FOUND));
 
         // Step 5: Check current password (MSG21)
-        if (user.getPassword() == null || !passwordEncoder.matches(req.currentPassword(), user.getPassword())) {
+        if (user.getPasswordHash() == null || !passwordEncoder.matches(req.currentPassword(), user.getPasswordHash())) {
             throw new AppException(IamPasswordErrorCode.INCORRECT_CURRENT_PASSWORD);
         }
 
@@ -68,7 +70,7 @@ public class PasswordServiceImpl implements PasswordService {
 
         // Step 7: Persist new password
         String newHash = passwordEncoder.encode(req.newPassword());
-        user.setPassword(newHash);
+        user.setPasswordHash(newHash);
         user.setPasswordLastChangedAt(Instant.now());
         userRepository.save(user);
 
@@ -115,7 +117,8 @@ public class PasswordServiceImpl implements PasswordService {
 
         // Find strategy and send OTP
         OtpSenderStrategy strategy = otpStrategies.stream()
-                .filter(s -> s.getSupportedChannel() == req.channel())
+                .filter(s -> s.getSupportedChannel() != null
+                        && s.getSupportedChannel().name().equalsIgnoreCase(req.channel().name()))
                 .findFirst()
                 .orElseThrow(() -> new AppException(IamPasswordErrorCode.SMS_CHANNEL_NOT_SUPPORTED_YET));
 
@@ -154,7 +157,7 @@ public class PasswordServiceImpl implements PasswordService {
 
         // Update password, clear OTP, unlock account if inactive
         String newHash = passwordEncoder.encode(req.newPassword());
-        user.setPassword(newHash);
+        user.setPasswordHash(newHash);
         user.setPasswordLastChangedAt(Instant.now());
         user.setVerificationCode(null);
         user.setVerificationExpiredAt(null);
@@ -179,8 +182,23 @@ public class PasswordServiceImpl implements PasswordService {
     }
 
     private void validateNotSameAsCurrentPassword(User user, String rawNewPassword) {
-        if (user.getPassword() != null && passwordEncoder.matches(rawNewPassword, user.getPassword())) {
+        if (user.getPasswordHash() != null && passwordEncoder.matches(rawNewPassword, user.getPasswordHash())) {
             throw new AppException(IamPasswordErrorCode.SAME_AS_CURRENT_PASSWORD);
         }
+    }
+
+    private UUID resolveCurrentUserId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth instanceof JwtAuthenticationToken jwt) {
+            try {
+                return UUID.fromString(jwt.getToken().getSubject());
+            } catch (IllegalArgumentException ignored) {}
+        }
+        if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal())) {
+            try {
+                return UUID.fromString(auth.getName());
+            } catch (IllegalArgumentException ignored) {}
+        }
+        return null;
     }
 }

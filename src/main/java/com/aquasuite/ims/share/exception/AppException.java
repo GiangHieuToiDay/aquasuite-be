@@ -22,10 +22,12 @@ public class AppException extends RuntimeException {
         this.args = args;
     }
 
-    // Hỗ trợ ghi đè message hoàn toàn tùy chỉnh khi cần
+    // Hỗ trợ ghi đè message hoàn toàn tùy chỉnh khi cần hoặc format nếu enum có placeholder {0}
     public AppException(BaseErrorCode errorCode, String customMessage) {
-        super(customMessage);
+        super(errorCode != null && errorCode.getMessage() != null && errorCode.getMessage().contains("{0}")
+                ? MessageFormat.format(errorCode.getMessage(), customMessage)
+                : customMessage);
         this.errorCode = errorCode;
-        this.args = null;
+        this.args = new Object[]{customMessage};
     }
 }

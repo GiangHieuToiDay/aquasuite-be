@@ -1,0 +1,1609 @@
+{
+  "version": "1",
+  "name": "AquaSuite - Combo Register Customer Login",
+  "items": [
+    {
+      "type": "folder",
+      "name": "01 - Register customer - chay truoc",
+      "seq": 1,
+      "items": [
+        {
+          "type": "http",
+          "name": "01 - Validation termsAccepted",
+          "seq": 1,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/customer-registrations",
+            "method": "POST",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "none"
+            },
+            "body": {
+              "mode": "json",
+              "json": "{\n  \"fullName\": \"{{fullName}}\",\n  \"email\": \"{{email}}\",\n  \"phone\": \"{{phone}}\",\n  \"password\": \"{{password}}\",\n  \"passwordConfirmation\": \"{{password}}\",\n  \"termsAccepted\": false\n}"
+            },
+            "script": {
+              "req": "if (!bru.getEnvVar('email')) throw new Error('Chon environment Local va nhap email.');\nif (!bru.getEnvVar('phone')) throw new Error('Chon environment Local va nhap phone.');\nif (!bru.getEnvVar('password')) throw new Error('Chon environment Local va nhap password.');\nif (!bru.getEnvVar('fullName')) throw new Error('Chon environment Local va nhap fullName.');\nreq.setBody({fullName: bru.getEnvVar('fullName'), email: bru.getEnvVar('email'),\n  phone: bru.getEnvVar('phone'), password: bru.getEnvVar('password'),\n  passwordConfirmation: bru.getEnvVar('password'), termsAccepted: true});\nconst form = req.getBody(); req.setBody({...form, termsAccepted:false});",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 400', function () { expect(res.getStatus()).to.equal(400); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(false);\n  expect(body.code).to.equal('SYS_003');\n});\ntest('Loi termsAccepted', function () {\n  expect(res.getBody().errors.some(e => e.field === 'termsAccepted')).to.equal(true);\n});",
+            "docs": ""
+          }
+        },
+        {
+          "type": "http",
+          "name": "02 - Register - gui OTP email",
+          "seq": 2,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/customer-registrations",
+            "method": "POST",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "none"
+            },
+            "body": {
+              "mode": "json",
+              "json": "{\n  \"fullName\": \"{{fullName}}\",\n  \"email\": \"{{email}}\",\n  \"phone\": \"{{phone}}\",\n  \"password\": \"{{password}}\",\n  \"passwordConfirmation\": \"{{password}}\",\n  \"termsAccepted\": true\n}"
+            },
+            "script": {
+              "req": "if (!bru.getEnvVar('email')) throw new Error('Chon environment Local va nhap email.');\nif (!bru.getEnvVar('phone')) throw new Error('Chon environment Local va nhap phone.');\nif (!bru.getEnvVar('password')) throw new Error('Chon environment Local va nhap password.');\nif (!bru.getEnvVar('fullName')) throw new Error('Chon environment Local va nhap fullName.');\nreq.setBody({fullName: bru.getEnvVar('fullName'), email: bru.getEnvVar('email'),\n  phone: bru.getEnvVar('phone'), password: bru.getEnvVar('password'),\n  passwordConfirmation: bru.getEnvVar('password'), termsAccepted: true});",
+              "res": "if (res.getStatus() === 201 && res.getBody().success) {\n  bru.setVar('registeredUserId',res.getBody().data.id);\n  bru.setVar('otpSentAt',Date.now());\n}"
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 201', function () { expect(res.getStatus()).to.equal(201); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(true);\n  expect(body.code).to.equal('SUCCESS');\n});\ntest('Tai khoan pending, chua cap JWT', function () {\n  expect(res.getBody().data.status).to.equal('PENDING_ACTIVATION');\n  expect(res.getBody().data.id).to.be.a('string').and.not.empty;\n  expect(res.getBody().data).not.to.have.property('access_token');\n});",
+            "docs": "Email va phone phai chua ton tai. Sau folder 01, dung lai, lay OTP tu email va nhap otp vao environment Local (hieu luc 5 phut)."
+          }
+        },
+        {
+          "type": "http",
+          "name": "03 - Register trung bi tu choi",
+          "seq": 3,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/customer-registrations",
+            "method": "POST",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "none"
+            },
+            "body": {
+              "mode": "json",
+              "json": "{\n  \"email\": \"{{email}}\"\n}"
+            },
+            "script": {
+              "req": "if (bru.getVar('registeredUserId') === undefined || bru.getVar('registeredUserId') === '') throw new Error('Thieu registeredUserId: chay lai buoc truoc.');\nreq.setBody({fullName: bru.getEnvVar('fullName'), email: bru.getEnvVar('email'),\n  phone: bru.getEnvVar('phone'), password: bru.getEnvVar('password'),\n  passwordConfirmation: bru.getEnvVar('password'), termsAccepted: true});",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 409', function () { expect(res.getStatus()).to.equal(409); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(false);\n  expect(body.code).to.equal('REG_001');\n});\n",
+            "docs": ""
+          }
+        },
+        {
+          "type": "http",
+          "name": "04 - Pending customer chua login duoc",
+          "seq": 4,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "method": "POST",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "none"
+            },
+            "body": {
+              "mode": "json",
+              "json": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "script": {
+              "req": "if (bru.getVar('registeredUserId') === undefined || bru.getVar('registeredUserId') === '') throw new Error('Thieu registeredUserId: chay lai buoc truoc.');\nreq.setBody({email: bru.getEnvVar('email'), password: bru.getEnvVar('password')});",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 403', function () { expect(res.getStatus()).to.equal(403); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(false);\n  expect(body.code).to.equal('AUTH_008');\n});\n",
+            "docs": ""
+          }
+        }
+      ],
+      "root": {
+        "docs": "Chay folder nay voi email/phone moi. Khong chay lai sau khi tai khoan da duoc tao. Folder khong tu doc hoac bypass OTP."
+      }
+    },
+    {
+      "type": "folder",
+      "name": "02 - Verify OTP - nhap ma tu email",
+      "seq": 2,
+      "items": [
+        {
+          "type": "http",
+          "name": "01 - Verify OTP va tao customer profile",
+          "seq": 1,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/customer-registrations/verifications",
+            "method": "POST",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "none"
+            },
+            "body": {
+              "mode": "json",
+              "json": "{\n  \"email\": \"{{email}}\",\n  \"otp\": \"{{otp}}\"\n}"
+            },
+            "script": {
+              "req": "if (!bru.getEnvVar('email')) throw new Error('Chon environment Local va nhap email.');\nif (!bru.getEnvVar('otp')) throw new Error('Chon environment Local va nhap otp.');\nconst otp = String(bru.getEnvVar('otp'));\nif (!/^[0-9]{6}$/.test(otp)) throw new Error('OTP phai la chuoi 6 chu so, giu so 0 o dau.');\nreq.setBody({email:bru.getEnvVar('email'),otp});",
+              "res": "if (res.getStatus() === 200 && res.getBody().success) {\n  const data = res.getBody().data;\n  if (!data.access_token || !data.refresh_token) throw new Error('Response thieu token.');\n  bru.setVar('accessToken', data.access_token);\n  bru.setVar('refreshToken', data.refresh_token);\n}"
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 200', function () { expect(res.getStatus()).to.equal(200); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(true);\n  expect(body.code).to.equal('SUCCESS');\n});\ntest('JWT va refresh token duoc cap', function () {\n  const data = res.getBody().data;\n  expect(data.access_token).to.be.a('string').and.not.empty;\n  expect(data.refresh_token).to.be.a('string').and.not.empty;\n  expect(data.token_type).to.equal('Bearer');\n  expect(data.expires_in).to.be.above(0);\n});\ntest('Tai khoan CUSTOMER da duoc kich hoat', function () {\n  expect(res.getBody().data.user.email.toLowerCase()).to.equal(bru.getEnvVar('email').trim().toLowerCase());\n  expect(res.getBody().data.user.roles).to.include('CUSTOMER');\n  const id = bru.getVar('registeredUserId');\n  if (id) expect(res.getBody().data.user.id).to.equal(id);\n});",
+            "docs": "Lay OTP trong email vua nhan; nhap bien otp o Local. OTP chi dung mot lan. Response JWT xac nhan activation thanh cong; API khong cung cap endpoint GET customer profile rieng de kiem tra DB truc tiep."
+          }
+        },
+        {
+          "type": "http",
+          "name": "02 - Logout session tao boi OTP",
+          "seq": 2,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/auth/logout",
+            "method": "POST",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "bearer",
+              "bearer": {
+                "token": "{{accessToken}}"
+              }
+            },
+            "body": {
+              "mode": "none"
+            },
+            "script": {
+              "req": "if (bru.getVar('accessToken') === undefined || bru.getVar('accessToken') === '') throw new Error('Thieu accessToken: chay lai buoc truoc.');",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 200', function () { expect(res.getStatus()).to.equal(200); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(true);\n  expect(body.code).to.equal('SUCCESS');\n});\n",
+            "docs": "Dong session JWT duoc cap sau verify. Folder 03 se login bang mat khau va tao session test rieng."
+          }
+        }
+      ],
+      "root": {
+        "docs": "Nhap OTP that tu email roi chay folder nay trong 5 phut. Neu het han, dung folder 90 de gui lai, nhap OTP moi va chay lai verify."
+      }
+    },
+    {
+      "type": "folder",
+      "name": "03 - Login va Combo - chay tu dong",
+      "seq": 3,
+      "items": [
+        {
+          "type": "http",
+          "name": "01 - Login customer",
+          "seq": 1,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "method": "POST",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "none"
+            },
+            "body": {
+              "mode": "json",
+              "json": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "script": {
+              "req": "if (!bru.getEnvVar('email')) throw new Error('Chon environment Local va nhap email.');\nif (!bru.getEnvVar('password')) throw new Error('Chon environment Local va nhap password.');\n['accessToken','refreshToken','bundleId','bundleVersion','bundleDefinition','bundleCode','variantId','packagePrice','staleVersion'].forEach(name => bru.setVar(name,''));\nreq.setBody({email: bru.getEnvVar('email'), password: bru.getEnvVar('password')});",
+              "res": "if (res.getStatus() === 200 && res.getBody().success) {\n  const data = res.getBody().data;\n  if (!data.access_token || !data.refresh_token) throw new Error('Response thieu token.');\n  bru.setVar('accessToken', data.access_token);\n  bru.setVar('refreshToken', data.refresh_token);\n}"
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 200', function () { expect(res.getStatus()).to.equal(200); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(true);\n  expect(body.code).to.equal('SUCCESS');\n});\ntest('JWT va refresh token duoc cap', function () {\n  const data = res.getBody().data;\n  expect(data.access_token).to.be.a('string').and.not.empty;\n  expect(data.refresh_token).to.be.a('string').and.not.empty;\n  expect(data.token_type).to.equal('Bearer');\n  expect(data.expires_in).to.be.above(0);\n});",
+            "docs": ""
+          }
+        },
+        {
+          "type": "http",
+          "name": "02 - Refresh va thay ca hai token",
+          "seq": 2,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/auth/refresh",
+            "method": "POST",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "none"
+            },
+            "body": {
+              "mode": "json",
+              "json": "{\n  \"refresh_token\": \"{{refreshToken}}\"\n}"
+            },
+            "script": {
+              "req": "if (bru.getVar('refreshToken') === undefined || bru.getVar('refreshToken') === '') throw new Error('Thieu refreshToken: chay lai buoc truoc.');\nreq.setBody({refresh_token:bru.getVar('refreshToken')});",
+              "res": "if (res.getStatus() === 200 && res.getBody().success) {\n  const data = res.getBody().data;\n  if (!data.access_token || !data.refresh_token) throw new Error('Response thieu token.');\n  bru.setVar('accessToken', data.access_token);\n  bru.setVar('refreshToken', data.refresh_token);\n}"
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 200', function () { expect(res.getStatus()).to.equal(200); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(true);\n  expect(body.code).to.equal('SUCCESS');\n});\ntest('JWT va refresh token duoc cap', function () {\n  const data = res.getBody().data;\n  expect(data.access_token).to.be.a('string').and.not.empty;\n  expect(data.refresh_token).to.be.a('string').and.not.empty;\n  expect(data.token_type).to.equal('Bearer');\n  expect(data.expires_in).to.be.above(0);\n});",
+            "docs": ""
+          }
+        },
+        {
+          "type": "http",
+          "name": "03 - Khong JWT khong doc duoc combo",
+          "seq": 3,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/catalog/admin/bundles",
+            "method": "GET",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "none"
+            },
+            "body": {
+              "mode": "none"
+            },
+            "script": {
+              "req": "",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 401', function () { expect(res.getStatus()).to.equal(401); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(false);\n  expect(body.code).to.equal('AUTH_001');\n});\n",
+            "docs": ""
+          }
+        },
+        {
+          "type": "http",
+          "name": "04 - Tim SKU va chuan bi combo test",
+          "seq": 4,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/catalog/admin/bundle-skus?page=0&size=100",
+            "method": "GET",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "bearer",
+              "bearer": {
+                "token": "{{accessToken}}"
+              }
+            },
+            "body": {
+              "mode": "none"
+            },
+            "script": {
+              "req": "if (bru.getVar('accessToken') === undefined || bru.getVar('accessToken') === '') throw new Error('Thieu accessToken: chay lai buoc truoc.');\nif (!bru.getEnvVar('categoryId')) throw new Error('Chon environment Local va nhap categoryId.');",
+              "res": "if (res.getStatus() === 200 && res.getBody().success) {\n  const rows = res.getBody().data.items;\n  const wanted = bru.getEnvVar('variantId');\n  const usable = x => Number(x.sellingPrice) > 0 && Number(x.sellingPrice)*2 <= 9999999999999.99;\n  const sku = wanted ? rows.find(x => x.variantId === wanted) : rows.find(usable);\n  if (!sku || !usable(sku)) throw new Error('Can SKU NORMAL ACTIVE gia duong, tong 2 bo khong vuot DECIMAL(15,2). variantId tuy chon phai nam trong 100 ket qua dau.');\n  const code = 'BRUNO-' + Date.now() + '-' + Math.random().toString(16).slice(2,8);\n  const definition = {productCode:code,name:'Bruno combo test',categoryId:bru.getEnvVar('categoryId'),brandId:null,\n    description:'Temporary combo created by Bruno smoke flow',items:[{variantId:sku.variantId,quantity:1}],\n    packagePrice:Number(sku.sellingPrice),validFrom:new Date(Date.now()-60000).toISOString(),\n    validUntil:new Date(Date.now()+86400000).toISOString(),componentGroups:[]};\n  bru.setVar('bundleDefinition',JSON.stringify(definition));\n  bru.setVar('bundleCode',code);\n  bru.setVar('variantId',sku.variantId);\n  bru.setVar('packagePrice',Number(sku.sellingPrice));\n}"
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 200', function () { expect(res.getStatus()).to.equal(200); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(true);\n  expect(body.code).to.equal('SUCCESS');\n});\ntest('Co SKU de tao combo', function () { expect(bru.getVar('variantId')).to.be.a('string').and.not.empty; });",
+            "docs": "Tu chon SKU NORMAL ACTIVE dau tien co gia duong. Co the nhap variantId trong environment de chon SKU cu the trong 100 ket qua dau. categoryId phai la danh muc ACTIVE ton tai. Khong tao/sua SKU hoac ton kho."
+          }
+        },
+        {
+          "type": "http",
+          "name": "05 - Quantity sai bi tu choi",
+          "seq": 5,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/catalog/admin/bundles",
+            "method": "POST",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "bearer",
+              "bearer": {
+                "token": "{{accessToken}}"
+              }
+            },
+            "body": {
+              "mode": "json",
+              "json": "{\n  \"productCode\": \"{{bundleCode}}\",\n  \"name\": \"Bruno combo test\",\n  \"categoryId\": \"{{categoryId}}\",\n  \"brandId\": null,\n  \"description\": \"Temporary combo created by Bruno smoke flow\",\n  \"items\": [\n    {\n      \"variantId\": \"{{variantId}}\",\n      \"quantity\": 0\n    }\n  ],\n  \"packagePrice\": \"{{packagePrice}}\",\n  \"validFrom\": null,\n  \"validUntil\": null,\n  \"componentGroups\": []\n}"
+            },
+            "script": {
+              "req": "if (!bru.getVar('accessToken')) throw new Error('Chay login truoc.');\nconst raw = req.getBody();\nconst text = typeof raw === 'string' ? raw : JSON.stringify(raw);\nconst body = JSON.parse(text.replace(/\\{\\{(\\w+)\\}\\}/g, (_, name) => {\n  const value = bru.getVar(name) || bru.getEnvVar(name);\n  if (value === undefined || value === '') throw new Error('Thieu bien: ' + name);\n  return JSON.stringify(String(value)).slice(1,-1);\n}));\nbody.packagePrice = Number(body.packagePrice);\nreq.setBody(body);\n",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 400', function () { expect(res.getStatus()).to.equal(400); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(false);\n  expect(body.code).to.equal('SYS_003');\n});\n",
+            "docs": " Body hien day du. Them SKU truc tiep vao items bang variantId that va quantity > 0; script giu nguyen danh sach ban nhap. Chay buoc 04 de lay cac bien mac dinh. validFrom/validUntil null la khong gioi han lich."
+          }
+        },
+        {
+          "type": "http",
+          "name": "06 - Create combo",
+          "seq": 6,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/catalog/admin/bundles",
+            "method": "POST",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "bearer",
+              "bearer": {
+                "token": "{{accessToken}}"
+              }
+            },
+            "body": {
+              "mode": "json",
+              "json": "{\n  \"productCode\": \"{{bundleCode}}\",\n  \"name\": \"Bruno combo test\",\n  \"categoryId\": \"{{categoryId}}\",\n  \"brandId\": null,\n  \"description\": \"Temporary combo created by Bruno smoke flow\",\n  \"items\": [\n    {\n      \"variantId\": \"{{variantId}}\",\n      \"quantity\": 1\n    }\n  ],\n  \"packagePrice\": \"{{packagePrice}}\",\n  \"validFrom\": null,\n  \"validUntil\": null,\n  \"componentGroups\": []\n}"
+            },
+            "script": {
+              "req": "if (!bru.getVar('accessToken')) throw new Error('Chay login truoc.');\nconst raw = req.getBody();\nconst text = typeof raw === 'string' ? raw : JSON.stringify(raw);\nconst body = JSON.parse(text.replace(/\\{\\{(\\w+)\\}\\}/g, (_, name) => {\n  const value = bru.getVar(name) || bru.getEnvVar(name);\n  if (value === undefined || value === '') throw new Error('Thieu bien: ' + name);\n  return JSON.stringify(String(value)).slice(1,-1);\n}));\nbody.packagePrice = Number(body.packagePrice);\nreq.setBody(body);\nbru.setVar('bundleDefinition',JSON.stringify(body));\nbru.setVar('bundleCode',body.productCode);\nbru.setVar('packagePrice',body.packagePrice);\n",
+              "res": "if ([200, 201].includes(res.getStatus()) && res.getBody().success) {\n  const data = res.getBody().data;\n  if (!data.bundleId || !Number.isInteger(data.version)) throw new Error('Response combo thieu ID/version.');\n  bru.setVar('bundleId', data.bundleId);\n  bru.setVar('bundleVersion', data.version);\n}"
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 201', function () { expect(res.getStatus()).to.equal(201); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(true);\n  expect(body.code).to.equal('SUCCESS');\n});\ntest('BundleResponse day du, khong co gia von', function () {\n  const data = res.getBody().data;\n  expect(data.bundleId).to.equal(bru.getVar('bundleId'));\n  expect(data.items).to.be.an('array').with.lengthOf(JSON.parse(bru.getVar('bundleDefinition')).items.length);\n  expect(data.categoryId).to.equal(bru.getEnvVar('categoryId'));\n  expect(data).to.have.all.keys('bundleId','productCode','name','productStatus','publicationStatus','version',\n    'linkedItemsCount','originalTotal','packagePrice','savingAmount','discountPercent','priceIssue',\n    'createdAt','updatedAt','categoryId','brandId','description','items','validFrom','validUntil','componentGroups');\n  expect(data.items[0]).not.to.have.property('costPrice');\n});\ntest('Combo moi ACTIVE va DRAFT', function () {\n  expect(res.getBody().data.productStatus).to.equal('ACTIVE');\n  expect(res.getBody().data.publicationStatus).to.equal('DRAFT');\n});",
+            "docs": "Tao combo test ma BRUNO-* moi moi lan chay folder 03. Du lieu duoc xoa mem o cuoi luong, khong dung combo co san. Body hien day du. Them SKU truc tiep vao items bang variantId that va quantity > 0; script giu nguyen danh sach ban nhap. Chay buoc 04 de lay cac bien mac dinh. validFrom/validUntil null la khong gioi han lich."
+          }
+        },
+        {
+          "type": "http",
+          "name": "07 - List tra BundleResponse day du",
+          "seq": 7,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/catalog/admin/bundles?page=0&size=20&keyword={{bundleCode}}",
+            "method": "GET",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "bearer",
+              "bearer": {
+                "token": "{{accessToken}}"
+              }
+            },
+            "body": {
+              "mode": "none"
+            },
+            "script": {
+              "req": "if (bru.getVar('accessToken') === undefined || bru.getVar('accessToken') === '') throw new Error('Thieu accessToken: chay lai buoc truoc.');\nif (bru.getVar('bundleId') === undefined || bru.getVar('bundleId') === '') throw new Error('Thieu bundleId: chay lai buoc truoc.');\nif (bru.getVar('bundleCode') === undefined || bru.getVar('bundleCode') === '') throw new Error('Thieu bundleCode: chay lai buoc truoc.');",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 200', function () { expect(res.getStatus()).to.equal(200); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(true);\n  expect(body.code).to.equal('SUCCESS');\n});\ntest('Danh sach co combo va day du items/category', function () {\n  const page = res.getBody().data;\n  expect(page.totalElements).to.equal(1);\n  expect(page.items[0].bundleId).to.equal(bru.getVar('bundleId'));\n  expect(page.items[0].items).to.have.lengthOf(JSON.parse(bru.getVar('bundleDefinition')).items.length);\n  expect(page.items[0].categoryId).to.equal(bru.getEnvVar('categoryId'));\n});",
+            "docs": ""
+          }
+        },
+        {
+          "type": "http",
+          "name": "08 - Get combo",
+          "seq": 8,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/catalog/admin/bundles/{{bundleId}}",
+            "method": "GET",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "bearer",
+              "bearer": {
+                "token": "{{accessToken}}"
+              }
+            },
+            "body": {
+              "mode": "none"
+            },
+            "script": {
+              "req": "if (bru.getVar('accessToken') === undefined || bru.getVar('accessToken') === '') throw new Error('Thieu accessToken: chay lai buoc truoc.');\nif (bru.getVar('bundleId') === undefined || bru.getVar('bundleId') === '') throw new Error('Thieu bundleId: chay lai buoc truoc.');",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 200', function () { expect(res.getStatus()).to.equal(200); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(true);\n  expect(body.code).to.equal('SUCCESS');\n});\ntest('BundleResponse day du, khong co gia von', function () {\n  const data = res.getBody().data;\n  expect(data.bundleId).to.equal(bru.getVar('bundleId'));\n  expect(data.items).to.be.an('array').with.lengthOf(JSON.parse(bru.getVar('bundleDefinition')).items.length);\n  expect(data.categoryId).to.equal(bru.getEnvVar('categoryId'));\n  expect(data).to.have.all.keys('bundleId','productCode','name','productStatus','publicationStatus','version',\n    'linkedItemsCount','originalTotal','packagePrice','savingAmount','discountPercent','priceIssue',\n    'createdAt','updatedAt','categoryId','brandId','description','items','validFrom','validUntil','componentGroups');\n  expect(data.items[0]).not.to.have.property('costPrice');\n});",
+            "docs": ""
+          }
+        },
+        {
+          "type": "http",
+          "name": "09 - Update combo va luu version moi",
+          "seq": 9,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/catalog/admin/bundles/{{bundleId}}",
+            "method": "PUT",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "bearer",
+              "bearer": {
+                "token": "{{accessToken}}"
+              }
+            },
+            "body": {
+              "mode": "json",
+              "json": "{\n  \"expectedVersion\": \"{{bundleVersion}}\"\n}"
+            },
+            "script": {
+              "req": "if (bru.getVar('accessToken') === undefined || bru.getVar('accessToken') === '') throw new Error('Thieu accessToken: chay lai buoc truoc.');\nif (bru.getVar('bundleId') === undefined || bru.getVar('bundleId') === '') throw new Error('Thieu bundleId: chay lai buoc truoc.');\nif (bru.getVar('bundleVersion') === undefined || bru.getVar('bundleVersion') === '') throw new Error('Thieu bundleVersion: chay lai buoc truoc.');\nif (bru.getVar('bundleDefinition') === undefined || bru.getVar('bundleDefinition') === '') throw new Error('Thieu bundleDefinition: chay lai buoc truoc.');\nbru.setVar('staleVersion',bru.getVar('bundleVersion'));\nconst definition = JSON.parse(bru.getVar('bundleDefinition'));\nreq.setBody({...definition, name: 'Bruno combo updated', expectedVersion: Number(bru.getVar('bundleVersion'))});",
+              "res": "if ([200, 201].includes(res.getStatus()) && res.getBody().success) {\n  const data = res.getBody().data;\n  if (!data.bundleId || !Number.isInteger(data.version)) throw new Error('Response combo thieu ID/version.');\n  bru.setVar('bundleId', data.bundleId);\n  bru.setVar('bundleVersion', data.version);\n}"
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 200', function () { expect(res.getStatus()).to.equal(200); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(true);\n  expect(body.code).to.equal('SUCCESS');\n});\ntest('BundleResponse day du, khong co gia von', function () {\n  const data = res.getBody().data;\n  expect(data.bundleId).to.equal(bru.getVar('bundleId'));\n  expect(data.items).to.be.an('array').with.lengthOf(JSON.parse(bru.getVar('bundleDefinition')).items.length);\n  expect(data.categoryId).to.equal(bru.getEnvVar('categoryId'));\n  expect(data).to.have.all.keys('bundleId','productCode','name','productStatus','publicationStatus','version',\n    'linkedItemsCount','originalTotal','packagePrice','savingAmount','discountPercent','priceIssue',\n    'createdAt','updatedAt','categoryId','brandId','description','items','validFrom','validUntil','componentGroups');\n  expect(data.items[0]).not.to.have.property('costPrice');\n});\ntest('Update doi ten va tang version', function () {\n  expect(res.getBody().data.name).to.equal('Bruno combo updated');\n  expect(res.getBody().data.version).to.be.above(Number(bru.getVar('staleVersion')));\n});",
+            "docs": ""
+          }
+        },
+        {
+          "type": "http",
+          "name": "10 - Update version cu bi 409",
+          "seq": 10,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/catalog/admin/bundles/{{bundleId}}",
+            "method": "PUT",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "bearer",
+              "bearer": {
+                "token": "{{accessToken}}"
+              }
+            },
+            "body": {
+              "mode": "json",
+              "json": "{\n  \"expectedVersion\": \"{{staleVersion}}\"\n}"
+            },
+            "script": {
+              "req": "if (bru.getVar('accessToken') === undefined || bru.getVar('accessToken') === '') throw new Error('Thieu accessToken: chay lai buoc truoc.');\nif (bru.getVar('bundleId') === undefined || bru.getVar('bundleId') === '') throw new Error('Thieu bundleId: chay lai buoc truoc.');\nif (bru.getVar('staleVersion') === undefined || bru.getVar('staleVersion') === '') throw new Error('Thieu staleVersion: chay lai buoc truoc.');\nif (bru.getVar('bundleDefinition') === undefined || bru.getVar('bundleDefinition') === '') throw new Error('Thieu bundleDefinition: chay lai buoc truoc.');\nconst d = JSON.parse(bru.getVar('bundleDefinition')); req.setBody({...d,expectedVersion:Number(bru.getVar('staleVersion'))});",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 409', function () { expect(res.getStatus()).to.equal(409); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(false);\n  expect(body.code).to.equal('CATALOG_BUNDLE_003');\n});\n",
+            "docs": ""
+          }
+        },
+        {
+          "type": "http",
+          "name": "11 - Tat combo - response day du",
+          "seq": 11,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/catalog/admin/bundles/{{bundleId}}/status",
+            "method": "PATCH",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "bearer",
+              "bearer": {
+                "token": "{{accessToken}}"
+              }
+            },
+            "body": {
+              "mode": "json",
+              "json": "{\n  \"expectedVersion\": \"{{bundleVersion}}\",\n  \"productStatus\": \"INACTIVE\"\n}"
+            },
+            "script": {
+              "req": "if (bru.getVar('accessToken') === undefined || bru.getVar('accessToken') === '') throw new Error('Thieu accessToken: chay lai buoc truoc.');\nif (bru.getVar('bundleId') === undefined || bru.getVar('bundleId') === '') throw new Error('Thieu bundleId: chay lai buoc truoc.');\nif (bru.getVar('bundleVersion') === undefined || bru.getVar('bundleVersion') === '') throw new Error('Thieu bundleVersion: chay lai buoc truoc.');\nbru.setVar('beforeStatusVersion',bru.getVar('bundleVersion'));\nreq.setBody({expectedVersion:Number(bru.getVar('bundleVersion')),productStatus:'INACTIVE'});",
+              "res": "if ([200, 201].includes(res.getStatus()) && res.getBody().success) {\n  const data = res.getBody().data;\n  if (!data.bundleId || !Number.isInteger(data.version)) throw new Error('Response combo thieu ID/version.');\n  bru.setVar('bundleId', data.bundleId);\n  bru.setVar('bundleVersion', data.version);\n}"
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 200', function () { expect(res.getStatus()).to.equal(200); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(true);\n  expect(body.code).to.equal('SUCCESS');\n});\ntest('BundleResponse day du, khong co gia von', function () {\n  const data = res.getBody().data;\n  expect(data.bundleId).to.equal(bru.getVar('bundleId'));\n  expect(data.items).to.be.an('array').with.lengthOf(JSON.parse(bru.getVar('bundleDefinition')).items.length);\n  expect(data.categoryId).to.equal(bru.getEnvVar('categoryId'));\n  expect(data).to.have.all.keys('bundleId','productCode','name','productStatus','publicationStatus','version',\n    'linkedItemsCount','originalTotal','packagePrice','savingAmount','discountPercent','priceIssue',\n    'createdAt','updatedAt','categoryId','brandId','description','items','validFrom','validUntil','componentGroups');\n  expect(data.items[0]).not.to.have.property('costPrice');\n});\ntest('Status INACTIVE', function () {\n  expect(res.getBody().data.productStatus).to.equal('INACTIVE');\n  expect(res.getBody().data.version).to.be.above(Number(bru.getVar('beforeStatusVersion')));\n});",
+            "docs": ""
+          }
+        },
+        {
+          "type": "http",
+          "name": "12 - Tat lai la no-op",
+          "seq": 12,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/catalog/admin/bundles/{{bundleId}}/status",
+            "method": "PATCH",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "bearer",
+              "bearer": {
+                "token": "{{accessToken}}"
+              }
+            },
+            "body": {
+              "mode": "json",
+              "json": "{\n  \"expectedVersion\": \"{{bundleVersion}}\",\n  \"productStatus\": \"INACTIVE\"\n}"
+            },
+            "script": {
+              "req": "if (bru.getVar('accessToken') === undefined || bru.getVar('accessToken') === '') throw new Error('Thieu accessToken: chay lai buoc truoc.');\nif (bru.getVar('bundleId') === undefined || bru.getVar('bundleId') === '') throw new Error('Thieu bundleId: chay lai buoc truoc.');\nif (bru.getVar('bundleVersion') === undefined || bru.getVar('bundleVersion') === '') throw new Error('Thieu bundleVersion: chay lai buoc truoc.');\nbru.setVar('beforeStatusVersion',bru.getVar('bundleVersion'));\nreq.setBody({expectedVersion:Number(bru.getVar('bundleVersion')),productStatus:'INACTIVE'});",
+              "res": "if ([200, 201].includes(res.getStatus()) && res.getBody().success) {\n  const data = res.getBody().data;\n  if (!data.bundleId || !Number.isInteger(data.version)) throw new Error('Response combo thieu ID/version.');\n  bru.setVar('bundleId', data.bundleId);\n  bru.setVar('bundleVersion', data.version);\n}"
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 200', function () { expect(res.getStatus()).to.equal(200); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(true);\n  expect(body.code).to.equal('SUCCESS');\n});\ntest('BundleResponse day du, khong co gia von', function () {\n  const data = res.getBody().data;\n  expect(data.bundleId).to.equal(bru.getVar('bundleId'));\n  expect(data.items).to.be.an('array').with.lengthOf(JSON.parse(bru.getVar('bundleDefinition')).items.length);\n  expect(data.categoryId).to.equal(bru.getEnvVar('categoryId'));\n  expect(data).to.have.all.keys('bundleId','productCode','name','productStatus','publicationStatus','version',\n    'linkedItemsCount','originalTotal','packagePrice','savingAmount','discountPercent','priceIssue',\n    'createdAt','updatedAt','categoryId','brandId','description','items','validFrom','validUntil','componentGroups');\n  expect(data.items[0]).not.to.have.property('costPrice');\n});\ntest('Status INACTIVE no-op', function () {\n  expect(res.getBody().data.productStatus).to.equal('INACTIVE');\n  expect(res.getBody().data.version).to.equal(Number(bru.getVar('beforeStatusVersion')));\n});",
+            "docs": ""
+          }
+        },
+        {
+          "type": "http",
+          "name": "13 - Bat lai combo",
+          "seq": 13,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/catalog/admin/bundles/{{bundleId}}/status",
+            "method": "PATCH",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "bearer",
+              "bearer": {
+                "token": "{{accessToken}}"
+              }
+            },
+            "body": {
+              "mode": "json",
+              "json": "{\n  \"expectedVersion\": \"{{bundleVersion}}\",\n  \"productStatus\": \"ACTIVE\"\n}"
+            },
+            "script": {
+              "req": "if (bru.getVar('accessToken') === undefined || bru.getVar('accessToken') === '') throw new Error('Thieu accessToken: chay lai buoc truoc.');\nif (bru.getVar('bundleId') === undefined || bru.getVar('bundleId') === '') throw new Error('Thieu bundleId: chay lai buoc truoc.');\nif (bru.getVar('bundleVersion') === undefined || bru.getVar('bundleVersion') === '') throw new Error('Thieu bundleVersion: chay lai buoc truoc.');\nbru.setVar('beforeStatusVersion',bru.getVar('bundleVersion'));\nreq.setBody({expectedVersion:Number(bru.getVar('bundleVersion')),productStatus:'ACTIVE'});",
+              "res": "if ([200, 201].includes(res.getStatus()) && res.getBody().success) {\n  const data = res.getBody().data;\n  if (!data.bundleId || !Number.isInteger(data.version)) throw new Error('Response combo thieu ID/version.');\n  bru.setVar('bundleId', data.bundleId);\n  bru.setVar('bundleVersion', data.version);\n}"
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 200', function () { expect(res.getStatus()).to.equal(200); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(true);\n  expect(body.code).to.equal('SUCCESS');\n});\ntest('BundleResponse day du, khong co gia von', function () {\n  const data = res.getBody().data;\n  expect(data.bundleId).to.equal(bru.getVar('bundleId'));\n  expect(data.items).to.be.an('array').with.lengthOf(JSON.parse(bru.getVar('bundleDefinition')).items.length);\n  expect(data.categoryId).to.equal(bru.getEnvVar('categoryId'));\n  expect(data).to.have.all.keys('bundleId','productCode','name','productStatus','publicationStatus','version',\n    'linkedItemsCount','originalTotal','packagePrice','savingAmount','discountPercent','priceIssue',\n    'createdAt','updatedAt','categoryId','brandId','description','items','validFrom','validUntil','componentGroups');\n  expect(data.items[0]).not.to.have.property('costPrice');\n});\ntest('Status ACTIVE', function () {\n  expect(res.getBody().data.productStatus).to.equal('ACTIVE');\n  expect(res.getBody().data.version).to.be.above(Number(bru.getVar('beforeStatusVersion')));\n});",
+            "docs": ""
+          }
+        },
+        {
+          "type": "http",
+          "name": "14 - Publish combo",
+          "seq": 14,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/catalog/admin/bundles/{{bundleId}}/publish",
+            "method": "POST",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "bearer",
+              "bearer": {
+                "token": "{{accessToken}}"
+              }
+            },
+            "body": {
+              "mode": "json",
+              "json": "{\n  \"expectedVersion\": \"{{bundleVersion}}\"\n}"
+            },
+            "script": {
+              "req": "if (bru.getVar('accessToken') === undefined || bru.getVar('accessToken') === '') throw new Error('Thieu accessToken: chay lai buoc truoc.');\nif (bru.getVar('bundleId') === undefined || bru.getVar('bundleId') === '') throw new Error('Thieu bundleId: chay lai buoc truoc.');\nif (bru.getVar('bundleVersion') === undefined || bru.getVar('bundleVersion') === '') throw new Error('Thieu bundleVersion: chay lai buoc truoc.');\nreq.setBody({expectedVersion:Number(bru.getVar('bundleVersion'))});",
+              "res": "if ([200, 201].includes(res.getStatus()) && res.getBody().success) {\n  const data = res.getBody().data;\n  if (!data.bundleId || !Number.isInteger(data.version)) throw new Error('Response combo thieu ID/version.');\n  bru.setVar('bundleId', data.bundleId);\n  bru.setVar('bundleVersion', data.version);\n}"
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 200', function () { expect(res.getStatus()).to.equal(200); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(true);\n  expect(body.code).to.equal('SUCCESS');\n});\ntest('BundleResponse day du, khong co gia von', function () {\n  const data = res.getBody().data;\n  expect(data.bundleId).to.equal(bru.getVar('bundleId'));\n  expect(data.items).to.be.an('array').with.lengthOf(JSON.parse(bru.getVar('bundleDefinition')).items.length);\n  expect(data.categoryId).to.equal(bru.getEnvVar('categoryId'));\n  expect(data).to.have.all.keys('bundleId','productCode','name','productStatus','publicationStatus','version',\n    'linkedItemsCount','originalTotal','packagePrice','savingAmount','discountPercent','priceIssue',\n    'createdAt','updatedAt','categoryId','brandId','description','items','validFrom','validUntil','componentGroups');\n  expect(data.items[0]).not.to.have.property('costPrice');\n});\ntest('Da PUBLISHED',function(){expect(res.getBody().data.publicationStatus).to.equal('PUBLISHED');});",
+            "docs": ""
+          }
+        },
+        {
+          "type": "http",
+          "name": "15 - Khong sua definition khi PUBLISHED",
+          "seq": 15,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/catalog/admin/bundles/{{bundleId}}",
+            "method": "PUT",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "bearer",
+              "bearer": {
+                "token": "{{accessToken}}"
+              }
+            },
+            "body": {
+              "mode": "json",
+              "json": "{\n  \"expectedVersion\": \"{{bundleVersion}}\"\n}"
+            },
+            "script": {
+              "req": "if (bru.getVar('accessToken') === undefined || bru.getVar('accessToken') === '') throw new Error('Thieu accessToken: chay lai buoc truoc.');\nif (bru.getVar('bundleId') === undefined || bru.getVar('bundleId') === '') throw new Error('Thieu bundleId: chay lai buoc truoc.');\nif (bru.getVar('bundleVersion') === undefined || bru.getVar('bundleVersion') === '') throw new Error('Thieu bundleVersion: chay lai buoc truoc.');\nif (bru.getVar('bundleDefinition') === undefined || bru.getVar('bundleDefinition') === '') throw new Error('Thieu bundleDefinition: chay lai buoc truoc.');\nconst definition = JSON.parse(bru.getVar('bundleDefinition'));\nreq.setBody({...definition, name: 'Bruno combo updated', expectedVersion: Number(bru.getVar('bundleVersion'))});",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 409', function () { expect(res.getStatus()).to.equal(409); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(false);\n  expect(body.code).to.equal('CATALOG_BUNDLE_006');\n});\n",
+            "docs": ""
+          }
+        },
+        {
+          "type": "http",
+          "name": "16 - Storefront list co day du chi tiet",
+          "seq": 16,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/catalog/bundles?page=0&size=20&keyword={{bundleCode}}",
+            "method": "GET",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "bearer",
+              "bearer": {
+                "token": "{{accessToken}}"
+              }
+            },
+            "body": {
+              "mode": "none"
+            },
+            "script": {
+              "req": "if (bru.getVar('accessToken') === undefined || bru.getVar('accessToken') === '') throw new Error('Thieu accessToken: chay lai buoc truoc.');\nif (bru.getVar('bundleId') === undefined || bru.getVar('bundleId') === '') throw new Error('Thieu bundleId: chay lai buoc truoc.');\nif (bru.getVar('bundleCode') === undefined || bru.getVar('bundleCode') === '') throw new Error('Thieu bundleCode: chay lai buoc truoc.');",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 200', function () { expect(res.getStatus()).to.equal(200); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(true);\n  expect(body.code).to.equal('SUCCESS');\n});\ntest('Storefront hien combo PUBLISHED',function(){\n  const page=res.getBody().data;\n  expect(page.totalElements).to.equal(1);\n  expect(page.items[0].bundleId).to.equal(bru.getVar('bundleId'));\n  expect(page.items[0].items).to.have.lengthOf(JSON.parse(bru.getVar('bundleDefinition')).items.length);\n});",
+            "docs": ""
+          }
+        },
+        {
+          "type": "http",
+          "name": "17 - Storefront get",
+          "seq": 17,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/catalog/bundles/{{bundleId}}",
+            "method": "GET",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "bearer",
+              "bearer": {
+                "token": "{{accessToken}}"
+              }
+            },
+            "body": {
+              "mode": "none"
+            },
+            "script": {
+              "req": "if (bru.getVar('accessToken') === undefined || bru.getVar('accessToken') === '') throw new Error('Thieu accessToken: chay lai buoc truoc.');\nif (bru.getVar('bundleId') === undefined || bru.getVar('bundleId') === '') throw new Error('Thieu bundleId: chay lai buoc truoc.');",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 200', function () { expect(res.getStatus()).to.equal(200); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(true);\n  expect(body.code).to.equal('SUCCESS');\n});\ntest('BundleResponse day du, khong co gia von', function () {\n  const data = res.getBody().data;\n  expect(data.bundleId).to.equal(bru.getVar('bundleId'));\n  expect(data.items).to.be.an('array').with.lengthOf(JSON.parse(bru.getVar('bundleDefinition')).items.length);\n  expect(data.categoryId).to.equal(bru.getEnvVar('categoryId'));\n  expect(data).to.have.all.keys('bundleId','productCode','name','productStatus','publicationStatus','version',\n    'linkedItemsCount','originalTotal','packagePrice','savingAmount','discountPercent','priceIssue',\n    'createdAt','updatedAt','categoryId','brandId','description','items','validFrom','validUntil','componentGroups');\n  expect(data.items[0]).not.to.have.property('costPrice');\n});",
+            "docs": ""
+          }
+        },
+        {
+          "type": "http",
+          "name": "18 - Evaluation hai bo - khong giu hang",
+          "seq": 18,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/catalog/bundles/{{bundleId}}/evaluations",
+            "method": "POST",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "bearer",
+              "bearer": {
+                "token": "{{accessToken}}"
+              }
+            },
+            "body": {
+              "mode": "json",
+              "json": "{\n  \"quantity\": 2,\n  \"expectedVersion\": \"{{bundleVersion}}\",\n  \"selections\": []\n}"
+            },
+            "script": {
+              "req": "if (bru.getVar('accessToken') === undefined || bru.getVar('accessToken') === '') throw new Error('Thieu accessToken: chay lai buoc truoc.');\nif (bru.getVar('bundleId') === undefined || bru.getVar('bundleId') === '') throw new Error('Thieu bundleId: chay lai buoc truoc.');\nif (bru.getVar('bundleVersion') === undefined || bru.getVar('bundleVersion') === '') throw new Error('Thieu bundleVersion: chay lai buoc truoc.');\nreq.setBody({quantity:2,expectedVersion:Number(bru.getVar('bundleVersion')),selections:[]});",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 200', function () { expect(res.getStatus()).to.equal(200); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(true);\n  expect(body.code).to.equal('SUCCESS');\n});\ntest('Tinh gia/so luong dung va ton kho khong bi gia dinh',function(){\n  const data=res.getBody().data;\n  expect(data.bundleId).to.equal(bru.getVar('bundleId'));\n  expect(data.bundleVersion).to.equal(Number(bru.getVar('bundleVersion')));\n  expect(data.quantity).to.equal(2);\n  expect(data.totalPackagePrice).to.be.closeTo(Number(bru.getVar('packagePrice'))*2,0.01);\n  const definition = JSON.parse(bru.getVar('bundleDefinition'));\n  data.items.forEach(item => expect(item.requiredQty).to.equal(definition.items.find(x => x.variantId === item.variantId).quantity * 2));\n  expect(['IN_STOCK','INSUFFICIENT','UNKNOWN']).to.include(data.availability);\n  if (data.availability !== 'IN_STOCK' || data.priceIssue !== null) expect(data.purchasable).to.equal(false);\n});",
+            "docs": "Khong gia dinh SKU co ton. UNKNOWN/INSUFFICIENT la ket qua hop le; evaluation khong reserve stock."
+          }
+        },
+        {
+          "type": "http",
+          "name": "19 - Unpublish combo",
+          "seq": 19,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/catalog/admin/bundles/{{bundleId}}/unpublish",
+            "method": "POST",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "bearer",
+              "bearer": {
+                "token": "{{accessToken}}"
+              }
+            },
+            "body": {
+              "mode": "json",
+              "json": "{\n  \"expectedVersion\": \"{{bundleVersion}}\"\n}"
+            },
+            "script": {
+              "req": "if (bru.getVar('accessToken') === undefined || bru.getVar('accessToken') === '') throw new Error('Thieu accessToken: chay lai buoc truoc.');\nif (bru.getVar('bundleId') === undefined || bru.getVar('bundleId') === '') throw new Error('Thieu bundleId: chay lai buoc truoc.');\nif (bru.getVar('bundleVersion') === undefined || bru.getVar('bundleVersion') === '') throw new Error('Thieu bundleVersion: chay lai buoc truoc.');\nreq.setBody({expectedVersion:Number(bru.getVar('bundleVersion'))});",
+              "res": "if ([200, 201].includes(res.getStatus()) && res.getBody().success) {\n  const data = res.getBody().data;\n  if (!data.bundleId || !Number.isInteger(data.version)) throw new Error('Response combo thieu ID/version.');\n  bru.setVar('bundleId', data.bundleId);\n  bru.setVar('bundleVersion', data.version);\n}"
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 200', function () { expect(res.getStatus()).to.equal(200); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(true);\n  expect(body.code).to.equal('SUCCESS');\n});\ntest('BundleResponse day du, khong co gia von', function () {\n  const data = res.getBody().data;\n  expect(data.bundleId).to.equal(bru.getVar('bundleId'));\n  expect(data.items).to.be.an('array').with.lengthOf(JSON.parse(bru.getVar('bundleDefinition')).items.length);\n  expect(data.categoryId).to.equal(bru.getEnvVar('categoryId'));\n  expect(data).to.have.all.keys('bundleId','productCode','name','productStatus','publicationStatus','version',\n    'linkedItemsCount','originalTotal','packagePrice','savingAmount','discountPercent','priceIssue',\n    'createdAt','updatedAt','categoryId','brandId','description','items','validFrom','validUntil','componentGroups');\n  expect(data.items[0]).not.to.have.property('costPrice');\n});\ntest('Da UNPUBLISHED',function(){expect(res.getBody().data.publicationStatus).to.equal('UNPUBLISHED');});",
+            "docs": ""
+          }
+        },
+        {
+          "type": "http",
+          "name": "20 - Storefront an combo sau unpublish",
+          "seq": 20,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/catalog/bundles/{{bundleId}}",
+            "method": "GET",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "bearer",
+              "bearer": {
+                "token": "{{accessToken}}"
+              }
+            },
+            "body": {
+              "mode": "none"
+            },
+            "script": {
+              "req": "if (bru.getVar('accessToken') === undefined || bru.getVar('accessToken') === '') throw new Error('Thieu accessToken: chay lai buoc truoc.');\nif (bru.getVar('bundleId') === undefined || bru.getVar('bundleId') === '') throw new Error('Thieu bundleId: chay lai buoc truoc.');",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 404', function () { expect(res.getStatus()).to.equal(404); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(false);\n  expect(body.code).to.equal('SYS_004');\n});\n",
+            "docs": ""
+          }
+        },
+        {
+          "type": "http",
+          "name": "21 - Delete chi tra thong bao thanh cong",
+          "seq": 21,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/catalog/admin/bundles/{{bundleId}}?expectedVersion={{bundleVersion}}",
+            "method": "DELETE",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "bearer",
+              "bearer": {
+                "token": "{{accessToken}}"
+              }
+            },
+            "body": {
+              "mode": "none"
+            },
+            "script": {
+              "req": "if (bru.getVar('accessToken') === undefined || bru.getVar('accessToken') === '') throw new Error('Thieu accessToken: chay lai buoc truoc.');\nif (bru.getVar('bundleId') === undefined || bru.getVar('bundleId') === '') throw new Error('Thieu bundleId: chay lai buoc truoc.');\nif (bru.getVar('bundleVersion') === undefined || bru.getVar('bundleVersion') === '') throw new Error('Thieu bundleVersion: chay lai buoc truoc.');",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 200', function () { expect(res.getStatus()).to.equal(200); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(true);\n  expect(body.code).to.equal('SUCCESS');\n});\ntest('DELETE khong con data/version',function(){\n  expect(res.getBody()).not.to.have.property('data');\n  expect(res.getBody().message).to.equal('Đã xóa combo.');\n});",
+            "docs": "Xoa mem dung combo BRUNO-* vua tao. Version gui di duoc giu lai de kiem stale retry; API khong tra post-delete version."
+          }
+        },
+        {
+          "type": "http",
+          "name": "22 - Get combo da xoa tra 404",
+          "seq": 22,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/catalog/admin/bundles/{{bundleId}}",
+            "method": "GET",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "bearer",
+              "bearer": {
+                "token": "{{accessToken}}"
+              }
+            },
+            "body": {
+              "mode": "none"
+            },
+            "script": {
+              "req": "if (bru.getVar('accessToken') === undefined || bru.getVar('accessToken') === '') throw new Error('Thieu accessToken: chay lai buoc truoc.');\nif (bru.getVar('bundleId') === undefined || bru.getVar('bundleId') === '') throw new Error('Thieu bundleId: chay lai buoc truoc.');",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 404', function () { expect(res.getStatus()).to.equal(404); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(false);\n  expect(body.code).to.equal('SYS_004');\n});\n",
+            "docs": ""
+          }
+        },
+        {
+          "type": "http",
+          "name": "23 - Delete version truoc xoa tra 409",
+          "seq": 23,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/catalog/admin/bundles/{{bundleId}}?expectedVersion={{bundleVersion}}",
+            "method": "DELETE",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "bearer",
+              "bearer": {
+                "token": "{{accessToken}}"
+              }
+            },
+            "body": {
+              "mode": "none"
+            },
+            "script": {
+              "req": "if (bru.getVar('accessToken') === undefined || bru.getVar('accessToken') === '') throw new Error('Thieu accessToken: chay lai buoc truoc.');\nif (bru.getVar('bundleId') === undefined || bru.getVar('bundleId') === '') throw new Error('Thieu bundleId: chay lai buoc truoc.');\nif (bru.getVar('bundleVersion') === undefined || bru.getVar('bundleVersion') === '') throw new Error('Thieu bundleVersion: chay lai buoc truoc.');",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 409', function () { expect(res.getStatus()).to.equal(409); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(false);\n  expect(body.code).to.equal('CATALOG_BUNDLE_003');\n});\n",
+            "docs": ""
+          }
+        },
+        {
+          "type": "http",
+          "name": "24 - Logout",
+          "seq": 24,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/auth/logout",
+            "method": "POST",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "bearer",
+              "bearer": {
+                "token": "{{accessToken}}"
+              }
+            },
+            "body": {
+              "mode": "none"
+            },
+            "script": {
+              "req": "if (bru.getVar('accessToken') === undefined || bru.getVar('accessToken') === '') throw new Error('Thieu accessToken: chay lai buoc truoc.');",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 200', function () { expect(res.getStatus()).to.equal(200); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(true);\n  expect(body.code).to.equal('SUCCESS');\n});\n",
+            "docs": ""
+          }
+        },
+        {
+          "type": "http",
+          "name": "25 - Token vua logout khong dung duoc",
+          "seq": 25,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/catalog/admin/bundles",
+            "method": "GET",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "bearer",
+              "bearer": {
+                "token": "{{accessToken}}"
+              }
+            },
+            "body": {
+              "mode": "none"
+            },
+            "script": {
+              "req": "if (bru.getVar('accessToken') === undefined || bru.getVar('accessToken') === '') throw new Error('Thieu accessToken: chay lai buoc truoc.');",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 401', function () { expect(res.getStatus()).to.equal(401); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(false);\n  expect(body.code).to.equal('AUTH_001');\n});\n",
+            "docs": ""
+          }
+        }
+      ],
+      "root": {
+        "docs": "Account phai ACTIVE. Run toan folder nay theo thu tu; bat Stop on Error trong runner. Tu luu token, ID va version. Chi xoa mem combo test vua tao."
+      }
+    },
+    {
+      "type": "folder",
+      "name": "04 - Import product Excel - chay rieng",
+      "seq": 4,
+      "items": [
+        {
+          "type": "http",
+          "name": "01 - Login truoc import",
+          "seq": 1,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "method": "POST",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "none"
+            },
+            "body": {
+              "mode": "json",
+              "json": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "script": {
+              "req": "if (!bru.getEnvVar('email') || !bru.getEnvVar('password')) throw new Error('Nhap email/password account ACTIVE trong Local.');\nbru.setVar('importJobId','');\nreq.setBody({email:bru.getEnvVar('email'),password:bru.getEnvVar('password')});",
+              "res": "if (res.getStatus() === 200 && res.getBody().success) {\n  const data = res.getBody().data;\n  if (!data.access_token || !data.refresh_token) throw new Error('Response thieu token.');\n  bru.setVar('accessToken', data.access_token);\n  bru.setVar('refreshToken', data.refresh_token);\n}"
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 200', function () { expect(res.getStatus()).to.equal(200); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(true);\n  expect(body.code).to.equal('SUCCESS');\n});\ntest('JWT va refresh token duoc cap', function () {\n  const data = res.getBody().data;\n  expect(data.access_token).to.be.a('string').and.not.empty;\n  expect(data.refresh_token).to.be.a('string').and.not.empty;\n  expect(data.token_type).to.equal('Bearer');\n  expect(data.expires_in).to.be.above(0);\n});",
+            "docs": ""
+          }
+        },
+        {
+          "type": "http",
+          "name": "02 - Upload Excel product",
+          "seq": 2,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/catalog/import",
+            "method": "POST",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "bearer",
+              "bearer": {
+                "token": "{{accessToken}}"
+              }
+            },
+            "body": {
+              "mode": "multipartForm",
+              "multipartForm": [
+                {
+                  "name": "file",
+                  "type": "file",
+                  "value": [
+                    "{{productImportFile}}"
+                  ],
+                  "enabled": true
+                },
+                {
+                  "name": "importMode",
+                  "type": "text",
+                  "value": "{{productImportMode}}",
+                  "enabled": true
+                }
+              ]
+            },
+            "script": {
+              "req": "if (!bru.getVar('accessToken')) throw new Error('Chay login truoc.');\nif (!bru.getEnvVar('productImportFile')) throw new Error('Nhap duong dan Excel productImportFile trong Local hoac chon file tai Body.');\nif (!['SKIP_EXISTING','OVERWRITE_EXISTING'].includes(bru.getEnvVar('productImportMode'))) throw new Error('importMode khong hop le.');\nbru.setVar('importJobId','');",
+              "res": "if (res.getStatus() === 202 && res.getBody().success) bru.setVar('importJobId',res.getBody().data.jobId);"
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 202 - da tiep nhan',function(){expect(res.getStatus()).to.equal(202);expect(res.getBody().success).to.equal(true);expect(res.getBody().data.jobId).to.match(/^imp_/);expect(res.getBody().data.importMode).to.equal(bru.getEnvVar('productImportMode'));});",
+            "docs": "Multipart file Excel theo mau importer hien tai. SKIP_EXISTING bo qua SKU da co; OVERWRITE_EXISTING cap nhat du lieu da co. HTTP 202 chi la tiep nhan, chua xac nhan import thanh cong. Khong tu dat Content-Type vi Bruno can sinh boundary."
+          }
+        },
+        {
+          "type": "http",
+          "name": "03 - Xem tien do - gui lai den khi ket thuc",
+          "seq": 3,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/catalog/import/{{importJobId}}/progress",
+            "method": "GET",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "bearer",
+              "bearer": {
+                "token": "{{accessToken}}"
+              }
+            },
+            "body": {
+              "mode": "none"
+            },
+            "script": {
+              "req": "if (!bru.getVar('accessToken')) throw new Error('Chay login truoc.');\nif (!bru.getVar('importJobId')) throw new Error('Upload file truoc de lay importJobId.');\n",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 200 va success',function(){expect(res.getStatus()).to.equal(200);expect(res.getBody().success).to.equal(true);});\ntest('Tien do dung job',function(){const data=res.getBody().data;expect(data.jobId).to.equal(bru.getVar('importJobId'));expect(['PENDING','VALIDATING','PROCESSING','COMPLETED','COMPLETED_WITH_ERRORS','FAILED']).to.include(data.status);expect(data.percentage).to.be.within(0,100);});",
+            "docs": "Gui lai request nay cho den COMPLETED/COMPLETED_WITH_ERRORS/FAILED. Neu goi ngay sau upload co the job chua khoi tao trong Redis; doi roi gui lai. HTTP 200 khong dong nghia import thanh cong: xem status, successRows, errorRows va message."
+          }
+        },
+        {
+          "type": "http",
+          "name": "04 - Tai Excel bao cao loi - tuy chon",
+          "seq": 4,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/catalog/import/{{importJobId}}/error-report",
+            "method": "GET",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "bearer",
+              "bearer": {
+                "token": "{{accessToken}}"
+              }
+            },
+            "body": {
+              "mode": "none"
+            },
+            "script": {
+              "req": "if (!bru.getVar('accessToken')) throw new Error('Chay login truoc.');\nif (!bru.getVar('importJobId')) throw new Error('Upload file truoc de lay importJobId.');\n",
+              "res": ""
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('Tra file Excel',function(){expect(res.getStatus()).to.equal(200);expect(res.getHeader('Content-Type')).to.include('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');});",
+            "docs": "Sau khi import ket thuc, neu co dong loi, gui request nay va luu response thanh file .xlsx. Day la binary Excel, khong phai ApiResponse JSON. Job duoc luu Redis 1 gio."
+          }
+        }
+      ],
+      "root": {
+        "docs": "Chay rieng tung request: login -> upload -> xem tien do lap lai -> tai bao cao loi neu can. Can Redis va file Excel dung mau. Import ghi du lieu product/SKU that va khong tu don dep. Mac dinh SKIP_EXISTING. Khong Run All de ket luan job da thanh cong."
+      }
+    },
+    {
+      "type": "folder",
+      "name": "90 - Tuy chon - Resend OTP",
+      "seq": 4,
+      "items": [
+        {
+          "type": "http",
+          "name": "01 - Gui lai OTP - chi khi pending",
+          "seq": 1,
+          "request": {
+            "url": "{{baseUrl}}/api/v1/customer-registrations/otp-resends",
+            "method": "POST",
+            "headers": [
+              {
+                "name": "Accept",
+                "value": "application/json",
+                "enabled": true
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json",
+                "enabled": true
+              }
+            ],
+            "params": [],
+            "auth": {
+              "mode": "none"
+            },
+            "body": {
+              "mode": "json",
+              "json": "{\n  \"email\": \"{{email}}\"\n}"
+            },
+            "script": {
+              "req": "if (!bru.getEnvVar('email')) throw new Error('Chon environment Local va nhap email.');\nconst sentAt=bru.getVar('otpSentAt');\nif (sentAt && Date.now()-Number(sentAt)<60000) throw new Error('Cho du 60 giay ke tu OTP truoc.');\nreq.setBody({email:bru.getEnvVar('email')});",
+              "res": "if(res.getStatus()===200 && res.getBody().success) bru.setVar('otpSentAt',Date.now());"
+            },
+            "vars": {
+              "req": [],
+              "res": []
+            },
+            "assertions": [],
+            "tests": "test('HTTP 200', function () { expect(res.getStatus()).to.equal(200); });\ntest('ApiResponse dung ket qua', function () {\n  const body = res.getBody();\n  expect(body.success).to.equal(true);\n  expect(body.code).to.equal('SUCCESS');\n});\n",
+            "docs": "Chi gui neu tai khoan van PENDING_ACTIVATION. Cho it nhat 60 giay. OTP moi thay OTP cu; nhap otp moi roi chay folder 02. Sau activation endpoint tra REG_006, khong chay folder nay."
+          }
+        }
+      ],
+      "root": {
+        "docs": "Folder thu cong, khong thuoc happy path. Khong Run All collection vi can dung lay OTP va folder nay chi danh cho pending."
+      }
+    }
+  ],
+  "environments": [
+    {
+      "name": "Local",
+      "variables": [
+        {
+          "name": "baseUrl",
+          "value": "http://localhost:8080",
+          "type": "text",
+          "enabled": true,
+          "secret": false,
+          "description": "URL backend dang chay"
+        },
+        {
+          "name": "email",
+          "value": "",
+          "type": "text",
+          "enabled": true,
+          "secret": false,
+          "description": "Hop thu nhan OTP; email moi khi register"
+        },
+        {
+          "name": "phone",
+          "value": "",
+          "type": "text",
+          "enabled": true,
+          "secret": false,
+          "description": "So Viet Nam hop le, chua dang ky"
+        },
+        {
+          "name": "password",
+          "value": "",
+          "type": "text",
+          "enabled": true,
+          "secret": true,
+          "description": "Tu nhap mat khau test cuc bo"
+        },
+        {
+          "name": "fullName",
+          "value": "Bruno Test Customer",
+          "type": "text",
+          "enabled": true,
+          "secret": false,
+          "description": "Ten khach hang test"
+        },
+        {
+          "name": "categoryId",
+          "value": "",
+          "type": "text",
+          "enabled": true,
+          "secret": false,
+          "description": "UUID danh muc ACTIVE co san"
+        },
+        {
+          "name": "variantId",
+          "value": "",
+          "type": "text",
+          "enabled": true,
+          "secret": false,
+          "description": "Tuy chon; de trong de tu chon SKU ACTIVE gia duong"
+        },
+        {
+          "name": "otp",
+          "value": "",
+          "type": "text",
+          "enabled": true,
+          "secret": true,
+          "description": "Ma email 6 chu so, chi dung mot lan"
+        },
+        {
+          "name": "productImportFile",
+          "value": "",
+          "type": "text",
+          "enabled": true,
+          "secret": false,
+          "description": "Duong dan tuyet doi file Excel product, dung dau / tren Windows"
+        },
+        {
+          "name": "productImportMode",
+          "value": "SKIP_EXISTING",
+          "type": "text",
+          "enabled": true,
+          "secret": false,
+          "description": "SKIP_EXISTING hoac OVERWRITE_EXISTING"
+        }
+      ]
+    }
+  ],
+  "activeEnvironmentUid": null,
+  "root": {
+    "docs": "# AquaSuite - Combo + Register Customer + Login\n\nImport Collection -> chon file JSON nay (Bruno native). Chon environment Local.\n\n## Cau hinh\n- baseUrl: mac dinh http://localhost:8080, backend da chay, PostgreSQL/Redis/SMTP da cau hinh.\n- email: hop thu nhan duoc OTP, chua dang ky. phone: so Viet Nam 10 chu so, chua su dung.\n- password: tu nhap secret cuc bo, 8..72 ky tu va toi da 72 UTF-8 bytes, co hoa/thuong/so/ky tu dac biet.\n- categoryId: UUID danh muc ACTIVE dang ton tai. Phai co it nhat mot SKU NORMAL ACTIVE co gia duong.\n- variantId: tuy chon. De trong se tu chon SKU dau tien co gia duong trong 100 ket qua lookup dau.\n- fullName: ten khach hang test. otp: tu nhap ma email 6 chu so, giu so 0 o dau.\n\n## Thu tu chay\n1. Run folder 01: validation, register, duplicate, login pending. Dung lai lay OTP email (TTL 5 phut).\n2. Dien otp trong Local, Run folder 02: activate account/profile, nhan JWT, dong session OTP.\n3. Run folder 03: login -> refresh -> SKU -> create/list/get/update/stale/status/no-op -> publish -> storefront/evaluation -> unpublish -> soft delete -> logout/revocation.\n4. Neu OTP het han: cho 60 giay, gui folder 90 khi tai khoan van pending, lay ma moi va quay lai folder 02.\nKhong Run All collection mot lan vi OTP can nhap thu cong. Co the chay rieng folder 03 voi account da ACTIVE.\n\n## Trang thai va du lieu\nToken chi luu runtime qua bru.setVar, khong ghi ra environment/file. ID/version tu cap nhat sau moi mutation.\nCollection tao account CUSTOMER that va combo BRUNO-* tren backend da chon; combo duoc xoa mem cuoi luong, account duoc giu lai.\nMoi lan chay lai folder 01 phai dung email/phone moi. Folder 03 tao combo moi nen co the chay lai.\nResponse theo spec combo 0.12.0: list/get/create/update/status/publish/unpublish dung BundleResponse; DELETE 200 khong data.\nEvaluation khong reserve stock va chap nhan UNKNOWN/INSUFFICIENT. Khong sua event, Inventory hay data SKU/danh muc.\nCustomer profile khong co API GET rieng; verify chi kiem chung activation/token qua hop dong HTTP hien co.\nNeu buoc nao loi, dung runner tai do va sua du lieu/cau hinh; khong tiep tuc mutation bang ID/version cu.\n\n## Import product Excel\nFolder 04 chay rieng: dien productImportFile va productImportMode trong Local; login -> upload -> gui lai progress den khi ket thuc -> tai error-report neu can. Import ghi product/SKU that; OVERWRITE_EXISTING co the thay doi SKU da co. Folder nay khong tu xoa du lieu import.\n",
+    "request": {
+      "headers": [],
+      "auth": {
+        "mode": "none"
+      },
+      "script": {
+        "req": "",
+        "res": ""
+      },
+      "vars": {
+        "req": [],
+        "res": []
+      },
+      "tests": ""
+    }
+  },
+  "brunoConfig": {
+    "version": "1",
+    "name": "AquaSuite - Combo Register Customer Login",
+    "type": "collection",
+    "ignore": [
+      "node_modules",
+      ".git"
+    ]
+  }
+}

@@ -1,6 +1,5 @@
 package com.aquasuite.ims.share.excel.exporter;
 
-
 import com.aquasuite.ims.share.excel.dto.ExcelRowError;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
@@ -13,9 +12,10 @@ import java.util.List;
 @Component
 public class AbstractExcelErrorReportGenerator {
 
-    public byte[] generateErrorWorkbook(String reportTitle, List<ExcelRowError> errors) throws IOException {
+    public byte[] generateErrorWorkbook(String reportTitle, List<ExcelRowError> errors)
+            throws IOException {
         try (SXSSFWorkbook workbook = new SXSSFWorkbook(100);
-             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+                ByteArrayOutputStream out = new ByteArrayOutputStream()) {
 
             Sheet sheet = workbook.createSheet("Error_Report");
 
@@ -35,7 +35,11 @@ public class AbstractExcelErrorReportGenerator {
 
             // Tạo Header
             Row header = sheet.createRow(0);
-            String[] cols = {"Dòng trên Excel (Row)", "Mã định danh (SKU / Code)", "Chi tiết lỗi cần sửa (Error Message)"};
+            String[] cols = {
+                "Dòng trên Excel (Row)",
+                "Mã định danh (SKU / Code)",
+                "Chi tiết lỗi cần sửa (Error Message)"
+            };
             for (int i = 0; i < cols.length; i++) {
                 Cell cell = header.createCell(i);
                 cell.setCellValue(cols[i]);
@@ -65,4 +69,3 @@ public class AbstractExcelErrorReportGenerator {
         }
     }
 }
-

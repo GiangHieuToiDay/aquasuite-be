@@ -5,12 +5,14 @@ import com.aquasuite.ims.module.inventory.api.InventoryApi;
 import com.aquasuite.ims.module.inventory.api.dto.MovementType;
 import com.aquasuite.ims.module.inventory.api.dto.StockAdjustCommand;
 import com.aquasuite.ims.module.inventory.api.dto.StockSummaryDto;
+import com.aquasuite.ims.module.inventory.api.dto.VariantInventoryUsage;
 import com.aquasuite.ims.module.inventory.api.event.LowStockAlertEvent;
 import com.aquasuite.ims.module.inventory.internal.entity.Inventory;
 import com.aquasuite.ims.module.inventory.internal.entity.StockMovement;
-import com.aquasuite.ims.module.inventory.internal.exception.InventoryErrorCode;
+import com.aquasuite.ims.module.inventory.internal.error.InventoryErrorCode;
 import com.aquasuite.ims.module.inventory.internal.repository.InventoryRepository;
 import com.aquasuite.ims.module.inventory.internal.repository.StockMovementRepository;
+import com.aquasuite.ims.module.inventory.internal.repository.StockCountItemRepository;
 import com.aquasuite.ims.module.inventory.internal.service.InventoryService;
 import com.aquasuite.ims.share.exception.AppException;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +35,7 @@ public class InventoryServiceImpl implements InventoryApi, InventoryService {
 
     private final InventoryRepository inventoryRepository;
     private final StockMovementRepository stockMovementRepository;
+    private final StockCountItemRepository stockCountItemRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final IamApi iamApi;
 
@@ -129,14 +132,14 @@ public class InventoryServiceImpl implements InventoryApi, InventoryService {
         }
         inventoryRepository.save(inv);
 
-        Long actorId = command.actorUserId() != null ? command.actorUserId() : iamApi.getCurrentUserId();
+        UUID actorId = command.actorUserId() != null ? command.actorUserId() : iamApi.getCurrentUserId();
 
         // 3. Ghi thẻ kho bất biến (stock_movements)
         StockMovement movement = StockMovement.builder()
                 .movementId(UUID.randomUUID())
                 .inventoryId(inv.getInventoryId())
                 .variantId(command.variantId())
-                .movementType(command.movementType() != null ? command.movementType() : MovementType.ADJUSTMENT_IN)
+                .movementType(command.movementType() != null ? MovementType.valueOf(command.movementType().name()) : MovementType.ADJUSTMENT_IN)
                 .quantity(deltaQty)
                 .balanceAfter(newOnHand)
                 .referenceType(command.referenceType() != null ? command.referenceType() : "MANUAL_ADJUSTMENT")
@@ -152,6 +155,41 @@ public class InventoryServiceImpl implements InventoryApi, InventoryService {
                     inv.getVariantId(), inv.getOnHandQty(), inv.getAvailableQty(), inv.getMinimumQty()
             ));
         }
+    }
+
+    @Override
+    @Transactional
+    public void initializeMainWarehouseInventory(UUID variantId) {
+        if (variantId == null || inventoryRepository.findByVariantIdAndWarehouseCode(variantId, "WH_MAIN").isPresent()) return;
+        Inventory inventory = Inventory.builder().variantId(variantId).warehouseCode("WH_MAIN")
+                .onHandQty(BigDecimal.ZERO).reservedQty(BigDecimal.ZERO).minimumQty(BigDecimal.ZERO).build();
+        inventoryRepository.save(inventory);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public VariantInventoryUsage getVariantDeletionUsage(UUID variantId) {
+        BigDecimal onHand = BigDecimal.ZERO;
+        BigDecimal reserved = BigDecimal.ZERO;
+        for (Inventory inventory : inventoryRepository.findAllByVariantId(variantId)) {
+            onHand = onHand.add(inventory.getOnHandQty() == null ? BigDecimal.ZERO : inventory.getOnHandQty());
+            reserved = reserved.add(inventory.getReservedQty() == null ? BigDecimal.ZERO : inventory.getReservedQty());
+        }
+        return new VariantInventoryUsage(variantId, onHand, reserved, stockMovementRepository.countByVariantId(variantId),
+                stockCountItemRepository.countByVariantId(variantId));
+    }
+
+    @Override
+    @Transactional
+    public void deleteEmptyVariantInventory(UUID variantId) {
+        List<Inventory> inventories = inventoryRepository.findAllByVariantIdForUpdate(variantId);
+        boolean nonEmpty = inventories.stream().anyMatch(inventory ->
+                (inventory.getOnHandQty() != null && inventory.getOnHandQty().signum() != 0)
+                        || (inventory.getReservedQty() != null && inventory.getReservedQty().signum() != 0));
+        if (nonEmpty || stockMovementRepository.countByVariantId(variantId) != 0 || stockCountItemRepository.countByVariantId(variantId) != 0) {
+            throw new AppException(InventoryErrorCode.INVENTORY_NOT_EMPTY);
+        }
+        inventoryRepository.deleteByVariantId(variantId);
     }
 
     // =========================================================================
@@ -173,7 +211,7 @@ public class InventoryServiceImpl implements InventoryApi, InventoryService {
 
     @Override
     @Transactional
-    public void manualAdjustStock(UUID variantId, BigDecimal deltaQty, String reason, Long actorUserId) {
+    public void manualAdjustStock(UUID variantId, BigDecimal deltaQty, String reason, UUID actorUserId) {
         if (deltaQty == null || deltaQty.compareTo(BigDecimal.ZERO) == 0) {
             throw new AppException(InventoryErrorCode.INVALID_ADJUST_QUANTITY);
         }
@@ -183,7 +221,7 @@ public class InventoryServiceImpl implements InventoryApi, InventoryService {
 
         StockAdjustCommand command = StockAdjustCommand.builder()
                 .variantId(variantId)
-                .movementType(type)
+                .movementType(com.aquasuite.ims.module.inventory.api.dto.StockMovementType.valueOf(type.name()))
                 .deltaQty(deltaQty)
                 .releaseFromReserved(false)
                 .referenceType("MANUAL_ADJUSTMENT")

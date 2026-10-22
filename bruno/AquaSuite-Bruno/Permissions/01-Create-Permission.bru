@@ -1,0 +1,52 @@
+meta {
+  name: 01 - Create Permission
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/iam/permissions
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "code": "{{permissionCode}}",
+    "description": "Quyền kiểm thử tự động WORK-010"
+  }
+}
+
+script:pre-request {
+  const uniqueCode = 'PERM_TEST_' + Math.floor(Date.now() / 1000);
+  bru.setVar('permissionCode', uniqueCode);
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (res.getStatus() === 201 && body && body.data && body.data.id) {
+    bru.setVar('permissionId', body.data.id);
+  }
+}
+
+tests {
+  test('Returns HTTP 201 Created', function () {
+    expect(res.getStatus()).to.equal(201);
+    const body = res.getBody();
+    expect(body.success).to.equal(true);
+    expect(body.code).to.equal('SUCCESS');
+    expect(body.data.id).to.be.a('string').and.not.empty;
+    expect(body.data.code).to.equal(bru.getVar('permissionCode'));
+    expect(body.data.description).to.equal('Quyền kiểm thử tự động WORK-010');
+    expect(body.data.createdAt).to.be.undefined;
+    expect(body.data.updatedAt).to.be.undefined;
+  });
+}

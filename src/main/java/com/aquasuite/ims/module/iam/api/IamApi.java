@@ -2,20 +2,26 @@ package com.aquasuite.ims.module.iam.api;
 
 import com.aquasuite.ims.module.iam.api.dto.UserSummaryDto;
 
-/**
- * Public Interface của Module IAM.
- * Các module khác (Sales, CRM, Inventory, Audit, ...) chỉ được phép gọi vào IAM thông qua Interface này.
- */
+import java.util.UUID;
+
+/** Public synchronous identity contract for IAM consumers. */
 public interface IamApi {
 
-    /**
-     * Lấy thông tin người dùng hiện tại đang đăng nhập.
-     * (Tạm thời đang mock để hỗ trợ phát triển các module khác).
-     */
     UserSummaryDto getCurrentUser();
 
-    /**
-     * Lấy ID của người dùng hiện tại đang đăng nhập.
-     */
-    Long getCurrentUserId();
+    UUID getCurrentUserId();
+
+    boolean isAdmin();
+
+    boolean isSalesStaffOrAdmin();
+
+    void validateAdminAccess();
+
+    UserSummaryDto getUserById(UUID userId);
+
+    java.util.Optional<UserSummaryDto> findByEmail(String email);
+
+    boolean existsByPhoneAndUserIdNot(String phone, UUID userId);
+
+    void updateUserProfile(UUID userId, String fullName, String phone, String avatarUrl);
 }

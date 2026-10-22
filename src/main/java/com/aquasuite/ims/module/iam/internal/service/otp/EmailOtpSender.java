@@ -1,6 +1,6 @@
 package com.aquasuite.ims.module.iam.internal.service.otp;
 
-import com.aquasuite.ims.module.iam.internal.entity.enums.RecoveryChannel;
+import com.aquasuite.ims.module.iam.internal.payload.request.RecoveryChannel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.mail.SimpleMailMessage;

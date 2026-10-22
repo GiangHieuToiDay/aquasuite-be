@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -17,7 +18,13 @@ public interface ProductImageRepository extends JpaRepository<ProductImage, UUID
 
     List<ProductImage> findByProductId(UUID productId);
 
+    List<ProductImage> findByProductIdIn(Collection<UUID> productIds);
+
     @Modifying
     @Query("DELETE FROM ProductImage pi WHERE pi.variantId = :variantId")
     void deleteByVariantId(@Param("variantId") UUID variantId);
+
+    @Modifying
+    @Query("DELETE FROM ProductImage pi WHERE pi.productId = :productId")
+    void deleteByProductId(@Param("productId") UUID productId);
 }

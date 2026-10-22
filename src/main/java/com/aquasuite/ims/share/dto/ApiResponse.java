@@ -25,8 +25,7 @@ public class ApiResponse<T> {
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     private List<FieldErrorDetail> errors;
 
-    @Builder.Default
-    private Instant timestamp = Instant.now();
+    @Builder.Default private Instant timestamp = Instant.now();
 
     public static <T> ApiResponse<T> ok(T data) {
         return ApiResponse.<T>builder()
@@ -57,7 +56,8 @@ public class ApiResponse<T> {
                 .build();
     }
 
-    public static <T> ApiResponse<T> error(String code, String message, List<FieldErrorDetail> errors) {
+    public static <T> ApiResponse<T> error(
+            String code, String message, List<FieldErrorDetail> errors) {
         return ApiResponse.<T>builder()
                 .success(false)
                 .code(code)
