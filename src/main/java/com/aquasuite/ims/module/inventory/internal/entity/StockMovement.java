@@ -5,7 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -54,7 +54,7 @@ public class StockMovement {
     private UUID createdBy; // Scalar reference to IAM User.id
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @PrePersist
     public void prePersist() {
@@ -62,7 +62,7 @@ public class StockMovement {
             this.movementId = UUID.randomUUID();
         }
         if (this.createdAt == null) {
-            this.createdAt = LocalDateTime.now();
+            this.createdAt = Instant.now();
         }
     }
 }

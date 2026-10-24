@@ -3,7 +3,7 @@ package com.aquasuite.ims.module.catalog.internal.service.impl;
 import com.aquasuite.ims.module.catalog.internal.entity.*;
 import com.aquasuite.ims.module.catalog.internal.enums.ProductStatus;
 import com.aquasuite.ims.module.catalog.internal.enums.ProductType;
-import com.aquasuite.ims.module.catalog.internal.exception.CatalogErrorCode;
+import com.aquasuite.ims.module.catalog.internal.error.CatalogErrorCode;
 import com.aquasuite.ims.module.catalog.internal.payload.req.CreateProductRequest;
 import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateProductRequest;
 import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateProductStatusRequest;

@@ -8,7 +8,7 @@ import com.aquasuite.ims.module.catalog.internal.enums.VariantStatus;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -21,7 +21,7 @@ public class ProductExcelMapper {
      * Tạo mới Bảng 8: products (Sản phẩm gốc - Master Product / SPU)
      */
     public Product toNewProduct(ProductExcelRowDto row, UUID categoryId, UUID brandId) {
-        LocalDateTime now = LocalDateTime.now();
+        Instant now = Instant.now();
         return Product.builder()
                 .productCode(row.productCode())
                 .categoryId(categoryId)
@@ -47,14 +47,14 @@ public class ProductExcelMapper {
         if (row.description() != null && !row.description().isBlank()) {
             product.setDescription(row.description());
         }
-        product.setUpdatedAt(LocalDateTime.now());
+        product.setUpdatedAt(Instant.now());
     }
 
     /**
      * Tạo mới Bảng 11: product_variants (Biến thể sản phẩm - SKU)
      */
     public ProductVariant toNewVariant(ProductExcelRowDto row, UUID productId) {
-        LocalDateTime now = LocalDateTime.now();
+        Instant now = Instant.now();
         return ProductVariant.builder()
                 .productId(productId)
                 .sku(row.sku())
@@ -89,7 +89,7 @@ public class ProductExcelMapper {
         if (row.technicalSpec() != null && !row.technicalSpec().isEmpty()) {
             variant.setTechnicalSpec(row.technicalSpec());
         }
-        variant.setUpdatedAt(LocalDateTime.now());
+        variant.setUpdatedAt(Instant.now());
     }
 
     /**
@@ -101,7 +101,7 @@ public class ProductExcelMapper {
             return Collections.emptyList();
         }
         List<ProductImage> images = new ArrayList<>(imageUrls.size());
-        LocalDateTime now = LocalDateTime.now();
+        Instant now = Instant.now();
         for (int i = 0; i < imageUrls.size(); i++) {
             images.add(
                     ProductImage.builder()

@@ -17,9 +17,13 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.Instant;
+import java.time.LocalDate;
+
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+
 
 @Entity
 @Table(name = "users", schema = "public")
@@ -45,15 +49,37 @@ public class User {
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 
+    @Column(name = "password_last_changed_at")
+    private Instant passwordLastChangedAt;
+
     @Column(name = "avatar_url", length = 2048)
     private String avatarUrl;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 32)
-    private com.aquasuite.ims.module.iam.internal.entity.UserStatus status = UserStatus.PENDING_ACTIVATION;
+    private UserStatus status = UserStatus.PENDING_ACTIVATION;
+
+
+    @Column(name = "verification_code", length = 100)
+    private String verificationCode;
+
+    @Column(name = "fcm_token", columnDefinition = "TEXT")
+    private String fcmToken;
+
+    @Column(name = "verification_expired_at")
+    private Instant verificationExpiredAt;
+
+
+    @Column(name = "email_sent_count")
+    private Integer emailSentCount;
+
+    @Column(name = "email_sent_date")
+    private LocalDate emailSentDate;
+
 
     @Column(name = "phone", length = 32)
     private String phone;
@@ -79,17 +105,23 @@ public class User {
 
     @PrePersist
     public void prePersist() {
-        if (this.id == null) {
-            this.id = UUID.randomUUID();
-        }
-        if (this.createdAt == null) {
-            this.createdAt = Instant.now();
-        }
-        if (this.status == null) {
-            this.status = UserStatus.PENDING_ACTIVATION;
-        }
-        if (this.provider == null) {
-            this.provider = AuthProvider.LOCAL;
+
+        if (createdAt == null) {
+            createdAt = Instant.now();
+
+            if (this.id == null) {
+                this.id = UUID.randomUUID();
+
+            }
+            if (this.createdAt == null) {
+                this.createdAt = Instant.now();
+            }
+            if (this.status == null) {
+                this.status = UserStatus.PENDING_ACTIVATION;
+            }
+            if (this.provider == null) {
+                this.provider = AuthProvider.LOCAL;
+            }
         }
     }
 }

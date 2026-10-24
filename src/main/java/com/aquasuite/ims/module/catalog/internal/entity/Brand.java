@@ -1,14 +1,10 @@
 package com.aquasuite.ims.module.catalog.internal.entity;
 
 import com.aquasuite.ims.module.catalog.internal.enums.BrandStatus;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -36,4 +32,31 @@ public class Brand {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 32)
     private BrandStatus status;
+
+
+    @Column(name = "created_at", updatable = false)
+    private Instant createdAt;
+
+    @Column(name = "updated_at")
+    private Instant updatedAt;
+
+    @PrePersist
+    public void prePersist() {
+        if (createdAt == null) {
+            createdAt = Instant.now();
+        }
+        if (updatedAt == null) {
+            updatedAt = Instant.now();
+        }
+        if (status == null) {
+            status = BrandStatus.ACTIVE;
+        }
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        updatedAt = Instant.now();
+    }
+    
 }
+

@@ -5,6 +5,8 @@ import com.aquasuite.ims.module.catalog.internal.enums.CategoryStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
+
+import java.time.Instant;
 import java.util.UUID;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -57,5 +59,23 @@ public class Category {
     @Generated(event = {EventType.INSERT, EventType.UPDATE})
     @Column(name = "updated_at", nullable = false, insertable = false, updatable = false)
     private Instant updatedAt;
+
+    @PrePersist
+    public void prePersist() {
+        if (createdAt == null) {
+            createdAt = Instant.now();
+        }
+        if (updatedAt == null) {
+            updatedAt = Instant.now();
+        }
+        if (status == null) {
+            status = CategoryStatus.ACTIVE;
+        }
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        updatedAt = Instant.now();
+    }
 
 }

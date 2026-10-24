@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -51,7 +51,7 @@ public class Inventory {
     private BigDecimal maximumQty;
 
     @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
     /** Tồn khả dụng: available_qty = on_hand_qty - reserved_qty */
     @Transient
@@ -79,11 +79,11 @@ public class Inventory {
         if (this.onHandQty == null) this.onHandQty = BigDecimal.ZERO;
         if (this.reservedQty == null) this.reservedQty = BigDecimal.ZERO;
         if (this.minimumQty == null) this.minimumQty = BigDecimal.ZERO;
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = Instant.now();
     }
 
     @PreUpdate
     public void preUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = Instant.now();
     }
 }

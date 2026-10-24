@@ -4,7 +4,7 @@ import com.aquasuite.ims.module.inventory.internal.enums.StockCountStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -42,27 +42,27 @@ public class StockCount {
     private UUID approvedBy; // Scalar reference to IAM User.id
 
     @Column(name = "count_date")
-    private LocalDateTime countDate;
+    private Instant countDate;
 
     @Column(name = "note", columnDefinition = "TEXT")
     private String note;
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
     @PrePersist
     public void prePersist() {
         if (this.status == null) this.status = StockCountStatus.DRAFT;
         if (this.warehouseCode == null) this.warehouseCode = "WH_MAIN";
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
+        this.createdAt = Instant.now();
+        this.updatedAt = Instant.now();
     }
 
     @PreUpdate
     public void preUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = Instant.now();
     }
 }
