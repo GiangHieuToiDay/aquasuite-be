@@ -25,7 +25,9 @@ public enum CatalogErrorCode implements BaseErrorCode {
     CATEGORY_STATUS_INVALID("CAT_014", "Trạng thái danh mục không hợp lệ", HttpStatus.BAD_REQUEST),
     BRAND_STATUS_INVALID("CAT_015", "Trạng thái thương hiệu không hợp lệ", HttpStatus.BAD_REQUEST),
     CATEGORY_REFERENCED("CAT_016", "Danh mục đang được tham chiếu bởi sản phẩm", HttpStatus.CONFLICT),
-    BRAND_REFERENCED("CAT_017", "Thương hiệu đang được tham chiếu bởi sản phẩm", HttpStatus.CONFLICT);
+    BRAND_REFERENCED("CAT_017", "Thương hiệu đang được tham chiếu bởi sản phẩm", HttpStatus.CONFLICT),
+    PRODUCT_NOT_FOUND("CAT_018", "Không tìm thấy sản phẩm yêu cầu", HttpStatus.NOT_FOUND),
+    PRODUCT_CODE_ALREADY_EXISTS("CAT_019", "Mã sản phẩm đã tồn tại trong hệ thống", HttpStatus.CONFLICT);
 
 
 

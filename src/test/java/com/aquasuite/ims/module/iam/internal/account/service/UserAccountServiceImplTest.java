@@ -1,14 +1,14 @@
 package com.aquasuite.ims.module.iam.internal.account.service;
 
+import com.aquasuite.ims.module.iam.internal.error.UserAccountErrorCode;
+import com.aquasuite.ims.module.iam.internal.payload.request.ChangeUserStatusRequest;
+import com.aquasuite.ims.module.iam.internal.payload.request.CreateUserAccountRequest;
+import com.aquasuite.ims.module.iam.internal.payload.request.UpdateUserAccountRequest;
+import com.aquasuite.ims.module.iam.internal.payload.response.UserAccountResponse;
+import com.aquasuite.ims.module.iam.internal.mapper.UserAccountMapper;
+import com.aquasuite.ims.module.iam.internal.notification.AccountCredentialsNotificationPort;
+import com.aquasuite.ims.module.iam.internal.service.impl.UserAccountServiceImpl;
 import com.aquasuite.ims.module.iam.api.event.UserAccountCreatedEvent;
-import com.aquasuite.ims.module.iam.internal.account.UserAccountErrorCode;
-import com.aquasuite.ims.module.iam.internal.account.dto.request.ChangeUserStatusRequest;
-import com.aquasuite.ims.module.iam.internal.account.dto.request.CreateUserAccountRequest;
-import com.aquasuite.ims.module.iam.internal.account.dto.request.UpdateUserAccountRequest;
-import com.aquasuite.ims.module.iam.internal.account.dto.response.UserAccountResponse;
-import com.aquasuite.ims.module.iam.internal.account.mapper.UserAccountMapper;
-import com.aquasuite.ims.module.iam.internal.account.notification.AccountCredentialsNotificationPort;
-import com.aquasuite.ims.module.iam.internal.account.service.impl.UserAccountServiceImpl;
 import com.aquasuite.ims.module.iam.internal.entity.Role;
 import com.aquasuite.ims.module.iam.internal.entity.User;
 import com.aquasuite.ims.module.iam.internal.entity.UserStatus;
@@ -35,7 +35,6 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -93,7 +92,7 @@ class UserAccountServiceImplTest {
                     .provider(user.getProvider().name())
                     .verified(user.isVerified())
                     .roles(user.getRoles().stream()
-                            .map(role -> com.aquasuite.ims.module.iam.internal.account.dto.response.RoleOptionResponse.builder()
+                            .map(role -> com.aquasuite.ims.module.iam.internal.payload.response.RoleOptionResponse.builder()
                                     .id(role.getRoleId()).code(role.getRoleName()).description(role.getDescription()).build())
                             .toList())
                     .build();
