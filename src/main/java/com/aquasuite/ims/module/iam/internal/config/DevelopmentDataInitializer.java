@@ -69,7 +69,7 @@ public class DevelopmentDataInitializer implements ApplicationRunner {
 
     private Supplier<String> passwordSupplier = () -> System.getenv("AQUASUITE_DEV_OWNER_PASSWORD");
 
-    void setPasswordSupplier(Supplier<String> passwordSupplier) {
+    public void setPasswordSupplier(Supplier<String> passwordSupplier) {
         this.passwordSupplier = passwordSupplier;
     }
 

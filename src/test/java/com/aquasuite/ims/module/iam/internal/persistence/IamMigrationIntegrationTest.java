@@ -87,13 +87,13 @@ class IamMigrationIntegrationTest extends PostgreSqlIntegrationTestSupport {
         // Check columns of users
         List<String> userCols = getColumnNames("users");
         assertThat(userCols).containsExactlyInAnyOrder(
-                "id", "username", "email", "password_hash", "avatar_url", "created_at", "status", "phone"
+                "id", "username", "email", "password_hash", "avatar_url", "created_at", "status", "phone",
+                "provider", "provider_id", "is_verified", "full_name"
         );
 
-        // Check columns of user_roles (Spec v0.4.0: only user_id and role_id)
+        // Check columns of user_roles
         List<String> userRoleCols = getColumnNames("user_roles");
-        assertThat(userRoleCols).containsExactlyInAnyOrder("user_id", "role_id");
-        assertThat(userRoleCols).doesNotContain("assigned_at", "assigned_by");
+        assertThat(userRoleCols).containsExactlyInAnyOrder("user_id", "role_id", "assigned_at", "assigned_by");
 
         // Check columns of role_permissions
         List<String> rolePermissionCols = getColumnNames("role_permissions");
@@ -155,8 +155,8 @@ class IamMigrationIntegrationTest extends PostgreSqlIntegrationTestSupport {
     void testDeferredFieldsAbsence() throws SQLException {
         List<String> userCols = getColumnNames("users");
         assertThat(userCols).doesNotContain(
-                "provider", "provider_id", "verification_code", "verification_expired_at",
-                "is_verified", "email_sent_count", "email_sent_date", "fcm_token"
+                "verification_code", "verification_expired_at",
+                "email_sent_count", "email_sent_date", "fcm_token"
         );
     }
 
@@ -565,8 +565,14 @@ class IamMigrationIntegrationTest extends PostgreSqlIntegrationTestSupport {
                 assertThat(ps.executeUpdate()).isEqualTo(1);
             }
             try (PreparedStatement ps = conn.prepareStatement(
-                    "INSERT INTO public.users (id, username, email, password_hash, phone, avatar_url) VALUES (?, 'u2', 'u2@test.com', 'h', '0912345678', NULL)")) {
+                    "INSERT INTO public.users (id, username, email, password_hash, phone, avatar_url) VALUES (?, 'u2', 'u2@test.com', 'h', '0912345679', NULL)")) {
                 ps.setObject(1, id2);
+                assertThat(ps.executeUpdate()).isEqualTo(1);
+            }
+            UUID id3 = UUID.randomUUID();
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "INSERT INTO public.users (id, username, email, password_hash, phone, avatar_url) VALUES (?, 'u3', 'u3@test.com', 'h', NULL, NULL)")) {
+                ps.setObject(1, id3);
                 assertThat(ps.executeUpdate()).isEqualTo(1);
             }
         }

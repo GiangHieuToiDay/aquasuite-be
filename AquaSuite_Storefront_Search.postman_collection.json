@@ -511,8 +511,8 @@
               "    pm.response.to.have.status(404);",
               "});",
               "var res = pm.response.json();",
-              "pm.test('Mã lỗi CAT_001 chuẩn nghiệp vụ Catalog', function () {",
-              "    pm.expect(res.code).to.eql('CAT_001');",
+              "pm.test('Mã lỗi CAT_018 chuẩn nghiệp vụ Catalog', function () {",
+              "    pm.expect(res.code).to.eql('CAT_018');",
               "});"
             ],
             "type": "text/javascript"
@@ -536,7 +536,7 @@
             "00000000-0000-0000-0000-000000000000"
           ]
         },
-        "description": "Kiểm tra ngoại lệ nghiệp vụ khi truyền vào một UUID không tồn tại trong hệ thống -> Trả về mã lỗi CAT_001 (Không tìm thấy sản phẩm) với HTTP 404 Not Found."
+        "description": "Kiểm tra ngoại lệ nghiệp vụ khi truyền vào một UUID không tồn tại trong hệ thống -> Trả về mã lỗi CAT_018 (Không tìm thấy sản phẩm) với HTTP 404 Not Found."
       },
       "response": []
     }

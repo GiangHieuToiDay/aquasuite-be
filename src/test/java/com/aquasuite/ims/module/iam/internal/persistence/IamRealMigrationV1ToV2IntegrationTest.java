@@ -45,7 +45,7 @@ class IamRealMigrationV1ToV2IntegrationTest extends PostgreSqlIntegrationTestSup
     @AfterEach
     void restoreDatabaseToLatestV2() {
         // Ensure database is clean and migrated to latest V2 for subsequent tests
-        Flyway flyway = configureFlyway("2");
+        Flyway flyway = Flyway.configure().dataSource(dataSource).schemas("public").locations("classpath:db/migration").cleanDisabled(false).load();
         flyway.clean();
         flyway.migrate();
     }

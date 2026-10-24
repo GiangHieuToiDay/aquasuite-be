@@ -2,7 +2,7 @@ package com.aquasuite.ims.module.catalog.internal.controller;
 
 import com.aquasuite.ims.module.catalog.internal.enums.ProductStatus;
 import com.aquasuite.ims.module.catalog.internal.enums.ProductType;
-import com.aquasuite.ims.module.catalog.internal.exception.CatalogErrorCode;
+import com.aquasuite.ims.module.catalog.internal.error.CatalogErrorCode;
 import com.aquasuite.ims.module.catalog.internal.payload.req.*;
 import com.aquasuite.ims.module.catalog.internal.payload.res.*;
 import com.aquasuite.ims.module.catalog.internal.service.ProductAdminService;
@@ -215,7 +215,7 @@ class ProductAdminControllerTest {
         mockMvc.perform(get("/api/v1/catalog/products/{id}", sampleProductId))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.code").value("CAT_001"));
+                .andExpect(jsonPath("$.code").value("CAT_018"));
     }
 
     @Test
