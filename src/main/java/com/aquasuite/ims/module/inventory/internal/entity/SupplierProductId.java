@@ -27,7 +27,8 @@ public class SupplierProductId implements Serializable {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         SupplierProductId that = (SupplierProductId) o;
-        return Objects.equals(supplierId, that.supplierId) && Objects.equals(productId, that.productId);
+        return Objects.equals(supplierId, that.supplierId)
+                && Objects.equals(productId, that.productId);
     }
 
     @Override

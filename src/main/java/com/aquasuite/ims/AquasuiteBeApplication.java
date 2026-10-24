@@ -9,5 +9,5 @@ public class AquasuiteBeApplication {
     public static void main(String[] args) {
         SpringApplication.run(AquasuiteBeApplication.class, args);
     }
-
 }
+

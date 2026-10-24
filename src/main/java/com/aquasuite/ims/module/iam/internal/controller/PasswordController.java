@@ -1,15 +1,19 @@
 package com.aquasuite.ims.module.iam.internal.controller;
 
-import com.aquasuite.ims.module.iam.internal.payload.ChangePasswordRequest;
-import com.aquasuite.ims.module.iam.internal.payload.ForgotPasswordRequest;
-import com.aquasuite.ims.module.iam.internal.payload.PasswordActionResponse;
-import com.aquasuite.ims.module.iam.internal.payload.ResetPasswordWithOtpRequest;
+
+import com.aquasuite.ims.module.iam.internal.payload.request.ChangePasswordRequest;
+import com.aquasuite.ims.module.iam.internal.payload.request.ForgotPasswordRequest;
+import com.aquasuite.ims.module.iam.internal.payload.request.ResetPasswordWithOtpRequest;
+import com.aquasuite.ims.module.iam.internal.payload.response.PasswordActionResponse;
 import com.aquasuite.ims.module.iam.internal.service.PasswordService;
 import com.aquasuite.ims.share.dto.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/iam/password")

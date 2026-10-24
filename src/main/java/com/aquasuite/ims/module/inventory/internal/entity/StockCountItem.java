@@ -7,10 +7,12 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 @Entity
-@Table(name = "stock_count_items", indexes = {
-        @Index(name = "idx_item_stock_count_id", columnList = "stock_count_id"),
-        @Index(name = "idx_item_variant_id", columnList = "variant_id")
-})
+@Table(
+        name = "stock_count_items",
+        indexes = {
+            @Index(name = "idx_item_stock_count_id", columnList = "stock_count_id"),
+            @Index(name = "idx_item_variant_id", columnList = "variant_id")
+        })
 @Getter
 @Setter
 @Builder

@@ -1,54 +1,68 @@
 package com.aquasuite.ims.module.iam.internal.entity;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-import com.aquasuite.ims.module.iam.internal.entity.enums.UserStatus;
-import jakarta.persistence.*;
-import lombok.*;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+
+import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
+
 
 @Entity
-@Table(name = "users")
+@Table(name = "users", schema = "public")
 @Getter
 @Setter
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class User {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
-    private Long id;
+    @Column(name = "id", nullable = false)
+    private UUID id;
 
-    @Column(name = "username", length = 100)
+    @Column(name = "username", nullable = false, length = 100)
     private String username;
 
-    @Column(name = "email", unique = true, length = 150)
+    @Column(name = "full_name", length = 150)
+    private String fullName;
+
+    @Column(name = "email", nullable = false, length = 320)
     private String email;
 
-    @Column(name = "password")
-    private String password;
+    @Column(name = "password_hash", nullable = false, length = 255)
+    private String passwordHash;
 
     @Column(name = "password_last_changed_at")
-    private LocalDateTime passwordLastChangedAt;
+    private Instant passwordLastChangedAt;
 
-    @Column(name = "avatar")
-    private String avatar;
+    @Column(name = "avatar_url", length = 2048)
+    private String avatarUrl;
 
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
 
-    @Column(name = "provider_id")
-    private String providerId;
-
-//    @Enumerated(EnumType.STRING)
-//    @Column(name = "provider", length = 50)
-//    private AuthProvider provider;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", length = 50)
-    private UserStatus status;
+    @Column(name = "status", nullable = false, length = 32)
+    private UserStatus status = UserStatus.PENDING_ACTIVATION;
+
 
     @Column(name = "verification_code", length = 100)
     private String verificationCode;
@@ -57,10 +71,8 @@ public class User {
     private String fcmToken;
 
     @Column(name = "verification_expired_at")
-    private LocalDateTime verificationExpiredAt;
+    private Instant verificationExpiredAt;
 
-    @Column(name = "is_verified")
-    private Boolean isVerified;
 
     @Column(name = "email_sent_count")
     private Integer emailSentCount;
@@ -68,25 +80,48 @@ public class User {
     @Column(name = "email_sent_date")
     private LocalDate emailSentDate;
 
-    @Column(name = "phone", length = 20)
+
+    @Column(name = "phone", length = 32)
     private String phone;
 
-    @Column(name = "role_id")
-    private Long roleId;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "provider", nullable = false, length = 50)
+    private AuthProvider provider = AuthProvider.LOCAL;
 
-    @Column(name = "permission_id")
-    private Long permissionId;
+    @Column(name = "provider_id", length = 255)
+    private String providerId;
+
+    @Column(name = "is_verified", nullable = false)
+    private boolean isVerified;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "user_roles",
+            schema = "public",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "role_id")
+    )
+    private Set<Role> roles = new HashSet<>();
 
     @PrePersist
     public void prePersist() {
+
         if (createdAt == null) {
-            createdAt = LocalDateTime.now();
-        }
-        if (isVerified == null) {
-            isVerified = false;
-        }
-        if (emailSentCount == null) {
-            emailSentCount = 0;
+            createdAt = Instant.now();
+
+            if (this.id == null) {
+                this.id = UUID.randomUUID();
+
+            }
+            if (this.createdAt == null) {
+                this.createdAt = Instant.now();
+            }
+            if (this.status == null) {
+                this.status = UserStatus.PENDING_ACTIVATION;
+            }
+            if (this.provider == null) {
+                this.provider = AuthProvider.LOCAL;
+            }
         }
     }
 }

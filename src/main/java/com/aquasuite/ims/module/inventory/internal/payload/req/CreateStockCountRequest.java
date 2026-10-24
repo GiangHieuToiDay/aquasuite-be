@@ -10,7 +10,5 @@ import java.util.List;
 public record CreateStockCountRequest(
         String warehouseCode,
         String note,
-
         @NotEmpty(message = "Danh sách sản phẩm kiểm kê không được để trống")
-        List<@Valid StockCountItemRequest> items
-) {}
+                List<@Valid StockCountItemRequest> items) {}

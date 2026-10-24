@@ -1,6 +1,5 @@
 package com.aquasuite.ims.share.excel.importer;
 
-
 import com.aquasuite.ims.share.excel.dto.ExcelRowError;
 import com.aquasuite.ims.share.excel.exception.ExcelErrorCode;
 import com.aquasuite.ims.share.excel.storage.TempExcelFileManager;
@@ -28,13 +27,11 @@ public abstract class AbstractTwoPassExcelImporter<T, C> {
 
     private static final int DEFAULT_BATCH_SIZE = 500;
 
-    @PersistenceContext
-    protected EntityManager entityManager;
+    @PersistenceContext protected EntityManager entityManager;
 
     protected final RedisImportProgressTracker progressTracker;
     protected final TempExcelFileManager tempFileManager;
     protected final PlatformTransactionManager transactionManager;
-
 
     /** Index dòng chứa Header (1-based theo FastExcel: Dòng 2 trong Excel -> trả về 2) */
     protected abstract int getHeaderRowNumber();
@@ -58,13 +55,14 @@ public abstract class AbstractTwoPassExcelImporter<T, C> {
      * - Đẩy các dòng lỗi vào list batchErrors
      * @return Số lượng dòng đã lưu thành công trong mẻ này
      */
-    protected abstract int processAndPersistBatch(List<T> batch, C lookupContext, List<ExcelRowError> batchErrors);
+    protected abstract int processAndPersistBatch(
+            List<T> batch, C lookupContext, List<ExcelRowError> batchErrors);
 
     /** Hook chạy sau khi toàn bộ các mẻ đã hoàn tất (VD: Bắn Event sang Inventory + Ghi Audit Log) */
-    protected void onImportCompleted(String jobId, int totalSuccess, int totalErrors, C lookupContext) {
+    protected void onImportCompleted(
+            String jobId, int totalSuccess, int totalErrors, C lookupContext) {
         // Optional hook cho module con override
     }
-
 
     public final void executeImport(File tempExcelFile, String jobId) {
         try {
@@ -126,35 +124,43 @@ public abstract class AbstractTwoPassExcelImporter<T, C> {
         TransactionTemplate batchTx = new TransactionTemplate(transactionManager);
         batchTx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
 
-        List<T> currentBatch = new ArrayList<>( getBatchSize());
+        List<T> currentBatch = new ArrayList<>(getBatchSize());
         List<ExcelRowError> currentBatchErrors = new ArrayList<>();
 
         try (ReadableWorkbook wb = new ReadableWorkbook(file);
-             Stream<Row> rows = wb.getFirstSheet().openStream()) {
+                Stream<Row> rows = wb.getFirstSheet().openStream()) {
 
-            rows.forEach(row -> {
-                int rowNum = row.getRowNum();
-                if (rowNum < getDataStartRowNumber() || isRowEmpty(row)) {
-                    return;
-                }
+            rows.forEach(
+                    row -> {
+                        int rowNum = row.getRowNum();
+                        if (rowNum < getDataStartRowNumber() || isRowEmpty(row)) {
+                            return;
+                        }
 
-                // Bước 1: Đọc dòng vào Batch
-                try {
-                    T dto = mapRowToDto(row, rowNum);
-                    currentBatch.add(dto);
-                } catch (Exception mapEx) {
-                    currentBatchErrors.add(new ExcelRowError(rowNum, "N/A", mapEx.getMessage()));
-                }
+                        // Bước 1: Đọc dòng vào Batch
+                        try {
+                            T dto = mapRowToDto(row, rowNum);
+                            currentBatch.add(dto);
+                        } catch (Exception mapEx) {
+                            currentBatchErrors.add(
+                                    new ExcelRowError(rowNum, "N/A", mapEx.getMessage()));
+                        }
 
-                // Khi đủ 100 dòng -> Thực thi chu kỳ: Ghi DB -> Update Redis -> Xóa RAM
-                if ((currentBatch.size() + currentBatchErrors.size()) >= getBatchSize()) {
-                    flushSingleBatchCycle(batchTx, currentBatch, currentBatchErrors, lookupContext, jobId);
-                }
-            });
+                        // Khi đủ 100 dòng -> Thực thi chu kỳ: Ghi DB -> Update Redis -> Xóa RAM
+                        if ((currentBatch.size() + currentBatchErrors.size()) >= getBatchSize()) {
+                            flushSingleBatchCycle(
+                                    batchTx,
+                                    currentBatch,
+                                    currentBatchErrors,
+                                    lookupContext,
+                                    jobId);
+                        }
+                    });
 
             // Xử lý nốt mẻ lẻ cuối cùng (nếu còn dư < 100 dòng)
             if (!currentBatch.isEmpty() || !currentBatchErrors.isEmpty()) {
-                flushSingleBatchCycle(batchTx, currentBatch, currentBatchErrors, lookupContext, jobId);
+                flushSingleBatchCycle(
+                        batchTx, currentBatch, currentBatchErrors, lookupContext, jobId);
             }
         } catch (Exception e) {
             throw new AppException(ExcelErrorCode.FILE_READ_ERROR, e.getMessage());
@@ -162,9 +168,12 @@ public abstract class AbstractTwoPassExcelImporter<T, C> {
 
         // Kết thúc 100%: Gọi hook bắn Event sang module khác & cập nhật MSG42
         var finalState = progressTracker.getProgress(jobId);
-        onImportCompleted(jobId, finalState.getSuccessRows(), finalState.getErrorRows(), lookupContext);
-        progressTracker.markCompleted(jobId,
-                String.format("Import completed successfully: %d created/updated, %d errors.",
+        onImportCompleted(
+                jobId, finalState.getSuccessRows(), finalState.getErrorRows(), lookupContext);
+        progressTracker.markCompleted(
+                jobId,
+                String.format(
+                        "Import completed successfully: %d created/updated, %d errors.",
                         finalState.getSuccessRows(), finalState.getErrorRows()));
     }
 
@@ -178,28 +187,29 @@ public abstract class AbstractTwoPassExcelImporter<T, C> {
         int totalInBatch = currentBatch.size() + currentBatchErrors.size();
 
         // --- BƯỚC 2: GHI DB NGAY TRONG 1 TRANSACTION RIÊNG ---
-        Integer savedCount = batchTx.execute(status -> {
-            if (currentBatch.isEmpty()) return 0;
+        Integer savedCount =
+                batchTx.execute(
+                        status -> {
+                            if (currentBatch.isEmpty()) return 0;
 
-            // 2a. Module con gọi entityManager.persist() / merge()
-            int count = processAndPersistBatch(currentBatch, lookupContext, currentBatchErrors);
+                            // 2a. Module con gọi entityManager.persist() / merge()
+                            int count =
+                                    processAndPersistBatch(
+                                            currentBatch, lookupContext, currentBatchErrors);
 
-            // 2b. Ép Hibernate đẩy toàn bộ 100 câu lệnh SQL Batch xuống PostgreSQL ngay lập tức
-            entityManager.flush();
+                            // 2b. Ép Hibernate đẩy toàn bộ 100 câu lệnh SQL Batch xuống PostgreSQL
+                            // ngay lập tức
+                            entityManager.flush();
 
-            // --- BƯỚC 4 (PHẦN 1): XÓA RAM CỦA HIBERNATE PERSISTENCE CONTEXT ---
-            entityManager.clear();
+                            // --- BƯỚC 4 (PHẦN 1): XÓA RAM CỦA HIBERNATE PERSISTENCE CONTEXT ---
+                            entityManager.clear();
 
-            return count;
-        });
+                            return count;
+                        });
 
         // --- BƯỚC 3: UPDATE PROGRESS LÊN REDIS (4% -> 8% -> ...) ---
         progressTracker.updateBatchProgress(
-                jobId,
-                totalInBatch,
-                savedCount != null ? savedCount : 0,
-                currentBatchErrors
-        );
+                jobId, totalInBatch, savedCount != null ? savedCount : 0, currentBatchErrors);
 
         // --- BƯỚC 4 (PHẦN 2): XÓA SẠCH RAM CỦA JAVA LIST ĐỂ ĐÓN MẺ TIẾP THEO ---
         currentBatch.clear();
@@ -211,9 +221,16 @@ public abstract class AbstractTwoPassExcelImporter<T, C> {
         for (int i = 0; i < expected.size(); i++) {
             String actualCell = headerRow.getCellText(i).trim();
             if (!expected.get(i).equalsIgnoreCase(actualCell)) {
-                throw new AppException(ExcelErrorCode.INVALID_HEADER_SCHEMA,
+                throw new AppException(
+                        ExcelErrorCode.INVALID_HEADER_SCHEMA,
                         getHeaderRowNumber(),
-                        "Cột " + (i + 1) + " mong đợi '" + expected.get(i) + "' nhưng nhận được '" + actualCell + "'");
+                        "Cột "
+                                + (i + 1)
+                                + " mong đợi '"
+                                + expected.get(i)
+                                + "' nhưng nhận được '"
+                                + actualCell
+                                + "'");
             }
         }
     }

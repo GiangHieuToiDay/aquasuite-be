@@ -1,6 +1,6 @@
 package com.aquasuite.ims.module.inventory.internal.controller;
 
-import com.aquasuite.ims.module.iam.IamFacade;
+import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.inventory.internal.payload.req.CreateStockCountRequest;
 import com.aquasuite.ims.module.inventory.internal.payload.res.StockCountResponse;
 import com.aquasuite.ims.module.inventory.internal.service.StockCountService;
@@ -22,7 +22,7 @@ import java.util.UUID;
 public class StockCountController {
 
     private final StockCountService stockCountService;
-    private final IamFacade iamFacade;
+    private final IamApi iamApi;
 
     /**
      * Tạo phiếu kiểm kê kho dạng nháp (DRAFT)
@@ -30,7 +30,7 @@ public class StockCountController {
     @PostMapping
     public ResponseEntity<ApiResponse<StockCountResponse>> createDraftStockCount(
             @Valid @RequestBody CreateStockCountRequest request) {
-        Long actorUserId = iamFacade.getCurrentUserId();
+        UUID actorUserId = iamApi.getCurrentUserId();
         StockCountResponse response = stockCountService.createDraftStockCount(request, actorUserId);
         return ResponseEntity.ok(ApiResponse.ok(response, "Tạo phiếu kiểm kho thành công"));
     }
@@ -41,7 +41,7 @@ public class StockCountController {
     @PostMapping("/{stockCountId}/approve")
     public ResponseEntity<ApiResponse<StockCountResponse>> approveStockCount(
             @PathVariable UUID stockCountId) {
-        Long approverUserId = iamFacade.getCurrentUserId();
+        UUID approverUserId = iamApi.getCurrentUserId();
         StockCountResponse response = stockCountService.approveStockCount(stockCountId, approverUserId);
         return ResponseEntity.ok(ApiResponse.ok(response, "Duyệt phiếu kiểm kê và cân bằng kho thành công"));
     }

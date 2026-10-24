@@ -1,14 +1,14 @@
 package com.aquasuite.ims.module.inventory.internal.service.impl;
 
-import com.aquasuite.ims.module.iam.IamFacade;
-import com.aquasuite.ims.module.inventory.InventoryFacade;
-import com.aquasuite.ims.module.inventory.dto.StockAdjustCommand;
+import com.aquasuite.ims.module.iam.api.IamApi;
+import com.aquasuite.ims.module.inventory.api.InventoryApi;
+import com.aquasuite.ims.module.inventory.api.dto.MovementType;
+import com.aquasuite.ims.module.inventory.api.dto.StockAdjustCommand;
 import com.aquasuite.ims.module.inventory.internal.entity.Inventory;
 import com.aquasuite.ims.module.inventory.internal.entity.StockCount;
 import com.aquasuite.ims.module.inventory.internal.entity.StockCountItem;
-import com.aquasuite.ims.module.inventory.internal.entity.enums.MovementType;
-import com.aquasuite.ims.module.inventory.internal.entity.enums.StockCountStatus;
-import com.aquasuite.ims.module.inventory.internal.exception.InventoryErrorCode;
+import com.aquasuite.ims.module.inventory.internal.enums.StockCountStatus;
+import com.aquasuite.ims.module.inventory.internal.error.InventoryErrorCode;
 import com.aquasuite.ims.module.inventory.internal.payload.req.CreateStockCountRequest;
 import com.aquasuite.ims.module.inventory.internal.payload.req.StockCountItemRequest;
 import com.aquasuite.ims.module.inventory.internal.payload.res.StockCountItemResponse;
@@ -26,7 +26,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -43,16 +44,16 @@ public class StockCountServiceImpl implements StockCountService {
     private final StockCountRepository stockCountRepository;
     private final StockCountItemRepository stockCountItemRepository;
     private final InventoryRepository inventoryRepository;
-    private final InventoryFacade inventoryFacade;
-    private final IamFacade iamFacade;
+    private final InventoryApi inventoryApi;
+    private final IamApi iamApi;
 
     /**
      * 1. Tạo phiếu kiểm kho dạng nháp (DRAFT)
      */
     @Override
     @Transactional
-    public StockCountResponse createDraftStockCount(CreateStockCountRequest request, Long actorUserId) {
-        Long userId = actorUserId != null ? actorUserId : iamFacade.getCurrentUserId();
+    public StockCountResponse createDraftStockCount(CreateStockCountRequest request, UUID actorUserId) {
+        UUID userId = actorUserId != null ? actorUserId : iamApi.getCurrentUserId();
         String warehouse = (request.warehouseCode() != null && !request.warehouseCode().isBlank())
                 ? request.warehouseCode().trim()
                 : "WH_MAIN";
@@ -128,7 +129,7 @@ public class StockCountServiceImpl implements StockCountService {
      */
     @Override
     @Transactional
-    public StockCountResponse approveStockCount(UUID stockCountId, Long approverUserId) {
+    public StockCountResponse approveStockCount(UUID stockCountId, UUID approverUserId) {
         StockCount stockCount = stockCountRepository.findById(stockCountId)
                 .orElseThrow(() -> new AppException(InventoryErrorCode.STOCK_COUNT_NOT_FOUND, stockCountId));
 
@@ -136,11 +137,11 @@ public class StockCountServiceImpl implements StockCountService {
             throw new AppException(InventoryErrorCode.INVALID_STOCK_COUNT_STATUS, stockCount.getStatus());
         }
 
-        Long approverId = approverUserId != null ? approverUserId : iamFacade.getCurrentUserId();
+        UUID approverId = approverUserId != null ? approverUserId : iamApi.getCurrentUserId();
 
         stockCount.setStatus(StockCountStatus.COMPLETED);
         stockCount.setApprovedBy(approverId);
-        stockCount.setCountDate(LocalDateTime.now());
+        stockCount.setCountDate(Instant.now());
         stockCountRepository.save(stockCount);
 
         List<StockCountItem> items = stockCountItemRepository.findByStockCountId(stockCountId);
@@ -155,7 +156,7 @@ public class StockCountServiceImpl implements StockCountService {
 
                 StockAdjustCommand command = StockAdjustCommand.builder()
                         .variantId(item.getVariantId())
-                        .movementType(movementType)
+                        .movementType(com.aquasuite.ims.module.inventory.api.dto.StockMovementType.valueOf(movementType.name()))
                         .deltaQty(diff)
                         .releaseFromReserved(false)
                         .referenceType("STOCK_COUNT")
@@ -165,7 +166,7 @@ public class StockCountServiceImpl implements StockCountService {
                         .actorUserId(approverId)
                         .build();
 
-                inventoryFacade.adjustPhysicalStock(command);
+                inventoryApi.adjustPhysicalStock(command);
             }
 
             itemResponses.add(StockCountItemResponse.builder()
@@ -265,7 +266,7 @@ public class StockCountServiceImpl implements StockCountService {
     }
 
     private String generateStockCountCode() {
-        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyMMddHHmm"));
+        String timestamp = DateTimeFormatter.ofPattern("yyMMddHHmm").withZone(ZoneOffset.UTC).format(Instant.now());
         int rand = ThreadLocalRandom.current().nextInt(1000, 9999);
         return "STC" + timestamp + rand;
     }

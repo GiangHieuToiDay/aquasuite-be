@@ -8,11 +8,6 @@ import java.util.UUID;
 
 @Builder
 public record ManualStockAdjustRequest(
-        @NotNull(message = "variantId không được để trống")
-        UUID variantId,
-
-        @NotNull(message = "deltaQty không được để trống")
-        BigDecimal deltaQty,
-
-        String reason
-) {}
+        @NotNull(message = "variantId không được để trống") UUID variantId,
+        @NotNull(message = "deltaQty không được để trống") BigDecimal deltaQty,
+        String reason) {}

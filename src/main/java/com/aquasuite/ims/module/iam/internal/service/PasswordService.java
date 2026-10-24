@@ -1,9 +1,9 @@
 package com.aquasuite.ims.module.iam.internal.service;
 
-import com.aquasuite.ims.module.iam.internal.payload.ChangePasswordRequest;
-import com.aquasuite.ims.module.iam.internal.payload.ForgotPasswordRequest;
-import com.aquasuite.ims.module.iam.internal.payload.PasswordActionResponse;
-import com.aquasuite.ims.module.iam.internal.payload.ResetPasswordWithOtpRequest;
+import com.aquasuite.ims.module.iam.internal.payload.request.ChangePasswordRequest;
+import com.aquasuite.ims.module.iam.internal.payload.request.ForgotPasswordRequest;
+import com.aquasuite.ims.module.iam.internal.payload.request.ResetPasswordWithOtpRequest;
+import com.aquasuite.ims.module.iam.internal.payload.response.PasswordActionResponse;
 
 public interface PasswordService {
 

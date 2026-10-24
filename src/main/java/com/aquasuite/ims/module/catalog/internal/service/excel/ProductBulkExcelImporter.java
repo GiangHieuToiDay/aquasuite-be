@@ -1,15 +1,15 @@
 package com.aquasuite.ims.module.catalog.internal.service.excel;
 
-import com.aquasuite.ims.module.catalog.events.VariantsBulkImportedEvent;
-import com.aquasuite.ims.module.catalog.events.VariantsBulkImportedEvent.InitialStockItem;
+import com.aquasuite.ims.module.catalog.api.event.VariantsBulkImportedEvent;
+import com.aquasuite.ims.module.catalog.api.event.VariantsBulkImportedEvent.InitialStockItem;
 import com.aquasuite.ims.module.catalog.internal.payload.excel.ImportMode;
 import com.aquasuite.ims.module.catalog.internal.payload.excel.ProductExcelRowDto;
 import com.aquasuite.ims.module.catalog.internal.payload.excel.ProductImportLookupContext;
 import com.aquasuite.ims.module.catalog.internal.entity.Product;
 import com.aquasuite.ims.module.catalog.internal.entity.ProductImage;
 import com.aquasuite.ims.module.catalog.internal.entity.ProductVariant;
-import com.aquasuite.ims.module.catalog.internal.entity.enums.ProductStatus;
-import com.aquasuite.ims.module.catalog.internal.entity.enums.VariantStatus;
+import com.aquasuite.ims.module.catalog.internal.enums.ProductStatus;
+import com.aquasuite.ims.module.catalog.internal.enums.VariantStatus;
 import com.aquasuite.ims.module.catalog.internal.mapper.ProductExcelMapper;
 import com.aquasuite.ims.module.catalog.internal.repository.*;
 import com.aquasuite.ims.share.excel.dto.ExcelRowError;

@@ -1,6 +1,5 @@
 package com.aquasuite.ims.share.excel.storage;
 
-
 import com.aquasuite.ims.share.excel.exception.ExcelErrorCode;
 import com.aquasuite.ims.share.exception.AppException;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +21,8 @@ public class TempExcelFileManager {
             throw new AppException(ExcelErrorCode.EMPTY_FILE);
         }
         try {
-            Path tempPath = Files.createTempFile("aquasuite_" + prefix + "_" + UUID.randomUUID(), ".xlsx");
+            Path tempPath =
+                    Files.createTempFile("aquasuite_" + prefix + "_" + UUID.randomUUID(), ".xlsx");
             multipartFile.transferTo(tempPath.toFile());
             return tempPath.toFile();
         } catch (IOException e) {
@@ -40,4 +40,3 @@ public class TempExcelFileManager {
         }
     }
 }
-

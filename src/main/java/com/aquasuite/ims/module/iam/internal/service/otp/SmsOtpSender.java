@@ -1,7 +1,7 @@
 package com.aquasuite.ims.module.iam.internal.service.otp;
 
-import com.aquasuite.ims.module.iam.internal.entity.enums.RecoveryChannel;
-import com.aquasuite.ims.module.iam.internal.exception.IamPasswordErrorCode;
+import com.aquasuite.ims.module.iam.internal.payload.request.RecoveryChannel;
+import com.aquasuite.ims.module.iam.internal.error.IamPasswordErrorCode;
 import com.aquasuite.ims.share.exception.AppException;
 import org.springframework.stereotype.Component;
 

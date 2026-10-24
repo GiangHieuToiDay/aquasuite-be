@@ -1,0 +1,44 @@
+meta {
+  name: 01 - List Roles
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/iam/roles
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (res.getStatus() === 200 && body && body.data && Array.isArray(body.data) && body.data.length > 0) {
+    // Lưu roleId của ACCOUNTANT (hoặc role đầu tiên) vào biến runtime để dùng cho các request tiếp theo
+    const accountantRole = body.data.find(r => r.code === 'ACCOUNTANT');
+    const selectedRole = accountantRole || body.data[0];
+    bru.setVar('roleId', selectedRole.id);
+    bru.setVar('roleCode', selectedRole.code);
+  }
+}
+
+tests {
+  test('Returns HTTP 200 with 6 canonical roles', function () {
+    expect(res.getStatus()).to.equal(200);
+    const body = res.getBody();
+    expect(body.success).to.equal(true);
+    expect(body.code).to.equal('SUCCESS');
+    expect(body.data).to.be.an('array');
+    expect(body.data.length).to.equal(6);
+  });
+
+  test('Canonical roles order is maintained', function () {
+    const body = res.getBody();
+    const expectedCodes = ['SHOP_OWNER', 'SALES_STAFF', 'ACCOUNTANT', 'TECHNICAL_STAFF', 'SHIPPER', 'CUSTOMER'];
+    const codes = body.data.map(r => r.code);
+    expect(codes).to.deep.equal(expectedCodes);
+  });
+}

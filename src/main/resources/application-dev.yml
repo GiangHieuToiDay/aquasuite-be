@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:${SPRING_REDIS_HOST:localhost}}
+      port: ${SPRING_DATA_REDIS_PORT:${SPRING_REDIS_PORT:6379}}
+      password: ${SPRING_DATA_REDIS_PASSWORD:${SPRING_REDIS_PASSWORD:}}
+
+aquasuite:
+  config:
+    environment: dev
+    auth-generation: 2
+  iam:
+    dev-seed:
+      # Opt-in development data initializer (FEATURE-009)
+      # Yeu cau bien moi truong AQUASUITE_DEV_OWNER_PASSWORD khi enabled=true
+      enabled: ${AQUASUITE_DEV_SEED_ENABLED:false}

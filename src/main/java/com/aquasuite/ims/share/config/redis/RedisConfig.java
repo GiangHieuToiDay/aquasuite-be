@@ -1,6 +1,5 @@
 package com.aquasuite.ims.share.config.redis;
 
-
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -22,7 +21,8 @@ public class RedisConfig {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
 
-        // 1. Cấu hình ObjectMapper riêng cho Redis hỗ trợ Java 21 Time (Instant, LocalDateTime) và Record
+        // 1. Cấu hình ObjectMapper riêng cho Redis hỗ trợ Java 21 Time (Instant, LocalDateTime) và
+        // Record
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
@@ -31,10 +31,10 @@ public class RedisConfig {
         objectMapper.activateDefaultTyping(
                 LaissezFaireSubTypeValidator.instance,
                 ObjectMapper.DefaultTyping.NON_FINAL,
-                JsonTypeInfo.As.PROPERTY
-        );
+                JsonTypeInfo.As.PROPERTY);
 
-        GenericJackson2JsonRedisSerializer jsonSerializer = new GenericJackson2JsonRedisSerializer(objectMapper);
+        GenericJackson2JsonRedisSerializer jsonSerializer =
+                new GenericJackson2JsonRedisSerializer(objectMapper);
         StringRedisSerializer stringSerializer = new StringRedisSerializer();
 
         // 2. Gán Serializer cho Key và Value
@@ -47,4 +47,3 @@ public class RedisConfig {
         return template;
     }
 }
-
