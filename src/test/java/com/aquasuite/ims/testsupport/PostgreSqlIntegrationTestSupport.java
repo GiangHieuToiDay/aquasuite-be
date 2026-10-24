@@ -12,7 +12,11 @@ public abstract class PostgreSqlIntegrationTestSupport {
     void clearCustomerProfileFixtures(
             @org.springframework.beans.factory.annotation.Autowired
                     org.springframework.jdbc.core.JdbcTemplate jdbc) {
-        jdbc.update("DELETE FROM public.customers");
+        try {
+            jdbc.update("DELETE FROM public.customers");
+        } catch (org.springframework.dao.DataAccessException ignored) {
+            // Table public.customers may not exist yet in tests running partial or early schema migrations
+        }
     }
 
     private static final String IMAGE_NAME = "postgres:16-alpine";

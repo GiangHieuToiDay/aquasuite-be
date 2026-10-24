@@ -5,12 +5,9 @@ import com.aquasuite.ims.module.crm.internal.payload.req.UpdateDeliveryAddressRe
 import com.aquasuite.ims.module.crm.internal.payload.req.UpdateProfileRequest;
 import com.aquasuite.ims.module.crm.internal.repository.CustomerAddressRepository;
 import com.aquasuite.ims.module.crm.internal.repository.CustomerRepository;
-import com.aquasuite.ims.module.iam.internal.payload.request.LoginRequest;
-import com.aquasuite.ims.module.iam.internal.entity.Role;
-import com.aquasuite.ims.module.iam.internal.repository.RoleRepository;
-import com.aquasuite.ims.module.iam.internal.entity.User;
-import com.aquasuite.ims.module.iam.internal.entity.UserStatus;
-import com.aquasuite.ims.module.iam.internal.repository.UserRepository;
+import org.springframework.jdbc.core.JdbcTemplate;
+import java.util.Map;
+import com.aquasuite.ims.testsupport.AuthIntegrationTestSupport;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
@@ -34,7 +31,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest(properties = {
+@SpringBootTest
+@AutoConfigureMockMvc
+class ProfileAndAddressPostmanSimulationTest extends AuthIntegrationTestSupport {
+/*
         "spring.datasource.url=jdbc:postgresql://localhost:5432/aquasuite",
         "spring.datasource.username=postgres",
         "spring.datasource.password=123",
@@ -43,16 +43,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.flyway.enabled=false"
 })
 @AutoConfigureMockMvc
-class ProfileAndAddressPostmanSimulationTest {
+*/
 
     @Autowired
     private MockMvc mockMvc;
 
     @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private RoleRepository roleRepository;
+    private JdbcTemplate jdbcTemplate;
 
     @Autowired
     private CustomerRepository customerRepository;
@@ -66,40 +63,36 @@ class ProfileAndAddressPostmanSimulationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    private User testUser;
-    private Role customerRole;
+    private UUID testUserId;
     private String accessToken;
 
     @BeforeEach
     void setUp() throws Exception {
         // 1. Ensure Customer Role exists
-        customerRole = roleRepository.findByRoleNameIgnoreCase("CUSTOMER").orElseGet(() -> {
-            Role r = new Role(UUID.randomUUID(), "CUSTOMER", "Customer", false, null, Set.of());
-            return roleRepository.save(r);
-        });
+        UUID customerRoleId;
+        var roleRows = jdbcTemplate.queryForList("SELECT role_id FROM public.roles WHERE upper(role_name) = 'CUSTOMER'", UUID.class);
+        if (roleRows.isEmpty()) {
+            customerRoleId = UUID.randomUUID();
+            jdbcTemplate.update("INSERT INTO public.roles (role_id, role_name, description, is_active, created_at) VALUES (?, 'CUSTOMER', 'Khách hàng', true, CURRENT_TIMESTAMP)", customerRoleId);
+        } else {
+            customerRoleId = roleRows.getFirst();
+        }
 
         // 2. Create clean Test User in PostgreSQL
         String testEmail = "testuser." + System.currentTimeMillis() + "@aquasuite.vn";
-        testUser = new User();
-        testUser.setId(UUID.randomUUID());
-        testUser.setUsername("testuser_" + System.currentTimeMillis() % 10000);
-        testUser.setFullName("Nguyen Van A");
-        testUser.setEmail(testEmail);
-        testUser.setPhone("0912345678");
-        testUser.setPasswordHash(passwordEncoder.encode("Password123!"));
-        testUser.setStatus(UserStatus.ACTIVE);
-        testUser.setRoles(Set.of(customerRole));
-        testUser = userRepository.save(testUser);
+        testUserId = UUID.randomUUID();
+        String username = "testuser_" + System.currentTimeMillis() % 10000;
+        String phone = "09" + String.format(java.util.Locale.ROOT, "%08d", Math.abs(testEmail.hashCode() % 100000000));
+        String encodedPass = passwordEncoder.encode("Password123!");
+
+        jdbcTemplate.update("INSERT INTO public.users (id, username, email, phone, password_hash, status, full_name, created_at) VALUES (?, ?, ?, ?, ?, 'ACTIVE', 'Nguyen Van A', CURRENT_TIMESTAMP)",
+                testUserId, username, testEmail, phone, encodedPass);
+        jdbcTemplate.update("INSERT INTO public.user_roles (user_id, role_id) VALUES (?, ?)", testUserId, customerRoleId);
 
         // 3. Perform live POST /api/v1/auth/login to obtain real JWT Access Token (just like Postman)
-        LoginRequest loginReq = LoginRequest.builder()
-                .email(testEmail)
-                .password("Password123!")
-                .build();
-
         MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(loginReq)))
+                        .content(objectMapper.writeValueAsString(Map.of("email", testEmail, "password", "Password123!"))))
                 .andExpect(status().isOk())
                 .andReturn();
 
@@ -110,10 +103,11 @@ class ProfileAndAddressPostmanSimulationTest {
 
     @AfterEach
     void tearDown() {
-        if (testUser != null && testUser.getId() != null) {
+        if (testUserId != null) {
             customerAddressRepository.deleteAll();
             customerRepository.deleteAll();
-            userRepository.deleteById(testUser.getId());
+            jdbcTemplate.update("DELETE FROM public.user_roles WHERE user_id = ?", testUserId);
+            jdbcTemplate.update("DELETE FROM public.users WHERE id = ?", testUserId);
         }
     }
 

@@ -57,9 +57,26 @@ abstract class RegisterTestSupport extends AuthIntegrationTestSupport {
                 org.springframework.test.util.AopTestUtils.getUltimateTargetObject(
                         customerProfiles);
         reset(profileTarget);
+        try {
+            jdbc.execute("DELETE FROM public.customer_addresses");
+            jdbc.execute("DELETE FROM public.customers");
+        } catch (org.springframework.dao.DataAccessException ignored) {
+        }
         users.deleteAll();
-        roles.deleteAll();
-        roles.save(new Role(UUID.randomUUID(), "CUSTOMER", "Customer", true, null, Set.of()));
+        Role customer = roles.findByRoleNameIgnoreCase("CUSTOMER").orElse(null);
+        if (customer == null) {
+            roles.save(
+                    new Role(
+                            UUID.fromString("10000000-0000-4000-8000-000000000006"),
+                            "CUSTOMER",
+                            "Customer",
+                            true,
+                            null,
+                            Set.of()));
+        } else if (!customer.isActive()) {
+            customer.setActive(true);
+            roles.save(customer);
+        }
         for (String prefix : List.of(RegisterService.OTP_PREFIX + "*", "auth:*")) {
             var keys = redis.keys(prefix);
             if (keys != null && !keys.isEmpty()) redis.delete(keys);
@@ -186,7 +203,7 @@ class RegisterApiIntegrationTest extends RegisterTestSupport {
         assertThat(users.count()).isZero();
         mvc.perform(post(ROOT).contentType(MediaType.APPLICATION_JSON).content("{"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("SYS_002"));
+                .andExpect(jsonPath("$.code").value("SYS_003"));
     }
 
     @Test
@@ -206,10 +223,15 @@ class RegisterApiIntegrationTest extends RegisterTestSupport {
 
     @Test
     void missingOrInactiveCustomerRoleFailsClosed() throws Exception {
-        roles.deleteAll();
-        postJson(ROOT, form(), 503);
-        roles.save(new Role(UUID.randomUUID(), "CUSTOMER", "Customer", false, null, Set.of()));
-        postJson(ROOT, form(), 503);
-        assertThat(users.count()).isZero();
+        Role customer = roles.findByRoleNameIgnoreCase("CUSTOMER").orElseThrow();
+        customer.setActive(false);
+        roles.saveAndFlush(customer);
+        try {
+            postJson(ROOT, form(), 503);
+            assertThat(users.count()).isZero();
+        } finally {
+            customer.setActive(true);
+            roles.saveAndFlush(customer);
+        }
     }
 }

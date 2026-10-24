@@ -157,7 +157,6 @@ public class CategoryServiceImpl implements CategoryService {
 
         // 7. Persist
         Category category = new Category();
-        category.setCategoryId(UUID.randomUUID());
         category.setCategoryCode(normalizedCode);
         category.setCategoryName(normalizedName);
         category.setDescription(normalizedDescription);

@@ -64,11 +64,12 @@ class VariantServiceImplTest {
         product.setProductId(productId);
         product.setStatus(ProductStatus.ACTIVE);
         when(productRepository.findById(productId)).thenReturn(Optional.of(product));
-        when(iamApi.getCurrentUserId()).thenReturn(UUID.randomUUID());
+        // deferred to test methods that need it
     }
 
     @Test
     void create_withoutRetailPrice_createsInactiveSkuAndMainWarehouseInventory() {
+        when(iamApi.getCurrentUserId()).thenReturn(UUID.randomUUID());
         UUID variantId = UUID.randomUUID();
         when(variantRepository.findBySkuIgnoreCase("SKU-NEO-WHT-305")).thenReturn(Optional.empty());
         when(variantRepository.saveAndFlush(any(ProductVariant.class))).thenAnswer(invocation -> {
