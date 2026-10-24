@@ -7,12 +7,13 @@ import com.aquasuite.ims.module.catalog.internal.error.CatalogErrorCode;
 import com.aquasuite.ims.module.catalog.internal.mapper.BrandMapper;
 import com.aquasuite.ims.module.catalog.internal.payload.req.CreateBrandRequest;
 import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateBrandRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.res.BrandPageResponse;
 import com.aquasuite.ims.module.catalog.internal.payload.res.BrandResponse;
 import com.aquasuite.ims.module.catalog.internal.repository.BrandRepository;
 import com.aquasuite.ims.module.catalog.internal.service.BrandService;
 import com.aquasuite.ims.share.exception.AppException;
 import com.aquasuite.ims.share.exception.CommonErrorCode;
+import com.aquasuite.ims.share.dto.PageQuery;
+import com.aquasuite.ims.share.dto.PageResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -50,7 +51,11 @@ public class BrandServiceImpl implements BrandService {
 
     @Override
     @Transactional(readOnly = true)
-    public BrandPageResponse listBrands(int page, int size, String search, String status, String sortBy, String direction) {
+    public PageResponse<BrandResponse> listBrands(PageQuery pageQuery, String search, String status) {
+        int page = pageQuery.getPage();
+        int size = pageQuery.getSize();
+        String sortBy = pageQuery.getSortBy();
+        String direction = pageQuery.getDirection();
         if (page < 0) {
             log.warn("Invalid page number: {}", page);
             throw new AppException(CommonErrorCode.INVALID_REQUEST_PARAM);
@@ -92,7 +97,7 @@ public class BrandServiceImpl implements BrandService {
         Pageable pageable = PageRequest.of(page, size, sort);
 
         Page<Brand> pageResult = brandRepository.searchBrands(searchTerm, statusFilter, pageable);
-        return brandMapper.toPageResponse(pageResult);
+        return PageResponse.from(pageResult, brandMapper::toResponse);
     }
 
     @Override

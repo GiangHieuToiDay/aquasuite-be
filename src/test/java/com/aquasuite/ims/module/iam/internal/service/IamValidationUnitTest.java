@@ -14,6 +14,7 @@ import com.aquasuite.ims.module.iam.internal.service.impl.IamPermissionServiceIm
 import com.aquasuite.ims.module.iam.internal.service.impl.IamRoleServiceImpl;
 import com.aquasuite.ims.share.exception.AppException;
 import com.aquasuite.ims.share.exception.CommonErrorCode;
+import com.aquasuite.ims.share.dto.PageQuery;
 import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -183,29 +184,38 @@ class IamValidationUnitTest {
     @DisplayName("AC-04: Pagination validation rejects negative page, invalid size, non-allowlisted sort")
     void testPaginationValidation() {
         // Negative page
-        assertThatThrownBy(() -> permissionService.listPermissions(-1, 20, null, "code", "asc"))
+        assertThatThrownBy(() -> permissionService.listPermissions(pageQuery(-1, 20, "code", "asc"), null))
                 .isInstanceOf(AppException.class)
                 .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(CommonErrorCode.INVALID_REQUEST_PARAM));
 
         // Size < 1
-        assertThatThrownBy(() -> permissionService.listPermissions(0, 0, null, "code", "asc"))
+        assertThatThrownBy(() -> permissionService.listPermissions(pageQuery(0, 0, "code", "asc"), null))
                 .isInstanceOf(AppException.class)
                 .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(CommonErrorCode.INVALID_REQUEST_PARAM));
 
         // Size > 100
-        assertThatThrownBy(() -> permissionService.listPermissions(0, 101, null, "code", "asc"))
+        assertThatThrownBy(() -> permissionService.listPermissions(pageQuery(0, 101, "code", "asc"), null))
                 .isInstanceOf(AppException.class)
                 .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(CommonErrorCode.INVALID_REQUEST_PARAM));
 
         // Invalid sortBy
-        assertThatThrownBy(() -> permissionService.listPermissions(0, 20, null, "unsupported_field", "asc"))
+        assertThatThrownBy(() -> permissionService.listPermissions(pageQuery(0, 20, "unsupported_field", "asc"), null))
                 .isInstanceOf(AppException.class)
                 .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(CommonErrorCode.INVALID_REQUEST_PARAM));
 
         // Invalid direction
-        assertThatThrownBy(() -> permissionService.listPermissions(0, 20, null, "code", "invalid_dir"))
+        assertThatThrownBy(() -> permissionService.listPermissions(pageQuery(0, 20, "code", "invalid_dir"), null))
                 .isInstanceOf(AppException.class)
                 .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(CommonErrorCode.INVALID_REQUEST_PARAM));
+    }
+
+    private static PageQuery pageQuery(int page, int size, String sortBy, String direction) {
+        return PageQuery.builder()
+                .page(page)
+                .size(size)
+                .sortBy(sortBy)
+                .direction(direction)
+                .build();
     }
 
     @Test

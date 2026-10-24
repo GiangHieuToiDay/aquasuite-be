@@ -2,14 +2,15 @@ package com.aquasuite.ims.module.catalog.internal.service;
 
 import com.aquasuite.ims.module.catalog.internal.payload.req.CreateBrandRequest;
 import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateBrandRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.res.BrandPageResponse;
 import com.aquasuite.ims.module.catalog.internal.payload.res.BrandResponse;
+import com.aquasuite.ims.share.dto.PageQuery;
+import com.aquasuite.ims.share.dto.PageResponse;
 
 import java.util.UUID;
 
 public interface BrandService {
 
-    BrandPageResponse listBrands(int page, int size, String search, String status, String sortBy, String direction);
+    PageResponse<BrandResponse> listBrands(PageQuery pageQuery, String search, String status);
 
     BrandResponse getBrandDetail(UUID brandId);
 

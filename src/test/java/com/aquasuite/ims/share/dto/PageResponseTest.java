@@ -26,22 +26,14 @@ class PageResponseTest {
         assertThat(response.getSize()).isEqualTo(3);
         assertThat(response.getTotalElements()).isEqualTo(10L);
         assertThat(response.getTotalPages()).isEqualTo(4);
-        assertThat(response.isHasNext()).isTrue();
-        assertThat(response.isHasPrevious()).isTrue();
     }
 
     @Test
-    @DisplayName("from(null): Returns empty safe PageResponse without throwing NPE")
-    void from_handlesNullPageSafely() {
-        PageResponse<String> response = PageResponse.from(null);
-
-        assertThat(response.getItems()).isEmpty();
-        assertThat(response.getPage()).isZero();
-        assertThat(response.getSize()).isZero();
-        assertThat(response.getTotalElements()).isZero();
-        assertThat(response.getTotalPages()).isZero();
-        assertThat(response.isHasNext()).isFalse();
-        assertThat(response.isHasPrevious()).isFalse();
+    @DisplayName("from(null): Rejects null page")
+    void from_rejectsNullPage() {
+        assertThatThrownBy(() -> PageResponse.from(null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("pageData must not be null");
     }
 
     @Test
@@ -57,17 +49,14 @@ class PageResponseTest {
         assertThat(response.getSize()).isEqualTo(3);
         assertThat(response.getTotalElements()).isEqualTo(3L);
         assertThat(response.getTotalPages()).isEqualTo(1);
-        assertThat(response.isHasNext()).isFalse();
-        assertThat(response.isHasPrevious()).isFalse();
     }
 
     @Test
-    @DisplayName("from(null, converter): Returns empty safe PageResponse without invoking converter")
-    void from_withConverterHandlesNullPageSafely() {
-        PageResponse<String> response = PageResponse.from(null, Object::toString);
-
-        assertThat(response.getItems()).isEmpty();
-        assertThat(response.getPage()).isZero();
+    @DisplayName("from(null, converter): Rejects null page")
+    void from_withConverterRejectsNullPage() {
+        assertThatThrownBy(() -> PageResponse.from(null, Object::toString))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("pageData must not be null");
     }
 
     @Test
@@ -83,7 +72,7 @@ class PageResponseTest {
     @Test
     @DisplayName("of(): Handles manual constructor with null items gracefully")
     void of_handlesNullItemsGracefully() {
-        PageResponse<String> response = PageResponse.of(null, 0, 10, 0, 0, false, false);
+        PageResponse<String> response = PageResponse.of(null, 0, 10, 0, 0);
 
         assertThat(response.getItems()).isEmpty();
         assertThat(response.getPage()).isZero();

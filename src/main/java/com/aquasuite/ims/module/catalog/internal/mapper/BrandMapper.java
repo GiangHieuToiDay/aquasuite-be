@@ -1,16 +1,12 @@
 package com.aquasuite.ims.module.catalog.internal.mapper;
 
 import com.aquasuite.ims.module.catalog.internal.entity.Brand;
-import com.aquasuite.ims.module.catalog.internal.payload.res.BrandPageResponse;
 import com.aquasuite.ims.module.catalog.internal.payload.res.BrandResponse;
 import org.mapstruct.InjectionStrategy;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingConstants;
 import org.mapstruct.ReportingPolicy;
-import org.springframework.data.domain.Page;
-
-import java.util.List;
 import java.util.Objects;
 
 @Mapper(
@@ -30,20 +26,5 @@ public interface BrandMapper {
     default BrandResponse toResponse(Brand brand) {
         Objects.requireNonNull(brand, "brand must not be null");
         return mapBrand(brand);
-    }
-
-    default BrandPageResponse toPageResponse(Page<Brand> page) {
-        Objects.requireNonNull(page, "page must not be null");
-        List<BrandResponse> items = page.getContent().stream()
-                .map(this::toResponse)
-                .toList();
-
-        return BrandPageResponse.builder()
-                .items(items)
-                .page(page.getNumber())
-                .size(page.getSize())
-                .totalElements(page.getTotalElements())
-                .totalPages(page.getTotalPages())
-                .build();
     }
 }

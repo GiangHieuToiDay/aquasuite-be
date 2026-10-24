@@ -1,8 +1,8 @@
 package com.aquasuite.ims.module.iam.internal.mapper;
 
 import com.aquasuite.ims.module.iam.internal.entity.Permission;
-import com.aquasuite.ims.module.iam.internal.payload.response.PermissionPageResponse;
 import com.aquasuite.ims.module.iam.internal.payload.response.PermissionResponse;
+import com.aquasuite.ims.share.dto.PageResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -79,7 +79,7 @@ class PermissionMapperTest {
         Permission p2 = new Permission(UUID.randomUUID(), "PERM_B", null);
         Page<Permission> page = new PageImpl<>(List.of(p1, p2), PageRequest.of(1, 2), 5);
 
-        PermissionPageResponse response = permissionMapper.toPageResponse(page);
+        PageResponse<PermissionResponse> response = PageResponse.from(page, permissionMapper::toResponse);
 
         assertThat(response).isNotNull();
         assertThat(response.getPage()).isEqualTo(1);
@@ -98,7 +98,7 @@ class PermissionMapperTest {
     void testToPageResponse_EmptyPage() {
         Page<Permission> page = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
 
-        PermissionPageResponse response = permissionMapper.toPageResponse(page);
+        PageResponse<PermissionResponse> response = PageResponse.from(page, permissionMapper::toResponse);
 
         assertThat(response).isNotNull();
         assertThat(response.getPage()).isEqualTo(0);
@@ -111,7 +111,7 @@ class PermissionMapperTest {
     @Test
     @DisplayName("toPageResponse: throws NullPointerException on null page input")
     void testToPageResponse_NullPage_ThrowsNullPointerException() {
-        assertThatThrownBy(() -> permissionMapper.toPageResponse(null))
+        assertThatThrownBy(() -> PageResponse.from(null, permissionMapper::toResponse))
                 .isInstanceOf(NullPointerException.class);
     }
 
@@ -121,7 +121,7 @@ class PermissionMapperTest {
         Permission p = new Permission(UUID.randomUUID(), "PERM_X", "Desc");
         Page<Permission> page = new PageImpl<>(List.of(p), PageRequest.of(0, 5), 1);
 
-        PermissionPageResponse response = permissionMapper.toPageResponse(page);
+        PageResponse<PermissionResponse> response = PageResponse.from(page, permissionMapper::toResponse);
 
         assertThatThrownBy(() -> response.getItems().clear())
                 .isInstanceOf(UnsupportedOperationException.class);

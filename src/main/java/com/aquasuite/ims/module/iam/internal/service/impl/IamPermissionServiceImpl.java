@@ -5,12 +5,13 @@ import com.aquasuite.ims.module.iam.internal.error.IamErrorCode;
 import com.aquasuite.ims.module.iam.internal.mapper.PermissionMapper;
 import com.aquasuite.ims.module.iam.internal.payload.request.CreatePermissionRequest;
 import com.aquasuite.ims.module.iam.internal.payload.request.UpdatePermissionRequest;
-import com.aquasuite.ims.module.iam.internal.payload.response.PermissionPageResponse;
 import com.aquasuite.ims.module.iam.internal.payload.response.PermissionResponse;
 import com.aquasuite.ims.module.iam.internal.repository.PermissionRepository;
 import com.aquasuite.ims.module.iam.internal.service.IamPermissionService;
 import com.aquasuite.ims.share.exception.AppException;
 import com.aquasuite.ims.share.exception.CommonErrorCode;
+import com.aquasuite.ims.share.dto.PageQuery;
+import com.aquasuite.ims.share.dto.PageResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.exception.ConstraintViolationException;
@@ -47,7 +48,11 @@ public class IamPermissionServiceImpl implements IamPermissionService {
 
     @Override
     @Transactional(readOnly = true)
-    public PermissionPageResponse listPermissions(int page, int size, String search, String sortBy, String direction) {
+    public PageResponse<PermissionResponse> listPermissions(PageQuery pageQuery, String search) {
+        int page = pageQuery.getPage();
+        int size = pageQuery.getSize();
+        String sortBy = pageQuery.getSortBy();
+        String direction = pageQuery.getDirection();
         // Query param validation
         if (page < 0) {
             log.warn("Invalid page number: {}", page);
@@ -77,7 +82,7 @@ public class IamPermissionServiceImpl implements IamPermissionService {
 
         Page<Permission> pageResult = permissionRepository.searchPermissions(searchTerm, pageable);
 
-        return permissionMapper.toPageResponse(pageResult);
+        return PageResponse.from(pageResult, permissionMapper::toResponse);
     }
 
     @Override

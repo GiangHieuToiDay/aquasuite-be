@@ -30,13 +30,13 @@ public class PageQuery {
     private int size = 20;
 
     /**
-     * Entity attribute name to sort by. Validated against a whitelist in PageableUtils.
+     * Public API field name to sort by. Each resource validates and maps it to an entity attribute.
      */
     private String sortBy;
 
     /**
-     * Sort direction ("ASC" or "DESC"). Default is "DESC".
+     * Sort direction ("asc" or "desc"). Default is "asc".
      */
     @Builder.Default
-    private String sortDir = "DESC";
+    private String direction = "asc";
 }
