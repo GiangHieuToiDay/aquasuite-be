@@ -1,4 +1,4 @@
-package com.aquasuite.ims.module.sales.internal.entity.enums;
+package com.aquasuite.ims.module.sales.internal.enums;
 
 public enum QuotationStatus {
     DRAFT,
@@ -6,8 +6,7 @@ public enum QuotationStatus {
     APPROVED,
     REJECTED,
     SENT,
+    SUPERSEDED,
     ACCEPTED,
-    LOST,
-    EXPIRED,
-    SUPERSEDED
+    LOST
 }

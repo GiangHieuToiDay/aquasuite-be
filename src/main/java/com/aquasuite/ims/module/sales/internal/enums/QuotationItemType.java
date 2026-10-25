@@ -1,4 +1,4 @@
-package com.aquasuite.ims.module.sales.internal.entity.enums;
+package com.aquasuite.ims.module.sales.internal.enums;
 
 public enum QuotationItemType {
     SINGLE,
