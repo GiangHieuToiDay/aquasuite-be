@@ -2,10 +2,11 @@ package com.aquasuite.ims.module.iam.internal.controller;
 
 import com.aquasuite.ims.module.iam.internal.payload.request.CreatePermissionRequest;
 import com.aquasuite.ims.module.iam.internal.payload.request.UpdatePermissionRequest;
-import com.aquasuite.ims.module.iam.internal.payload.response.PermissionPageResponse;
 import com.aquasuite.ims.module.iam.internal.payload.response.PermissionResponse;
 import com.aquasuite.ims.module.iam.internal.service.IamPermissionService;
 import com.aquasuite.ims.share.dto.ApiResponse;
+import com.aquasuite.ims.share.dto.PageQuery;
+import com.aquasuite.ims.share.dto.PageResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -13,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -32,14 +34,11 @@ public class IamPermissionController {
     private final IamPermissionService iamPermissionService;
 
     @GetMapping
-    public ApiResponse<PermissionPageResponse> listPermissions(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) String search,
-            @RequestParam(defaultValue = "code") String sortBy,
-            @RequestParam(defaultValue = "asc") String direction
+    public ApiResponse<PageResponse<PermissionResponse>> listPermissions(
+            @ModelAttribute PageQuery pageQuery,
+            @RequestParam(required = false) String search
     ) {
-        return ApiResponse.ok(iamPermissionService.listPermissions(page, size, search, sortBy, direction));
+        return ApiResponse.ok(iamPermissionService.listPermissions(pageQuery, search));
     }
 
     @GetMapping("/{permissionId}")

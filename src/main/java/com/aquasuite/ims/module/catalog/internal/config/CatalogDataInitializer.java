@@ -1,5 +1,7 @@
 package com.aquasuite.ims.module.catalog.internal.config;
 
+import java.util.UUID;
+
 import com.aquasuite.ims.module.catalog.internal.entity.*;
 import com.aquasuite.ims.module.catalog.internal.enums.BrandStatus;
 import com.aquasuite.ims.module.catalog.internal.enums.CategoryStatus;
@@ -213,6 +215,6 @@ public class CatalogDataInitializer implements CommandLineRunner {
     }
 
     private Brand createBrand(String code, String name) {
-        return Brand.builder().brandCode(code).brandName(name).status(BrandStatus.ACTIVE).build();
+        return Brand.builder().brandCode(code).brandName(name).brandId(UUID.randomUUID()).status(BrandStatus.ACTIVE).build();
     }
 }

@@ -12,10 +12,13 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.RecordComponent;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
@@ -128,11 +131,41 @@ class IamSensitiveDataBoundaryTest {
         assertThat(UserServiceImpl.class.getInterfaces()).isEmpty();
         assertThat(UserServiceImpl.class.getDeclaredConstructors()).allMatch(c -> c.getParameterCount() == 0);
 
-        // 4. UserSummaryDto remains empty public class without annotations/methods/fields
+        // 4. UserSummaryDto is an immutable public record adhering to IAM sensitive boundary contract
         assertThat(Modifier.isPublic(UserSummaryDto.class.getModifiers())).isTrue();
-        assertThat(UserSummaryDto.class.getAnnotations()).isEmpty();
-        assertThat(UserSummaryDto.class.getDeclaredMethods()).isEmpty();
-        assertThat(UserSummaryDto.class.getDeclaredFields()).isEmpty();
+        assertThat(UserSummaryDto.class.isRecord()).isTrue();
+
+        // Exact component inventory verification
+        List<String> componentNames = Arrays.stream(UserSummaryDto.class.getRecordComponents())
+                .map(RecordComponent::getName)
+                .toList();
+        assertThat(componentNames).containsExactlyInAnyOrder(
+                "id", "username", "fullName", "email", "phone", "avatarUrl", "status", "roles"
+        );
+
+        // Strict sensitive surface prohibition: no fields, methods, or components may expose credentials/tokens/secrets/codes/hashes
+        List<String> prohibitedSensitiveKeywords = List.of(
+                "password", "secret", "hash", "token", "credential", "salt",
+                "verification", "code", "pin", "otp", "recovery", "key"
+        );
+        for (Field field : UserSummaryDto.class.getDeclaredFields()) {
+            String name = field.getName().toLowerCase();
+            for (String prohibited : prohibitedSensitiveKeywords) {
+                assertThat(name)
+                        .as("UserSummaryDto declared field '%s' must not expose sensitive keyword '%s'", field.getName(), prohibited)
+                        .doesNotContain(prohibited);
+            }
+        }
+        for (Method method : UserSummaryDto.class.getDeclaredMethods()) {
+            if (Modifier.isStatic(method.getModifiers())) continue;
+            if (java.util.Set.of("equals", "hashCode", "toString").contains(method.getName())) continue;
+            String name = method.getName().toLowerCase();
+            for (String prohibited : prohibitedSensitiveKeywords) {
+                assertThat(name)
+                        .as("UserSummaryDto method '%s' must not expose sensitive keyword '%s'", method.getName(), prohibited)
+                        .doesNotContain(prohibited);
+            }
+        }
 
         // 5. Removed DTO files and obsolete namespaces must not exist
         Path oldUserRequest = Paths.get("src/main/java/com/aquasuite/ims/module/iam/api/dto/request/UserRequest.java");
@@ -156,7 +189,8 @@ class IamSensitiveDataBoundaryTest {
                     .filter(p -> {
                         try {
                             String content = Files.readString(p);
-                            return content.contains("UserRequest") || content.contains("UserResponse");
+                            return java.util.regex.Pattern.compile("\\bUserRequest\\b").matcher(content).find()
+                                    || java.util.regex.Pattern.compile("\\bUserResponse\\b").matcher(content).find();
                         } catch (IOException e) {
                             return false;
                         }

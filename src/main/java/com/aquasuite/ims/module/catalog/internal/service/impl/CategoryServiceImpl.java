@@ -7,13 +7,14 @@ import com.aquasuite.ims.module.catalog.internal.error.CatalogErrorCode;
 import com.aquasuite.ims.module.catalog.internal.mapper.CategoryMapper;
 import com.aquasuite.ims.module.catalog.internal.payload.req.CreateCategoryRequest;
 import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateCategoryRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.res.CategoryPageResponse;
 import com.aquasuite.ims.module.catalog.internal.payload.res.CategoryResponse;
 import com.aquasuite.ims.module.catalog.internal.repository.CategoryRepository;
 import com.aquasuite.ims.module.catalog.internal.repository.projection.CategoryHierarchyProjection;
 import com.aquasuite.ims.module.catalog.internal.service.CategoryService;
 import com.aquasuite.ims.share.exception.AppException;
 import com.aquasuite.ims.share.exception.CommonErrorCode;
+import com.aquasuite.ims.share.dto.PageQuery;
+import com.aquasuite.ims.share.dto.PageResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -55,7 +56,11 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional(readOnly = true)
-    public CategoryPageResponse listCategories(int page, int size, String search, String status, String sortBy, String direction) {
+    public PageResponse<CategoryResponse> listCategories(PageQuery pageQuery, String search, String status) {
+        int page = pageQuery.getPage();
+        int size = pageQuery.getSize();
+        String sortBy = pageQuery.getSortBy();
+        String direction = pageQuery.getDirection();
         if (page < 0) {
             log.warn("Invalid page number: {}", page);
             throw new AppException(CommonErrorCode.INVALID_REQUEST_PARAM);
@@ -97,7 +102,7 @@ public class CategoryServiceImpl implements CategoryService {
         Pageable pageable = PageRequest.of(page, size, sort);
 
         Page<Category> pageResult = categoryRepository.searchCategories(searchTerm, statusFilter, pageable);
-        return categoryMapper.toPageResponse(pageResult);
+        return PageResponse.from(pageResult, categoryMapper::toResponse);
     }
 
     @Override
@@ -157,7 +162,6 @@ public class CategoryServiceImpl implements CategoryService {
 
         // 7. Persist
         Category category = new Category();
-        category.setCategoryId(UUID.randomUUID());
         category.setCategoryCode(normalizedCode);
         category.setCategoryName(normalizedName);
         category.setDescription(normalizedDescription);

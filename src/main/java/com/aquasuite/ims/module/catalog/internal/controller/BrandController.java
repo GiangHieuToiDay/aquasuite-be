@@ -2,10 +2,11 @@ package com.aquasuite.ims.module.catalog.internal.controller;
 
 import com.aquasuite.ims.module.catalog.internal.payload.req.CreateBrandRequest;
 import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateBrandRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.res.BrandPageResponse;
 import com.aquasuite.ims.module.catalog.internal.payload.res.BrandResponse;
 import com.aquasuite.ims.module.catalog.internal.service.BrandService;
 import com.aquasuite.ims.share.dto.ApiResponse;
+import com.aquasuite.ims.share.dto.PageQuery;
+import com.aquasuite.ims.share.dto.PageResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -13,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -32,15 +34,12 @@ public class BrandController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('CATALOG_BRAND_READ')")
-    public ApiResponse<BrandPageResponse> listBrands(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
+    public ApiResponse<PageResponse<BrandResponse>> listBrands(
+            @ModelAttribute PageQuery pageQuery,
             @RequestParam(required = false) String search,
-            @RequestParam(required = false) String status,
-            @RequestParam(defaultValue = "code") String sortBy,
-            @RequestParam(defaultValue = "asc") String direction
+            @RequestParam(required = false) String status
     ) {
-        return ApiResponse.ok(brandService.listBrands(page, size, search, status, sortBy, direction));
+        return ApiResponse.ok(brandService.listBrands(pageQuery, search, status));
     }
 
     @GetMapping("/{brandId}")

@@ -5,7 +5,7 @@ import com.aquasuite.ims.module.catalog.internal.enums.BrandStatus;
 import com.aquasuite.ims.module.catalog.internal.enums.CategoryStatus;
 import com.aquasuite.ims.module.catalog.internal.enums.ProductStatus;
 import com.aquasuite.ims.module.catalog.internal.enums.ProductType;
-import com.aquasuite.ims.module.catalog.internal.exception.CatalogErrorCode;
+import com.aquasuite.ims.module.catalog.internal.error.CatalogErrorCode;
 import com.aquasuite.ims.module.catalog.internal.payload.req.*;
 import com.aquasuite.ims.module.catalog.internal.payload.res.ProductDetailResponse;
 import com.aquasuite.ims.module.catalog.internal.payload.res.ProductSummaryResponse;

@@ -101,7 +101,7 @@ class PageableUtilsTest {
                 .page(2)
                 .size(50)
                 .sortBy("price")
-                .sortDir("ASC")
+                .direction("ASC")
                 .build();
 
         Pageable pageable = PageableUtils.toPageable(query, ALLOWED_SORT_FIELDS, DEFAULT_SORT_BY);
@@ -120,7 +120,7 @@ class PageableUtilsTest {
         assertThat(pageable.getPageNumber()).isEqualTo(PageableUtils.DEFAULT_PAGE);
         assertThat(pageable.getPageSize()).isEqualTo(PageableUtils.DEFAULT_PAGE_SIZE);
         assertThat(pageable.getSort().getOrderFor(DEFAULT_SORT_BY)).isNotNull();
-        assertThat(pageable.getSort().getOrderFor(DEFAULT_SORT_BY).getDirection()).isEqualTo(Sort.Direction.DESC);
+        assertThat(pageable.getSort().getOrderFor(DEFAULT_SORT_BY).getDirection()).isEqualTo(Sort.Direction.ASC);
     }
 
     @Test
@@ -138,7 +138,7 @@ class PageableUtilsTest {
         assertThat(pageable.getPageNumber()).isZero();
         assertThat(pageable.getPageSize()).isEqualTo(PageableUtils.MAX_PAGE_SIZE);
         assertThat(pageable.getSort().getOrderFor(DEFAULT_SORT_BY)).isNotNull();
-        assertThat(pageable.getSort().getOrderFor(DEFAULT_SORT_BY).getDirection()).isEqualTo(Sort.Direction.DESC);
+        assertThat(pageable.getSort().getOrderFor(DEFAULT_SORT_BY).getDirection()).isEqualTo(Sort.Direction.ASC);
     }
 
     @Test

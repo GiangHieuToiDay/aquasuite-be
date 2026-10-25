@@ -7,13 +7,13 @@ spring:
     name: aquasuite-be
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/aquasuite}
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:123}
+    url: ${SPRING_DATASOURCE_URL:${DB_URL:jdbc:postgresql://localhost:5432/aquasuite}}
+    username: ${SPRING_DATASOURCE_USERNAME:${DB_USERNAME:postgres}}
+    password: ${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:}}
 
   jpa:
     hibernate:
-      ddl-auto: ${JPA_DDL_AUTO:update}
+      ddl-auto: ${JPA_DDL_AUTO:validate}
 
     properties:
       hibernate:
@@ -37,7 +37,7 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:SecureRedisPassword123!}
+      password: ${SPRING_DATA_REDIS_PASSWORD:${REDIS_PASSWORD:}}
       timeout: 5000ms
       lettuce:
         pool:
@@ -73,7 +73,7 @@ aquasuite:
       access-token-ttl-seconds: 1800
       refresh-token-ttl-seconds: 1296000
       session-absolute-ttl-seconds: 1296000
-      secret: ${JWT_SECRET:dGVzdC1zZWNyZXQta2V5LWZvci11bml0LXRlc3RzLW11c3QtYmUtYXQtbGVhc3QtNjQtYnl0ZXMtbG9uZy1zby10aGlzLXNob3VsZC13b3JrIQ==}
+      secret: ${JWT_SECRET:}
 
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME:}

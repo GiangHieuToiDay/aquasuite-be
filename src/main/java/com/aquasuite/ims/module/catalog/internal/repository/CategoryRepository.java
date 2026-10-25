@@ -17,7 +17,7 @@ import java.util.UUID;
 public interface CategoryRepository extends JpaRepository<Category, UUID> {
 
 
-    @Query("SELECT c FROM Category c WHERE c.status = com.aquasuite.ims.module.catalog.internal.entity.enums.CategoryStatus.ACTIVE")
+    @Query("SELECT c FROM Category c WHERE c.status = com.aquasuite.ims.module.catalog.internal.enums.CategoryStatus.ACTIVE")
     List<Category> findAllActive();
 
     Optional<Category> findByCategoryCodeIgnoreCase(String categoryCode);

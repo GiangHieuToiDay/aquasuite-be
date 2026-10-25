@@ -20,7 +20,7 @@ public final class PageableUtils {
     public static final int DEFAULT_PAGE = 0;
     public static final int DEFAULT_PAGE_SIZE = 20;
     public static final int MAX_PAGE_SIZE = 100;
-    public static final Sort.Direction DEFAULT_DIRECTION = Sort.Direction.DESC;
+    public static final Sort.Direction DEFAULT_DIRECTION = Sort.Direction.ASC;
 
     private PageableUtils() {
         // Utility class, prevent instantiation
@@ -83,7 +83,7 @@ public final class PageableUtils {
     }
 
     /**
-     * Creates a {@link Pageable} from primitive parameters with whitelist validation and default DESC direction.
+     * Creates a {@link Pageable} from primitive parameters with whitelist validation and default ASC direction.
      */
     public static Pageable createPageable(
             int page,
@@ -121,7 +121,7 @@ public final class PageableUtils {
     }
 
     /**
-     * Creates a {@link Pageable} from a {@link PageQuery} object with default DESC direction.
+     * Creates a {@link Pageable} from a {@link PageQuery} object with default ASC direction.
      */
     public static Pageable toPageable(
             PageQuery query,
@@ -155,7 +155,7 @@ public final class PageableUtils {
                 query.getPage(),
                 query.getSize(),
                 query.getSortBy(),
-                query.getSortDir(),
+                query.getDirection(),
                 allowedSortFields,
                 defaultSortBy,
                 defaultDirection

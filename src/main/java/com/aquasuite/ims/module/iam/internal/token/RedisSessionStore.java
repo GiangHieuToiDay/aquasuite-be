@@ -337,7 +337,7 @@ public class RedisSessionStore {
         String sessionKey = buildSessionKey(sessionId);
         String revokedKey = buildRevokedKey(sessionId);
 
-        List<String> keys = List.of(sessionKey, revokedKey);
+        List<String> keys = List.of(sessionKey, revokedKey, buildUserSessionsKey(userId));
         String[] args = new String[]{
                 userId.toString(),
                 sessionId.toString(),

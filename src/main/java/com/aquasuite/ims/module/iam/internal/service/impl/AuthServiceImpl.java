@@ -5,6 +5,7 @@ import com.aquasuite.ims.module.iam.internal.entity.UserStatus;
 import com.aquasuite.ims.module.iam.internal.error.AuthErrorCode;
 import com.aquasuite.ims.module.iam.internal.payload.request.LoginRequest;
 import com.aquasuite.ims.module.iam.internal.payload.request.RefreshRequest;
+import com.aquasuite.ims.module.iam.internal.payload.response.CurrentUserResponse;
 import com.aquasuite.ims.module.iam.internal.payload.response.LoginResponse;
 import com.aquasuite.ims.module.iam.internal.payload.response.TokenResponse;
 import com.aquasuite.ims.module.iam.internal.repository.UserRepository;
@@ -23,6 +24,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.TransactionException;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -280,5 +282,49 @@ public class AuthServiceImpl implements AuthService {
         }
 
         redisSessionStore.revokeSession(sessionId, userId, "LOGOUT");
+    }
+
+    /**
+     * Read-only profile resolution for {@code GET /api/v1/auth/me}. Identity comes only from the
+     * already authenticated access JWT {@code sub}; profile and roles are re-read from PostgreSQL so
+     * role changes are visible on the next request without token reissue. Does not touch Redis.
+     */
+    @Override
+    public CurrentUserResponse getCurrentUser(Jwt jwt) {
+        if (jwt == null || jwt.getSubject() == null) {
+            throw new AppException(CommonErrorCode.UNAUTHORIZED);
+        }
+
+        UUID userId;
+        try {
+            userId = UUID.fromString(jwt.getSubject());
+        } catch (IllegalArgumentException e) {
+            throw new AppException(CommonErrorCode.UNAUTHORIZED);
+        }
+
+        User user;
+        try {
+            user =
+                    currentAuthoritiesService
+                            .loadCurrentUser(userId)
+                            .orElseThrow(() -> new AppException(CommonErrorCode.UNAUTHORIZED));
+        } catch (DataAccessException | TransactionException e) {
+            log.error("Database failure loading current user profile for userId: {}", userId, e);
+            throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE);
+        }
+
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            log.info("User {} requested current profile but status is {}", userId, user.getStatus());
+            throw new AppException(AuthErrorCode.ACCOUNT_NOT_ACTIVE);
+        }
+
+        List<String> roleNames = currentAuthoritiesService.resolveActiveRoleNames(user.getRoles());
+
+        return CurrentUserResponse.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .roles(roleNames != null ? List.copyOf(roleNames) : List.of())
+                .build();
     }
 }

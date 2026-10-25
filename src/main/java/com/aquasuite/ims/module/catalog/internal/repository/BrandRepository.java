@@ -17,7 +17,7 @@ import java.util.UUID;
 @Repository
 public interface BrandRepository extends JpaRepository<Brand, UUID> {
 
-    @Query("SELECT b FROM Brand b WHERE b.status = com.aquasuite.ims.module.catalog.internal.entity.enums.BrandStatus.ACTIVE")
+    @Query("SELECT b FROM Brand b WHERE b.status = com.aquasuite.ims.module.catalog.internal.enums.BrandStatus.ACTIVE")
     List<Brand> findAllActive();
 
     Optional<Brand> findByBrandCodeIgnoreCase(String brandCode);

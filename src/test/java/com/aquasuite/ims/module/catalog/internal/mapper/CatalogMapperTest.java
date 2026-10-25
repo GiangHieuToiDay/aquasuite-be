@@ -4,10 +4,9 @@ import com.aquasuite.ims.module.catalog.internal.entity.Brand;
 import com.aquasuite.ims.module.catalog.internal.entity.Category;
 import com.aquasuite.ims.module.catalog.internal.enums.BrandStatus;
 import com.aquasuite.ims.module.catalog.internal.enums.CategoryStatus;
-import com.aquasuite.ims.module.catalog.internal.payload.res.BrandPageResponse;
 import com.aquasuite.ims.module.catalog.internal.payload.res.BrandResponse;
-import com.aquasuite.ims.module.catalog.internal.payload.res.CategoryPageResponse;
 import com.aquasuite.ims.module.catalog.internal.payload.res.CategoryResponse;
+import com.aquasuite.ims.share.dto.PageResponse;
 import com.aquasuite.ims.testsupport.PostgreSqlIntegrationTestSupport;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -92,7 +91,7 @@ class CatalogMapperTest extends PostgreSqlIntegrationTestSupport {
     @DisplayName("CategoryMapper maps Page properly and handles empty page")
     void testCategoryMapperPage() {
         Page<Category> emptyPage = new PageImpl<>(List.of(), PageRequest.of(0, 20), 0);
-        CategoryPageResponse pageRes = categoryMapper.toPageResponse(emptyPage);
+        PageResponse<CategoryResponse> pageRes = PageResponse.from(emptyPage, categoryMapper::toResponse);
 
         assertThat(pageRes.getItems()).isEmpty();
         assertThat(pageRes.getPage()).isEqualTo(0);
@@ -100,7 +99,7 @@ class CatalogMapperTest extends PostgreSqlIntegrationTestSupport {
         assertThat(pageRes.getTotalElements()).isEqualTo(0);
         assertThat(pageRes.getTotalPages()).isEqualTo(0);
 
-        assertThatThrownBy(() -> categoryMapper.toPageResponse(null))
+        assertThatThrownBy(() -> PageResponse.from(null, categoryMapper::toResponse))
                 .isInstanceOf(NullPointerException.class);
     }
 
@@ -145,7 +144,7 @@ class CatalogMapperTest extends PostgreSqlIntegrationTestSupport {
     @DisplayName("BrandMapper maps Page properly and handles empty page")
     void testBrandMapperPage() {
         Page<Brand> emptyPage = new PageImpl<>(List.of(), PageRequest.of(0, 20), 0);
-        BrandPageResponse pageRes = brandMapper.toPageResponse(emptyPage);
+        PageResponse<BrandResponse> pageRes = PageResponse.from(emptyPage, brandMapper::toResponse);
 
         assertThat(pageRes.getItems()).isEmpty();
         assertThat(pageRes.getPage()).isEqualTo(0);
@@ -153,7 +152,7 @@ class CatalogMapperTest extends PostgreSqlIntegrationTestSupport {
         assertThat(pageRes.getTotalElements()).isEqualTo(0);
         assertThat(pageRes.getTotalPages()).isEqualTo(0);
 
-        assertThatThrownBy(() -> brandMapper.toPageResponse(null))
+        assertThatThrownBy(() -> PageResponse.from(null, brandMapper::toResponse))
                 .isInstanceOf(NullPointerException.class);
     }
 }

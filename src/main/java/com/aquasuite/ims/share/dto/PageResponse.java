@@ -31,8 +31,6 @@ public class PageResponse<T> {
     private int size;
     private long totalElements;
     private int totalPages;
-    private boolean hasNext;
-    private boolean hasPrevious;
 
     /**
      * Creates a PageResponse from a Spring Data Page.
@@ -42,26 +40,14 @@ public class PageResponse<T> {
      * @return Standardized PageResponse
      */
     public static <T> PageResponse<T> from(Page<T> pageData) {
-        if (pageData == null) {
-            return PageResponse.<T>builder()
-                    .items(Collections.emptyList())
-                    .page(0)
-                    .size(0)
-                    .totalElements(0)
-                    .totalPages(0)
-                    .hasNext(false)
-                    .hasPrevious(false)
-                    .build();
-        }
+        Objects.requireNonNull(pageData, "pageData must not be null");
 
         return PageResponse.<T>builder()
-                .items(pageData.getContent())
+                .items(List.copyOf(pageData.getContent()))
                 .page(pageData.getNumber())
                 .size(pageData.getSize())
                 .totalElements(pageData.getTotalElements())
                 .totalPages(pageData.getTotalPages())
-                .hasNext(pageData.hasNext())
-                .hasPrevious(pageData.hasPrevious())
                 .build();
     }
 
@@ -77,17 +63,7 @@ public class PageResponse<T> {
     public static <S, T> PageResponse<T> from(Page<S> pageData, Function<S, T> converter) {
         Objects.requireNonNull(converter, "converter must not be null");
 
-        if (pageData == null) {
-            return PageResponse.<T>builder()
-                    .items(Collections.emptyList())
-                    .page(0)
-                    .size(0)
-                    .totalElements(0)
-                    .totalPages(0)
-                    .hasNext(false)
-                    .hasPrevious(false)
-                    .build();
-        }
+        Objects.requireNonNull(pageData, "pageData must not be null");
 
         List<T> convertedItems = pageData.getContent().stream()
                 .map(converter)
@@ -99,8 +75,6 @@ public class PageResponse<T> {
                 .size(pageData.getSize())
                 .totalElements(pageData.getTotalElements())
                 .totalPages(pageData.getTotalPages())
-                .hasNext(pageData.hasNext())
-                .hasPrevious(pageData.hasPrevious())
                 .build();
     }
 
@@ -108,15 +82,13 @@ public class PageResponse<T> {
      * Manual builder constructor with safety defaults.
      */
     public static <T> PageResponse<T> of(
-            List<T> items, int page, int size, long totalElements, int totalPages, boolean hasNext, boolean hasPrevious) {
+            List<T> items, int page, int size, long totalElements, int totalPages) {
         return PageResponse.<T>builder()
-                .items(items != null ? items : Collections.emptyList())
+                .items(items != null ? List.copyOf(items) : Collections.emptyList())
                 .page(page)
                 .size(size)
                 .totalElements(totalElements)
                 .totalPages(totalPages)
-                .hasNext(hasNext)
-                .hasPrevious(hasPrevious)
                 .build();
     }
 }

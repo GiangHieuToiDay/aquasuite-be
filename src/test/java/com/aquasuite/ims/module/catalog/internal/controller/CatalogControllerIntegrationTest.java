@@ -86,6 +86,11 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
     private void cleanData() throws Exception {
         try (Connection conn = dataSource.getConnection();
              Statement stmt = conn.createStatement()) {
+            try { stmt.executeUpdate("DELETE FROM public.bundle_items"); } catch (Exception ignored) {}
+            try { stmt.executeUpdate("DELETE FROM public.bundle_configurations"); } catch (Exception ignored) {}
+            try { stmt.executeUpdate("DELETE FROM public.product_images"); } catch (Exception ignored) {}
+            try { stmt.executeUpdate("DELETE FROM public.product_variants"); } catch (Exception ignored) {}
+            try { stmt.executeUpdate("DELETE FROM public.products"); } catch (Exception ignored) {}
             stmt.executeUpdate("DELETE FROM public.categories");
             stmt.executeUpdate("DELETE FROM public.brands");
             stmt.executeUpdate("DELETE FROM public.user_roles WHERE user_id IN (SELECT id FROM public.users WHERE username = 'catalog_admin')");

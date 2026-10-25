@@ -6,6 +6,7 @@ import com.aquasuite.ims.module.catalog.internal.payload.req.CreateCategoryReque
 import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateCategoryRequest;
 import com.aquasuite.ims.module.catalog.internal.payload.res.CategoryResponse;
 import com.aquasuite.ims.module.catalog.internal.repository.CategoryRepository;
+import com.aquasuite.ims.share.dto.PageQuery;
 import com.aquasuite.ims.share.exception.AppException;
 import com.aquasuite.ims.testsupport.PostgreSqlIntegrationTestSupport;
 import org.junit.jupiter.api.AfterEach;
@@ -56,6 +57,11 @@ class CatalogConcurrencyAndHierarchyIntegrationTest extends PostgreSqlIntegratio
     void cleanData() throws Exception {
         try (Connection conn = dataSource.getConnection();
              Statement stmt = conn.createStatement()) {
+            try { stmt.executeUpdate("DELETE FROM public.bundle_items"); } catch (Exception ignored) {}
+            try { stmt.executeUpdate("DELETE FROM public.bundle_configurations"); } catch (Exception ignored) {}
+            try { stmt.executeUpdate("DELETE FROM public.product_images"); } catch (Exception ignored) {}
+            try { stmt.executeUpdate("DELETE FROM public.product_variants"); } catch (Exception ignored) {}
+            try { stmt.executeUpdate("DELETE FROM public.products"); } catch (Exception ignored) {}
             stmt.executeUpdate("DELETE FROM public.categories");
             stmt.executeUpdate("DELETE FROM public.brands");
         }
@@ -292,7 +298,15 @@ class CatalogConcurrencyAndHierarchyIntegrationTest extends PostgreSqlIntegratio
 
         // Thread 3: Category read can proceed concurrently without getting blocked!
         Future<?> f3 = executor.submit(() -> {
-            categoryService.listCategories(0, 10, null, null, "code", "asc");
+            categoryService.listCategories(
+                    PageQuery.builder()
+                            .page(0)
+                            .size(10)
+                            .sortBy("code")
+                            .direction("asc")
+                            .build(),
+                    null,
+                    null);
         });
 
         f3.get(3, TimeUnit.SECONDS); // must complete without blocking
