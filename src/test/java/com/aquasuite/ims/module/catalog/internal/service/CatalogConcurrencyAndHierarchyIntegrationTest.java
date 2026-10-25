@@ -443,7 +443,7 @@ class CatalogConcurrencyAndHierarchyIntegrationTest extends PostgreSqlIntegratio
     }
 
     @Test
-    @DisplayName("Concurrency: Race between child creation under parent and parent deletion is serialized without orphan rows")
+    @DisplayName("Concurrency: Race between child creation and parent deactivation is serialized consistently")
     void testChildCreationVersusParentDeletionRace() throws Exception {
         // Setup Parent category P
         CategoryResponse parent = categoryService.createCategory(CreateCategoryRequest.builder()
@@ -520,51 +520,31 @@ class CatalogConcurrencyAndHierarchyIntegrationTest extends PostgreSqlIntegratio
                 deleteError = e.getCause();
             }
 
-            // Exactly one operation must succeed
-            assertThat(childSuccess ^ deleteSuccess)
-                    .withFailMessage("Exactly one operation must succeed. ChildSuccess: %s, DeleteSuccess: %s", childSuccess, deleteSuccess)
+            // Child creation always succeeds because soft delete retains the parent row.
+            assertThat(childSuccess)
+                    .withFailMessage("Child creation must succeed because deactivation retains the parent. Error: %s", childError)
                     .isTrue();
 
             try (Connection conn = dataSource.getConnection();
                  Statement stmt = conn.createStatement()) {
 
-                if (childSuccess) {
-                    // Child won -> Delete parent failed with CATEGORY_HAS_CHILDREN (CAT_013)
+                if (!deleteSuccess) {
+                    // Child won -> parent deactivation observes the child and remains blocked.
                     assertThat(deleteError).isInstanceOf(AppException.class);
                     assertThat(((AppException) deleteError).getErrorCode()).isEqualTo(CatalogErrorCode.CATEGORY_HAS_CHILDREN);
-
-                    // Direct database verification for child-wins branch:
-                    // 1. Parent P exists
-                    try (ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM public.categories WHERE category_id = '" + parent.getId() + "'")) {
-                        assertThat(rs.next()).isTrue();
-                        assertThat(rs.getInt(1)).isEqualTo(1);
-                    }
-                    // 2. Child C exists
-                    try (ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM public.categories WHERE category_code = 'CHILD_C'")) {
-                        assertThat(rs.next()).isTrue();
-                        assertThat(rs.getInt(1)).isEqualTo(1);
-                    }
-                    // 3. Child C has parent_id = parent.id (no orphan, valid link)
-                    try (ResultSet rs = stmt.executeQuery("SELECT parent_id FROM public.categories WHERE category_code = 'CHILD_C'")) {
-                        assertThat(rs.next()).isTrue();
-                        assertThat(rs.getObject("parent_id", UUID.class)).isEqualTo(parent.getId());
-                    }
                 } else {
-                    // Delete won -> Child creation failed with CATEGORY_PARENT_NOT_FOUND (CAT_009)
-                    assertThat(childError).isInstanceOf(AppException.class);
-                    assertThat(((AppException) childError).getErrorCode()).isEqualTo(CatalogErrorCode.CATEGORY_PARENT_NOT_FOUND);
+                    assertThat(deleteError).isNull();
+                }
 
-                    // Direct database verification for delete-wins branch:
-                    // 1. Parent P does NOT exist
-                    try (ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM public.categories WHERE category_id = '" + parent.getId() + "'")) {
-                        assertThat(rs.next()).isTrue();
-                        assertThat(rs.getInt(1)).isEqualTo(0);
-                    }
-                    // 2. Child C does NOT exist (no orphan row, no partial insert)
-                    try (ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM public.categories WHERE category_code = 'CHILD_C'")) {
-                        assertThat(rs.next()).isTrue();
-                        assertThat(rs.getInt(1)).isEqualTo(0);
-                    }
+                // The parent is always retained; its status reflects whether deactivation won first.
+                try (ResultSet rs = stmt.executeQuery("SELECT status FROM public.categories WHERE category_id = '" + parent.getId() + "'")) {
+                    assertThat(rs.next()).isTrue();
+                    assertThat(rs.getString("status")).isEqualTo(deleteSuccess ? "INACTIVE" : "ACTIVE");
+                }
+                // The child always exists and retains a valid parent reference.
+                try (ResultSet rs = stmt.executeQuery("SELECT parent_id FROM public.categories WHERE category_code = 'CHILD_C'")) {
+                    assertThat(rs.next()).isTrue();
+                    assertThat(rs.getObject("parent_id", UUID.class)).isEqualTo(parent.getId());
                 }
             }
         } finally {

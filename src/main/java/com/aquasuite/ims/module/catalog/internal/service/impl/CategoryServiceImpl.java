@@ -255,13 +255,9 @@ public class CategoryServiceImpl implements CategoryService {
             throw new AppException(CatalogErrorCode.CATEGORY_HAS_CHILDREN);
         }
 
-        try {
-            categoryRepository.delete(category);
-            categoryRepository.flush();
-            log.info("Deleted category '{}' ({})", category.getCategoryCode(), categoryId);
-        } catch (DataIntegrityViolationException ex) {
-            throw CatalogConstraintExceptionTranslator.translateCategoryDeleteException(ex);
-        }
+        category.setStatus(CategoryStatus.INACTIVE);
+        categoryRepository.saveAndFlush(category);
+        log.info("Deactivated category '{}' ({})", category.getCategoryCode(), categoryId);
     }
 
     private void validateHierarchyAncestry(UUID targetCategoryId, UUID startParentId) {
