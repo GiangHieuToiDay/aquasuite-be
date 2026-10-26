@@ -5,7 +5,7 @@ import com.aquasuite.ims.module.catalog.internal.enums.ProductType;
 import lombok.Builder;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -29,6 +29,6 @@ public record StorefrontProductDetailResponse(
         String installationManualPdf,
         String warrantyTerms,
         List<StorefrontVariantDetailResponse> variants,
-        LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        Instant createdAt,
+        Instant updatedAt
 ) {}

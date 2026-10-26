@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 @Entity
 @Table(name = "quotation_payment_milestones", indexes = {
@@ -17,12 +18,12 @@ import java.math.BigDecimal;
 public class QuotationPaymentMilestone {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "milestone_id", updatable = false, nullable = false)
-    private Long milestoneId;
+    private UUID milestoneId;
 
     @Column(name = "quotation_id", nullable = false)
-    private Long quotationId;
+    private UUID quotationId;
 
     @Column(name = "stage_name", nullable = false, length = 100)
     private String stageName;

@@ -7,6 +7,7 @@ import lombok.*;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.UUID;
 
 @Entity
 @Table(name = "quotations", indexes = {
@@ -24,9 +25,9 @@ import java.time.LocalDate;
 public class Quotation {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "quotation_id", updatable = false, nullable = false)
-    private Long quotationId;
+    private UUID quotationId;
 
     @Column(name = "quotation_code", unique = true, nullable = false, length = 50)
     private String quotationCode;
@@ -36,10 +37,10 @@ public class Quotation {
     private Integer revisionNumber = 1;
 
     @Column(name = "parent_quotation_id")
-    private Long parentQuotationId;
+    private UUID parentQuotationId;
 
     @Column(name = "customer_id", nullable = false)
-    private Long customerId;
+    private UUID customerId;
 
     @Column(name = "project_name", nullable = false, length = 255)
     private String projectName;
@@ -118,7 +119,7 @@ public class Quotation {
     private String lostReason;
 
     @Column(name = "created_by", nullable = false)
-    private Long createdBy;
+    private UUID createdBy;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

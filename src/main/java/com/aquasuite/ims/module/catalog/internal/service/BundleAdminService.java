@@ -235,8 +235,8 @@ public class BundleAdminService {
                         .description(payload.description())
                         .productType(ProductType.BUNDLE)
                         .status(ProductStatus.ACTIVE)
-                        .createdAt(LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC))
-                        .updatedAt(LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC))
+                        .createdAt(clock.instant())
+                        .updatedAt(clock.instant())
                         .build();
         products.saveAndFlush(product);
         var configuration = new BundleConfiguration();
@@ -278,7 +278,7 @@ public class BundleAdminService {
         product.setCategoryId(payload.categoryId());
         product.setBrandId(payload.brandId());
         product.setDescription(payload.description());
-        product.setUpdatedAt(LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC));
+        product.setUpdatedAt(clock.instant());
         products.save(product);
         replaceItems(id, payload.items());
         configuration.setPackagePrice(payload.packagePrice());
@@ -303,7 +303,7 @@ public class BundleAdminService {
         var target = ProductStatus.valueOf(payload.productStatus().name());
         if (product.getStatus() == target) return loadDetail(product);
         product.setStatus(target);
-        product.setUpdatedAt(LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC));
+        product.setUpdatedAt(clock.instant());
         products.save(product);
         markConfigurationUpdated(configuration);
         return loadDetail(product);
@@ -320,7 +320,7 @@ public class BundleAdminService {
         var product = findBundleProduct(id, true);
         if (product.getStatus() == ProductStatus.DELETED) return;
         product.setStatus(ProductStatus.DELETED);
-        product.setUpdatedAt(LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC));
+        product.setUpdatedAt(clock.instant());
         products.save(product);
         markConfigurationUpdated(configuration);
     }
@@ -547,7 +547,7 @@ public class BundleAdminService {
                         BundleItem.builder()
                                 .bundleProductId(id)
                                 .variantId(i.variantId())
-                                .createdAt(LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC))
+                                .createdAt(clock.instant())
                                 .build();
             item.setQuantity(i.quantity());
             items.save(item);

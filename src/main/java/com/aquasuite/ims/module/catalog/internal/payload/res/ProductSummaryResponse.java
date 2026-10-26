@@ -5,7 +5,7 @@ import com.aquasuite.ims.module.catalog.internal.enums.ProductType;
 import lombok.Builder;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Builder
@@ -23,6 +23,6 @@ public record ProductSummaryResponse(
         BigDecimal minSellingPrice,
         BigDecimal maxSellingPrice,
         int totalVariants,
-        LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        Instant createdAt,
+        Instant updatedAt
 ) {}

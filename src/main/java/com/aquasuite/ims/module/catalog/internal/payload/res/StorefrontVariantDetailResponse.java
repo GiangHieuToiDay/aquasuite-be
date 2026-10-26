@@ -4,7 +4,7 @@ import com.aquasuite.ims.module.catalog.internal.enums.VariantStatus;
 import lombok.Builder;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -33,6 +33,6 @@ public record StorefrontVariantDetailResponse(
         boolean allowNotifyOrQuote,
         boolean isSalesStaff,
         List<WarehouseStockItemResponse> warehouseBreakdown,
-        LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        Instant createdAt,
+        Instant updatedAt
 ) {}

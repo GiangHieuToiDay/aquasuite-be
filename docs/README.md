@@ -1,6 +1,6 @@
 # AquaSuite Backend Documentation Index
 
-> Migration reconciliation (2026-10-21): the current new-database chain uses develop V1-V6 (with 2.1/3.1 for duplicate versions), followed by combo V7/V8, recovery V9 and registration phone preflight V10. Redundant legacy/UUID/customer creation is removed. See [current Flyway runbook](migrations/flyway.md). Historical migration numbers and test totals below do not describe this reconciled chain.
+> Migration reconciliation (updated 2026-10-26): the current new-database chain uses canonical V1-V10 (including V2.1/V3.1), followed by additive IAM authentication-state V11. Redundant numeric-IAM, catalog and inventory baselines are removed. See [current Flyway runbook](migrations/flyway.md). Historical migration numbers and test totals below do not describe this reconciled chain.
 
 ## Purpose and Document Hierarchy
 

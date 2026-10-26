@@ -29,7 +29,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -103,7 +103,7 @@ class ProductStorefrontServiceTest {
                 .productType(ProductType.NORMAL)
                 .status(ProductStatus.ACTIVE)
                 .specifications(Map.of("flushingType", "Tornado", "roughIn", "305mm"))
-                .createdAt(LocalDateTime.now())
+                .createdAt(Instant.now())
                 .build();
 
         sampleVariant = ProductVariant.builder()

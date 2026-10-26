@@ -22,12 +22,12 @@ import java.util.UUID;
 public class QuotationItem {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "quotation_item_id", updatable = false, nullable = false)
-    private Long quotationItemId;
+    private UUID quotationItemId;
 
     @Column(name = "quotation_id", nullable = false)
-    private Long quotationId;
+    private UUID quotationId;
 
     @Builder.Default
     @Column(name = "sort_order", nullable = false)
@@ -39,10 +39,10 @@ public class QuotationItem {
     private QuotationItemType itemType = QuotationItemType.SINGLE;
 
     @Column(name = "parent_item_id")
-    private Long parentItemId;
+    private UUID parentItemId;
 
     @Column(name = "combo_id")
-    private Long comboId;
+    private UUID comboId;
 
     @Column(name = "variant_id")
     private UUID variantId;
