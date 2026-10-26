@@ -22,6 +22,7 @@ Flyway cannot start because legacy module baselines duplicate versions 1, 2 and 
 - Remove the three superseded baseline scripts from the active Flyway location.
 - Add V11 for entity-mapped IAM/catalog columns absent from the canonical chain.
 - Add V12 and align Sales quotation entities with the project's canonical UUID identifiers.
+- Reconcile post-merge Sales/inventory schema through forward-only V13 and create remaining entity tables through V14.
 - Update the Flyway runbook and verify source/build/application migration behavior.
 
 ### Out of Scope
@@ -48,6 +49,8 @@ Not applicable to runtime actors. Authentication data remains in the IAM-owned `
 - V11 uses `ADD COLUMN IF NOT EXISTS` so a compatible pre-existing column is retained.
 - V12 creates the missing quotation aggregate tables and expands the empty V5 quotation-item placeholder.
 - The local V5 quotation-item table was verified to contain zero rows before V12 was applied.
+- The merged duplicate `V11__create_sales_quotations.sql` is removed rather than renumbered because it drops a V5/V12-owned table and conflicts with applied history.
+- V13/V14 are forward-only; applied V11/V12 files and history remain unchanged.
 - No cross-module JPA relationships are introduced.
 
 ## 5. Contracts
@@ -70,6 +73,7 @@ No HTTP, Java API or domain-event contract changes.
 | AC-04 | Production source compiles | Maven compile | Build success |
 | AC-05 | Application-context migration can proceed | Relevant integration/startup test | No duplicate-version Flyway error |
 | AC-06 | Hibernate accepts the Sales quotation schema | Start the application with `ddl-auto=validate` | EntityManagerFactory initializes |
+| AC-07 | Post-merge entities have owned tables/columns | Full application startup at V14 | Hibernate validation and application startup succeed |
 
 ## 8. Open Decisions
 

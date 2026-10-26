@@ -20,6 +20,8 @@ This chain is reconciled for a new, empty PostgreSQL database. Java 21 / Spring 
 | 10 | V10__SCRUM08_registration_phone_preflight.sql | Reject noncanonical/duplicate existing user phone values; reuse develop's full_name and phone index |
 | 11 | V11__complete_canonical_schema.sql | Add entity-mapped fields missing from the reconciled chain: IAM authentication state and Brand timestamps |
 | 12 | V12__create_sales_quotation_schema.sql | Complete V5's quotation placeholder for the UUID-based Sales quotation entities |
+| 13 | V13__align_sales_schema_after_merge.sql | Forward-align Sales and purchasing/receiving entities merged after V12; never rewrites applied V11/V12 |
+| 14 | V14__create_remaining_module_tables.sql | Create missing AI advisor, fulfillment, finance and service-desk entity tables introduced without migrations |
 
 Flyway interprets underscores within version numbers as dots: V2_1 is version 2.1 and V3_1 is 3.1. This preserves develop's major version order while removing duplicate versions. New local additions continue after V10.
 
@@ -42,13 +44,15 @@ Renamed/removed SQL and the reconciled V4/V7/V9 content change migration identit
 
 For an existing shared/production database, back up and inspect flyway_schema_history and actual schema before choosing a separate reviewed forward-upgrade/onboarding procedure. Do not automatically baseline, repair, delete history, rewrite applied migrations or recreate a database.
 
-On 2026-10-26 the developer's local database was inspected before migration: the V5 `quotation_items` placeholder contained zero rows. The missing versions were applied with Flyway's one-time out-of-order mode, then V11 and V12 were applied normally. Out-of-order mode was removed afterwards. The database now reports schema version 12.
+On 2026-10-26 the developer's local database was inspected before migration: the affected V5 placeholder tables contained zero rows. The missing versions were applied with Flyway's one-time out-of-order mode, then V11 and V12 were applied normally. After a later branch merge introduced a duplicate Sales V11 and additional unmigrated entities, the duplicate migration was removed from discovery and its intended current schema was reconciled forward through V13 and V14. Out-of-order mode remains disabled. The database now reports schema version 14.
 
 V12 intentionally keeps UUID identifiers consistent with IAM, CRM and catalog. It creates `quotations` and `quotation_payment_milestones`, and expands V5's empty `quotation_items` placeholder to match the current Sales entities.
 
+The removed `V11__create_sales_quotations.sql` must not be restored or merely renumbered: it duplicates applied version 11, drops `quotation_items`, and conflicts with V12. V13 performs the compatible forward transition instead. V14 completes other entity tables exposed by full Hibernate validation after the merge.
+
 ## Verification
 
-On 2026-10-26, Flyway applied all 14 migrations through V12 to a fresh PostgreSQL 17.6 Testcontainers database. Hibernate initialized the EntityManagerFactory successfully. The same V12 migration was then applied to the inspected local PostgreSQL database, and the full application started successfully on port 8080 with `ddl-auto=validate`.
+On 2026-10-26, Flyway applied all 15 migrations through V13 to a fresh PostgreSQL 17.6 Testcontainers database and Hibernate initialized the tested persistence context. V13 and V14 were then applied to the inspected local PostgreSQL database; full Hibernate validation passed and the complete application started successfully on port 8080 at schema version 14.
 
 On 2026-10-21, all 12 SQL files ran in version order against an isolated disposable PostgreSQL 17.6 container, each in a transaction with ON_ERROR_STOP. All passed. Checks confirmed the required IAM/CRM/inventory/catalog/combo/recovery tables, UUID users, exactly one unique phone index and absence of unused audit_entries. Container was stopped and removed after verification; no ports were exposed.
 
