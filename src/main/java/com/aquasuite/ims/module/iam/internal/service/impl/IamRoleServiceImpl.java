@@ -4,6 +4,7 @@ import com.aquasuite.ims.module.iam.internal.entity.Permission;
 import com.aquasuite.ims.module.iam.internal.entity.Role;
 import com.aquasuite.ims.module.iam.internal.error.IamErrorCode;
 import com.aquasuite.ims.module.iam.internal.mapper.RoleMapper;
+import com.aquasuite.ims.module.iam.internal.payload.response.RoleOptionResponse;
 import com.aquasuite.ims.module.iam.internal.payload.response.RoleResponse;
 import com.aquasuite.ims.module.iam.internal.repository.PermissionRepository;
 import com.aquasuite.ims.module.iam.internal.repository.RoleRepository;
@@ -43,6 +44,21 @@ public class IamRoleServiceImpl implements IamRoleService {
         this.roleMapper = roleMapper;
     }
 
+    /** Tải vai trò hoạt động và ánh xạ thành lựa chọn gọn cho form tài khoản. */
+    @Override
+    @Transactional(readOnly = true)
+    public List<RoleOptionResponse> listAssignableRoles() {
+        return roleRepository.findAll().stream()
+                .filter(Role::isActive)
+                .map(role -> RoleOptionResponse.builder()
+                        .id(role.getRoleId())
+                        .code(role.getRoleName())
+                        .description(role.getDescription())
+                        .build())
+                .toList();
+    }
+
+    /** Tải các vai trò chuẩn và giữ thứ tự nghiệp vụ cố định. */
     @Override
     @Transactional(readOnly = true)
     public List<RoleResponse> listCanonicalRoles() {
@@ -67,6 +83,7 @@ public class IamRoleServiceImpl implements IamRoleService {
                 .toList();
     }
 
+    /** Lấy chi tiết một vai trò chuẩn cùng tập quyền hiện hành. */
     @Override
     @Transactional(readOnly = true)
     public RoleResponse getRoleDetail(UUID roleId) {
@@ -81,6 +98,7 @@ public class IamRoleServiceImpl implements IamRoleService {
         return roleMapper.toResponse(role);
     }
 
+    /** Gán quyền hợp lệ cho vai trò và lưu quan hệ nhiều-nhiều. */
     @Override
     @Transactional
     public RoleResponse assignPermissionToRole(UUID roleId, UUID permissionId) {
@@ -114,6 +132,7 @@ public class IamRoleServiceImpl implements IamRoleService {
         return roleMapper.toResponse(role);
     }
 
+    /** Gỡ quan hệ quyền khỏi vai trò mà không xóa quyền gốc. */
     @Override
     @Transactional
     public RoleResponse unassignPermissionFromRole(UUID roleId, UUID permissionId) {

@@ -153,16 +153,18 @@ Brand không có timestamps; không có version column.
 
 | Method/Path | Permission | Request | Success |
 |---|---|---|---|
-| `POST /api/v1/categories` | `CATALOG_CATEGORY_CREATE` | `code,name` required; `description,status,parentId` optional | `201 ApiResponse<CategoryResponse>` |
-| `GET /api/v1/categories` | `CATALOG_CATEGORY_READ` | List query | `200 ApiResponse<CategoryPageResponse>` |
-| `GET /api/v1/categories/{categoryId}` | `CATALOG_CATEGORY_READ` | UUID | `200 ApiResponse<CategoryResponse>` |
-| `PUT /api/v1/categories/{categoryId}` | `CATALOG_CATEGORY_UPDATE` | `name,status` required; `description,parentId` nullable; no code | `200 ApiResponse<CategoryResponse>` |
-| `DELETE /api/v1/categories/{categoryId}` | `CATALOG_CATEGORY_DELETE` | UUID | `200 ApiResponse<Void>`; null data omitted |
-| `POST /api/v1/brands` | `CATALOG_BRAND_CREATE` | `code,name` required; `description,status` optional | `201 ApiResponse<BrandResponse>` |
-| `GET /api/v1/brands` | `CATALOG_BRAND_READ` | List query | `200 ApiResponse<BrandPageResponse>` |
-| `GET /api/v1/brands/{brandId}` | `CATALOG_BRAND_READ` | UUID | `200 ApiResponse<BrandResponse>` |
-| `PUT /api/v1/brands/{brandId}` | `CATALOG_BRAND_UPDATE` | `name,status` required; `description` nullable; no code | `200 ApiResponse<BrandResponse>` |
-| `DELETE /api/v1/brands/{brandId}` | `CATALOG_BRAND_DELETE` | UUID | `200 ApiResponse<Void>`; null data omitted |
+| `POST /api/v1/catalog/categories` | `CATALOG_CATEGORY_CREATE` | `code,name` required; `description,status,parentId` optional | `201 ApiResponse<CategoryResponse>` |
+| `GET /api/v1/catalog/categories` | `CATALOG_CATEGORY_READ` | List query | `200 ApiResponse<CategoryPageResponse>` |
+| `GET /api/v1/catalog/categories/options` | `CATALOG_CATEGORY_READ` | None | `200 ApiResponse<List<CategoryBriefResponse>>` |
+| `GET /api/v1/catalog/categories/{categoryId}` | `CATALOG_CATEGORY_READ` | UUID | `200 ApiResponse<CategoryResponse>` |
+| `PUT /api/v1/catalog/categories/{categoryId}` | `CATALOG_CATEGORY_UPDATE` | `name,status` required; `description,parentId` nullable; no code | `200 ApiResponse<CategoryResponse>` |
+| `DELETE /api/v1/catalog/categories/{categoryId}` | `CATALOG_CATEGORY_DELETE` | UUID | `200 ApiResponse<Void>`; null data omitted |
+| `POST /api/v1/catalog/brands` | `CATALOG_BRAND_CREATE` | `code,name` required; `description,status` optional | `201 ApiResponse<BrandResponse>` |
+| `GET /api/v1/catalog/brands` | `CATALOG_BRAND_READ` | List query | `200 ApiResponse<BrandPageResponse>` |
+| `GET /api/v1/catalog/brands/options` | `CATALOG_BRAND_READ` | None | `200 ApiResponse<List<BrandBriefResponse>>` |
+| `GET /api/v1/catalog/brands/{brandId}` | `CATALOG_BRAND_READ` | UUID | `200 ApiResponse<BrandResponse>` |
+| `PUT /api/v1/catalog/brands/{brandId}` | `CATALOG_BRAND_UPDATE` | `name,status` required; `description` nullable; no code | `200 ApiResponse<BrandResponse>` |
+| `DELETE /api/v1/catalog/brands/{brandId}` | `CATALOG_BRAND_DELETE` | UUID | `200 ApiResponse<Void>`; null data omitted |
 
 - Create omitted status defaults ACTIVE; PUT replaces all mutable fields. Unknown JSON fields remain ignored per current baseline; no global ObjectMapper change.
 - Responses: Category `id,code,name,description,status,parentId,createdAt,updatedAt`; Brand `id,code,name,description,status`; pages `items,page,size,totalElements,totalPages`.

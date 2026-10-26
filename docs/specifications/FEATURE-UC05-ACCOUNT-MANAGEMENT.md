@@ -40,13 +40,13 @@ keyword, role, and status filters; pagination; and account activity history.
 
 | Actor | Required authority | Operations |
 |---|---|---|
-| Store Owner | `ROLE_STORE_OWNER` | All UC-05 account actions |
+| Store Owner | `ROLE_SHOP_OWNER` | All UC-05 account actions |
 | Other authenticated user | none | No UC-05 access |
 | Audit listener | internal | Persist event-derived audit log |
 
 - The caller identity comes from the UUID JWT subject through `IamApi`.
 - The caller cannot deactivate or lock their own account.
-- An operation cannot leave zero active `ROLE_STORE_OWNER` accounts.
+- An operation cannot leave zero active `ROLE_SHOP_OWNER` accounts.
 - Every status transition that leaves `ACTIVE` must revoke every tracked Redis
   session for the target user after commit. Database status validation remains
   the immediate authorization guard for every subsequent access-token request.

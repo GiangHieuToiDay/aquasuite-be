@@ -5,14 +5,11 @@ import com.aquasuite.ims.module.catalog.internal.enums.ProductType;
 import com.aquasuite.ims.module.catalog.internal.payload.req.CreateProductRequest;
 import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateProductRequest;
 import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateProductStatusRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.res.BrandBriefResponse;
-import com.aquasuite.ims.module.catalog.internal.payload.res.CategoryBriefResponse;
 import com.aquasuite.ims.module.catalog.internal.payload.res.ProductDetailResponse;
 import com.aquasuite.ims.module.catalog.internal.payload.res.ProductSummaryResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
-import java.util.List;
 import java.util.UUID;
 
 public interface ProductAdminService {
@@ -42,9 +39,4 @@ public interface ProductAdminService {
     /** Xóa mềm sản phẩm (chuyển sang trạng thái DELETED) */
     void deleteProduct(UUID productId);
 
-    /** Lấy danh sách danh mục đang hoạt động (cho dropdown filter & form) */
-    List<CategoryBriefResponse> getActiveCategories();
-
-    /** Lấy danh sách thương hiệu đang hoạt động (cho dropdown filter & form) */
-    List<BrandBriefResponse> getActiveBrands();
 }

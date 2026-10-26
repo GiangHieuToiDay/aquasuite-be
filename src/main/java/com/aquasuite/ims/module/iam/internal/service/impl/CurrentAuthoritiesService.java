@@ -38,6 +38,7 @@ public class CurrentAuthoritiesService {
         this.userRepository = userRepository;
     }
 
+    /** Tải người dùng cùng vai trò và quyền hiện hành trong một truy vấn đọc. */
     @Transactional(readOnly = true)
     public Optional<User> loadCurrentUser(UUID userId) {
         if (userRepository == null) {

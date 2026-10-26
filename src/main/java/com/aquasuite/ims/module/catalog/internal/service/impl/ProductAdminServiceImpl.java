@@ -289,30 +289,6 @@ public class ProductAdminServiceImpl implements ProductAdminService {
         log.info("Admin soft-deleted product: ID={}", productId);
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<CategoryBriefResponse> getActiveCategories() {
-        return categoryRepository.findAllActive().stream()
-                .map(c -> CategoryBriefResponse.builder()
-                        .categoryId(c.getCategoryId())
-                        .categoryCode(c.getCategoryCode())
-                        .categoryName(c.getCategoryName())
-                        .build())
-                .toList();
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<BrandBriefResponse> getActiveBrands() {
-        return brandRepository.findAllActive().stream()
-                .map(b -> BrandBriefResponse.builder()
-                        .brandId(b.getBrandId())
-                        .brandCode(b.getBrandCode())
-                        .brandName(b.getBrandName())
-                        .build())
-                .toList();
-    }
-
     // =========================================================================
     // HELPER MAPPING
     // =========================================================================

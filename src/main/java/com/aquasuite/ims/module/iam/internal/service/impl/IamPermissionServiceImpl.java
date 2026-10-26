@@ -46,6 +46,7 @@ public class IamPermissionServiceImpl implements IamPermissionService {
         this.permissionMapper = permissionMapper;
     }
 
+    /** Tìm kiếm và phân trang quyền với trường sắp xếp được kiểm soát. */
     @Override
     @Transactional(readOnly = true)
     public PageResponse<PermissionResponse> listPermissions(PageQuery pageQuery, String search) {
@@ -85,6 +86,7 @@ public class IamPermissionServiceImpl implements IamPermissionService {
         return PageResponse.from(pageResult, permissionMapper::toResponse);
     }
 
+    /** Tải quyền theo ID hoặc phát sinh lỗi không tìm thấy. */
     @Override
     @Transactional(readOnly = true)
     public PermissionResponse getPermissionDetail(UUID permissionId) {
@@ -93,6 +95,7 @@ public class IamPermissionServiceImpl implements IamPermissionService {
         return permissionMapper.toResponse(perm);
     }
 
+    /** Chuẩn hóa mã, chặn namespace vai trò và tạo quyền mới. */
     @Override
     @Transactional
     public PermissionResponse createPermission(CreatePermissionRequest request) {
@@ -144,6 +147,7 @@ public class IamPermissionServiceImpl implements IamPermissionService {
         return permissionMapper.toResponse(permission);
     }
 
+    /** Cập nhật mô tả quyền trong khi giữ mã quyền bất biến. */
     @Override
     @Transactional
     public PermissionResponse updatePermission(UUID permissionId, UpdatePermissionRequest request) {
@@ -160,6 +164,7 @@ public class IamPermissionServiceImpl implements IamPermissionService {
         return permissionMapper.toResponse(permission);
     }
 
+    /** Xóa quyền và chuyển lỗi ràng buộc vai trò thành lỗi nghiệp vụ. */
     @Override
     @Transactional
     public void deletePermission(UUID permissionId) {
@@ -194,16 +199,19 @@ public class IamPermissionServiceImpl implements IamPermissionService {
     private static final String UQ_PERMISSIONS_CODE_LOWER = "uq_permissions_code_lower";
     private static final String FK_ROLE_PERMISSIONS_PERMISSION = "fk_role_permissions_permission";
 
+    /** Xác định lỗi database do trùng mã quyền không phân biệt hoa thường. */
     private boolean isPermissionCodeUniqueViolation(DataIntegrityViolationException ex) {
         String constraintName = extractExactConstraintName(ex);
         return UQ_PERMISSIONS_CODE_LOWER.equals(constraintName);
     }
 
+    /** Xác định lỗi xóa quyền vẫn đang được vai trò sử dụng. */
     private boolean isRolePermissionForeignKeyViolation(DataIntegrityViolationException ex) {
         String constraintName = extractExactConstraintName(ex);
         return FK_ROLE_PERMISSIONS_PERMISSION.equals(constraintName);
     }
 
+    /** Lần theo chuỗi nguyên nhân để lấy chính xác tên constraint database. */
     private String extractExactConstraintName(Throwable throwable) {
         Throwable current = throwable;
         while (current != null) {
@@ -222,6 +230,7 @@ public class IamPermissionServiceImpl implements IamPermissionService {
         return null;
     }
 
+    /** Đọc tên constraint trực tiếp từ ngoại lệ PostgreSQL nếu có. */
     private String extractFromPsqlException(Throwable throwable) {
         if (throwable != null && "org.postgresql.util.PSQLException".equals(throwable.getClass().getName())) {
             try {
@@ -241,6 +250,7 @@ public class IamPermissionServiceImpl implements IamPermissionService {
         return null;
     }
 
+    /** Chuẩn hóa tên constraint để so sánh ổn định giữa các driver. */
     private String normalizeConstraintName(String raw) {
         if (raw == null) {
             return null;
@@ -256,6 +266,7 @@ public class IamPermissionServiceImpl implements IamPermissionService {
         return cleaned.toLowerCase(Locale.ROOT);
     }
 
+    /** Chuẩn hóa mô tả rỗng thành null. */
     private String cleanDescription(String rawDescription) {
         if (rawDescription == null) {
             return null;

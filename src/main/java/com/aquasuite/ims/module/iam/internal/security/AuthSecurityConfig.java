@@ -27,11 +27,13 @@ public class AuthSecurityConfig {
     private final AuthSecurityErrorHandlers authSecurityErrorHandlers;
     private final UserDetailsServiceImpl userDetailsService;
 
+    /** Cung cấp BCrypt encoder với cost 12 cho mật khẩu tài khoản. */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(12);
     }
 
+    /** Kết nối UserDetailsService và PasswordEncoder vào provider đăng nhập. */
     @Bean
     public DaoAuthenticationProvider daoAuthenticationProvider(PasswordEncoder passwordEncoder) {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
@@ -40,11 +42,16 @@ public class AuthSecurityConfig {
         return provider;
     }
 
+    /** Lấy AuthenticationManager do Spring Security quản lý. */
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
     }
 
+    /**
+     * Cấu hình security stateless: chỉ mở endpoint đăng nhập/refresh/đăng ký,
+     * yêu cầu JWT cho các endpoint còn lại và chuẩn hóa response lỗi bảo mật.
+     */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http

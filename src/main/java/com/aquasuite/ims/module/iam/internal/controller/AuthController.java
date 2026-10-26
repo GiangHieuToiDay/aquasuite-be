@@ -28,6 +28,10 @@ public class AuthController {
 
     private final AuthService authService;
 
+    /**
+     * Nhận email/mật khẩu, xác thực tài khoản và trả về thông tin người dùng
+     * cùng access token, refresh token của phiên mới.
+     */
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginResponse>> login(
             @Valid @RequestBody LoginRequest request) {
@@ -35,6 +39,10 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.ok(response, "Đăng nhập thành công"));
     }
 
+    /**
+     * Nhận refresh token hiện tại và trả về cặp token kế tiếp; token cũ không
+     * còn được phép sử dụng lại sau khi xoay vòng thành công.
+     */
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponse<TokenResponse>> refresh(
             @Valid @RequestBody RefreshRequest request) {
@@ -42,6 +50,10 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    /**
+     * Thu hồi toàn bộ phiên được chỉ định trong access JWT hiện tại, khiến các
+     * token còn lại của chính phiên đó không thể tiếp tục truy cập hệ thống.
+     */
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(@AuthenticationPrincipal Jwt jwt) {
         authService.logout(jwt);
@@ -49,9 +61,8 @@ public class AuthController {
     }
 
     /**
-     * Returns the identity and current active roles of the authenticated access JWT subject.
-     * {@code Cache-Control: no-store} is set before resolution so it also applies to error
-     * responses produced by the exception handler for this endpoint.
+     * Trả về hồ sơ và vai trò đang hoạt động của người dùng đã xác thực. Dữ liệu
+     * được đọc lại từ database và response bị cấm cache để tránh lộ thông tin IAM.
      */
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<CurrentUserResponse>> me(

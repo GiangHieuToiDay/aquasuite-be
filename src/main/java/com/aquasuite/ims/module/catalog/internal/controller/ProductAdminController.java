@@ -5,8 +5,6 @@ import com.aquasuite.ims.module.catalog.internal.enums.ProductType;
 import com.aquasuite.ims.module.catalog.internal.payload.req.CreateProductRequest;
 import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateProductRequest;
 import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateProductStatusRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.res.BrandBriefResponse;
-import com.aquasuite.ims.module.catalog.internal.payload.res.CategoryBriefResponse;
 import com.aquasuite.ims.module.catalog.internal.payload.res.ProductDetailResponse;
 import com.aquasuite.ims.module.catalog.internal.payload.res.ProductSummaryResponse;
 import com.aquasuite.ims.module.catalog.internal.service.ProductAdminService;
@@ -23,7 +21,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -126,21 +123,4 @@ public class ProductAdminController {
         return ResponseEntity.ok(ApiResponse.ok(null, "Xóa sản phẩm thành công"));
     }
 
-    /**
-     * Lấy danh sách danh mục hoạt động (phục vụ bộ lọc và form chọn danh mục)
-     */
-    @GetMapping("/categories")
-    public ResponseEntity<ApiResponse<List<CategoryBriefResponse>>> getActiveCategories() {
-        List<CategoryBriefResponse> categories = productAdminService.getActiveCategories();
-        return ResponseEntity.ok(ApiResponse.ok(categories));
-    }
-
-    /**
-     * Lấy danh sách thương hiệu hoạt động (phục vụ bộ lọc và form chọn thương hiệu)
-     */
-    @GetMapping("/brands")
-    public ResponseEntity<ApiResponse<List<BrandBriefResponse>>> getActiveBrands() {
-        List<BrandBriefResponse> brands = productAdminService.getActiveBrands();
-        return ResponseEntity.ok(ApiResponse.ok(brands));
-    }
 }

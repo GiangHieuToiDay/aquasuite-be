@@ -300,31 +300,4 @@ class ProductAdminControllerTest {
         verify(productAdminService, times(1)).deleteProduct(sampleProductId);
     }
 
-    @Test
-    @DisplayName("GET /api/v1/catalog/categories - Lấy danh mục hoạt động (200 OK)")
-    void getActiveCategories_Success() throws Exception {
-        CategoryBriefResponse cat = new CategoryBriefResponse(sampleCategoryId, "CAT-01", "Thiết bị vệ sinh");
-        when(productAdminService.getActiveCategories()).thenReturn(List.of(cat));
-
-        mockMvc.perform(get("/api/v1/catalog/categories"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data[0].categoryCode").value("CAT-01"));
-
-        verify(productAdminService, times(1)).getActiveCategories();
-    }
-
-    @Test
-    @DisplayName("GET /api/v1/catalog/brands - Lấy thương hiệu hoạt động (200 OK)")
-    void getActiveBrands_Success() throws Exception {
-        BrandBriefResponse brand = new BrandBriefResponse(sampleBrandId, "TOTO", "TOTO Co.");
-        when(productAdminService.getActiveBrands()).thenReturn(List.of(brand));
-
-        mockMvc.perform(get("/api/v1/catalog/brands"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data[0].brandCode").value("TOTO"));
-
-        verify(productAdminService, times(1)).getActiveBrands();
-    }
 }

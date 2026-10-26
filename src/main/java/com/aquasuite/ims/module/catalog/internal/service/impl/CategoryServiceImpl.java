@@ -8,6 +8,7 @@ import com.aquasuite.ims.module.catalog.internal.mapper.CategoryMapper;
 import com.aquasuite.ims.module.catalog.internal.payload.req.CreateCategoryRequest;
 import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateCategoryRequest;
 import com.aquasuite.ims.module.catalog.internal.payload.res.CategoryResponse;
+import com.aquasuite.ims.module.catalog.internal.payload.res.CategoryBriefResponse;
 import com.aquasuite.ims.module.catalog.internal.repository.CategoryRepository;
 import com.aquasuite.ims.module.catalog.internal.repository.projection.CategoryHierarchyProjection;
 import com.aquasuite.ims.module.catalog.internal.service.CategoryService;
@@ -25,6 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -47,6 +49,16 @@ public class CategoryServiceImpl implements CategoryService {
     private final CategoryRepository categoryRepository;
     private final CategoryMapper categoryMapper;
 
+    /** Tải các danh mục ACTIVE và ánh xạ sang dữ liệu rút gọn cho dropdown. */
+    @Override
+    @Transactional(readOnly = true)
+    public List<CategoryBriefResponse> getActiveCategoryOptions() {
+        return categoryRepository.findAllActive().stream()
+                .map(category -> new CategoryBriefResponse(
+                        category.getCategoryId(), category.getCategoryCode(), category.getCategoryName()))
+                .toList();
+    }
+
     public CategoryServiceImpl(
             @org.springframework.beans.factory.annotation.Autowired(required = false) CategoryRepository categoryRepository,
             CategoryMapper categoryMapper) {
@@ -54,6 +66,7 @@ public class CategoryServiceImpl implements CategoryService {
         this.categoryMapper = categoryMapper;
     }
 
+    /** Xây dựng truy vấn lọc, sắp xếp và phân trang danh mục. */
     @Override
     @Transactional(readOnly = true)
     public PageResponse<CategoryResponse> listCategories(PageQuery pageQuery, String search, String status) {
@@ -105,6 +118,7 @@ public class CategoryServiceImpl implements CategoryService {
         return PageResponse.from(pageResult, categoryMapper::toResponse);
     }
 
+    /** Tải danh mục còn hiệu lực cùng thông tin cha để trả về. */
     @Override
     @Transactional(readOnly = true)
     public CategoryResponse getCategoryDetail(UUID categoryId) {
@@ -113,6 +127,7 @@ public class CategoryServiceImpl implements CategoryService {
         return categoryMapper.toResponse(category);
     }
 
+    /** Tạo danh mục sau khi kiểm tra mã, tên và danh mục cha. */
     @Override
     @Transactional
     public CategoryResponse createCategory(CreateCategoryRequest request) {
@@ -178,6 +193,7 @@ public class CategoryServiceImpl implements CategoryService {
         return categoryMapper.toResponse(category);
     }
 
+    /** Cập nhật danh mục đồng thời bảo toàn cấu trúc cây hợp lệ. */
     @Override
     @Transactional
     public CategoryResponse updateCategory(UUID categoryId, UpdateCategoryRequest request) {
@@ -241,6 +257,7 @@ public class CategoryServiceImpl implements CategoryService {
         return categoryMapper.toResponse(category);
     }
 
+    /** Xóa mềm danh mục khi không còn con hoặc sản phẩm phụ thuộc. */
     @Override
     @Transactional
     public void deleteCategory(UUID categoryId) {
@@ -260,6 +277,7 @@ public class CategoryServiceImpl implements CategoryService {
         log.info("Deactivated category '{}' ({})", category.getCategoryCode(), categoryId);
     }
 
+    /** Duyệt chuỗi tổ tiên để ngăn tự tham chiếu và chu trình phân cấp. */
     private void validateHierarchyAncestry(UUID targetCategoryId, UUID startParentId) {
         Set<UUID> visited = new HashSet<>();
         UUID current = startParentId;
@@ -282,6 +300,7 @@ public class CategoryServiceImpl implements CategoryService {
         }
     }
 
+    /** Chuẩn hóa mã về chữ hoa và kiểm tra định dạng được phép. */
     private String normalizeAndValidateCode(String rawCode) {
         if (rawCode == null) {
             throw new AppException(CatalogErrorCode.INVALID_CATEGORY_CODE);
@@ -297,6 +316,7 @@ public class CategoryServiceImpl implements CategoryService {
         return normalized;
     }
 
+    /** Loại khoảng trắng thừa và kiểm tra tên không rỗng. */
     private String normalizeAndValidateName(String rawName) {
         if (rawName == null) {
             throw new AppException(CommonErrorCode.VALIDATION_ERROR);
@@ -308,6 +328,7 @@ public class CategoryServiceImpl implements CategoryService {
         return trimmed;
     }
 
+    /** Chuẩn hóa mô tả rỗng thành null để lưu trữ nhất quán. */
     private String cleanDescription(String rawDescription) {
         if (rawDescription == null) {
             return null;

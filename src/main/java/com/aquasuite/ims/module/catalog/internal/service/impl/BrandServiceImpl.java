@@ -8,6 +8,7 @@ import com.aquasuite.ims.module.catalog.internal.mapper.BrandMapper;
 import com.aquasuite.ims.module.catalog.internal.payload.req.CreateBrandRequest;
 import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateBrandRequest;
 import com.aquasuite.ims.module.catalog.internal.payload.res.BrandResponse;
+import com.aquasuite.ims.module.catalog.internal.payload.res.BrandBriefResponse;
 import com.aquasuite.ims.module.catalog.internal.repository.BrandRepository;
 import com.aquasuite.ims.module.catalog.internal.service.BrandService;
 import com.aquasuite.ims.share.exception.AppException;
@@ -23,6 +24,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
@@ -42,6 +44,16 @@ public class BrandServiceImpl implements BrandService {
     private final BrandRepository brandRepository;
     private final BrandMapper brandMapper;
 
+    /** Tải các thương hiệu ACTIVE và ánh xạ sang dữ liệu rút gọn cho dropdown. */
+    @Override
+    @Transactional(readOnly = true)
+    public List<BrandBriefResponse> getActiveBrandOptions() {
+        return brandRepository.findAllActive().stream()
+                .map(brand -> new BrandBriefResponse(
+                        brand.getBrandId(), brand.getBrandCode(), brand.getBrandName()))
+                .toList();
+    }
+
     public BrandServiceImpl(
             @org.springframework.beans.factory.annotation.Autowired(required = false) BrandRepository brandRepository,
             BrandMapper brandMapper) {
@@ -49,6 +61,7 @@ public class BrandServiceImpl implements BrandService {
         this.brandMapper = brandMapper;
     }
 
+    /** Xây dựng truy vấn lọc, sắp xếp và phân trang thương hiệu. */
     @Override
     @Transactional(readOnly = true)
     public PageResponse<BrandResponse> listBrands(PageQuery pageQuery, String search, String status) {
@@ -100,6 +113,7 @@ public class BrandServiceImpl implements BrandService {
         return PageResponse.from(pageResult, brandMapper::toResponse);
     }
 
+    /** Tải thương hiệu còn hiệu lực và ánh xạ sang response. */
     @Override
     @Transactional(readOnly = true)
     public BrandResponse getBrandDetail(UUID brandId) {
@@ -108,6 +122,7 @@ public class BrandServiceImpl implements BrandService {
         return brandMapper.toResponse(brand);
     }
 
+    /** Kiểm tra dữ liệu đầu vào, tính duy nhất rồi lưu thương hiệu mới. */
     @Override
     @Transactional
     public BrandResponse createBrand(CreateBrandRequest request) {
@@ -156,6 +171,7 @@ public class BrandServiceImpl implements BrandService {
         return brandMapper.toResponse(brand);
     }
 
+    /** Áp dụng thay đổi hợp lệ và xử lý đồng thời bằng ràng buộc database. */
     @Override
     @Transactional
     public BrandResponse updateBrand(UUID brandId, UpdateBrandRequest request) {
@@ -197,6 +213,7 @@ public class BrandServiceImpl implements BrandService {
         return brandMapper.toResponse(brand);
     }
 
+    /** Chuyển thương hiệu sang trạng thái xóa mềm sau khi kiểm tra phụ thuộc. */
     @Override
     @Transactional
     public void deleteBrand(UUID brandId) {
@@ -208,6 +225,7 @@ public class BrandServiceImpl implements BrandService {
         log.info("Deactivated brand '{}' ({})", brand.getBrandCode(), brandId);
     }
 
+    /** Chuẩn hóa mã về chữ hoa và kiểm tra định dạng được phép. */
     private String normalizeAndValidateCode(String rawCode) {
         if (rawCode == null) {
             throw new AppException(CatalogErrorCode.INVALID_BRAND_CODE);
@@ -223,6 +241,7 @@ public class BrandServiceImpl implements BrandService {
         return normalized;
     }
 
+    /** Loại khoảng trắng thừa và kiểm tra tên không rỗng. */
     private String normalizeAndValidateName(String rawName) {
         if (rawName == null) {
             throw new AppException(CommonErrorCode.VALIDATION_ERROR);
@@ -234,6 +253,7 @@ public class BrandServiceImpl implements BrandService {
         return trimmed;
     }
 
+    /** Chuẩn hóa mô tả rỗng thành null để lưu trữ nhất quán. */
     private String cleanDescription(String rawDescription) {
         if (rawDescription == null) {
             return null;

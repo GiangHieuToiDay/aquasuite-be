@@ -32,6 +32,10 @@ public class AccessAuthenticationConverter implements Converter<Jwt, AbstractAut
 
     private final CurrentAuthoritiesService currentAuthoritiesService;
 
+    /**
+     * Đọc user ID từ JWT, kiểm tra tài khoản còn ACTIVE, tải vai trò/quyền mới
+     * nhất từ database và tạo Authentication dùng cho kiểm tra phân quyền.
+     */
     @Override
     public AbstractAuthenticationToken convert(Jwt jwt) {
         UUID userId;
@@ -84,6 +88,7 @@ public class AccessAuthenticationConverter implements Converter<Jwt, AbstractAut
         return new JwtAuthenticationToken(jwt, authorities, user.getUsername());
     }
 
+    /** Gắn mã lỗi xác thực vào request để entry point trả response thống nhất. */
     private void setAuthError(BaseErrorCode errorCode) {
         RequestAttributes attr = RequestContextHolder.getRequestAttributes();
         if (attr instanceof ServletRequestAttributes servletRequestAttributes) {

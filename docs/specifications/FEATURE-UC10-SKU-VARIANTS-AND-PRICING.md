@@ -32,7 +32,7 @@ UC-10 lets a Store Owner manage saleable SKU variants belonging to an existing m
 
 | Actor | Required role | Authorized operations |
 |---|---|---|
-| Store Owner | `ROLE_STORE_OWNER` | All UC-10 operations, including retail/cost-price changes and hard deletion |
+| Store Owner | `ROLE_SHOP_OWNER` | All UC-10 operations, including retail/cost-price changes and hard deletion |
 | Other roles | Any | No UC-10 mutation or deletion operation |
 
 No credential or personally sensitive value is in the UC-10 payload. Audit records store a variant snapshot and an optional deletion reason; they never store user secrets.
@@ -88,15 +88,15 @@ All endpoints return `ApiResponse<T>`.
 
 | Method and URI | Purpose |
 |---|---|
-| `GET /api/v1/products/{productId}/variants` | Paginated/filterable variant list and summary cards |
-| `POST /api/v1/products/{productId}/variants` | Create one variant; returns MSG39 |
-| `POST /api/v1/products/{productId}/variants/matrix` | Atomically create Color × Size variants; returns MSG40 |
-| `PUT /api/v1/products/{productId}/variants/{variantId}` | Update editable variant/pricing fields |
-| `PATCH /api/v1/products/{productId}/variants/{variantId}/status` | Deactivate/reactivate |
-| `GET /api/v1/products/{productId}/variants/{variantId}/deletion-eligibility` | Return counts/checklist used by the two-step dialog |
-| `DELETE /api/v1/products/{productId}/variants/{variantId}` | Permanently delete after explicit confirmation and optional reason |
+| `GET /api/v1/catalog/products/{productId}/variants` | Paginated/filterable variant list and summary cards |
+| `POST /api/v1/catalog/products/{productId}/variants` | Create one variant; returns MSG39 |
+| `POST /api/v1/catalog/products/{productId}/variants/matrix` | Atomically create Color × Size variants; returns MSG40 |
+| `PUT /api/v1/catalog/products/{productId}/variants/{variantId}` | Update editable variant/pricing fields |
+| `PATCH /api/v1/catalog/products/{productId}/variants/{variantId}/status` | Deactivate/reactivate |
+| `GET /api/v1/catalog/products/{productId}/variants/{variantId}/deletion-eligibility` | Return counts/checklist used by the two-step dialog |
+| `DELETE /api/v1/catalog/products/{productId}/variants/{variantId}` | Permanently delete after explicit confirmation and optional reason |
 
-Mutation endpoints require `ROLE_STORE_OWNER`. The delete request contains `confirmed: true` and optional `reason`; the eligibility endpoint is read-only and never mutates data.
+Mutation endpoints require `ROLE_SHOP_OWNER`. The delete request contains `confirmed: true` and optional `reason`; the eligibility endpoint is read-only and never mutates data.
 
 ### Inter-module contracts
 

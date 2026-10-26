@@ -55,6 +55,10 @@ public class AuthServiceImpl implements AuthService {
         this.currentAuthoritiesService = currentAuthoritiesService;
     }
 
+    /**
+     * Xác thực email/mật khẩu qua AuthenticationManager, kiểm tra tài khoản ACTIVE
+     * rồi chuyển sang bước phát hành token và lưu phiên.
+     */
     @Override
     public LoginResponse login(LoginRequest request) {
         if (userRepository == null) {
@@ -91,6 +95,10 @@ public class AuthServiceImpl implements AuthService {
         return createSession(user);
     }
 
+    /**
+     * Tải tài khoản vừa kích hoạt theo ID, bảo đảm tài khoản ACTIVE và tạo phiên
+     * mà không yêu cầu người dùng nhập lại mật khẩu.
+     */
     @Override
     public LoginResponse loginRegisteredUser(UUID userId) {
         User user =
@@ -103,7 +111,10 @@ public class AuthServiceImpl implements AuthService {
         return createSession(user);
     }
 
-    /** Both credential login and OTP activation use the same existing JWT/session implementation. */
+    /**
+     * Tạo session ID và refresh-token ID, phát hành cặp JWT, lưu phiên vào Redis
+     * rồi dựng response người dùng với danh sách vai trò đang hoạt động.
+     */
     private LoginResponse createSession(User user) {
         UUID sessionId = UUID.randomUUID();
         UUID refreshJti = UUID.randomUUID();
@@ -136,6 +147,10 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
+    /**
+     * Xác minh chữ ký và claim của refresh token, kiểm tra tài khoản/database,
+     * sau đó xoay vòng token nguyên tử trong Redis để phát hiện replay.
+     */
     @Override
     public TokenResponse refresh(RefreshRequest request) {
         // 1. Verify cryptographic validity, issuer, audience, token_type=REFRESH, auth_version=2
@@ -260,6 +275,10 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
+    /**
+     * Đọc user ID và session ID từ access JWT rồi đánh dấu phiên tương ứng đã
+     * bị thu hồi trong Redis với lý do đăng xuất.
+     */
     @Override
     public void logout(Jwt jwt) {
         if (jwt == null) {
@@ -285,9 +304,8 @@ public class AuthServiceImpl implements AuthService {
     }
 
     /**
-     * Read-only profile resolution for {@code GET /api/v1/auth/me}. Identity comes only from the
-     * already authenticated access JWT {@code sub}; profile and roles are re-read from PostgreSQL so
-     * role changes are visible on the next request without token reissue. Does not touch Redis.
+     * Lấy user ID từ access JWT đã xác thực, đọc lại hồ sơ và vai trò từ PostgreSQL
+     * để thay đổi quyền có hiệu lực ngay ở request kế tiếp; method này không ghi Redis.
      */
     @Override
     public CurrentUserResponse getCurrentUser(Jwt jwt) {
