@@ -1,6 +1,6 @@
 # Hướng dẫn code UC13 — Phase 1 và Phase 2: Quản lý combo
 
-Đối chiếu spec 0.13.0 và code hiện tại, cập nhật ngày 2026-10-21; plan 0.11.0 là bằng chứng tích hợp authentication trước thay đổi response. Giữ tên file cũ để các liên kết đang có tiếp tục hoạt động. [Spec đầy đủ](specs/SCRUM14-UC13-product-combos.md), [plan và tiến độ](../.agent/plans/SCRUM14-UC13.md), [handoff Phase 1](../.agent/handoffs/SCRUM14-UC13-phase1-verification.md), [handoff Phase 2](../.agent/handoffs/SCRUM14-UC13-phase2-verification.md), [authentication integration evidence](specs/SCRUM14-UC13-product-combos.md#authentication-integration-evidence-0110-historical).
+Đối chiếu spec 0.13.0 và code hiện tại, cập nhật ngày 2026-10-21; plan 0.11.0 là bằng chứng tích hợp authentication trước thay đổi response. Giữ tên file cũ để các liên kết đang có tiếp tục hoạt động. [Spec đầy đủ](specifications/SCRUM14-UC13-product-combos.md), [plan và tiến độ](../.agent/plans/SCRUM14-UC13.md), [handoff Phase 1](../.agent/handoffs/SCRUM14-UC13-phase1-verification.md), [handoff Phase 2](../.agent/handoffs/SCRUM14-UC13-phase2-verification.md), [authentication integration evidence](specifications/SCRUM14-UC13-product-combos.md#authentication-integration-evidence-0110-historical).
 
 ## Bundle payload packages
 

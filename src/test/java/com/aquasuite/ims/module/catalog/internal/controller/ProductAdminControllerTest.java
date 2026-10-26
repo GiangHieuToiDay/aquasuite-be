@@ -27,7 +27,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
@@ -80,8 +80,8 @@ class ProductAdminControllerTest {
                 .brand(new BrandBriefResponse(sampleBrandId, "BRAND-01", "Thương hiệu 1"))
                 .images(Collections.emptyList())
                 .variants(Collections.emptyList())
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
                 .build();
     }
 
@@ -168,7 +168,7 @@ class ProductAdminControllerTest {
                 .totalVariants(1)
                 .minSellingPrice(new BigDecimal("150000"))
                 .maxSellingPrice(new BigDecimal("150000"))
-                .createdAt(LocalDateTime.now())
+                .createdAt(Instant.now())
                 .build();
 
         when(productAdminService.listProducts(any(), any(), any(), any(), any(), any()))

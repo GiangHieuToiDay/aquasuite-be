@@ -206,18 +206,43 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code", is("CAT_013")));
 
-        // 7. Delete child succeeds
+        // 7. Delete child succeeds by changing its status to INACTIVE
         mockMvc.perform(delete("/api/v1/categories/{categoryId}", childId)
                         .header("Authorization", "Bearer " + shopOwnerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success", is(true)))
                 .andExpect(jsonPath("$.data").doesNotExist()); // null data omitted
 
-        // 8. Now delete root succeeds
-        mockMvc.perform(delete("/api/v1/categories/{categoryId}", rootId)
+        mockMvc.perform(get("/api/v1/categories/{categoryId}", childId)
                         .header("Authorization", "Bearer " + shopOwnerToken))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status", is("INACTIVE")));
+
+        // 8. Delete child a second time when already INACTIVE is idempotent and leaves it INACTIVE
+        mockMvc.perform(delete("/api/v1/categories/{categoryId}", childId)
+                        .header("Authorization", "Bearer " + shopOwnerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success", is(true)))
                 .andExpect(jsonPath("$.data").doesNotExist());
+
+        mockMvc.perform(get("/api/v1/categories/{categoryId}", childId)
+                        .header("Authorization", "Bearer " + shopOwnerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status", is("INACTIVE")));
+
+        // 9. The child still exists, so deleting the root remains blocked
+        mockMvc.perform(delete("/api/v1/categories/{categoryId}", rootId)
+                        .header("Authorization", "Bearer " + shopOwnerToken))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code", is("CAT_013")));
+
+        // 10. Delete non-existent category returns 404 NOT_FOUND (CAT_001)
+        UUID nonExistentCategoryId = UUID.randomUUID();
+        mockMvc.perform(delete("/api/v1/categories/{categoryId}", nonExistentCategoryId)
+                        .header("Authorization", "Bearer " + shopOwnerToken))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success", is(false)))
+                .andExpect(jsonPath("$.code", is("CAT_001")));
     }
 
     @Test
@@ -436,16 +461,25 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .andExpect(jsonPath("$.data.totalElements", is(1)))
                 .andExpect(jsonPath("$.data.items[0].code", is("TOTO")));
 
-        // 7. Delete brand
+        // 7. Delete brand by changing its status to INACTIVE
         mockMvc.perform(delete("/api/v1/brands/{brandId}", brandId)
                         .header("Authorization", "Bearer " + shopOwnerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").doesNotExist());
 
-        // 8. Get deleted brand -> 404 CAT_002
+        // 8. The brand remains available to admin/history queries as INACTIVE
         mockMvc.perform(get("/api/v1/brands/{brandId}", brandId)
                         .header("Authorization", "Bearer " + shopOwnerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id", is(brandId.toString())))
+                .andExpect(jsonPath("$.data.status", is("INACTIVE")));
+
+        // 9. Delete non-existent brand returns 404 NOT_FOUND (CAT_002)
+        UUID nonExistentBrandId = UUID.randomUUID();
+        mockMvc.perform(delete("/api/v1/brands/{brandId}", nonExistentBrandId)
+                        .header("Authorization", "Bearer " + shopOwnerToken))
                 .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success", is(false)))
                 .andExpect(jsonPath("$.code", is("CAT_002")));
     }
 

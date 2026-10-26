@@ -4,7 +4,7 @@ import com.aquasuite.ims.module.catalog.internal.enums.ProductStatus;
 import com.aquasuite.ims.module.catalog.internal.enums.ProductType;
 import lombok.Builder;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -22,6 +22,6 @@ public record ProductDetailResponse(
         ProductStatus status,
         List<ProductImageResponse> images,
         List<ProductVariantResponse> variants,
-        LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        Instant createdAt,
+        Instant updatedAt
 ) {}

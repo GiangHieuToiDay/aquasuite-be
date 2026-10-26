@@ -1,8 +1,8 @@
 # Flyway database migrations
 
-## Current chain after develop integration (2026-10-21)
+## Current chain after develop integration (updated 2026-10-26)
 
-This chain is reconciled for a new, empty PostgreSQL database. Java 21 / Spring Boot 3.5.16 manages Flyway. Keep Hibernate ddl-auto=validate. Supply credentials through environment variables; no live database was migrated during this reconciliation.
+This chain is reconciled for a new, empty PostgreSQL database. Java 21 / Spring Boot 3.5.16 manages Flyway. Keep Hibernate ddl-auto=validate and supply credentials through environment variables.
 
 | Version | Migration | Ownership / purpose |
 |---|---|---|
@@ -18,11 +18,16 @@ This chain is reconciled for a new, empty PostgreSQL database. Java 21 / Spring 
 | 8 | V8__SCRUM14_phase2_combo_options.sql | Component groups and SKU whitelist constraints |
 | 9 | V9__password_recovery_storage.sql | Storage required by the retained UserPasswordRecovery entity; no legacy-account backfill |
 | 10 | V10__SCRUM08_registration_phone_preflight.sql | Reject noncanonical/duplicate existing user phone values; reuse develop's full_name and phone index |
+| 11 | V11__complete_canonical_schema.sql | Add entity-mapped fields missing from the reconciled chain: IAM authentication state and Brand timestamps |
+| 12 | V12__create_sales_quotation_schema.sql | Complete V5's quotation placeholder for the UUID-based Sales quotation entities |
 
-Flyway interprets underscores within version numbers as dots: V2_1 is version 2.1 and V3_1 is 3.1. This preserves develop's major version order while removing its duplicate versions. Local feature additions start after develop's highest version, V6.
+Flyway interprets underscores within version numbers as dots: V2_1 is version 2.1 and V3_1 is 3.1. This preserves develop's major version order while removing duplicate versions. New local additions continue after V10.
 
 ## Removed duplicate or obsolete SQL
 
+- V1__init_iam.sql: incompatible numeric-ID IAM baseline (`BIGSERIAL`, `password`, inline role/permission IDs); superseded by canonical UUID IAM V1. Its still-required authentication-state columns are added safely by V11.
+- V2__init_catalog.sql: duplicate catalog baseline superseded by V3 categories/brands and V4 products/variants/images/bundle items.
+- V3__init_inventory.sql: duplicate inventory baseline superseded by V2.1; it also used `BIGINT` actor references incompatible with UUID IAM.
 - V1__Initial_legacy_schema.sql: superseded by develop's module baselines; creating its numeric-ID users and duplicate catalog/inventory tables would conflict.
 - V4__integrate_uuid_authentication.sql: obsolete on develop's UUID IAM foundation; must not rename/recreate its existing users or roles.
 - V7__SCRUM08_customer_profiles.sql: customers already exists from develop V6; keep develop's Customer schema and foreign-key behavior.
@@ -35,9 +40,15 @@ Flyway interprets underscores within version numbers as dots: V2_1 is version 2.
 
 Renamed/removed SQL and the reconciled V4/V7/V9 content change migration identity/checksums. This is a new-database chain, not an automatic upgrade path for any previously migrated database. Historical V1-V7 references in older specs/reviews describe the former chain, not the current numbering. Earlier test totals do not verify this new chain.
 
-For an existing local/shared/production database, back up and inspect flyway_schema_history and actual schema before choosing a separate reviewed forward-upgrade/onboarding procedure. Do not automatically baseline, repair, delete history, rewrite applied migrations or recreate a database. No existing database contents or history were changed here.
+For an existing shared/production database, back up and inspect flyway_schema_history and actual schema before choosing a separate reviewed forward-upgrade/onboarding procedure. Do not automatically baseline, repair, delete history, rewrite applied migrations or recreate a database.
+
+On 2026-10-26 the developer's local database was inspected before migration: the V5 `quotation_items` placeholder contained zero rows. The missing versions were applied with Flyway's one-time out-of-order mode, then V11 and V12 were applied normally. Out-of-order mode was removed afterwards. The database now reports schema version 12.
+
+V12 intentionally keeps UUID identifiers consistent with IAM, CRM and catalog. It creates `quotations` and `quotation_payment_milestones`, and expands V5's empty `quotation_items` placeholder to match the current Sales entities.
 
 ## Verification
+
+On 2026-10-26, Flyway applied all 14 migrations through V12 to a fresh PostgreSQL 17.6 Testcontainers database. Hibernate initialized the EntityManagerFactory successfully. The same V12 migration was then applied to the inspected local PostgreSQL database, and the full application started successfully on port 8080 with `ddl-auto=validate`.
 
 On 2026-10-21, all 12 SQL files ran in version order against an isolated disposable PostgreSQL 17.6 container, each in a transaction with ON_ERROR_STOP. All passed. Checks confirmed the required IAM/CRM/inventory/catalog/combo/recovery tables, UUID users, exactly one unique phone index and absence of unused audit_entries. Container was stopped and removed after verification; no ports were exposed.
 

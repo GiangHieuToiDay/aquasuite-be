@@ -203,13 +203,9 @@ public class BrandServiceImpl implements BrandService {
         Brand brand = brandRepository.findById(brandId)
                 .orElseThrow(() -> new AppException(CatalogErrorCode.BRAND_NOT_FOUND));
 
-        try {
-            brandRepository.delete(brand);
-            brandRepository.flush();
-            log.info("Deleted brand '{}' ({})", brand.getBrandCode(), brandId);
-        } catch (DataIntegrityViolationException ex) {
-            throw CatalogConstraintExceptionTranslator.translateBrandDeleteException(ex);
-        }
+        brand.setStatus(BrandStatus.INACTIVE);
+        brandRepository.saveAndFlush(brand);
+        log.info("Deactivated brand '{}' ({})", brand.getBrandCode(), brandId);
     }
 
     private String normalizeAndValidateCode(String rawCode) {

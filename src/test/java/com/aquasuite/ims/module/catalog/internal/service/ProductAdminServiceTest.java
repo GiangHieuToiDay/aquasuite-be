@@ -25,7 +25,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -99,7 +99,7 @@ class ProductAdminServiceTest {
         when(productRepository.save(any(Product.class))).thenAnswer(invocation -> {
             Product p = invocation.getArgument(0);
             p.setProductId(productId);
-            p.setCreatedAt(LocalDateTime.now());
+            p.setCreatedAt(Instant.now());
             return p;
         });
 
@@ -253,7 +253,7 @@ class ProductAdminServiceTest {
                 .brandId(brandId)
                 .productType(ProductType.NORMAL)
                 .status(ProductStatus.ACTIVE)
-                .createdAt(LocalDateTime.now())
+                .createdAt(Instant.now())
                 .build();
 
         Pageable pageable = PageRequest.of(0, 10);
