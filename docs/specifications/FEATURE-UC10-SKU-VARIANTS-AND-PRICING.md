@@ -3,11 +3,11 @@
 ## Metadata and Governance
 
 - **Feature ID**: `UC-10` / `FE-03`
-- **Version**: `0.1.1`
+- **Version**: `0.1.2`
 - **Owning Module**: `catalog`
 - **Repository Scope**: `BE (aquasuite-be)`
 - **Target Package**: `com.aquasuite.ims.module.catalog`
-- **Database Baseline**: PostgreSQL; forward-only Flyway migrations after V4
+- **Database Baseline**: PostgreSQL; canonical forward-only Flyway chain V1–V14
 - **Spec Review Status**: `APPROVED`
 - **Risk Level**: `HIGH` — pricing, cross-module inventory initialization, and irreversible hard deletion
 
@@ -53,10 +53,10 @@ No credential or personally sensitive value is in the UC-10 payload. Audit recor
 The system returns a complete eligibility report before final confirmation. Hard deletion is blocked with `409 SKU_007` when any condition below is false:
 
 - Every inventory row for the variant has both `on_hand_qty = 0` and `reserved_qty = 0`.
-- Reference counts are zero for `goods_receipt_items`, `stock_movements`, `stock_dispatch_items`, `quotation_items`, `order_items`, `sales_invoice_items`, and `stock_count_items`.
-- The variant is not a `bundle_items` component of a product whose status is `ACTIVE`.
+- Reference counts are zero for `goods_receipt_items`, `stock_movements`, `stock_dispatch_items`, `quotation_items`, `order_items`, `sales_invoice_items`, `stock_count_items`, `purchase_order_items`, and `delivery_items`.
+- The variant is not a `bundle_items` component or a selected/default component-group option of a product whose status is `ACTIVE`.
 
-`cart_items` do not block deletion. On the final confirmation they are deleted, together with the zero-quantity inventory row, variant-specific images, and inactive-bundle memberships, before the variant itself is deleted. The deletion and its complete pre-delete snapshot/reason are recorded in `audit_logs` after commit. If blocked, the response returns the concrete counts and the UI may immediately invoke the deactivate endpoint instead.
+`cart_items` do not block deletion. On the final confirmation they are deleted, together with the zero-quantity inventory row, variant-specific images, and inactive-bundle memberships. For inactive component groups, a default-SKU group is removed and a non-default allowed SKU is removed from its allowed list before the variant itself is deleted. The deletion and its complete pre-delete snapshot/reason are recorded in `audit_logs` after commit. If blocked, the response returns the concrete counts and the UI may immediately invoke the deactivate endpoint instead.
 
 ## 4. State Lifecycle
 
@@ -72,9 +72,9 @@ The system returns a complete eligibility report before final confirmation. Hard
 
 ## 5. Data Model and Forward Migration
 
-`product_variants`, `product_images`, `bundle_items`, `inventories`, `stock_movements`, and `stock_count_items` already exist in V2/V4. The feature requires a new forward migration to add only the document-line and cart tables required by the deletion guard: `goods_receipt_items`, `stock_dispatch_items`, `quotation_items`, `order_items`, `sales_invoice_items`, `carts`, and `cart_items`. Each document-line table has a physical `variant_id` foreign key to `product_variants` and an index for deletion checks.
+`product_variants`, `product_images`, `bundle_items`, `inventories`, `stock_movements`, and `stock_count_items` exist in the canonical baseline. V5 added the original document-line/cart references used by this feature: `goods_receipt_items`, `stock_dispatch_items`, `quotation_items`, `order_items`, `sales_invoice_items`, `carts`, and `cart_items`. Later owner-module migrations V13 and V14 added `purchase_order_items` and `delivery_items`, also with physical `variant_id` foreign keys. UC-10 does not own or modify those schemas, but its hard-deletion guard must count every such reference.
 
-Document header tables (`goods_receipts`, `quotations`, `orders`, `sales_invoices`, and dispatch headers) are explicitly out of UC-10 scope. Their scalar header-ID columns are compatibility placeholders; the owning future Sales/Purchasing features will add header tables and header-to-line foreign keys in their own forward migrations.
+Document header ownership remains outside UC-10. UC-10 only consumes scalar variant-reference counts through public contracts; it does not create, update, or delete header or historical line records.
 
 No old Flyway migration is edited. The migration must be additive and compatible with the V1–V4 column names and types already applied.
 
@@ -110,7 +110,7 @@ Catalog publishes immutable public records for variant creation, update, status 
 
 - Single create/update and each matrix batch are `REQUIRED` transactions.
 - SKU uniqueness is enforced by `uq_product_variants_sku`; database duplicate-key races map to MSG41.
-- Deletion locks the variant and inventory rows, re-evaluates all usage counts inside the final transaction, removes permitted dependents in FK-safe order, then deletes the variant. A changed reference between eligibility preview and confirmation causes `SKU_007`.
+- Deletion acquires a pessimistic write lock on the variant before it reads final eligibility. It locks inventory rows and re-evaluates every document, inventory, and active-combo reference inside that same transaction, then removes permitted dependents in FK-safe order before deleting. A changed reference between eligibility preview and confirmation causes `SKU_007`, never an exposed foreign-key failure.
 - Inventory initialization is idempotent to protect retries. If it fails, the surrounding variant transaction rolls back.
 - Audit is an after-commit side effect. An audit failure never restores a permanently deleted variant; the listener logs and supports operational reconciliation.
 
@@ -121,7 +121,7 @@ Catalog publishes immutable public records for variant creation, update, status 
 - [ ] A duplicate SKU, invalid conversion rate, or negative price is rejected; a below-cost price requires acknowledgement.
 - [ ] Missing retail price forces `INACTIVE`; inactive variants are excluded from sale eligibility.
 - [ ] Status/pricing changes are audited and do not rewrite existing quotation/order/invoice price snapshots.
-- [ ] Eligibility reports exact reference and inventory counts.
+- [ ] Eligibility reports exact reference and inventory counts, including purchase-order, delivery-item, and active component-group-option references.
 - [ ] A referenced/reserved/nonzero/active-bundle variant returns `409 SKU_007`; deactivation remains available.
 - [ ] An eligible confirmed deletion removes allowed dependents and variant atomically, records audit data, and allows the SKU to be recreated.
 - [ ] Non-Store-Owner mutation/deletion requests are forbidden.

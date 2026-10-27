@@ -169,9 +169,19 @@ public class InventoryServiceImpl implements InventoryApi, InventoryService {
     @Override
     @Transactional(readOnly = true)
     public VariantInventoryUsage getVariantDeletionUsage(UUID variantId) {
+        return deletionUsage(variantId, inventoryRepository.findAllByVariantId(variantId));
+    }
+
+    @Override
+    @Transactional
+    public VariantInventoryUsage lockAndGetVariantDeletionUsage(UUID variantId) {
+        return deletionUsage(variantId, inventoryRepository.findAllByVariantIdForUpdate(variantId));
+    }
+
+    private VariantInventoryUsage deletionUsage(UUID variantId, List<Inventory> inventories) {
         BigDecimal onHand = BigDecimal.ZERO;
         BigDecimal reserved = BigDecimal.ZERO;
-        for (Inventory inventory : inventoryRepository.findAllByVariantId(variantId)) {
+        for (Inventory inventory : inventories) {
             onHand = onHand.add(inventory.getOnHandQty() == null ? BigDecimal.ZERO : inventory.getOnHandQty());
             reserved = reserved.add(inventory.getReservedQty() == null ? BigDecimal.ZERO : inventory.getReservedQty());
         }

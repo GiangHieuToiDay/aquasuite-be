@@ -2,6 +2,8 @@ package com.aquasuite.ims.module.catalog.internal.repository;
 
 import com.aquasuite.ims.module.catalog.internal.entity.ProductVariant;
 import com.aquasuite.ims.module.catalog.internal.enums.VariantStatus;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -23,6 +25,12 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
     Optional<ProductVariant> findBySku(String sku);
 
     Optional<ProductVariant> findBySkuIgnoreCase(String sku);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT variant FROM ProductVariant variant WHERE variant.productId = :productId AND variant.variantId = :variantId")
+    Optional<ProductVariant> findByProductIdAndVariantIdForUpdate(
+            @Param("productId") UUID productId,
+            @Param("variantId") UUID variantId);
 
     List<ProductVariant> findBySkuIn(Collection<String> skus);
 

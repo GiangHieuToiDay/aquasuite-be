@@ -35,5 +35,6 @@ public interface InventoryApi {
     void adjustPhysicalStock(StockAdjustCommand command);
     void initializeMainWarehouseInventory(UUID variantId);
     VariantInventoryUsage getVariantDeletionUsage(UUID variantId);
+    VariantInventoryUsage lockAndGetVariantDeletionUsage(UUID variantId);
     void deleteEmptyVariantInventory(UUID variantId);
 }
