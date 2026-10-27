@@ -56,7 +56,7 @@ class IamMigrationIntegrationTest extends PostgreSqlIntegrationTestSupport {
             try (ResultSet rs = ps.executeQuery()) {
                 assertThat(rs.next()).isTrue();
                 assertThat(rs.getString("version")).isEqualTo("1");
-                assertThat(rs.getString("script")).isEqualTo("V1__create_iam_foundation.sql");
+                assertThat(rs.getString("script")).isEqualTo("V1__create_aquasuite_baseline.sql");
                 assertThat(rs.getBoolean("success")).isTrue();
                 assertThat(rs.next()).isFalse();
             }
@@ -88,7 +88,9 @@ class IamMigrationIntegrationTest extends PostgreSqlIntegrationTestSupport {
         List<String> userCols = getColumnNames("users");
         assertThat(userCols).containsExactlyInAnyOrder(
                 "id", "username", "email", "password_hash", "avatar_url", "created_at", "status", "phone",
-                "provider", "provider_id", "is_verified", "full_name"
+                "provider", "provider_id", "is_verified", "full_name", "password_last_changed_at",
+                "verification_code", "fcm_token", "verification_expired_at", "email_sent_count",
+                "email_sent_date"
         );
 
         // Check columns of user_roles
@@ -151,12 +153,12 @@ class IamMigrationIntegrationTest extends PostgreSqlIntegrationTestSupport {
     }
 
     @Test
-    @DisplayName("AC-14: Deferred fields must not exist in public.users")
-    void testDeferredFieldsAbsence() throws SQLException {
+    @DisplayName("Canonical baseline contains the current authentication state fields")
+    void testAuthenticationStateFieldsPresence() throws SQLException {
         List<String> userCols = getColumnNames("users");
-        assertThat(userCols).doesNotContain(
+        assertThat(userCols).contains(
                 "verification_code", "verification_expired_at",
-                "email_sent_count", "email_sent_date", "fcm_token"
+                "email_sent_count", "email_sent_date", "fcm_token", "password_last_changed_at"
         );
     }
 

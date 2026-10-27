@@ -1,13 +1,17 @@
 package com.aquasuite.ims.support;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.sql.DriverManager;
+import java.util.UUID;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.FlywayException;
 import org.junit.jupiter.api.Test;
-import java.sql.DriverManager;
-import java.util.UUID;
-import static org.junit.jupiter.api.Assertions.*;
 
-/** Verifies migration lifecycle against disposable PostgreSQL databases only. */
+/** Verifies the canonical baseline against disposable PostgreSQL databases only. */
 class FlywayMigrationIT {
     private String database() throws Exception {
         String name = "flyway_" + UUID.randomUUID().toString().replace("-", "");
@@ -32,7 +36,7 @@ class FlywayMigrationIT {
     @Test
     void emptyDatabaseMigratesAndRetryDoesNothing() throws Exception {
         var flyway = config(database()).load();
-        assertEquals(7, flyway.migrate().migrationsExecuted);
+        assertEquals(1, flyway.migrate().migrationsExecuted);
         assertTrue(flyway.validateWithResult().validationSuccessful);
         assertEquals(0, flyway.migrate().migrationsExecuted);
         assertThrows(FlywayException.class, flyway::clean);
@@ -54,44 +58,26 @@ class FlywayMigrationIT {
     }
 
     @Test
-    void legacyBaselineBackfillsAndCurrentBaselinePreservesData() throws Exception {
+    void categoryInsertUsesDatabaseTimestampDefaults() throws Exception {
         String url = database();
-        // Represents an existing pre-combo database: V1 schema without Flyway history.
-        var legacy = config(url).target("1").load();
-        legacy.migrate();
+        config(url).load().migrate();
+
         var db = BundleCoreTestSupport.DB;
         try (var c = DriverManager.getConnection(url, db.getUsername(), db.getPassword());
                 var s = c.createStatement()) {
-            s.execute("DROP TABLE flyway_schema_history");
             s.execute(
-                    "INSERT INTO products(product_id,category_id,product_code,product_name,product_type,status)"
-                            + " VALUES ('10000000-0000-4000-8000-000000000010',"
-                            + "'10000000-0000-4000-8000-000000000001','LEGACY','Legacy','BUNDLE','INACTIVE')");
-        }
-        var upgraded = config(url).target("2").baselineVersion("1").load();
-        upgraded.baseline();
-        assertEquals(1, upgraded.migrate().migrationsExecuted);
-        try (var c = DriverManager.getConnection(url, db.getUsername(), db.getPassword());
-                var s = c.createStatement()) {
+                    "INSERT INTO public.categories "
+                            + "(category_id, category_code, category_name, status) VALUES "
+                            + "('10000000-0000-4000-8000-000000000099', "
+                            + "'TIMESTAMP_DEFAULT_TEST', 'Timestamp default test', 'ACTIVE')");
             try (var r =
                     s.executeQuery(
-                            "SELECT publication_status,version FROM bundle_configurations")) {
+                            "SELECT created_at, updated_at FROM public.categories "
+                                    + "WHERE category_code = 'TIMESTAMP_DEFAULT_TEST'")) {
                 assertTrue(r.next());
-                assertEquals("DRAFT", r.getString(1));
-                assertEquals(0, r.getLong(2));
+                assertNotNull(r.getTimestamp("created_at"));
+                assertNotNull(r.getTimestamp("updated_at"));
             }
-            s.execute("UPDATE bundle_configurations SET package_price=12345,version=7");
-            s.execute("DROP TABLE flyway_schema_history");
-        }
-        var adopted = config(url).baselineVersion("2").load();
-        adopted.baseline();
-        assertEquals(5, adopted.migrate().migrationsExecuted);
-        try (var c = DriverManager.getConnection(url, db.getUsername(), db.getPassword());
-                var s = c.createStatement();
-                var r = s.executeQuery("SELECT package_price,version FROM bundle_configurations")) {
-            assertTrue(r.next());
-            assertEquals(12345, r.getInt(1));
-            assertEquals(7, r.getInt(2));
         }
     }
 }

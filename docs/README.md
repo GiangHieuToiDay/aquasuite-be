@@ -1,6 +1,6 @@
 # AquaSuite Backend Documentation Index
 
-> Migration reconciliation (updated 2026-10-26): the current new-database chain uses canonical V1-V10 (including V2.1/V3.1), followed by additive IAM authentication-state V11. Redundant numeric-IAM, catalog and inventory baselines are removed. See [current Flyway runbook](migrations/flyway.md). Historical migration numbers and test totals below do not describe this reconciled chain.
+> Migration baseline (updated 2026-10-27): disposable development history was squashed into `V1__create_aquasuite_baseline.sql`. It is for new, empty PostgreSQL databases only. See the [current Flyway runbook](migrations/flyway.md).
 
 ## Purpose and Document Hierarchy
 
