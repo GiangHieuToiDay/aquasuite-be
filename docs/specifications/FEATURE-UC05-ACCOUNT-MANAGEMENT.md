@@ -4,12 +4,12 @@
 
 - **Feature ID**: `FEATURE-UC05-ACCOUNT-MANAGEMENT`
 - **Feature Name**: Manage User Accounts and Status
-- **Version**: `0.3.0-draft`
+- **Version**: `0.4.0`
 - **Owner / Author**: AquaSuite Backend Team
 - **Owning Modules**: `iam`, `audit`
 - **Repository Scope**: `BE (aquasuite-be)`
 - **Target Packages**: `com.aquasuite.ims.module.iam`, `com.aquasuite.ims.module.audit`
-- **Database Baseline**: PostgreSQL; additive Flyway V3 after the tracked V1 and V2 migrations
+- **Database Baseline**: PostgreSQL; additive Flyway V2 after the tracked V1 baseline migration
 - **Spec Review Status**: `APPROVED`
 - **Spec Review Approver**: `Product Owner / Lead Architect`
 - **Risk Level**: `HIGH`
@@ -18,8 +18,8 @@
 
 An authenticated Store Owner can list, filter, inspect, create, edit, and
 activate, deactivate, or lock system accounts. A newly created account is
-immediately `ACTIVE`, is assigned one or more roles selected through the
-multi-select form by this use case,
+immediately `ACTIVE`, is assigned exactly one active role selected through the
+single-select form by this use case,
 has `provider=LOCAL` and `isVerified=false`, and receives a temporary-password
 email after the database transaction commits. Email delivery failure must not
 roll back account creation.
@@ -32,9 +32,8 @@ keyword, role, and status filters; pagination; and account activity history.
 - Email-verification and social-login flows.
 - Persisting password-recovery OTPs or rate-limit state.
 - Role/permission catalog administration, deletion, soft deletion, FCM-token
-  management, and an SMTP/outbox worker implementation beyond a logging
-  notification adapter.
-- Changing V1 or V2 migrations.
+  management, and an email retry/outbox worker.
+- Changing the V1 baseline or any migration that has already been applied.
 
 ## 2. Authorization and Security
 
@@ -58,8 +57,8 @@ keyword, role, and status filters; pagination; and account activity history.
 
 | Action | Result |
 |---|---|
-| Create | Validate unique username/email/phone; persist `ACTIVE`, `LOCAL`, `false`; set the selected `user_roles` rows; publish a non-sensitive event; send email after commit. |
-| Edit | Change username, email, phone, avatar URL, and the selected roles; status is immutable through this endpoint. |
+| Create | Validate unique username/email/phone; persist `ACTIVE`, `LOCAL`, `false`; set exactly one selected `user_roles` row; publish a non-sensitive event; send credentials through SMTP after commit. |
+| Edit | Change username, email, phone, avatar URL, and the selected role; status is immutable through this endpoint. |
 | Deactivate | `ACTIVE -> INACTIVE`; revoke target sessions after commit. |
 | Lock | `ACTIVE -> LOCKED`; revoke target sessions after commit. |
 | Reactivate | `INACTIVE|LOCKED -> ACTIVE`; does not issue credentials or restore old sessions. |
@@ -70,20 +69,21 @@ duplicate check, while PostgreSQL's unique index is the final concurrency
 guard. A duplicate-key `DataIntegrityViolationException` is mapped to MSG25
 only when it identifies the phone, username, or email unique constraint.
 
+Username, email, and phone are all searchable. A provided temporary password
+must have at least eight characters and contain upper-case, lower-case, numeric,
+and special characters. `MSG25` covers duplicate username, email, or phone.
+
+Credential delivery uses the configured `JavaMailSender` after commit. The raw
+temporary password is included only in the outbound email; it is never written
+to the API response, logs, audit data, or public events. Email delivery failure
+does not roll back account creation and is logged for operational reconciliation.
+
 ## 4. Data Model and Migration
 
-The attached logical DB-v2 note is treated as desired schema, but the tracked
-repository migrations remain the executable baseline. `V3` is additive only:
-
-- add `users.provider` (`VARCHAR(50)`, default `LOCAL`), `provider_id`
-  (`VARCHAR`, nullable), and `is_verified` (`BOOLEAN`, default `false`);
-- add the `uq_users_phone` unique index on non-null `users.phone` after an
-  explicit preflight check that stops migration when duplicate existing phone
-  values are found;
-- add `user_roles.assigned_at` (non-null/default current timestamp) and
-  `user_roles.assigned_by` (nullable UUID scalar); and
-- create `audit_logs` with `audit_id`, scalar actor `user_id`, entity type/id,
-  action, old/new JSONB snapshots, reason, and creation timestamp.
+The tracked V1 baseline already contains the IAM provider, verification, phone
+uniqueness, role-assignment audit, and audit-log schema required by UC-05. It
+remains unchanged. V2 is additive only and enforces the approved single-role
+invariant.
 
 `password_hash` remains the only password column. The legacy verification-code,
 email-counter, and password-recovery fields are not added for UC-05 because
@@ -91,6 +91,11 @@ the approved recovery flow keeps its OTP state in memory.
 
 No cross-module JPA relationship is introduced. `audit_logs.user_id` and
 `assigned_by` remain scalar UUIDs.
+
+`V2__enforce_single_role_per_user.sql` first stops if any existing user has more
+than one `user_roles` row. It never chooses or deletes a role automatically.
+Once preflight succeeds, it adds `uq_user_roles_user_id` so PostgreSQL enforces
+one role per user.
 
 ## 5. Module Contracts
 
@@ -103,11 +108,14 @@ All responses use the existing `ApiResponse<T>` convention.
 | `GET /api/v1/iam/users/stats` | Account dashboard counts |
 | `GET /api/v1/iam/users` | Paginated keyword/role/status search |
 | `GET /api/v1/iam/users/{id}` | Account detail |
-| `GET /api/v1/iam/roles?assignable=true` | Active roles for the multi-select form |
+| `GET /api/v1/iam/roles?assignable=true` | Active roles for the single-select form |
 | `POST /api/v1/iam/users` | Create account |
-| `PATCH /api/v1/iam/users/{id}` | Edit identity/profile and all selected roles |
+| `PATCH /api/v1/iam/users/{id}` | Edit identity/profile and the selected role |
 | `PATCH /api/v1/iam/users/{id}/status` | Explicit status transition |
 | `GET /api/v1/audit-logs` | Paginated activity history filterable by user/entity |
+
+Create and update payloads require one non-null `roleId` UUID. The previous
+`roleIds` collection is not accepted by the UC-05 account endpoints.
 
 Duplicate username, email, or phone returns the approved MSG25 business error.
 Unauthorized access returns the centralized authorization error envelope.
@@ -140,12 +148,16 @@ runtime implementation.
 - [ ] Only one User entity/repository/status model is outside `internal/legacy`.
 - [ ] Store Owner can manage account list/detail/create/edit/status only through
   the documented endpoints and receives the existing API envelope.
-- [ ] New account is active, local, unverified, has every selected role, and
+- [ ] New account is active, local, unverified, has exactly one selected role, and
   does not leak a temporary password.
+- [ ] The SMTP credential notification is sent after commit without logging the
+  temporary password; delivery failure does not roll back account creation.
+- [ ] Flyway V2 stops safely when legacy data contains multiple roles for one
+  user and otherwise enforces one role per user.
 - [ ] Phone duplicate prevention works across concurrent application instances
   through the `uq_users_phone` database unique index.
 - [ ] Self-lock/deactivate and last-active-Store-Owner transitions are rejected.
 - [ ] Inactive/locked target sessions are revoked and access is denied.
 - [ ] Audit rows are generated after committed IAM changes without sensitive
   data.
-- [ ] V3 migrates an empty V1/V2 database and validation succeeds.
+- [ ] V2 migrates a V1 database with at most one role per user and validation succeeds.

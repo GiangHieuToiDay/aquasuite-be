@@ -9,7 +9,7 @@ import org.springframework.http.HttpStatus;
 @RequiredArgsConstructor
 public enum UserAccountErrorCode implements BaseErrorCode {
     USER_NOT_FOUND("IAM_ACC_001", "Không tìm thấy tài khoản người dùng.", HttpStatus.NOT_FOUND),
-    DUPLICATE_ACCOUNT("MSG25", "Địa chỉ email hoặc số điện thoại này đã được đăng ký cho một tài khoản khác.", HttpStatus.CONFLICT),
+    DUPLICATE_ACCOUNT("MSG25", "Tên người dùng, địa chỉ email hoặc số điện thoại này đã được đăng ký cho một tài khoản khác.", HttpStatus.CONFLICT),
     ROLE_NOT_FOUND("IAM_ACC_003", "Một hoặc nhiều vai trò được chọn hiện không khả dụng.", HttpStatus.BAD_REQUEST),
     INVALID_STATUS_TRANSITION("IAM_ACC_004", "Việc chuyển đổi trạng thái tài khoản này không được phép.", HttpStatus.BAD_REQUEST),
     SELF_STATUS_CHANGE_FORBIDDEN("IAM_ACC_005", "Bạn không thể hủy kích hoạt hoặc khóa tài khoản của chính mình.", HttpStatus.BAD_REQUEST),

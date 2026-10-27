@@ -68,7 +68,7 @@ class UserAccountServiceImplTest {
     }
 
     @Test
-    void create_assignsEverySelectedRole_withoutExposingTemporaryPassword() {
+    void create_assignsOnlySelectedRole_withoutExposingTemporaryPassword() {
         when(userAccountMapper.toNewUser(any(CreateUserAccountRequest.class))).thenAnswer(invocation -> {
             CreateUserAccountRequest request = invocation.getArgument(0);
             User user = new User();
@@ -80,10 +80,8 @@ class UserAccountServiceImplTest {
         });
 
         UUID actorId = UUID.randomUUID();
-        Role owner = role("SHOP_OWNER");
         Role staff = role("SALES_STAFF");
-        Set<UUID> roleIds = Set.of(owner.getRoleId(), staff.getRoleId());
-        when(roleRepository.findAllById(roleIds)).thenReturn(List.of(owner, staff));
+        when(roleRepository.findById(staff.getRoleId())).thenReturn(Optional.of(staff));
         doAnswer(invocation -> {
             User user = invocation.getArgument(0);
             user.prePersist();
@@ -104,14 +102,14 @@ class UserAccountServiceImplTest {
         });
 
         UserAccountResponse response = service.create(CreateUserAccountRequest.builder()
-                .username("staff.one").email("staff.one@example.com").phone("0901234567").roleIds(roleIds)
+                .username("staff.one").email("staff.one@example.com").phone("0901234567").roleId(staff.getRoleId())
                 .autoGenerateTemporaryPassword(false).temporaryPassword("ValidPassword@1")
                 .confirmTemporaryPassword("ValidPassword@1").build(), actorId);
 
         assertThat(response.getStatus()).isEqualTo("ACTIVE");
         assertThat(response.getProvider()).isEqualTo("LOCAL");
         assertThat(response.isVerified()).isFalse();
-        assertThat(response.getRoles()).extracting(role -> role.getCode()).containsExactlyInAnyOrder("SHOP_OWNER", "SALES_STAFF");
+        assertThat(response.getRoles()).extracting(role -> role.getCode()).containsExactly("SALES_STAFF");
         verify(userRepository).markRolesAssignedBy(response.getId(), actorId);
         ArgumentCaptor<UserAccountCreatedEvent> event = ArgumentCaptor.forClass(UserAccountCreatedEvent.class);
         verify(eventPublisher).publishEvent(event.capture());
@@ -139,12 +137,12 @@ class UserAccountServiceImplTest {
         Role staff = role("SALES_STAFF");
         User target = activeUser(targetId, owner);
         when(userRepository.findWithRolesAndPermissionsById(targetId)).thenReturn(Optional.of(target));
-        when(roleRepository.findAllById(Set.of(staff.getRoleId()))).thenReturn(List.of(staff));
+        when(roleRepository.findById(staff.getRoleId())).thenReturn(Optional.of(staff));
         when(userRepository.lockActiveShopOwnerIds()).thenReturn(List.of(targetId));
 
         assertThatThrownBy(() -> service.update(targetId, UpdateUserAccountRequest.builder()
                 .username("owner").email("owner@example.com").phone("0901234567")
-                .roleIds(Set.of(staff.getRoleId())).build(), actorId))
+                .roleId(staff.getRoleId()).build(), actorId))
                 .isInstanceOf(AppException.class)
                 .extracting(error -> ((AppException) error).getErrorCode())
                 .isEqualTo(UserAccountErrorCode.LAST_SHOP_OWNER_PROTECTED);

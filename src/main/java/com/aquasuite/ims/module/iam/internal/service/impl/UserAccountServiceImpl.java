@@ -113,7 +113,7 @@ public class UserAccountServiceImpl implements UserAccountService {
     public UserAccountResponse create(CreateUserAccountRequest request, UUID actorId) {
         User user = userAccountMapper.toNewUser(request);
         assertCreateUnique(user.getUsername(), user.getEmail(), user.getPhone());
-        Set<Role> roles = resolveRoles(request.getRoleIds());
+        Role role = resolveRole(request.getRoleId());
         String rawPassword = request.isAutoGenerateTemporaryPassword() ? generateTemporaryPassword()
                 : validateProvidedTemporaryPassword(request.getTemporaryPassword(), request.getConfirmTemporaryPassword());
 
@@ -121,7 +121,7 @@ public class UserAccountServiceImpl implements UserAccountService {
         user.setStatus(UserStatus.ACTIVE);
         user.setProvider(AuthProvider.LOCAL);
         user.setVerified(false);
-        user.setRoles(roles);
+        user.setRoles(new HashSet<>(Set.of(role)));
         persist(user);
         userRepository.markRolesAssignedBy(user.getId(), actorId);
 
@@ -137,11 +137,11 @@ public class UserAccountServiceImpl implements UserAccountService {
     public UserAccountResponse update(UUID id, UpdateUserAccountRequest request, UUID actorId) {
         User user = findUser(id);
         Map<String, Object> oldData = accountSnapshot(user);
-        Set<Role> roles = resolveRoles(request.getRoleIds());
-        assertRoleChangeAllowed(user, roles);
+        Role role = resolveRole(request.getRoleId());
+        assertRoleChangeAllowed(user, role);
         userAccountMapper.updateUser(request, user);
         assertUpdateUnique(user.getId(), user.getUsername(), user.getEmail(), user.getPhone());
-        user.setRoles(roles);
+        user.setRoles(new HashSet<>(Set.of(role)));
         persist(user);
         userRepository.markRolesAssignedBy(user.getId(), actorId);
         eventPublisher.publishEvent(new UserAccountUpdatedEvent(actorId, user.getId(), oldData, accountSnapshot(user)));
@@ -178,12 +178,10 @@ public class UserAccountServiceImpl implements UserAccountService {
                 .orElseThrow(() -> new AppException(UserAccountErrorCode.USER_NOT_FOUND));
     }
 
-    private Set<Role> resolveRoles(Set<UUID> roleIds) {
-        List<Role> roles = roleRepository.findAllById(roleIds);
-        if (roles.size() != roleIds.size() || roles.stream().anyMatch(role -> !role.isActive())) {
-            throw new AppException(UserAccountErrorCode.ROLE_NOT_FOUND);
-        }
-        return new HashSet<>(roles);
+    private Role resolveRole(UUID roleId) {
+        return roleRepository.findById(roleId)
+                .filter(Role::isActive)
+                .orElseThrow(() -> new AppException(UserAccountErrorCode.ROLE_NOT_FOUND));
     }
 
     private void assertCreateUnique(String username, String email, String phone) {
@@ -197,8 +195,8 @@ public class UserAccountServiceImpl implements UserAccountService {
                 || userRepository.existsByPhoneAndIdNot(phone, id)) throw new AppException(UserAccountErrorCode.DUPLICATE_ACCOUNT);
     }
 
-    private void assertRoleChangeAllowed(User user, Set<Role> replacementRoles) {
-        if (user.getStatus() == UserStatus.ACTIVE && isShopOwner(user) && !isShopOwner(replacementRoles)
+    private void assertRoleChangeAllowed(User user, Role replacementRole) {
+        if (user.getStatus() == UserStatus.ACTIVE && isShopOwner(user) && !isShopOwner(replacementRole)
                 && activeShopOwnerIdsLocked().size() <= 1) {
             throw new AppException(UserAccountErrorCode.LAST_SHOP_OWNER_PROTECTED);
         }
@@ -206,6 +204,7 @@ public class UserAccountServiceImpl implements UserAccountService {
 
     private boolean isShopOwner(User user) { return isShopOwner(user.getRoles()); }
     private List<UUID> activeShopOwnerIdsLocked() { return userRepository.lockActiveShopOwnerIds(); }
+    private boolean isShopOwner(Role role) { return role != null && isShopOwner(List.of(role)); }
     private boolean isShopOwner(Collection<Role> roles) {
         return roles.stream().map(Role::getRoleName).filter(Objects::nonNull)
                 .map(name -> name.trim().toUpperCase(Locale.ROOT))
