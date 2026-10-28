@@ -25,8 +25,7 @@ class RegisterOtpIntegrationTest extends RegisterTestSupport {
                 .opsForHash();
         postJson(ROOT + "/verifications", Map.of("email", EMAIL, "otp", code), 503);
         reset(redis);
-        assertThat(users.findById(user.getId()).orElseThrow().getStatus())
-                .isEqualTo(UserStatus.PENDING_ACTIVATION);
+        assertThat(users.findById(user.getId())).isEmpty();
         postJson(ROOT + "/verifications", Map.of("email", EMAIL, "otp", code), 200);
     }
 
@@ -38,10 +37,10 @@ class RegisterOtpIntegrationTest extends RegisterTestSupport {
         postJson(ROOT + "/verifications", Map.of("email", EMAIL, "otp", wrong), 400);
         assertThat(redis.opsForHash().get(key(user), "attempts")).isEqualTo("1");
         redis.opsForHash()
-                .put(key(user), "sentAt", Long.toString(System.currentTimeMillis() - 59_000));
+                .put(key(user), "sentAt", Long.toString(redisNow() - 59_000));
         postJson(ROOT + "/otp-resends", Map.of("email", EMAIL), 429);
         redis.opsForHash()
-                .put(key(user), "sentAt", Long.toString(System.currentTimeMillis() - 60_001));
+                .put(key(user), "sentAt", Long.toString(redisNow() - 60_001));
         postJson(ROOT + "/otp-resends", Map.of("email", EMAIL), 200);
         assertThat(redis.opsForHash().get(key(user), "attempts")).isEqualTo("1");
         String fresh = otp();
@@ -51,8 +50,7 @@ class RegisterOtpIntegrationTest extends RegisterTestSupport {
         postJson(ROOT + "/verifications", Map.of("email", EMAIL, "otp", wrong), 429);
         postJson(ROOT + "/verifications", Map.of("email", EMAIL, "otp", fresh), 429);
         assertThat(redis.opsForHash().get(key(user), "attempts")).isEqualTo("5");
-        assertThat(users.findById(user.getId()).orElseThrow().getStatus())
-                .isEqualTo(UserStatus.PENDING_ACTIVATION);
+        assertThat(users.findById(user.getId())).isEmpty();
         assertThat(redis.getExpire(key(user))).isPositive();
     }
 
@@ -61,7 +59,7 @@ class RegisterOtpIntegrationTest extends RegisterTestSupport {
         var user = registered();
         String old = otp();
         redis.opsForHash()
-                .put(key(user), "sentAt", Long.toString(System.currentTimeMillis() - 60_001));
+                .put(key(user), "sentAt", Long.toString(redisNow() - 60_001));
         postJson(ROOT + "/otp-resends", Map.of("email", EMAIL), 200);
         // Force a deterministic leading-zero OTP using the same existing BCrypt verifier.
         redis.opsForHash().put(key(user), "hash", encoder.encode("012345"));
@@ -71,29 +69,30 @@ class RegisterOtpIntegrationTest extends RegisterTestSupport {
     }
 
     @Test
-    void expiredRedisStateCannotActivateAndCanBeResent() throws Exception {
+    void expiredPendingStateRequiresRegisteringAgain() throws Exception {
         var user = registered();
         String code = otp();
         redis.expire(key(user), Duration.ofMillis(1));
         org.awaitility.Awaitility.await()
                 .until(() -> !Boolean.TRUE.equals(redis.hasKey(key(user))));
         postJson(ROOT + "/verifications", Map.of("email", EMAIL, "otp", code), 410);
-        assertThat(users.findById(user.getId()).orElseThrow().getStatus())
-                .isEqualTo(UserStatus.PENDING_ACTIVATION);
-        postJson(ROOT + "/otp-resends", Map.of("email", EMAIL), 200);
+        assertThat(users.findById(user.getId())).isEmpty();
+        postJson(ROOT + "/otp-resends", Map.of("email", EMAIL), 410);
+        postJson(ROOT, form(), 201);
     }
 
     @Test
-    void mailFailureKeepsPendingAccountAndAllowsLaterResend() throws Exception {
+    void mailFailureKeepsOnlyRedisPendingStateAndAllowsLaterResend() throws Exception {
         doThrow(new MailSendException("synthetic failure"))
                 .when(mail)
                 .send(any(SimpleMailMessage.class));
         postJson(ROOT, form(), 503);
-        var user = users.findByEmailIgnoreCase(EMAIL).orElseThrow();
-        assertThat(user.getStatus()).isEqualTo(UserStatus.PENDING_ACTIVATION);
+        assertThat(users.count()).isZero();
+        var user = new com.aquasuite.ims.module.iam.internal.entity.User();
+        user.setEmail(EMAIL);
         reset(mail);
         redis.opsForHash()
-                .put(key(user), "sentAt", Long.toString(System.currentTimeMillis() - 60_001));
+                .put(key(user), "sentAt", Long.toString(redisNow() - 60_001));
         postJson(ROOT + "/otp-resends", Map.of("email", EMAIL), 200);
     }
 
@@ -114,7 +113,7 @@ class RegisterOtpIntegrationTest extends RegisterTestSupport {
     }
 
     @Test
-    void activationFailureRollsBackUserAndRequiresResendAfterConsumption() throws Exception {
+    void creationFailureRollsBackUserAndReleasesClaimForRetry() throws Exception {
         var user = registered();
         String code = otp();
         doThrow(
@@ -124,10 +123,37 @@ class RegisterOtpIntegrationTest extends RegisterTestSupport {
                 .saveAndFlush(argThat(u -> u != null && u.getStatus() == UserStatus.ACTIVE));
         postJson(ROOT + "/verifications", Map.of("email", EMAIL, "otp", code), 503);
         reset(users);
-        assertThat(users.findById(user.getId()).orElseThrow().getStatus())
-                .isEqualTo(UserStatus.PENDING_ACTIVATION);
-        assertThat(redis.hasKey(key(user))).isFalse();
+        assertThat(users.findById(user.getId())).isEmpty();
+        assertThat(redis.hasKey(key(user))).isTrue();
+        assertThat(redis.opsForHash().hasKey(key(user), "claim")).isFalse();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM customers", Integer.class)).isZero();
-        postJson(ROOT + "/otp-resends", Map.of("email", EMAIL), 200);
+        postJson(ROOT + "/verifications", Map.of("email", EMAIL, "otp", code), 200);
     }
+    @Test
+    void claimedOtpCannotBeVerifiedOrRotatedUntilReleased() throws Exception {
+        var pending = registered();
+        String code = otp();
+        var store = new com.aquasuite.ims.module.iam.internal.service.RegistrationOtpStore(redis, encoder);
+        var claim = store.verifyAndClaim(EMAIL, code);
+        redis.opsForHash().put(key(pending), "sentAt", Long.toString(redisNow() - 60_001));
+        postJson(ROOT + "/verifications", Map.of("email", EMAIL, "otp", code), 409);
+        postJson(ROOT + "/otp-resends", Map.of("email", EMAIL), 409);
+        assertThat(users.count()).isZero();
+        store.release(claim);
+        postJson(ROOT + "/verifications", Map.of("email", EMAIL, "otp", code), 200);
+    }
+
+    @Test
+    void registeringSameEmailWithDifferentCaseCannotOverwritePendingPassword() throws Exception {
+        var pending = registered();
+        String original = redis.opsForHash().get(key(pending), "passwordHash").toString();
+        var duplicate = form();
+        duplicate.put("email", EMAIL.toUpperCase(java.util.Locale.ROOT));
+        duplicate.put("password", "DifferentSynthetic1!");
+        duplicate.put("passwordConfirmation", "DifferentSynthetic1!");
+        postJson(ROOT, duplicate, 409);
+        assertThat(redis.opsForHash().get(key(pending), "passwordHash")).isEqualTo(original);
+        assertThat(users.count()).isZero();
+    }
+
 }

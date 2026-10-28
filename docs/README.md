@@ -36,6 +36,9 @@ Hệ thống tài liệu backend bao gồm các tài liệu chuyên đề sau:
   - Quy chuẩn đặt tên URI và phương thức HTTP cho các Feature Spec tương lai.
 
 ### 3. Specifications and Templates
+- [`specifications/UC-13-product-combos.md`](specifications/UC-13-product-combos.md):
+  - Đặc tả mục tiêu UC-13: combo SKU cố định, endpoint/DTO, publication, giá/tồn, thành phần và kiểm chứng.
+  - Thay thế spec/code guide SCRUM14 cũ; Design Review PENDING, không chứng nhận implementation hiện tại.
 - [`templates/feature-spec.md`](templates/feature-spec.md):
   - Mẫu đặc tả gọn dành cho work item Risk L.
   - Chỉ yêu cầu các phần contract, dữ liệu, concurrency và failure safety thực sự áp dụng.

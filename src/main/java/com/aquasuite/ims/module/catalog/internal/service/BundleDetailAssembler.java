@@ -4,8 +4,8 @@ import com.aquasuite.ims.module.catalog.internal.entity.*;
 import com.aquasuite.ims.module.catalog.internal.enums.ProductStatus;
 import com.aquasuite.ims.module.catalog.internal.enums.ProductType;
 import com.aquasuite.ims.module.catalog.internal.enums.VariantStatus;
-import com.aquasuite.ims.module.catalog.internal.mapper.BundleCoreMapper;
-import com.aquasuite.ims.module.catalog.internal.payload.req.BundleResponse;
+import com.aquasuite.ims.module.catalog.internal.mapper.BundleMapper;
+import com.aquasuite.ims.module.catalog.internal.payload.res.BundleResponse;
 
 import lombok.RequiredArgsConstructor;
 
@@ -17,19 +17,20 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Ghép dữ liệu catalog đã được service đọc thành chi tiết combo để trả cho client.
- * Luồng: nối item với SKU/sản phẩm cha → xác định sellable → tính preview giá → MapStruct.
- * Giữ dòng item ngay cả khi SKU thiếu/inactive để người quản lý sửa; không tự truy vấn DB
- * hoặc ghi dữ liệu. Đây là helper tạo response, không phải một use case CRUD riêng.
+ * Ghép dữ liệu catalog đã được service đọc thành chi tiết combo để trả cho client. Luồng: nối item
+ * với SKU/sản phẩm cha → xác định sellable → tính preview giá → MapStruct. Giữ dòng item ngay cả
+ * khi SKU thiếu/inactive để người quản lý sửa; không tự truy vấn DB hoặc ghi dữ liệu. Đây là helper
+ * tạo response, không phải một use case CRUD riêng.
  */
 @Component
 @RequiredArgsConstructor
 public class BundleDetailAssembler {
     private final BundlePricingService pricing;
-    private final BundleCoreMapper mapper;
+    private final BundleMapper mapper;
 
     /**
-     * Ghép item/SKU theo ID, tính sellable và preview giá rồi truyền dữ liệu đã xử lý cho MapStruct.
+     * Ghép item/SKU theo ID, tính sellable và preview giá rồi truyền dữ liệu đã xử lý cho
+     * MapStruct.
      */
     public BundleResponse detail(
             Product product,
@@ -46,16 +47,14 @@ public class BundleDetailAssembler {
                     new BundlePricingService.Line(
                             variant == null ? null : variant.getSellingPrice(),
                             item.getQuantity()));
-            itemViews.add(mapper.item(item, variant, isSellable(variant, parent)));
+            itemViews.add(mapper.toItemResponse(item, variant, isSellable(variant, parent)));
         }
         var price = pricing.preview(priceLines, configuration.getPackagePrice());
-        return mapper.detail(product, configuration, price, itemViews);
+        return mapper.toResponse(product, configuration, price, itemViews);
     }
 
-    /**
-     * SKU và sản phẩm cha phải ACTIVE, cha phải NORMAL; đây không phải kiểm tra tồn kho.
-     */
-    static boolean isSellable(ProductVariant variant, Product parent) {
+    /** SKU và sản phẩm cha phải ACTIVE, cha phải NORMAL; đây không phải kiểm tra tồn kho. */
+    public static boolean isSellable(ProductVariant variant, Product parent) {
         return variant != null
                 && variant.getStatus() == VariantStatus.ACTIVE
                 && parent != null

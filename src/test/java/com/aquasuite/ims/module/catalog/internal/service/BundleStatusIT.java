@@ -2,7 +2,7 @@ package com.aquasuite.ims.module.catalog.internal.service;
 
 import static org.assertj.core.api.Assertions.*;
 
-import com.aquasuite.ims.module.catalog.internal.payload.req.BundleCoreStatusRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.ChangeBundleStatusRequest;
 import com.aquasuite.ims.support.BundleCoreTestSupport;
 
 import org.junit.jupiter.api.Test;
@@ -12,12 +12,12 @@ class BundleStatusIT extends BundleCoreTestSupport {
     void toggleNoOpAndDeleted() {
         var d = create();
         var off =
-                service.status(
+                service.changeProductStatus(
                         d.bundleId(),
-                        new BundleCoreStatusRequest(
-                                d.version(), BundleCoreStatusRequest.Status.INACTIVE));
+                        new ChangeBundleStatusRequest(
+                                d.version(), ChangeBundleStatusRequest.Status.INACTIVE));
         assertThat(off.publicationStatus()).isEqualTo("DRAFT");
-        var persistedOff = service.get(d.bundleId());
+        var persistedOff = query.getBundleDetails(d.bundleId());
         assertThat(off)
                 .usingRecursiveComparison()
                 .ignoringFields("updatedAt")
@@ -27,32 +27,32 @@ class BundleStatusIT extends BundleCoreTestSupport {
                         persistedOff.updatedAt(), within(1, java.time.temporal.ChronoUnit.MICROS));
         assertThat(off.items()).isEqualTo(d.items());
         assertThat(
-                        service.status(
+                        service.changeProductStatus(
                                 d.bundleId(),
-                                new BundleCoreStatusRequest(
-                                        off.version(), BundleCoreStatusRequest.Status.INACTIVE)))
+                                new ChangeBundleStatusRequest(
+                                        off.version(), ChangeBundleStatusRequest.Status.INACTIVE)))
                 .isEqualTo(persistedOff);
         assertThatThrownBy(
                         () ->
-                                service.status(
+                                service.changeProductStatus(
                                         d.bundleId(),
-                                        new BundleCoreStatusRequest(
+                                        new ChangeBundleStatusRequest(
                                                 d.version(),
-                                                BundleCoreStatusRequest.Status.ACTIVE)))
+                                                ChangeBundleStatusRequest.Status.ACTIVE)))
                 .hasMessageContaining("thay đổi");
         var on =
-                service.status(
+                service.changeProductStatus(
                         d.bundleId(),
-                        new BundleCoreStatusRequest(
-                                off.version(), BundleCoreStatusRequest.Status.ACTIVE));
-        service.delete(d.bundleId(), on.version());
+                        new ChangeBundleStatusRequest(
+                                off.version(), ChangeBundleStatusRequest.Status.ACTIVE));
+        service.deleteBundle(d.bundleId(), on.version());
         assertThatThrownBy(
                         () ->
-                                service.status(
+                                service.changeProductStatus(
                                         d.bundleId(),
-                                        new BundleCoreStatusRequest(
+                                        new ChangeBundleStatusRequest(
                                                 on.version() + 1,
-                                                BundleCoreStatusRequest.Status.ACTIVE)))
+                                                ChangeBundleStatusRequest.Status.ACTIVE)))
                 .isInstanceOf(RuntimeException.class);
     }
 }

@@ -35,7 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(classes = AquasuiteBeApplication.class)
 @AutoConfigureMockMvc
 abstract class RegisterTestSupport extends AuthIntegrationTestSupport {
-    static final String ROOT = "/api/v1/customer-registrations";
+    static final String ROOT = "/api/v1/iam/register";
     static final String EMAIL = "new@example.test";
     static final String PASSWORD = "SecurePass123!";
     @Autowired MockMvc mvc;
@@ -105,7 +105,16 @@ abstract class RegisterTestSupport extends AuthIntegrationTestSupport {
 
     User registered() throws Exception {
         postJson(ROOT, form(), 201);
-        return users.findByEmailIgnoreCase(EMAIL).orElseThrow();
+        var state = redis.opsForHash().entries(
+                com.aquasuite.ims.module.iam.internal.service.RegistrationOtpStore.key(EMAIL));
+        User pending = new User();
+        pending.setId(UUID.fromString(state.get("id").toString()));
+        pending.setEmail(state.get("email").toString());
+        pending.setPhone(state.get("phone").toString());
+        pending.setFullName(state.get("fullName").toString());
+        pending.setPasswordHash(state.get("passwordHash").toString());
+        pending.setUsername("customer-" + pending.getId());
+        return pending;
     }
 
     String otp() {
@@ -119,7 +128,13 @@ abstract class RegisterTestSupport extends AuthIntegrationTestSupport {
     }
 
     String key(User user) {
-        return RegisterService.OTP_PREFIX + user.getId();
+        return com.aquasuite.ims.module.iam.internal.service.RegistrationOtpStore.key(user.getEmail());
+    }
+
+    long redisNow() {
+        return redis.execute(new org.springframework.data.redis.core.script.DefaultRedisScript<>(
+                "local t=redis.call('TIME'); return t[1]*1000+math.floor(t[2]/1000)",
+                Long.class), List.of());
     }
 
     String verifyBody(String code) throws Exception {
@@ -131,9 +146,9 @@ abstract class RegisterTestSupport extends AuthIntegrationTestSupport {
         org.springframework.boot.test.system.OutputCaptureExtension.class)
 class RegisterApiIntegrationTest extends RegisterTestSupport {
     @Test
-    void registersPendingAndActivatesUsingExistingJwtSession() throws Exception {
+    void keepsPendingDataOnlyInRedisAndCreatesAccountAfterOtp() throws Exception {
         User user = registered();
-        assertThat(user.getStatus()).isEqualTo(UserStatus.PENDING_ACTIVATION);
+        assertThat(users.count()).isZero();
         assertThat(user.getFullName()).isEqualTo("Nguyễn Văn An");
         assertThat(encoder.matches(PASSWORD, user.getPasswordHash())).isTrue();
         assertThat(user.getUsername()).isEqualTo("customer-" + user.getId());
@@ -143,7 +158,7 @@ class RegisterApiIntegrationTest extends RegisterTestSupport {
                                 Integer.class,
                                 user.getId()))
                 .isZero();
-        postJson("/api/v1/auth/login", Map.of("email", EMAIL, "password", PASSWORD), 403);
+        postJson("/api/v1/auth/login", Map.of("email", EMAIL, "password", PASSWORD), 401);
         String code = otp();
         assertThat(redis.opsForHash().get(key(user), "hash")).isNotEqualTo(code);
         assertThat(redis.getExpire(key(user))).isBetween(290L, 300L);
@@ -173,8 +188,9 @@ class RegisterApiIntegrationTest extends RegisterTestSupport {
     }
 
     @Test
-    void rejectsDuplicateCaseInsensitiveEmailOrPhoneWithoutOverwritingPending() throws Exception {
+    void rejectsDuplicateAccountsWithoutOverwritingCredentials() throws Exception {
         User user = registered();
+        postJson(ROOT + "/verifications", Map.of("email", EMAIL, "otp", otp()), 200);
         var duplicate = form();
         duplicate.put("email", EMAIL.toUpperCase(Locale.ROOT));
         duplicate.put("phone", "0912345678");
@@ -216,8 +232,10 @@ class RegisterApiIntegrationTest extends RegisterTestSupport {
         forged.put("roles", List.of("ADMIN"));
         forged.put("status", "ACTIVE");
         postJson(ROOT, forged, 201);
+        assertThat(users.count()).isZero();
+        postJson(ROOT + "/verifications", Map.of("email", EMAIL, "otp", otp()), 200);
         User user = users.findWithRolesAndPermissionsByEmailIgnoreCase(EMAIL).orElseThrow();
-        assertThat(user.getStatus()).isEqualTo(UserStatus.PENDING_ACTIVATION);
+        assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
         assertThat(user.getRoles()).extracting(Role::getRoleName).containsExactly("CUSTOMER");
     }
 
@@ -227,7 +245,8 @@ class RegisterApiIntegrationTest extends RegisterTestSupport {
         customer.setActive(false);
         roles.saveAndFlush(customer);
         try {
-            postJson(ROOT, form(), 503);
+            registered();
+            postJson(ROOT + "/verifications", Map.of("email", EMAIL, "otp", otp()), 503);
             assertThat(users.count()).isZero();
         } finally {
             customer.setActive(true);

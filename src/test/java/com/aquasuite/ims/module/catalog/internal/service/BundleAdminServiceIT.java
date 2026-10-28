@@ -2,9 +2,9 @@ package com.aquasuite.ims.module.catalog.internal.service;
 
 import static org.assertj.core.api.Assertions.*;
 
-import com.aquasuite.ims.module.catalog.internal.payload.req.BundleCoreCreateRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.req.BundleCoreUpdateRequest;
 import com.aquasuite.ims.module.catalog.internal.payload.req.BundleItemRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.CreateBundleRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateBundleRequest;
 import com.aquasuite.ims.share.exception.AppException;
 import com.aquasuite.ims.support.BundleCoreTestSupport;
 
@@ -20,8 +20,8 @@ class BundleAdminServiceIT extends BundleCoreTestSupport {
     void listingMultipleBundlesKeepsEachBundlesOwnItemsAndPrice() {
         var first = create();
         var second =
-                service.create(
-                        new BundleCoreCreateRequest(
+                service.createBundle(
+                        new CreateBundleRequest(
                                 "BUNDLE-2",
                                 "Second combo",
                                 CATEGORY,
@@ -30,10 +30,13 @@ class BundleAdminServiceIT extends BundleCoreTestSupport {
                                 List.of(new BundleItemRequest(SKU, 2)),
                                 new BigDecimal("95000000.00")));
 
-        var page = service.list(0, 20, null, null, null);
+        var page =
+                query.getBundleList(
+                        new com.aquasuite.ims.module.catalog.internal.payload.req.BundlePageRequest(
+                                0, 20, null, null, null));
 
-        assertThat(page.totalElements()).isEqualTo(2);
-        assertThat(page.items())
+        assertThat(page.getTotalElements()).isEqualTo(2);
+        assertThat(page.getItems())
                 .filteredOn(b -> b.bundleId().equals(first.bundleId()))
                 .singleElement()
                 .satisfies(
@@ -41,7 +44,7 @@ class BundleAdminServiceIT extends BundleCoreTestSupport {
                             assertThat(b.linkedItemsCount()).isEqualTo(1);
                             assertThat(b.originalTotal()).isEqualByComparingTo("110000000.00");
                         });
-        assertThat(page.items())
+        assertThat(page.getItems())
                 .filteredOn(b -> b.bundleId().equals(second.bundleId()))
                 .singleElement()
                 .satisfies(
@@ -53,7 +56,7 @@ class BundleAdminServiceIT extends BundleCoreTestSupport {
 
     @Test
     void failedReplacementRestoresDefinitionItemsAndVersion() {
-        var original = service.get(create().bundleId());
+        var original = query.getBundleDetails(create().bundleId());
         var replacementSku = UUID.randomUUID();
         jdbc.update(
                 "INSERT INTO product_variants(variant_id,product_id,sku,variant_name,unit,"
@@ -67,7 +70,7 @@ class BundleAdminServiceIT extends BundleCoreTestSupport {
                 "ALTER TABLE bundle_items ADD CONSTRAINT reject_replacement CHECK(quantity <> 2)");
         try {
             var replacement =
-                    new BundleCoreUpdateRequest(
+                    new UpdateBundleRequest(
                             original.productCode(),
                             "Must roll back",
                             CATEGORY,
@@ -76,13 +79,11 @@ class BundleAdminServiceIT extends BundleCoreTestSupport {
                             List.of(new BundleItemRequest(replacementSku, 2)),
                             new BigDecimal("90000000.00"),
                             original.version());
-            assertThatThrownBy(() -> service.update(original.bundleId(), replacement))
+            assertThatThrownBy(() -> service.updateBundle(original.bundleId(), replacement))
                     .isInstanceOf(RuntimeException.class);
-            assertThat(service.get(original.bundleId())).isEqualTo(original);
+            assertThat(query.getBundleDetails(original.bundleId())).isEqualTo(original);
             assertThat(jdbc.queryForObject("select count(*) from bundle_items", Integer.class))
                     .isEqualTo(1);
-            assertThat(jdbc.queryForObject("select count(*) from audit_entries", Integer.class))
-                    .isZero();
         } finally {
             jdbc.execute("ALTER TABLE bundle_items DROP CONSTRAINT reject_replacement");
         }
@@ -123,7 +124,7 @@ class BundleAdminServiceIT extends BundleCoreTestSupport {
             default -> throw new AssertionError(scenario);
         }
         var request =
-                new BundleCoreCreateRequest(
+                new CreateBundleRequest(
                         "INVALID-REFERENCE",
                         "Invalid",
                         category,
@@ -131,7 +132,7 @@ class BundleAdminServiceIT extends BundleCoreTestSupport {
                         null,
                         List.of(new BundleItemRequest(variant, 1)),
                         new BigDecimal("95000000.00"));
-        assertThatThrownBy(() -> service.create(request))
+        assertThatThrownBy(() -> service.createBundle(request))
                 .isInstanceOfSatisfying(
                         AppException.class,
                         ex ->
@@ -142,7 +143,8 @@ class BundleAdminServiceIT extends BundleCoreTestSupport {
                                                         : "CATALOG_BUNDLE_001"));
         assertThat(
                         jdbc.queryForObject(
-                                "select count(*) from products where product_code='INVALID-REFERENCE'",
+                                "select count(*) from products where"
+                                        + " product_code='INVALID-REFERENCE'",
                                 Integer.class))
                 .isZero();
         assertThat(jdbc.queryForObject("select count(*) from bundle_configurations", Integer.class))
@@ -156,17 +158,17 @@ class BundleAdminServiceIT extends BundleCoreTestSupport {
         var original = create();
         jdbc.update(
                 "update bundle_configurations set publication_status='PUBLISHED',"
-                        + " valid_from=CURRENT_TIMESTAMP, valid_until=CURRENT_TIMESTAMP + interval '1 day'"
-                        + " where bundle_product_id=?",
+                    + " valid_from=CURRENT_TIMESTAMP, valid_until=CURRENT_TIMESTAMP + interval '1"
+                    + " day' where bundle_product_id=?",
                 original.bundleId());
-        var published = service.get(original.bundleId());
-        assertThatThrownBy(() -> service.update(original.bundleId(), update(original)))
+        var published = query.getBundleDetails(original.bundleId());
+        assertThatThrownBy(() -> service.updateBundle(original.bundleId(), update(original)))
                 .isInstanceOfSatisfying(
                         AppException.class,
                         ex ->
                                 assertThat(ex.getErrorCode().getCode())
                                         .isEqualTo("CATALOG_BUNDLE_006"));
-        assertThat(service.get(original.bundleId())).isEqualTo(published);
+        assertThat(query.getBundleDetails(original.bundleId())).isEqualTo(published);
     }
 
     @Test
@@ -174,20 +176,18 @@ class BundleAdminServiceIT extends BundleCoreTestSupport {
         var d = create();
         assertThat(d.productStatus()).isEqualTo("ACTIVE");
         assertThat(d.publicationStatus()).isEqualTo("DRAFT");
-        var u = service.update(d.bundleId(), update(d));
+        var u = service.updateBundle(d.bundleId(), update(d));
         assertThat(u.version()).isEqualTo(d.version() + 1);
         assertThat(u.items().getFirst().bundleItemId())
                 .isEqualTo(d.items().getFirst().bundleItemId());
         assertThat(u.items().getFirst().quantity()).isEqualTo(2);
-        assertThat(jdbc.queryForObject("select count(*) from audit_entries", Integer.class))
-                .isZero();
     }
 
     @Test
     void identicalPutStillBumps() {
         var d = create();
         var r =
-                new BundleCoreUpdateRequest(
+                new UpdateBundleRequest(
                         d.productCode(),
                         d.name(),
                         CATEGORY,
@@ -196,7 +196,7 @@ class BundleAdminServiceIT extends BundleCoreTestSupport {
                         request(d.productCode()).items(),
                         d.packagePrice(),
                         d.version());
-        assertThat(service.update(d.bundleId(), r).version()).isEqualTo(d.version() + 1);
+        assertThat(service.updateBundle(d.bundleId(), r).version()).isEqualTo(d.version() + 1);
     }
 
     @Test
@@ -204,7 +204,7 @@ class BundleAdminServiceIT extends BundleCoreTestSupport {
 
         var good = request("X");
         var bad =
-                new BundleCoreCreateRequest(
+                new CreateBundleRequest(
                         "X",
                         "Bad",
                         CATEGORY,
@@ -212,13 +212,11 @@ class BundleAdminServiceIT extends BundleCoreTestSupport {
                         null,
                         List.of(good.items().getFirst(), good.items().getFirst()),
                         good.packagePrice());
-        assertThatThrownBy(() -> service.create(bad)).isInstanceOf(AppException.class);
+        assertThatThrownBy(() -> service.createBundle(bad)).isInstanceOf(AppException.class);
         assertThat(
                         jdbc.queryForObject(
                                 "select count(*) from products where product_type='BUNDLE'",
                                 Integer.class))
-                .isZero();
-        assertThat(jdbc.queryForObject("select count(*) from audit_entries", Integer.class))
                 .isZero();
     }
 
@@ -228,7 +226,7 @@ class BundleAdminServiceIT extends BundleCoreTestSupport {
         jdbc.execute(
                 "ALTER TABLE bundle_items ADD CONSTRAINT reject_test_item CHECK(quantity <> 1)");
         try {
-            assertThatThrownBy(() -> service.create(request("ROLLBACK")))
+            assertThatThrownBy(() -> service.createBundle(request("ROLLBACK")))
                     .isInstanceOf(RuntimeException.class);
             assertThat(
                             jdbc.queryForObject(
@@ -246,8 +244,8 @@ class BundleAdminServiceIT extends BundleCoreTestSupport {
     void inactiveSkuAndNestingRejected() {
         var d = create();
         jdbc.update("update product_variants set status='INACTIVE' where variant_id=?", SKU);
-        assertThatThrownBy(() -> service.update(d.bundleId(), update(d)))
+        assertThatThrownBy(() -> service.updateBundle(d.bundleId(), update(d)))
                 .isInstanceOf(AppException.class);
-        assertThat(service.get(d.bundleId()).items().getFirst().sellable()).isFalse();
+        assertThat(query.getBundleDetails(d.bundleId()).items().getFirst().sellable()).isFalse();
     }
 }

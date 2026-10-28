@@ -107,9 +107,9 @@ class AuthenticationMergeIT extends AuthIntegrationTestSupport {
     void allNonAuthApiFamiliesRequireJwt() throws Exception {
         for (String path :
                 List.of(
-                        "/api/v1/catalog/bundles",
-                        "/api/v1/catalog/admin/bundles",
-                        "/api/v1/catalog/admin/bundle-skus",
+                        "/api/v1/catalog/bundle",
+                        "/api/v1/catalog/bundle/admin",
+                        "/api/v1/catalog/bundle/admin/skus",
                         "/api/v1/inventory/" + sku)) {
             mvc.perform(get(path))
                     .andExpect(status().isUnauthorized())
@@ -121,7 +121,7 @@ class AuthenticationMergeIT extends AuthIntegrationTestSupport {
                                 .content("{}"))
                 .andExpect(status().isUnauthorized());
         mvc.perform(
-                        post("/api/v1/catalog/bundles/" + bundle.bundleId() + "/evaluations")
+                        post("/api/v1/catalog/bundle/" + bundle.bundleId() + "/evaluations")
                                 .contentType("application/json")
                                 .content("{\"quantity\":1}"))
                 .andExpect(status().isUnauthorized());
@@ -130,15 +130,15 @@ class AuthenticationMergeIT extends AuthIntegrationTestSupport {
     @Test
     void loginAccessTokenReadsAndEvaluatesComboWithRealInventory() throws Exception {
         String access = login().get("access_token").asText();
-        mvc.perform(get("/api/v1/catalog/bundles").header("Authorization", "Bearer " + access))
+        mvc.perform(get("/api/v1/catalog/bundle").header("Authorization", "Bearer " + access))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.totalElements").value(1));
         mvc.perform(
-                        get("/api/v1/catalog/admin/bundles")
+                        get("/api/v1/catalog/bundle/admin")
                                 .header("Authorization", "Bearer " + access))
                 .andExpect(status().isOk());
         mvc.perform(
-                        post("/api/v1/catalog/bundles/" + bundle.bundleId() + "/evaluations")
+                        post("/api/v1/catalog/bundle/" + bundle.bundleId() + "/evaluations")
                                 .header("Authorization", "Bearer " + access)
                                 .contentType("application/json")
                                 .content("{\"quantity\":2}"))
@@ -149,10 +149,10 @@ class AuthenticationMergeIT extends AuthIntegrationTestSupport {
 
     @Test
     void malformedAndRefreshTokensCannotAccessCatalog() throws Exception {
-        mvc.perform(get("/api/v1/catalog/bundles").header("Authorization", "Bearer malformed"))
+        mvc.perform(get("/api/v1/catalog/bundle").header("Authorization", "Bearer malformed"))
                 .andExpect(status().isUnauthorized());
         String refresh = login().get("refresh_token").asText();
-        mvc.perform(get("/api/v1/catalog/bundles").header("Authorization", "Bearer " + refresh))
+        mvc.perform(get("/api/v1/catalog/bundle").header("Authorization", "Bearer " + refresh))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -161,7 +161,7 @@ class AuthenticationMergeIT extends AuthIntegrationTestSupport {
         String access = login().get("access_token").asText();
         mvc.perform(post("/api/v1/auth/logout").header("Authorization", "Bearer " + access))
                 .andExpect(status().isOk());
-        mvc.perform(get("/api/v1/catalog/bundles").header("Authorization", "Bearer " + access))
+        mvc.perform(get("/api/v1/catalog/bundle").header("Authorization", "Bearer " + access))
                 .andExpect(status().isUnauthorized());
         mvc.perform(get("/api/v1/inventory/" + sku).header("Authorization", "Bearer " + access))
                 .andExpect(status().isUnauthorized());
@@ -216,7 +216,7 @@ class AuthenticationMergeIT extends AuthIntegrationTestSupport {
     void disabledUserCannotReusePreviouslyIssuedAccessToken() throws Exception {
         String access = login().get("access_token").asText();
         jdbc.update("UPDATE users SET status='INACTIVE' WHERE id=?", userId);
-        mvc.perform(get("/api/v1/catalog/bundles").header("Authorization", "Bearer " + access))
+        mvc.perform(get("/api/v1/catalog/bundle").header("Authorization", "Bearer " + access))
                 .andExpect(status().isForbidden());
     }
 }

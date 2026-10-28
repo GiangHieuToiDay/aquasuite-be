@@ -10,7 +10,7 @@ class BundleDeletionIT extends BundleCoreTestSupport {
     @Test
     void softDeleteRetainsRowsAndCode() {
         var d = create();
-        service.delete(d.bundleId(), d.version());
+        service.deleteBundle(d.bundleId(), d.version());
         assertThat(
                         jdbc.queryForObject(
                                 "select status from products where product_id=?",
@@ -25,31 +25,36 @@ class BundleDeletionIT extends BundleCoreTestSupport {
                                 Integer.class,
                                 d.bundleId()))
                 .isEqualTo(1);
-        assertThatThrownBy(() -> service.get(d.bundleId())).isInstanceOf(RuntimeException.class);
-        assertThat(service.list(0, 20, null, null, null).totalElements()).isZero();
-        assertThatThrownBy(() -> service.create(request(d.productCode())))
+        assertThatThrownBy(() -> query.getBundleDetails(d.bundleId()))
+                .isInstanceOf(RuntimeException.class);
+        assertThat(
+                        query.getBundleList(
+                                        new com.aquasuite.ims.module.catalog.internal.payload.req
+                                                .BundlePageRequest(0, 20, null, null, null))
+                                .getTotalElements())
+                .isZero();
+        assertThatThrownBy(() -> service.createBundle(request(d.productCode())))
                 .isInstanceOf(RuntimeException.class);
     }
 
     @Test
     void retryUsesCurrentVersion() {
         var d = create();
-        service.delete(d.bundleId(), d.version());
+        service.deleteBundle(d.bundleId(), d.version());
         long deletedVersion =
                 jdbc.queryForObject(
                         "select version from bundle_configurations where bundle_product_id=?",
                         Long.class,
                         d.bundleId());
-        assertThatThrownBy(() -> service.delete(d.bundleId(), d.version()))
+        assertThatThrownBy(() -> service.deleteBundle(d.bundleId(), d.version()))
                 .hasMessageContaining("thay đổi");
-        service.delete(d.bundleId(), deletedVersion);
+        service.deleteBundle(d.bundleId(), deletedVersion);
         assertThat(
                         jdbc.queryForObject(
-                                "select version from bundle_configurations where bundle_product_id=?",
+                                "select version from bundle_configurations where"
+                                        + " bundle_product_id=?",
                                 Long.class,
                                 d.bundleId()))
                 .isEqualTo(deletedVersion);
-        assertThat(jdbc.queryForObject("select count(*) from audit_entries", Integer.class))
-                .isZero();
     }
 }

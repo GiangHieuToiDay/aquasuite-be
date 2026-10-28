@@ -22,7 +22,12 @@ class BundleAdminControllerTest {
     void setup() {
         service = mock(BundleAdminService.class);
         mvc =
-                MockMvcBuilders.standaloneSetup(new BundleAdminController(service))
+                MockMvcBuilders.standaloneSetup(
+                                new BundleAdminController(
+                                        service,
+                                        mock(
+                                                com.aquasuite.ims.module.catalog.internal.service
+                                                        .BundleQueryService.class)))
                         .setControllerAdvice(new GlobalExceptionHandler())
                         .build();
     }
@@ -30,22 +35,22 @@ class BundleAdminControllerTest {
     @Test
     void bindingAndUnknownBody() {
         try {
-            mvc.perform(get("/api/v1/catalog/admin/bundles/not-uuid"))
+            mvc.perform(get("/api/v1/catalog/bundle/admin/not-uuid"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("SYS_002"));
             mvc.perform(
                             delete(
-                                    "/api/v1/catalog/admin/bundles/10000000-0000-4000-8000-000000000001"))
+                                    "/api/v1/catalog/bundle/admin/10000000-0000-4000-8000-000000000001"))
                     .andExpect(status().isBadRequest());
             mvc.perform(
-                            post("/api/v1/catalog/admin/bundles")
+                            post("/api/v1/catalog/bundle/admin")
                                     .contentType(MediaType.APPLICATION_JSON)
                                     .content("{\"productCode\":\"A\",\"unknownField\":1}"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("SYS_003"));
             mvc.perform(
                             patch(
-                                            "/api/v1/catalog/admin/bundles/10000000-0000-4000-8000-000000000001/status")
+                                            "/api/v1/catalog/bundle/admin/10000000-0000-4000-8000-000000000001/status")
                                     .contentType(MediaType.APPLICATION_JSON)
                                     .content(
                                             "{\"expectedVersion\":0,\"productStatus\":\"DELETED\"}"))
@@ -57,7 +62,7 @@ class BundleAdminControllerTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"/api/v1/catalog/admin/bundles", "/api/v1/catalog/admin/bundle-skus"})
+    @ValueSource(strings = {"/api/v1/catalog/bundle/admin", "/api/v1/catalog/bundle/admin/skus"})
     void unknownOrRepeatedQueryParametersAreRejected(String path) throws Exception {
         mvc.perform(get(path).param("surprise", "value"))
                 .andExpect(status().isBadRequest())

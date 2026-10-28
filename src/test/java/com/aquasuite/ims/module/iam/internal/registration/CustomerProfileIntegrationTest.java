@@ -15,7 +15,7 @@ class CustomerProfileIntegrationTest extends RegisterTestSupport {
     @Autowired TransactionTemplate transactions;
 
     @Test
-    void crmFailureRollsBackProfileAndActivationThenResendRecovers() throws Exception {
+    void crmFailureRollsBackAccountAndProfileThenSameOtpRecovers() throws Exception {
         var user = registered();
         String code = otp();
         com.aquasuite.ims.module.crm.api.CustomerRegistrationApi target =
@@ -29,12 +29,11 @@ class CustomerProfileIntegrationTest extends RegisterTestSupport {
                 .when(target)
                 .createProfile(any());
         postJson(ROOT + "/verifications", Map.of("email", EMAIL, "otp", code), 503);
-        assertThat(users.findById(user.getId()).orElseThrow().getStatus())
-                .isEqualTo(UserStatus.PENDING_ACTIVATION);
+        assertThat(users.findById(user.getId())).isEmpty();
+        assertThat(redis.opsForHash().hasKey(key(user), "claim")).isFalse();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM customers", Integer.class)).isZero();
         reset(target);
-        postJson(ROOT + "/otp-resends", Map.of("email", EMAIL), 200);
-        postJson(ROOT + "/verifications", Map.of("email", EMAIL, "otp", otp()), 200);
+        postJson(ROOT + "/verifications", Map.of("email", EMAIL, "otp", code), 200);
         assertThat(
                         jdbc.queryForObject(
                                 "SELECT count(*) FROM customers WHERE user_id=?",
@@ -46,8 +45,7 @@ class CustomerProfileIntegrationTest extends RegisterTestSupport {
     @Test
     void publicCrmContractRequiresTransactionAndIsIdempotentWithoutOverwriting() throws Exception {
         var user = registered();
-        user.setStatus(UserStatus.ACTIVE);
-        users.saveAndFlush(user);
+        postJson(ROOT + "/verifications", Map.of("email", EMAIL, "otp", otp()), 200);
         var request =
                 new CustomerRegistrationRequest(
                         user.getId(), user.getFullName(), user.getPhone(), user.getEmail());

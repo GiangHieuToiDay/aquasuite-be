@@ -4,9 +4,9 @@ Scope: Customer account registration, form validation, email OTP and reuse of th
 
 ## HTTP flow
 
-1. `POST /api/v1/customer-registrations` with `fullName`, `email`, `phone`, `password`, `passwordConfirmation`, `termsAccepted: true`. Returns HTTP 201 with `data.id`, `data.email`, `data.status: PENDING_ACTIVATION`. The server assigns CUSTOMER and a generated username. Passwords are BCrypt hashes; pending users cannot log in.
-2. `POST /api/v1/customer-registrations/verifications` with `email` and the six-character `otp`. Returns HTTP 200 with the existing LoginResponse fields: `access_token`, `refresh_token`, `token_type`, `expires_in`, `user`. Customer profile creation and account activation commit together, before session creation.
-3. `POST /api/v1/customer-registrations/otp-resends` with `email` to request a replacement after 60 seconds. Replaces the old code without resetting unexpired failed attempts.
+1. `POST /api/v1/iam/register` with `fullName`, `email`, `phone`, `password`, `passwordConfirmation`, `termsAccepted: true`. Returns HTTP 201 with `data.id`, `data.email`, `data.status: PENDING_ACTIVATION`. The server assigns CUSTOMER and a generated username. Passwords are BCrypt hashes; pending users cannot log in.
+2. `POST /api/v1/iam/register/verifications` with `email` and the six-character `otp`. Returns HTTP 200 with the existing LoginResponse fields: `access_token`, `refresh_token`, `token_type`, `expires_in`, `user`. Customer profile creation and account activation commit together, before session creation.
+3. `POST /api/v1/iam/register/otp-resends` with `email` to request a replacement after 60 seconds. Replaces the old code without resetting unexpired failed attempts.
 
 Only these three POST paths are public in addition to login/refresh. Other methods and paths retain authentication. Roles/status/userId from a request never determine account privileges. All responses use ApiResponse; validation has field errors. Credential-containing DTOs have redacted toString, and the controller handles form validation without logging rejected password/OTP values.
 
