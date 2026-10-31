@@ -27,6 +27,6 @@ public interface PermissionRepository extends JpaRepository<Permission, UUID> {
     @Query(value = "SELECT COUNT(*) FROM public.role_permissions WHERE permission_id = :permissionId", nativeQuery = true)
     long countRoleAssignmentsByPermissionId(@Param("permissionId") UUID permissionId);
 
-    @Query("SELECT p FROM Permission p WHERE (:search IS NULL OR LOWER(p.code) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(p.description) LIKE LOWER(CONCAT('%', :search, '%')))")
+    @Query("SELECT p FROM Permission p WHERE LOWER(p.code) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(p.description) LIKE LOWER(CONCAT('%', :search, '%'))")
     Page<Permission> searchPermissions(@Param("search") String search, Pageable pageable);
 }
