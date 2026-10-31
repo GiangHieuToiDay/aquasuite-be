@@ -187,6 +187,21 @@ class IamRolesAndPermissionsControllerIntegrationTest extends AuthIntegrationTes
         permissionRepository.saveAndFlush(p1);
         permissionRepository.saveAndFlush(p2);
 
+        // No search term must use the unfiltered paged query (PostgreSQL cannot infer a null JPQL parameter type here).
+        mockMvc.perform(get("/api/v1/iam/permissions")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("page", "0")
+                        .param("size", "10")
+                        .param("sortBy", "code")
+                        .param("direction", "asc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.page").value(0))
+                .andExpect(jsonPath("$.data.size").value(10))
+                .andExpect(jsonPath("$.data.totalElements").value(2))
+                .andExpect(jsonPath("$.data.items", hasSize(2)))
+                .andExpect(jsonPath("$.data.items[0].code").value("PERM_ALPHA"));
+
         // Valid search & page
         mockMvc.perform(get("/api/v1/iam/permissions")
                         .header("Authorization", "Bearer " + ownerToken)
