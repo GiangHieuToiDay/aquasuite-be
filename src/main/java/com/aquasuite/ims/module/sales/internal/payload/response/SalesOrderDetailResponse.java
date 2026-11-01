@@ -35,6 +35,7 @@ public class SalesOrderDetailResponse {
     private BigDecimal discountAmount;
     private BigDecimal totalAmount;
     private BigDecimal paidAmount;
+    private BigDecimal remainingAmount;
     private String deliveryAddress;
     private String note;
     private OffsetDateTime createdAt;

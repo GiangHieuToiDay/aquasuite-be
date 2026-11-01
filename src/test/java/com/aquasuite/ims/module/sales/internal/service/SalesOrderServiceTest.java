@@ -170,6 +170,8 @@ class SalesOrderServiceTest {
         assertThat(response.getOrderStatus()).isEqualTo(OrderStatus.COMPLETED.name());
         assertThat(response.getPaymentStatus()).isEqualTo(PaymentStatus.PAID.name());
         assertThat(response.getTotalAmount()).isEqualByComparingTo(new BigDecimal("1000000"));
+        assertThat(response.getPaidAmount()).isEqualByComparingTo(new BigDecimal("1000000"));
+        assertThat(response.getRemainingAmount()).isEqualByComparingTo(BigDecimal.ZERO);
 
         // Xác nhận trừ kho thực tế on_hand_qty bằng adjustPhysicalStock, KHÔNG gọi reserveStock
         verify(inventoryApi).adjustPhysicalStock(any(StockAdjustCommand.class));
@@ -213,6 +215,9 @@ class SalesOrderServiceTest {
         assertThat(response).isNotNull();
         assertThat(response.getOrderStatus()).isEqualTo(OrderStatus.PROCESSING.name());
         assertThat(response.getPaymentStatus()).isEqualTo(PaymentStatus.PARTIALLY_PAID.name());
+        assertThat(response.getTotalAmount()).isEqualByComparingTo(new BigDecimal("1000000"));
+        assertThat(response.getPaidAmount()).isEqualByComparingTo(new BigDecimal("400000"));
+        assertThat(response.getRemainingAmount()).isEqualByComparingTo(new BigDecimal("600000"));
 
         // Xác nhận chỉ tăng reserved_qty, KHÔNG trừ on_hand_qty
         verify(inventoryApi).reserveStock(variantId, new BigDecimal("2"));

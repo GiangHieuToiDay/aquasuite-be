@@ -30,6 +30,8 @@ public interface SalesOrderMapper {
     @Mapping(target = "customerName", source = "customerName")
     @Mapping(target = "customerPhone", source = "customerPhone")
     @Mapping(target = "salesStaffName", source = "salesStaffName")
+    @Mapping(target = "paidAmount", source = "order.paidAmount")
+    @Mapping(target = "remainingAmount", expression = "java(order.getRemainingAmount())")
     SalesOrderSummaryResponse toSummaryResponse(Order order, int itemCount, String customerName, String customerPhone, String salesStaffName);
 
     SalesInvoiceSummaryResponse toInvoiceSummary(com.aquasuite.ims.module.sales.internal.entity.SalesInvoice invoice);
@@ -39,6 +41,7 @@ public interface SalesOrderMapper {
     @Mapping(target = "customerPhone", source = "customerPhone")
     @Mapping(target = "salesStaffName", source = "salesStaffName")
     @Mapping(target = "paidAmount", source = "paidAmount")
+    @Mapping(target = "remainingAmount", expression = "java(order.getRemainingAmount())")
     @Mapping(target = "paymentTransactions", source = "paymentTransactions")
     SalesOrderDetailResponse toDetailResponse(
             Order order,

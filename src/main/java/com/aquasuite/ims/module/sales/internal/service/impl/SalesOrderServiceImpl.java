@@ -256,6 +256,10 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             }
         }
 
+        BigDecimal actualPaidAmount = (request.getCollectedAmount() != null && request.getCollectedAmount().compareTo(BigDecimal.ZERO) > 0)
+                ? request.getCollectedAmount()
+                : BigDecimal.ZERO;
+
         // 11. Lưu Order Entity & Order Items
         Order order = Order.builder()
                 .orderId(orderId)
@@ -271,6 +275,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .subtotal(calculatedSubtotal)
                 .discountAmount(orderDiscount)
                 .totalAmount(finalTotal)
+                .paidAmount(actualPaidAmount)
                 .deliveryAddress(request.getDeliveryAddress())
                 .note(request.getNote())
                 .createdAt(OffsetDateTime.now())
@@ -326,9 +331,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
         // 13. Ghi nhận giao dịch thanh toán vào bảng transactions (Module Finance) liên kết với khóa invoice_id
         List<PaymentTransactionResponseDto> paymentTransactions = new ArrayList<>();
-        BigDecimal actualPaidAmount = BigDecimal.ZERO;
-        if (request.getCollectedAmount() != null && request.getCollectedAmount().compareTo(BigDecimal.ZERO) > 0) {
-            actualPaidAmount = request.getCollectedAmount();
+        if (actualPaidAmount.compareTo(BigDecimal.ZERO) > 0) {
             var txDto = financeApi.recordPaymentTransaction(CreatePaymentTransactionCommand.builder()
                     .orderId(orderId)
                     .invoiceId(savedInvoice.getInvoiceId())
@@ -424,9 +427,12 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
         // Lấy lịch sử giao dịch thanh toán từ module Finance
         List<PaymentTransactionResponseDto> txList = financeApi.getTransactionsByOrderId(orderId);
-        BigDecimal paidAmount = txList.stream()
-                .map(PaymentTransactionResponseDto::amount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal paidAmount = order.getPaidAmount();
+        if (paidAmount == null || (paidAmount.compareTo(BigDecimal.ZERO) == 0 && !txList.isEmpty())) {
+            paidAmount = txList.stream()
+                    .map(PaymentTransactionResponseDto::amount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
 
         SalesInvoice invoice = salesInvoiceRepository.findByOrderId(orderId).orElse(null);
         SalesInvoiceSummaryResponse invoiceSummary = invoice != null ? salesOrderMapper.toInvoiceSummary(invoice) : null;
