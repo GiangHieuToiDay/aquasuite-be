@@ -3,7 +3,10 @@ package com.aquasuite.ims.module.crm.internal.entity;
 import com.aquasuite.ims.module.crm.internal.enums.CustomerType;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -53,8 +56,20 @@ public class Customer {
     @Column(name = "company_name", length = 255)
     private String companyName;
 
-    @Column(name = "address", columnDefinition = "TEXT")
-    private String address;
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "address", columnDefinition = "TEXT[]")
+    private String[] address;
+
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "projects", columnDefinition = "TEXT[]")
+    private String[] projects;
+
+    @Column(name = "credit_limit", nullable = false, precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal creditLimit = BigDecimal.ZERO;
+
+    @Column(name = "credit_term_days")
+    private Integer creditTermDays;
 
     @Column(name = "status", nullable = false, length = 32)
     @Builder.Default
@@ -82,6 +97,9 @@ public class Customer {
         }
         if (this.customerType == null) {
             this.customerType = CustomerType.RETAIL;
+        }
+        if (this.creditLimit == null) {
+            this.creditLimit = BigDecimal.ZERO;
         }
     }
 

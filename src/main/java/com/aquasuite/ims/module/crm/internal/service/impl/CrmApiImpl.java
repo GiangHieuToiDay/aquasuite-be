@@ -2,6 +2,7 @@ package com.aquasuite.ims.module.crm.internal.service.impl;
 
 import com.aquasuite.ims.module.crm.api.CrmApi;
 import com.aquasuite.ims.module.crm.api.dto.CustomerAddressDto;
+import com.aquasuite.ims.module.crm.api.dto.CustomerDebtProfileDto;
 import com.aquasuite.ims.module.crm.api.dto.CustomerSummaryDto;
 import com.aquasuite.ims.module.crm.internal.entity.Customer;
 import com.aquasuite.ims.module.crm.internal.entity.CustomerAddress;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -85,6 +87,30 @@ public class CrmApiImpl implements CrmApi {
                 .map(this::toAddressDto);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<CustomerDebtProfileDto> findAllDebtProfiles() {
+        return customerRepository.findAll().stream().map(this::toDebtProfileDto).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<CustomerDebtProfileDto> getDebtProfile(UUID customerId) {
+        if (customerId == null) {
+            return Optional.empty();
+        }
+        return customerRepository.findById(customerId).map(this::toDebtProfileDto);
+    }
+
+    @Override
+    @Transactional
+    public void updateCustomerStatus(UUID customerId, String status) {
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new IllegalArgumentException("Customer not found: " + customerId));
+        customer.setStatus(status);
+        customerRepository.save(customer);
+    }
+
     private CustomerSummaryDto toSummaryDto(Customer c) {
         return CustomerSummaryDto.builder()
                 .customerId(c.getCustomerId())
@@ -115,5 +141,20 @@ public class CrmApiImpl implements CrmApi {
                 .createdAt(a.getCreatedAt())
                 .updatedAt(a.getUpdatedAt())
                 .build();
+    }
+
+    private CustomerDebtProfileDto toDebtProfileDto(Customer customer) {
+        List<String> addresses = customer.getAddress() == null
+                ? List.of()
+                : Arrays.stream(customer.getAddress()).filter(value -> value != null && !value.isBlank()).toList();
+        List<String> projects = customer.getProjects() == null
+                ? List.of()
+                : Arrays.stream(customer.getProjects()).filter(value -> value != null && !value.isBlank()).toList();
+        return new CustomerDebtProfileDto(
+                customer.getCustomerId(), customer.getCustomerCode(), customer.getCustomerName(),
+                customer.getPhone(), customer.getEmail(),
+                customer.getCustomerType() == null ? null : customer.getCustomerType().name(),
+                customer.getTaxCode(), customer.getCompanyName(), addresses, projects,
+                customer.getCreditLimit(), customer.getCreditTermDays(), customer.getStatus());
     }
 }
