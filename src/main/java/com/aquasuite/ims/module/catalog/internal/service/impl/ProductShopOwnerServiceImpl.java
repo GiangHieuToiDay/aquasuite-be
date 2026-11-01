@@ -9,7 +9,7 @@ import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateProductReques
 import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateProductStatusRequest;
 import com.aquasuite.ims.module.catalog.internal.payload.res.*;
 import com.aquasuite.ims.module.catalog.internal.repository.*;
-import com.aquasuite.ims.module.catalog.internal.service.ProductAdminService;
+import com.aquasuite.ims.module.catalog.internal.service.ProductShopOwnerService;
 import com.aquasuite.ims.share.exception.AppException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,16 +25,19 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import com.aquasuite.ims.module.catalog.internal.mapper.ProductMapper;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class ProductAdminServiceImpl implements ProductAdminService {
+public class ProductShopOwnerServiceImpl implements ProductShopOwnerService {
 
     private final ProductRepository productRepository;
     private final ProductVariantRepository variantRepository;
     private final ProductImageRepository imageRepository;
     private final CategoryRepository categoryRepository;
     private final BrandRepository brandRepository;
+    private final ProductMapper productMapper;
 
     @Override
     @Transactional
@@ -80,7 +83,7 @@ public class ProductAdminServiceImpl implements ProductAdminService {
             }
         }
 
-        log.info("Admin created product: ID={}, Code={}", product.getProductId(), product.getProductCode());
+        log.info("Shop owner created product: ID={}, Code={}", product.getProductId(), product.getProductCode());
 
         // Sản phẩm mới tạo chưa có biến thể (biến thể do chức năng Manage SKUs & Variants quản lý)
         return toDetailResponse(product, category, brand, Collections.emptyList(), allImages);
@@ -159,23 +162,15 @@ public class ProductAdminServiceImpl implements ProductAdminService {
                     .max(BigDecimal::compareTo)
                     .orElse(BigDecimal.ZERO);
 
-            return ProductSummaryResponse.builder()
-                    .productId(product.getProductId())
-                    .productCode(product.getProductCode())
-                    .productName(product.getProductName())
-                    .categoryId(product.getCategoryId())
-                    .categoryName(cat != null ? cat.getCategoryName() : null)
-                    .brandId(product.getBrandId())
-                    .brandName(br != null ? br.getBrandName() : null)
-                    .productType(product.getProductType())
-                    .status(product.getStatus())
-                    .primaryImageUrl(primaryUrl)
-                    .minSellingPrice(minPrice)
-                    .maxSellingPrice(maxPrice)
-                    .totalVariants(variants.size())
-                    .createdAt(product.getCreatedAt())
-                    .updatedAt(product.getUpdatedAt())
-                    .build();
+            return productMapper.toSummaryResponse(
+                    product,
+                    cat != null ? cat.getCategoryName() : null,
+                    br != null ? br.getBrandName() : null,
+                    primaryUrl,
+                    minPrice,
+                    maxPrice,
+                    variants.size()
+            );
         }).toList();
 
         return new PageImpl<>(summaries, pageable, productPage.getTotalElements());
@@ -254,7 +249,7 @@ public class ProductAdminServiceImpl implements ProductAdminService {
 
         List<ProductVariant> existingVariants = variantRepository.findByProductId(productId);
         List<ProductImage> allImages = imageRepository.findByProductId(productId);
-        log.info("Admin updated product: ID={}, Code={}", product.getProductId(), product.getProductCode());
+        log.info("Shop owner updated product: ID={}, Code={}", product.getProductId(), product.getProductCode());
 
         return toDetailResponse(product, category, brand, existingVariants, allImages);
     }
@@ -273,7 +268,7 @@ public class ProductAdminServiceImpl implements ProductAdminService {
         List<ProductVariant> variants = variantRepository.findByProductId(productId);
         List<ProductImage> images = imageRepository.findByProductId(productId);
 
-        log.info("Admin updated product status: ID={}, Status={}", productId, request.status());
+        log.info("Shop owner updated product status: ID={}, Status={}", productId, request.status());
         return toDetailResponse(product, category, brand, variants, images);
     }
 
@@ -286,7 +281,7 @@ public class ProductAdminServiceImpl implements ProductAdminService {
         product.setStatus(ProductStatus.DELETED);
         productRepository.save(product);
 
-        log.info("Admin soft-deleted product: ID={}", productId);
+        log.info("Shop owner soft-deleted product: ID={}", productId);
     }
 
     // =========================================================================
@@ -302,7 +297,7 @@ public class ProductAdminServiceImpl implements ProductAdminService {
     ) {
         List<ProductImageResponse> productImages = allImages.stream()
                 .filter(img -> img.getVariantId() == null)
-                .map(this::toImageResponse)
+                .map(productMapper::toImageResponse)
                 .toList();
 
         Map<UUID, List<ProductImage>> imagesByVariantId = allImages.stream()
@@ -312,63 +307,18 @@ public class ProductAdminServiceImpl implements ProductAdminService {
         List<ProductVariantResponse> variantResponses = (variants == null ? Collections.<ProductVariant>emptyList() : variants).stream().map(v -> {
             List<ProductImageResponse> vImages = imagesByVariantId.getOrDefault(v.getVariantId(), Collections.emptyList())
                     .stream()
-                    .map(this::toImageResponse)
+                    .map(productMapper::toImageResponse)
                     .toList();
 
-            return ProductVariantResponse.builder()
-                    .variantId(v.getVariantId())
-                    .productId(v.getProductId())
-                    .sku(v.getSku())
-                    .variantName(v.getVariantName())
-                    .unit(v.getUnit())
-                    .conversionRate(v.getConversionRate())
-                    .color(v.getColor())
-                    .size(v.getSize())
-                    .weight(v.getWeight())
-                    .technicalSpec(v.getTechnicalSpec())
-                    .costPrice(v.getCostPrice())
-                    .sellingPrice(v.getSellingPrice())
-                    .warrantyPolicyId(v.getWarrantyPolicyId())
-                    .serialTracking(v.getSerialTracking())
-                    .status(v.getStatus())
-                    .images(vImages)
-                    .createdAt(v.getCreatedAt())
-                    .updatedAt(v.getUpdatedAt())
-                    .build();
+            return productMapper.toVariantResponse(v, vImages);
         }).toList();
 
-        return ProductDetailResponse.builder()
-                .productId(product.getProductId())
-                .productCode(product.getProductCode())
-                .productName(product.getProductName())
-                .category(category != null ? CategoryBriefResponse.builder()
-                        .categoryId(category.getCategoryId())
-                        .categoryCode(category.getCategoryCode())
-                        .categoryName(category.getCategoryName())
-                        .build() : null)
-                .brand(brand != null ? BrandBriefResponse.builder()
-                        .brandId(brand.getBrandId())
-                        .brandCode(brand.getBrandCode())
-                        .brandName(brand.getBrandName())
-                        .build() : null)
-                .description(product.getDescription())
-                .specifications(product.getSpecifications())
-                .productType(product.getProductType())
-                .status(product.getStatus())
-                .images(productImages)
-                .variants(variantResponses)
-                .createdAt(product.getCreatedAt())
-                .updatedAt(product.getUpdatedAt())
-                .build();
-    }
-
-    private ProductImageResponse toImageResponse(ProductImage img) {
-        return ProductImageResponse.builder()
-                .imageId(img.getImageId())
-                .variantId(img.getVariantId())
-                .imageUrl(img.getImageUrl())
-                .isPrimary(img.getIsPrimary())
-                .sortOrder(img.getSortOrder())
-                .build();
+        return productMapper.toDetailResponse(
+                product,
+                productMapper.toCategoryBrief(category),
+                productMapper.toBrandBrief(brand),
+                variantResponses,
+                productImages
+        );
     }
 }

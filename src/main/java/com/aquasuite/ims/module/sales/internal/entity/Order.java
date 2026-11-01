@@ -29,6 +29,7 @@ import java.util.UUID;
                 @Index(name = "idx_orders_sales_staff_id", columnList = "sales_staff_id"),
                 @Index(name = "idx_orders_order_status", columnList = "order_status"),
                 @Index(name = "idx_orders_payment_status", columnList = "payment_status"),
+                @Index(name = "idx_orders_order_type", columnList = "order_type"),
                 @Index(name = "idx_orders_order_date", columnList = "order_date")
         }
 )
@@ -60,6 +61,10 @@ public class Order {
 
     @Column(name = "promotion_id")
     private UUID promotionId;
+
+    @Column(name = "order_type", nullable = false, length = 32)
+    @Builder.Default
+    private String orderType = "RETAIL";
 
     @Column(name = "order_channel", nullable = false, length = 32)
     private String orderChannel;
@@ -122,6 +127,9 @@ public class Order {
         }
         if (this.totalAmount == null) {
             this.totalAmount = BigDecimal.ZERO;
+        }
+        if (this.orderType == null || this.orderType.isBlank()) {
+            this.orderType = "RETAIL";
         }
     }
 

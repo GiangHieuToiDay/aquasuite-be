@@ -24,4 +24,6 @@ public interface CrmApi {
     List<CustomerAddressDto> getDeliveryAddressesByCustomerId(UUID customerId);
 
     Optional<CustomerAddressDto> getDefaultDeliveryAddress(UUID customerId);
+
+    CustomerSummaryDto getOrCreateWalkInCustomer();
 }

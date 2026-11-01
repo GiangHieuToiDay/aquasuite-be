@@ -10,7 +10,7 @@ import com.aquasuite.ims.module.catalog.internal.payload.req.*;
 import com.aquasuite.ims.module.catalog.internal.payload.res.ProductDetailResponse;
 import com.aquasuite.ims.module.catalog.internal.payload.res.ProductSummaryResponse;
 import com.aquasuite.ims.module.catalog.internal.repository.*;
-import com.aquasuite.ims.module.catalog.internal.service.impl.ProductAdminServiceImpl;
+import com.aquasuite.ims.module.catalog.internal.service.impl.ProductShopOwnerServiceImpl;
 import com.aquasuite.ims.share.exception.AppException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -34,7 +34,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class ProductAdminServiceTest {
+class ProductShopOwnerServiceTest {
 
     @Mock
     private ProductRepository productRepository;
@@ -51,8 +51,11 @@ class ProductAdminServiceTest {
     @Mock
     private BrandRepository brandRepository;
 
+    @org.mockito.Spy
+    private com.aquasuite.ims.module.catalog.internal.mapper.ProductMapper productMapper = org.mapstruct.factory.Mappers.getMapper(com.aquasuite.ims.module.catalog.internal.mapper.ProductMapper.class);
+
     @InjectMocks
-    private ProductAdminServiceImpl productAdminService;
+    private ProductShopOwnerServiceImpl productShopOwnerService;
 
     private UUID categoryId;
     private UUID brandId;
@@ -109,7 +112,7 @@ class ProductAdminServiceTest {
             return img;
         });
 
-        ProductDetailResponse response = productAdminService.createProduct(request);
+        ProductDetailResponse response = productShopOwnerService.createProduct(request);
 
         assertThat(response).isNotNull();
         assertThat(response.productId()).isEqualTo(productId);
@@ -135,7 +138,7 @@ class ProductAdminServiceTest {
 
         when(productRepository.existsByProductCode("SP-TOTO-001")).thenReturn(true);
 
-        assertThatThrownBy(() -> productAdminService.createProduct(request))
+        assertThatThrownBy(() -> productShopOwnerService.createProduct(request))
                 .isInstanceOf(AppException.class)
                 .hasFieldOrPropertyWithValue("errorCode", CatalogErrorCode.PRODUCT_CODE_ALREADY_EXISTS);
     }
@@ -153,7 +156,7 @@ class ProductAdminServiceTest {
         when(productRepository.existsByProductCode("SP-002")).thenReturn(false);
         when(categoryRepository.findById(nonExistentCatId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> productAdminService.createProduct(request))
+        assertThatThrownBy(() -> productShopOwnerService.createProduct(request))
                 .isInstanceOf(AppException.class)
                 .hasFieldOrPropertyWithValue("errorCode", CatalogErrorCode.CATEGORY_NOT_FOUND);
     }
@@ -177,7 +180,7 @@ class ProductAdminServiceTest {
         when(variantRepository.findByProductId(productId)).thenReturn(Collections.emptyList());
         when(imageRepository.findByProductId(productId)).thenReturn(Collections.emptyList());
 
-        ProductDetailResponse response = productAdminService.getProductDetail(productId);
+        ProductDetailResponse response = productShopOwnerService.getProductDetail(productId);
 
         assertThat(response).isNotNull();
         assertThat(response.productId()).isEqualTo(productId);
@@ -192,7 +195,7 @@ class ProductAdminServiceTest {
         UUID nonExistentId = UUID.randomUUID();
         when(productRepository.findById(nonExistentId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> productAdminService.getProductDetail(nonExistentId))
+        assertThatThrownBy(() -> productShopOwnerService.getProductDetail(nonExistentId))
                 .isInstanceOf(AppException.class)
                 .hasFieldOrPropertyWithValue("errorCode", CatalogErrorCode.PRODUCT_NOT_FOUND);
     }
@@ -216,7 +219,7 @@ class ProductAdminServiceTest {
         when(imageRepository.findByProductId(productId)).thenReturn(Collections.emptyList());
 
         UpdateProductStatusRequest request = new UpdateProductStatusRequest(ProductStatus.INACTIVE);
-        ProductDetailResponse response = productAdminService.updateProductStatus(productId, request);
+        ProductDetailResponse response = productShopOwnerService.updateProductStatus(productId, request);
 
         assertThat(response).isNotNull();
         assertThat(product.getStatus()).isEqualTo(ProductStatus.INACTIVE);
@@ -235,7 +238,7 @@ class ProductAdminServiceTest {
 
         when(productRepository.findById(productId)).thenReturn(Optional.of(product));
 
-        productAdminService.deleteProduct(productId);
+        productShopOwnerService.deleteProduct(productId);
 
         assertThat(product.getStatus()).isEqualTo(ProductStatus.DELETED);
         verify(productRepository, times(1)).save(product);
@@ -265,7 +268,7 @@ class ProductAdminServiceTest {
         when(variantRepository.findByProductIdIn(anyList())).thenReturn(Collections.emptyList());
         when(imageRepository.findByProductIdIn(anyList())).thenReturn(Collections.emptyList());
 
-        Page<ProductSummaryResponse> result = productAdminService.listProducts(
+        Page<ProductSummaryResponse> result = productShopOwnerService.listProducts(
                 null, null, null, null, null, pageable
         );
 

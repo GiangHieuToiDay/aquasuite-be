@@ -1,0 +1,162 @@
+<mxfile host="app.diagrams.net" modified="2026-10-31T16:50:00.000Z" agent="AquaSuite" version="21.0.0" type="device">
+  <diagram id="pos-showroom-business-flow" name="Quy Trinh Ban Le Showroom">
+    <mxGraphModel dx="1400" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="1220" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- BANNER TIÊU ĐỀ CHÍNH -->
+        <mxCell id="header" value="&lt;b style=&quot;font-size: 18px; color: #FFFFFF;&quot;&gt;QUY TRÌNH BÁN HÀNG &amp; QUẢN LÝ KHO TẠI CỬA HÀNG (SHOWROOM)&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size: 13px; color: #E2E8F0;&quot;&gt;(Sơ đồ tóm tắt quy trình vận hành thực tế - Dành riêng cho Chủ cửa hàng theo dõi &amp; đánh giá)&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0F172A;strokeColor=#0284C7;strokeWidth=2;arcSize=8;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="80" y="20" width="1340" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- ================= HÀNG 1: BƯỚC 1 - LÊN ĐƠN BÁN HÀNG ================= -->
+        <!-- Khối 1A: Người lập & Khách hàng -->
+        <mxCell id="boxInputUserCustomer" value="&lt;b style=&quot;font-size: 13.5px; color: #0369A1;&quot;&gt;1. NGƯỜI LẬP &amp; KHÁCH HÀNG&lt;/b&gt;&lt;br&gt;&lt;div style=&quot;text-align: left; padding: 4px; font-size: 12px; color: #334155; line-height: 1.45;&quot;&gt;• &lt;b&gt;Thu ngân / Bán hàng:&lt;/b&gt; Nhân viên phụ trách đăng nhập để lên đơn.&lt;br&gt;• &lt;b&gt;Khách quen / Thợ điện nước / Nhà thầu:&lt;/b&gt; Tìm kiếm nhanh bằng Số điện thoại để lưu lịch sử mua hàng, áp dụng giá quen &amp; theo dõi sổ nợ.&lt;br&gt;• &lt;b&gt;Khách mua lẻ vãng lai:&lt;/b&gt; Tự động xếp vào nhóm &lt;i style=&quot;color:#0284C7;&quot;&gt;Khách lẻ tại quầy&lt;/i&gt;, lên đơn bán ngay, không cần hỏi thông tin rườm rà.&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0F9FF;strokeColor=#0284C7;strokeWidth=1.5;arcSize=8;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="80" y="105" width="410" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- Khối 1B: Hàng hóa & Bóc tách Combo -->
+        <mxCell id="boxInputCatalog" value="&lt;b style=&quot;font-size: 13.5px; color: #0369A1;&quot;&gt;2. CHỌN HÀNG LẺ HOẶC BỘ COMBO&lt;/b&gt;&lt;br&gt;&lt;div style=&quot;text-align: left; padding: 4px; font-size: 12px; color: #334155; line-height: 1.45;&quot;&gt;• &lt;b&gt;Mặt hàng bán lẻ:&lt;/b&gt; Bồn cầu, chậu rửa, sen vòi, bình nước nóng, ống nước... theo bảng giá niêm yết.&lt;br&gt;• &lt;b&gt;Gói Combo trọn gói:&lt;/b&gt; Bộ thiết bị vệ sinh phòng tắm, Combo máy lọc nước gia đình...&lt;br&gt;👉 &lt;b style=&quot;color:#D97706;&quot;&gt;Tự động kiểm tra kho:&lt;/b&gt; Tự bóc tách từng phụ kiện nhỏ trong Combo; kiểm tra kho còn đủ hàng mới cho phép nhân viên bán.&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0F9FF;strokeColor=#0284C7;strokeWidth=1.5;arcSize=8;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="545" y="105" width="410" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- Khối 1C: Khuyến mãi & Chiết khấu -->
+        <mxCell id="boxInputPromotion" value="&lt;b style=&quot;font-size: 13.5px; color: #0369A1;&quot;&gt;3. CHÍNH SÁCH GIẢM GIÁ &amp; BỚT TIỀN&lt;/b&gt;&lt;br&gt;&lt;div style=&quot;text-align: left; padding: 4px; font-size: 12px; color: #334155; line-height: 1.45;&quot;&gt;• &lt;b&gt;Chương trình khuyến mãi:&lt;/b&gt; Áp dụng các đợt giảm giá ưu đãi hiện có của cửa hàng.&lt;br&gt;• &lt;b&gt;Bớt tiền trực tiếp:&lt;/b&gt; Giảm giá linh hoạt trên từng món hàng hoặc giảm trực tiếp một khoản tiền trên tổng đơn cho khách.&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0F9FF;strokeColor=#0284C7;strokeWidth=1.5;arcSize=8;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1010" y="105" width="410" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- MŨI TÊN VÀO BƯỚC CHỌN PHƯƠNG THỨC NHẬN HÀNG -->
+        <mxCell id="arrow_in_left" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0284C7;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.2;entryY=0;" edge="1" parent="1" source="boxInputUserCustomer" target="decisionFulfill">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arrow_in_center" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0284C7;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="boxInputCatalog" target="decisionFulfill">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="arrow_in_right" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0284C7;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.8;entryY=0;" edge="1" parent="1" source="boxInputPromotion" target="decisionFulfill">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ================= HÀNG 2: KHỐI QUYẾT ĐỊNH CÁCH NHẬN HÀNG ================= -->
+        <mxCell id="decisionFulfill" value="&lt;b style=&quot;font-size: 14px; color: #FFFFFF;&quot;&gt;KHÁCH CHỌN CÁCH NHẬN HÀNG NÀO?&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size: 11.5px; color: #E0F2FE;&quot;&gt;(Quyết định việc trừ kho hay giữ chỗ, và cách thu tiền của cửa hàng)&lt;/span&gt;" style="rhombus;whiteSpace=wrap;html=1;fillColor=#0284C7;strokeColor=#0369A1;strokeWidth=2;fontColor=#FFFFFF;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="465" y="245" width="570" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- RẼ TRÁI: KHÁCH LẤY NGAY -->
+        <mxCell id="arrow_to_pickup" value="&lt;b style=&quot;font-size: 12.5px; color: #047857;&quot;&gt;KHÁCH LẤY HÀNG TỰ CHỞ VỀ NGAY&lt;br&gt;(Nhận ngay tại quầy Showroom)&lt;/b&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#10B981;strokeWidth=2.5;exitX=0;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="decisionFulfill" target="branchPickupHeader">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="380" y="280" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- RẼ PHẢI: CỬA HÀNG GIAO TẬN NƠI -->
+        <mxCell id="arrow_to_delivery" value="&lt;b style=&quot;font-size: 12.5px; color: #B45309;&quot;&gt;CỬA HÀNG GIAO HÀNG TẬN NƠI&lt;br&gt;(Hẹn ngày giờ giao xe đến nhà/công trình)&lt;/b&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#F59E0B;strokeWidth=2.5;exitX=1;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="decisionFulfill" target="branchDeliveryHeader">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1120" y="280" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ================= NHÁNH 1: KHÁCH LẤY HÀNG MANG VỀ NGAY ================= -->
+        <mxCell id="branchPickupHeader" value="&lt;b style=&quot;font-size: 14px; color: #FFFFFF;&quot;&gt;NHÁNH 1: KHÁCH LẤY HÀNG MANG VỀ NGAY TẠI QUẦY&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#059669;strokeColor=#047857;strokeWidth=2;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="80" y="345" width="600" height="38" as="geometry" />
+        </mxCell>
+
+        <!-- Kho & Đơn hàng Nhánh 1 -->
+        <mxCell id="boxPickupStock" value="&lt;b style=&quot;font-size: 13px; color: #047857;&quot;&gt;📦 KHO HÀNG: TRỪ KHO THỰC TẾ NGAY LẬP TỨC&lt;/b&gt;&lt;br&gt;&lt;div style=&quot;text-align: left; padding: 4px; font-size: 12px; color: #334155; line-height: 1.45;&quot;&gt;• &lt;b&gt;Trừ kho thực tế:&lt;/b&gt; Giảm trực tiếp số lượng hàng có trong kho của Showroom ngay khi trao hàng cho khách.&lt;br&gt;• &lt;b&gt;Ghi sổ xuất kho:&lt;/b&gt; Tự động ghi nhật ký &lt;i&gt;&quot;Xuất bán lẻ mang về ngay&quot;&lt;/i&gt;.&lt;br&gt;• &lt;b&gt;Đơn hàng:&lt;/b&gt; Ghi nhận đơn hàng ở trạng thái &lt;b style=&quot;color:#047857;&quot;&gt;ĐÃ HOÀN THÀNH XONG&lt;/b&gt;.&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECFDF5;strokeColor=#10B981;strokeWidth=1.5;arcSize=8;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="80" y="400" width="600" height="85" as="geometry" />
+        </mxCell>
+
+        <!-- Hóa đơn Nhánh 1 -->
+        <mxCell id="boxPickupInvoice" value="&lt;b style=&quot;font-size: 13px; color: #6D28D9;&quot;&gt;🧾 PHÁT HÀNH HÓA ĐƠN BÁN LẺ &amp; THU ĐỦ 100% TIỀN HÀNG&lt;/b&gt;&lt;br&gt;&lt;div style=&quot;text-align: left; padding: 4px; font-size: 12px; color: #334155; line-height: 1.45;&quot;&gt;• &lt;b&gt;Tự động phát hành Hóa đơn bán lẻ:&lt;/b&gt; Khóa cố định giá bán và tiền giảm giá ngay tại thời điểm xuất đơn để làm căn cứ minh bạch với khách.&lt;br&gt;• &lt;b&gt;Thu đủ 100% tiền hàng:&lt;/b&gt; Nhận tiền qua &lt;b&gt;Tiền mặt&lt;/b&gt;, &lt;b&gt;Chuyển khoản QR ngân hàng&lt;/b&gt; hoặc &lt;b&gt;Quẹt thẻ POS&lt;/b&gt;.&lt;br&gt;• &lt;b&gt;Sổ quỹ &amp; Hóa đơn:&lt;/b&gt; Đánh dấu &lt;b style=&quot;color:#059669;&quot;&gt;ĐÃ THANH TOÁN ĐỦ&lt;/b&gt; gắn liền với mã hóa đơn.&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAF5FF;strokeColor=#8B5CF6;strokeWidth=2;arcSize=8;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="80" y="500" width="600" height="95" as="geometry" />
+        </mxCell>
+
+        <!-- Hoàn tất Nhánh 1 -->
+        <mxCell id="boxPickupDone" value="&lt;b style=&quot;font-size: 13.5px; color: #FFFFFF;&quot;&gt;✅ KẾT THÚC: GIAO DỊCH HOÀN TẤT TRỌN VẸN&lt;/b&gt;&lt;br&gt;&lt;div style=&quot;text-align: left; padding: 3px; font-size: 12px; color: #E2E8F0; line-height: 1.4;&quot;&gt;• Tự động ghi chép lịch sử giao dịch vào sổ theo dõi của cửa hàng.&lt;br&gt;• In Hóa đơn bán lẻ giao cho khách cầm về cùng sản phẩm. Kết thúc bán hàng thành công.&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#047857;strokeColor=#065F46;strokeWidth=2;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="80" y="610" width="600" height="65" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow_p1_p2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#10B981;strokeWidth=2;" edge="1" parent="1" source="branchPickupHeader" target="boxPickupStock" />
+        <mxCell id="arrow_p2_p3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#10B981;strokeWidth=2;" edge="1" parent="1" source="boxPickupStock" target="boxPickupInvoice" />
+        <mxCell id="arrow_p3_p4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#10B981;strokeWidth=2;" edge="1" parent="1" source="boxPickupInvoice" target="boxPickupDone" />
+
+
+        <!-- ================= NHÁNH 2: GIAO HÀNG TẬN NƠI ================= -->
+        <mxCell id="branchDeliveryHeader" value="&lt;b style=&quot;font-size: 14px; color: #FFFFFF;&quot;&gt;NHÁNH 2: CỬA HÀNG GIAO TẬN NƠI / CÔNG TRÌNH THEO HẸN&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D97706;strokeColor=#B45309;strokeWidth=2;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="820" y="345" width="600" height="38" as="geometry" />
+        </mxCell>
+
+        <!-- Kho & Đơn hàng Nhánh 2 -->
+        <mxCell id="boxDeliveryStock" value="&lt;b style=&quot;font-size: 13px; color: #B45309;&quot;&gt;🔒 KHO HÀNG: KHÓA SỐ LƯỢNG GIỮ CHỖ AN TOÀN TRONG KHO&lt;/b&gt;&lt;br&gt;&lt;div style=&quot;text-align: left; padding: 4px; font-size: 12px; color: #334155; line-height: 1.45;&quot;&gt;• &lt;b&gt;Khóa giữ chỗ:&lt;/b&gt; Hàng vẫn nằm ở kho Showroom nhưng đã dành riêng cho đơn này; nhân viên khác không thể bán đè cho ai khác, tránh bị hụt hàng khi đi giao.&lt;br&gt;• &lt;b&gt;Ghi sổ giữ chỗ:&lt;/b&gt; Tự động ghi nhật ký &lt;i&gt;&quot;Đặt giữ hàng chờ giao xe&quot;&lt;/i&gt;.&lt;br&gt;• &lt;b&gt;Đơn hàng:&lt;/b&gt; Trạng thái &lt;b style=&quot;color:#B45309;&quot;&gt;ĐANG XỬ LÝ - CHỜ GIAO XE&lt;/b&gt;, lưu Địa chỉ giao &amp; Ngày hẹn.&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFBEB;strokeColor=#F59E0B;strokeWidth=1.5;arcSize=8;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="820" y="400" width="600" height="85" as="geometry" />
+        </mxCell>
+
+        <!-- Hóa đơn Nhánh 2 -->
+        <mxCell id="boxDeliveryInvoice" value="&lt;b style=&quot;font-size: 13px; color: #6D28D9;&quot;&gt;🧾 PHÁT HÀNH HÓA ĐƠN &amp; THU TIỀN CỌC / GHI SỔ NỢ&lt;/b&gt;&lt;br&gt;&lt;div style=&quot;text-align: left; padding: 4px; font-size: 12px; color: #334155; line-height: 1.45;&quot;&gt;• &lt;b&gt;Tự động phát hành Hóa đơn bán lẻ:&lt;/b&gt; Làm chứng từ pháp lý giao nhận hàng hóa &amp; đối soát số tiền còn thiếu.&lt;br&gt;• &lt;b&gt;Thu tiền cọc:&lt;/b&gt; Nhận cọc (30% - 50%), theo dõi số tiền còn nợ để tài xế thu nốt khi giao.&lt;br&gt;• &lt;b&gt;Bán cho nợ (Thầu/Thợ quen):&lt;/b&gt; Ghi nợ 30 ngày. 🛡️ &lt;i style=&quot;color:#DC2626;&quot;&gt;Tự động chặn nếu khách đang có nợ cũ quá hạn trên 60 ngày chưa trả (bảo vệ tiền cho cửa hàng).&lt;/i&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAF5FF;strokeColor=#8B5CF6;strokeWidth=2;arcSize=8;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="820" y="500" width="600" height="95" as="geometry" />
+        </mxCell>
+
+        <!-- Chờ giao Nhánh 2 -->
+        <mxCell id="boxDeliveryProcess" value="&lt;b style=&quot;font-size: 13.5px; color: #FFFFFF;&quot;&gt;🚚 TRẠNG THÁI: CHUYỂN KHO BỐC XẾP LÊN XE THEO LỊCH HẸN&lt;/b&gt;&lt;br&gt;&lt;div style=&quot;text-align: left; padding: 3px; font-size: 12px; color: #E2E8F0; line-height: 1.4;&quot;&gt;• Tự động ghi chép lịch sử giao dịch vào sổ theo dõi của cửa hàng.&lt;br&gt;• Chuyển phiếu lệnh xuất kho cho thủ kho bốc hàng lên xe ba gác / xe tải theo đúng lịch hẹn.&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B45309;strokeColor=#92400E;strokeWidth=2;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="820" y="610" width="600" height="65" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow_d1_d2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#F59E0B;strokeWidth=2;" edge="1" parent="1" source="branchDeliveryHeader" target="boxDeliveryStock" />
+        <mxCell id="arrow_d2_d3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#F59E0B;strokeWidth=2;" edge="1" parent="1" source="boxDeliveryStock" target="boxDeliveryInvoice" />
+        <mxCell id="arrow_d3_d4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#F59E0B;strokeWidth=2;" edge="1" parent="1" source="boxDeliveryInvoice" target="boxDeliveryProcess" />
+
+
+        <!-- ================= PHẦN DƯỚI: XỬ LÝ PHÁT SINH TRƯỚC KHI XE RỜI KHO ================= -->
+        <mxCell id="arrow_process_to_changes" value="&lt;b style=&quot;font-size: 12px; color: #475569;&quot;&gt;NẾU CÓ PHÁT SINH TRƯỚC KHI XE BỐC HÀNG ĐI&lt;/b&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748B;strokeWidth=2;" edge="1" parent="1" source="boxDeliveryProcess" target="changesHeader">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1120" y="695" />
+              <mxPoint x="750" y="695" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="changesHeader" value="&lt;b style=&quot;font-size: 13.5px; color: #0F172A;&quot;&gt;XỬ LÝ 2 TÌNH HUỐNG PHÁT SINH KHI ĐƠN HÀNG ĐANG CHỜ GIAO XE&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E2E8F0;strokeColor=#94A3B8;strokeWidth=2;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="400" y="720" width="700" height="35" as="geometry" />
+        </mxCell>
+
+        <!-- TÌNH HUỐNG 1: ĐỔI ĐỊA CHỈ -->
+        <mxCell id="caseChangeAddress" value="&lt;b style=&quot;font-size: 13px; color: #0369A1;&quot;&gt;TÌNH HUỐNG 1: KHÁCH ĐỔI ĐỊA CHỈ HOẶC HẸN LẠI GIỜ GIAO&lt;/b&gt;&lt;br&gt;&lt;div style=&quot;text-align: left; padding: 4px; font-size: 12px; color: #334155; line-height: 1.45;&quot;&gt;• Nhân viên vào đơn hàng đang chờ giao để sửa lại địa chỉ công trình hoặc ghi chú giờ giao mới.&lt;br&gt;• Đảm bảo tài xế nhận thông tin chính xác, giao đúng nhà, đúng giờ, không lạc đường.&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0F9FF;strokeColor=#0284C7;strokeWidth=1.5;arcSize=8;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="80" y="780" width="600" height="85" as="geometry" />
+        </mxCell>
+
+        <!-- TÌNH HUỐNG 2: HỦY ĐƠN HÀNG -->
+        <mxCell id="caseCancelOrder" value="&lt;b style=&quot;font-size: 13px; color: #BE123C;&quot;&gt;TÌNH HUỐNG 2: KHÁCH ĐỔI Ý KHÔNG MUA NỮA (HỦY ĐƠN)&lt;/b&gt;&lt;br&gt;&lt;div style=&quot;text-align: left; padding: 4px; font-size: 12px; color: #334155; line-height: 1.45;&quot;&gt;• &lt;b&gt;Bắt buộc ghi rõ lý do hủy:&lt;/b&gt; Nhân viên phải nhập rõ nguyên nhân hủy để chủ cửa hàng nắm bắt.&lt;br&gt;• &lt;b&gt;Hóa đơn &amp; Đơn hàng:&lt;/b&gt; Chuyển sang trạng thái &lt;b style=&quot;color:#BE123C;&quot;&gt;ĐÃ HỦY&lt;/b&gt;.&lt;br&gt;• 🎯 &lt;b style=&quot;color:#047857;&quot;&gt;TỰ ĐỘNG NHẢ HÀNG GIỮ CHỖ VỀ KHO NGAY LẬP TỨC:&lt;/b&gt; Trả lại toàn bộ hàng giữ chỗ về kho tự do để bán ngay cho khách khác, không lo bị om hàng hay quên nhả kho.&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF1F2;strokeColor=#F43F5E;strokeWidth=2;arcSize=8;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="820" y="780" width="600" height="95" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow_ch1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0284C7;strokeWidth=2;exitX=0;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="changesHeader" target="caseChangeAddress">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="380" y="738" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="arrow_ch2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#F43F5E;strokeWidth=2;exitX=1;exitY=0.5;entryX=0.5;entryY=0;" edge="1" parent="1" source="changesHeader" target="caseCancelOrder">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1120" y="738" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+
+        <!-- ================= BANNER QUY TẮC AN TOÀN CHỐNG GIAN LẬN ================= -->
+        <mxCell id="safetyBanner" value="&lt;b style=&quot;font-size: 13.5px; color: #BE123C;&quot;&gt;🛡️ QUY TẮC AN TOÀN CHO CỬA HÀNG (CHẶN THẤT THOÁT &amp; GIAN LẬN TIỀN/HÀNG):&lt;/b&gt;&amp;nbsp;&lt;span style=&quot;font-size: 12px; color: #1E293B;&quot;&gt;Khi đơn hàng đã ở trạng thái &lt;b&gt;ĐÃ HOÀN THÀNH XONG&lt;/b&gt; (khách đã chở hàng về) hoặc hàng hóa đã bốc lên xe xuất kho đi giao, hệ thống &lt;b style=&quot;color: #BE123C;&quot;&gt;KHÓA CHẶT TUYỆT ĐỐI&lt;/b&gt;. Không một nhân viên nào được phép tự ý sửa tiền hàng, sửa số lượng hay tự ý hủy đơn nhằm bảo vệ tuyệt đối an toàn kho bãi và doanh thu của Showroom.&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFBEB;strokeColor=#F59E0B;strokeWidth=2;arcSize=6;align=left;verticalAlign=middle;spacingLeft=14;" vertex="1" parent="1">
+          <mxGeometry x="80" y="895" width="1340" height="60" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -60,6 +60,22 @@ public class Customer {
     @Builder.Default
     private String status = "ACTIVE";
 
+    /**
+     * Sổ địa chỉ giao hàng được lưu trực tiếp dưới dạng danh sách JSONB trong bảng customers.
+     * Tinh gọn cơ sở dữ liệu, không cần tạo bảng phụ customer_addresses.
+     */
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    @Column(name = "delivery_addresses", columnDefinition = "jsonb")
+    @Builder.Default
+    private java.util.List<DeliveryAddressItem> deliveryAddresses = new java.util.ArrayList<>();
+
+    public java.util.List<DeliveryAddressItem> getDeliveryAddresses() {
+        if (this.deliveryAddresses == null) {
+            this.deliveryAddresses = new java.util.ArrayList<>();
+        }
+        return this.deliveryAddresses;
+    }
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

@@ -58,7 +58,6 @@ abstract class RegisterTestSupport extends AuthIntegrationTestSupport {
                         customerProfiles);
         reset(profileTarget);
         try {
-            jdbc.execute("DELETE FROM public.customer_addresses");
             jdbc.execute("DELETE FROM public.customers");
         } catch (org.springframework.dao.DataAccessException ignored) {
         }

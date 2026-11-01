@@ -4,12 +4,10 @@ import com.aquasuite.ims.module.crm.internal.controller.AvatarUploadController;
 import com.aquasuite.ims.module.crm.internal.controller.DeliveryAddressController;
 import com.aquasuite.ims.module.crm.internal.controller.UserProfileController;
 import com.aquasuite.ims.module.crm.internal.entity.Customer;
-import com.aquasuite.ims.module.crm.internal.entity.CustomerAddress;
 import com.aquasuite.ims.module.crm.internal.enums.CustomerType;
 import com.aquasuite.ims.module.crm.internal.payload.req.CreateDeliveryAddressRequest;
 import com.aquasuite.ims.module.crm.internal.payload.req.UpdateDeliveryAddressRequest;
 import com.aquasuite.ims.module.crm.internal.payload.req.UpdateProfileRequest;
-import com.aquasuite.ims.module.crm.internal.repository.CustomerAddressRepository;
 import com.aquasuite.ims.module.crm.internal.repository.CustomerRepository;
 import com.aquasuite.ims.module.crm.internal.service.impl.CloudinaryStorageServiceImpl;
 import com.aquasuite.ims.module.crm.internal.service.impl.DeliveryAddressServiceImpl;
@@ -53,9 +51,6 @@ class ProfileAndAddressApiE2ETest {
     private CustomerRepository customerRepository;
 
     @Mock
-    private CustomerAddressRepository customerAddressRepository;
-
-    @Mock
     private IamApi iamApi;
 
     private UserProfileServiceImpl userProfileService;
@@ -66,7 +61,6 @@ class ProfileAndAddressApiE2ETest {
     private UUID customerId;
     private Customer customer;
     private UserSummaryDto userDto;
-    private final Map<UUID, CustomerAddress> inMemoryAddressDb = new LinkedHashMap<>();
 
     @BeforeEach
     void setUp() {
@@ -95,62 +89,13 @@ class ProfileAndAddressApiE2ETest {
                 .roles(List.of("CUSTOMER"))
                 .build();
 
-        inMemoryAddressDb.clear();
-
         lenient().when(iamApi.getCurrentUserId()).thenReturn(userId);
         lenient().when(iamApi.getUserById(userId)).thenReturn(userDto);
         lenient().when(customerRepository.findByUserId(userId)).thenReturn(Optional.of(customer));
-
-        // Mock address repository using in-memory state
-        lenient().when(customerAddressRepository.findByCustomerIdAndIsDeletedFalseOrderByIsDefaultDescUpdatedAtDesc(customerId))
-                .thenAnswer(inv -> inMemoryAddressDb.values().stream()
-                        .filter(a -> a.getCustomerId().equals(customerId) && !a.isDeleted())
-                        .sorted(Comparator.comparing(CustomerAddress::isDefault).reversed()
-                                .thenComparing(CustomerAddress::getUpdatedAt, Comparator.reverseOrder()))
-                        .toList());
-
-        lenient().when(customerAddressRepository.countByCustomerIdAndIsDeletedFalse(customerId))
-                .thenAnswer(inv -> inMemoryAddressDb.values().stream()
-                        .filter(a -> a.getCustomerId().equals(customerId) && !a.isDeleted())
-                        .count());
-
-        lenient().when(customerAddressRepository.findByAddressIdAndIsDeletedFalse(any(UUID.class)))
-                .thenAnswer(inv -> {
-                    UUID id = inv.getArgument(0);
-                    CustomerAddress a = inMemoryAddressDb.get(id);
-                    return (a != null && !a.isDeleted()) ? Optional.of(a) : Optional.empty();
-                });
-
-        lenient().when(customerAddressRepository.findByAddressIdAndCustomerIdAndIsDeletedFalse(any(UUID.class), eq(customerId)))
-                .thenAnswer(inv -> {
-                    UUID id = inv.getArgument(0);
-                    CustomerAddress a = inMemoryAddressDb.get(id);
-                    return (a != null && a.getCustomerId().equals(customerId) && !a.isDeleted()) ? Optional.of(a) : Optional.empty();
-                });
-
-        lenient().when(customerAddressRepository.findFirstByCustomerIdAndIsDeletedFalseOrderByUpdatedAtDesc(customerId))
-                .thenAnswer(inv -> inMemoryAddressDb.values().stream()
-                        .filter(a -> a.getCustomerId().equals(customerId) && !a.isDeleted())
-                        .max(Comparator.comparing(CustomerAddress::getUpdatedAt)));
-
-        lenient().doAnswer(inv -> {
-            inMemoryAddressDb.values().forEach(a -> {
-                if (a.getCustomerId().equals(customerId)) a.setDefault(false);
-            });
-            return null;
-        }).when(customerAddressRepository).clearDefaultAddresses(customerId);
-
-        lenient().when(customerAddressRepository.save(any(CustomerAddress.class))).thenAnswer(inv -> {
-            CustomerAddress a = inv.getArgument(0);
-            if (a.getAddressId() == null) a.setAddressId(UUID.randomUUID());
-            if (a.getCreatedAt() == null) a.setCreatedAt(Instant.now());
-            a.setUpdatedAt(Instant.now());
-            inMemoryAddressDb.put(a.getAddressId(), a);
-            return a;
-        });
+        lenient().when(customerRepository.save(any(Customer.class))).thenAnswer(inv -> inv.getArgument(0));
 
         cloudinaryStorageService = new CloudinaryStorageServiceImpl();
-        deliveryAddressService = new DeliveryAddressServiceImpl(customerRepository, customerAddressRepository, iamApi);
+        deliveryAddressService = new DeliveryAddressServiceImpl(customerRepository, iamApi);
         userProfileService = new UserProfileServiceImpl(customerRepository, deliveryAddressService, cloudinaryStorageService, iamApi);
 
         GlobalExceptionHandler exceptionHandler = new GlobalExceptionHandler();
@@ -323,8 +268,8 @@ class ProfileAndAddressApiE2ETest {
         UUID addr2Id = UUID.fromString(objectMapper.readTree(resAddAddr2.getResponse().getContentAsString()).get("data").get("addressId").asText());
 
         // Verify addr1 was toggled off default
-        assertThat(inMemoryAddressDb.get(addr1Id).isDefault()).isFalse();
-        assertThat(inMemoryAddressDb.get(addr2Id).isDefault()).isTrue();
+        assertThat(findAddr(customer, addr1Id).isDefault()).isFalse();
+        assertThat(findAddr(customer, addr2Id).isDefault()).isTrue();
 
         // -------------------------------------------------------------
         // STEP 6: GET /api/v1/profile/addresses -> List Addresses (Sorted default first)
@@ -393,12 +338,16 @@ class ProfileAndAddressApiE2ETest {
         System.out.println(resDeleteAddr.getResponse().getContentAsString());
 
         // Verify soft-deleted
-        assertThat(inMemoryAddressDb.get(addr1Id).isDeleted()).isTrue();
+        assertThat(findAddr(customer, addr1Id).isDeleted()).isTrue();
         // Verify addr2 was promoted to default
-        assertThat(inMemoryAddressDb.get(addr2Id).isDefault()).isTrue();
+        assertThat(findAddr(customer, addr2Id).isDefault()).isTrue();
 
         System.out.println("\n==========================================================================");
         System.out.println(">>> ALL E2E API CALLS MATCHED SPECIFICATIONS PERFECTLY! (100% SUCCESS)");
         System.out.println("==========================================================================");
+    }
+
+    private com.aquasuite.ims.module.crm.internal.entity.DeliveryAddressItem findAddr(Customer c, UUID id) {
+        return c.getDeliveryAddresses().stream().filter(a -> a.getAddressId().equals(id)).findFirst().orElseThrow();
     }
 }
