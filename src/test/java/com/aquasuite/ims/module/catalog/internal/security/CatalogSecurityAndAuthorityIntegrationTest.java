@@ -19,6 +19,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.mock.web.MockMultipartFile;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -32,6 +33,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -333,6 +335,37 @@ class CatalogSecurityAndAuthorityIntegrationTest extends AuthIntegrationTestSupp
         grantPermission(permBrandDelete);
         mockMvc.perform(delete("/api/v1/catalog/brands/{id}", brandId).header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isOk());
         revokePermission(permBrandDelete);
+    }
+
+    @Test
+    void brandImportChecksPermissionAndOwnerOnEveryRequest() throws Exception {
+        UUID jobId = UUID.randomUUID();
+        mockMvc.perform(get("/api/v1/brands/import-template")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/brands/import-template")
+                .header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/brands/import-jobs/{id}", jobId)
+                .header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isForbidden());
+
+        UUID createPermission = UUID.fromString("20000000-0000-4000-8000-000000000006");
+        grantPermission(createPermission);
+        mockMvc.perform(get("/api/v1/brands/import-template")
+                .header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isOk());
+
+        MockMultipartFile file = new MockMultipartFile("file", "bad.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", new byte[]{1, 2, 3});
+        MvcResult submitted = mockMvc.perform(multipart("/api/v1/brands/import-jobs")
+                .file(file).header("Authorization", "Bearer " + shopOwnerToken))
+                .andExpect(status().isAccepted()).andReturn();
+        String ownedJobId = objectMapper.readTree(submitted.getResponse().getContentAsString()).path("data").path("jobId").asText();
+        mockMvc.perform(get("/api/v1/brands/import-jobs/{id}", ownedJobId)
+                .header("Authorization", "Bearer " + shopOwnerToken)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/brands/import-jobs/{id}", ownedJobId)
+                .header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/v1/brands/import-jobs/{id}/error-report", ownedJobId)
+                .header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isNotFound());
+        revokePermission(createPermission);
+        mockMvc.perform(get("/api/v1/brands/import-jobs/{id}", ownedJobId)
+                .header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isForbidden());
     }
 
     private void grantPermission(UUID permissionId) throws Exception {

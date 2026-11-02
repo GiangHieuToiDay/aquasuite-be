@@ -14,6 +14,7 @@ public enum CommonErrorCode implements BaseErrorCode {
     INVALID_REQUEST_PARAM("SYS_002", "Tham số đầu vào không hợp lệ", HttpStatus.BAD_REQUEST),
     VALIDATION_ERROR("SYS_003", "Dữ liệu đầu vào không hợp lệ", HttpStatus.BAD_REQUEST),
     RESOURCE_NOT_FOUND("SYS_004", "Không tìm thấy tài nguyên yêu cầu", HttpStatus.NOT_FOUND),
+    MULTIPART_TOO_LARGE("SYS_005", "Multipart request exceeds the configured size limit", HttpStatus.PAYLOAD_TOO_LARGE),
     UNAUTHORIZED(
             "AUTH_001", "Chưa xác thực hoặc phiên đăng nhập đã hết hạn", HttpStatus.UNAUTHORIZED),
     ACCESS_DENIED("AUTH_002", "Bạn không có quyền thực hiện thao tác này", HttpStatus.FORBIDDEN),

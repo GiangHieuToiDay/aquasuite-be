@@ -55,7 +55,7 @@ public class CloudinaryStorageServiceImpl implements CloudinaryStorageService {
 
         if (file.getSize() > MAX_FILE_SIZE) {
             log.warn("Avatar upload rejected: file size {} exceeds 5MB limit", file.getSize());
-            throw new AppException(CrmErrorCode.INVALID_AVATAR);
+            throw new AppException(CrmErrorCode.AVATAR_TOO_LARGE);
         }
 
         String contentType = file.getContentType();
