@@ -28,7 +28,7 @@ Cung cấp CRUD HTTP cho Category và Brand thuộc `com.aquasuite.ims.module.ca
 
 - `products` table, Product entity/repository/service/controller/CRUD/Excel import/mapper/skeleton.
 - `products.category_id`, `products.brand_id` và mọi Product FK/dependency check.
-- Recursive tree, public Catalog Java API/Event, soft delete, optimistic locking và JWT/Redis changes.
+- Recursive tree, public Catalog Java API/Event, optimistic locking và JWT/Redis changes.
 
 ## 2. Actors and Security
 
@@ -37,11 +37,11 @@ Cung cấp CRUD HTTP cho Category và Brand thuộc `com.aquasuite.ims.module.ca
 | Category reader | List/get | `CATALOG_CATEGORY_READ` | Dữ liệu không nhạy cảm |
 | Category creator | Create | `CATALOG_CATEGORY_CREATE` | Code/name/hierarchy constraints |
 | Category updater | Update | `CATALOG_CATEGORY_UPDATE` | Không đổi code |
-| Category deleter | Delete | `CATALOG_CATEGORY_DELETE` | Không có child |
+| Category deleter | Deactivate | `CATALOG_CATEGORY_DELETE` | Không có child; giữ bản ghi và mã/tên |
 | Brand reader | List/get | `CATALOG_BRAND_READ` | Dữ liệu không nhạy cảm |
 | Brand creator | Create | `CATALOG_BRAND_CREATE` | Code/name constraints |
 | Brand updater | Update | `CATALOG_BRAND_UPDATE` | Không đổi code |
-| Brand deleter | Delete | `CATALOG_BRAND_DELETE` | Hiện không có Product FK |
+| Brand deleter | Deactivate | `CATALOG_BRAND_DELETE` | Giữ bản ghi và mã/tên |
 
 - Endpoint dùng `hasAuthority(...)`; migration gán tám permissions cho canonical `SHOP_OWNER`.
 - `AccessAuthenticationConverter`/`CurrentAuthoritiesService` tải authorities từ PostgreSQL trên mỗi authenticated request. Assignment/removal có hiệu lực từ request kế tiếp với token/session còn hợp lệ; không cần logout/login, refresh/reissue token hay revoke Redis session.
@@ -70,7 +70,8 @@ Cung cấp CRUD HTTP cho Category và Brand thuộc `com.aquasuite.ims.module.ca
 - Status `ACTIVE|INACTIVE`, default `ACTIVE`, DB CHECK; không `DELETED`.
 - Parent inactive có thể có active child; không cascade status.
 - Flat Category list trả `parentId`; cấm self-parent/cycle. Corrupt hierarchy làm mutation bị từ chối, không tự sửa.
-- Hard delete; Category có child bị chặn; Brand hiện delete được; không cascade.
+- Brand DELETE chuyển status thành `INACTIVE`, không xóa bản ghi; gọi lại trên Brand đã `INACTIVE` vẫn thành công. Mã và tên tiếp tục thuộc Brand đó và vẫn áp dụng uniqueness.
+- Category DELETE chuyển status thành `INACTIVE`, không xóa bản ghi; Category có child bị chặn, kể cả child `INACTIVE`; không cascade. Category không có child đã `INACTIVE` vẫn có thể DELETE lại thành công. Mã và tên tiếp tục áp dụng uniqueness theo quy tắc hiện tại.
 
 ## 4. Data and Migration Decisions
 
@@ -158,13 +159,13 @@ Brand không có timestamps; không có version column.
 | `GET /api/v1/catalog/categories/options` | `CATALOG_CATEGORY_READ` | None | `200 ApiResponse<List<CategoryBriefResponse>>` |
 | `GET /api/v1/catalog/categories/{categoryId}` | `CATALOG_CATEGORY_READ` | UUID | `200 ApiResponse<CategoryResponse>` |
 | `PUT /api/v1/catalog/categories/{categoryId}` | `CATALOG_CATEGORY_UPDATE` | `name,status` required; `description,parentId` nullable; no code | `200 ApiResponse<CategoryResponse>` |
-| `DELETE /api/v1/catalog/categories/{categoryId}` | `CATALOG_CATEGORY_DELETE` | UUID | `200 ApiResponse<Void>`; null data omitted |
+| `DELETE /api/v1/catalog/categories/{categoryId}` | `CATALOG_CATEGORY_DELETE` | UUID | `200 ApiResponse<Void>`; status becomes `INACTIVE`, row retained; null data omitted |
 | `POST /api/v1/catalog/brands` | `CATALOG_BRAND_CREATE` | `code,name` required; `description,status` optional | `201 ApiResponse<BrandResponse>` |
 | `GET /api/v1/catalog/brands` | `CATALOG_BRAND_READ` | List query | `200 ApiResponse<BrandPageResponse>` |
 | `GET /api/v1/catalog/brands/options` | `CATALOG_BRAND_READ` | None | `200 ApiResponse<List<BrandBriefResponse>>` |
 | `GET /api/v1/catalog/brands/{brandId}` | `CATALOG_BRAND_READ` | UUID | `200 ApiResponse<BrandResponse>` |
 | `PUT /api/v1/catalog/brands/{brandId}` | `CATALOG_BRAND_UPDATE` | `name,status` required; `description` nullable; no code | `200 ApiResponse<BrandResponse>` |
-| `DELETE /api/v1/catalog/brands/{brandId}` | `CATALOG_BRAND_DELETE` | UUID | `200 ApiResponse<Void>`; null data omitted |
+| `DELETE /api/v1/catalog/brands/{brandId}` | `CATALOG_BRAND_DELETE` | UUID | `200 ApiResponse<Void>`; status becomes `INACTIVE`, row retained; null data omitted |
 
 - Create omitted status defaults ACTIVE; PUT replaces all mutable fields. Unknown JSON fields remain ignored per current baseline; no global ObjectMapper change.
 - Responses: Category `id,code,name,description,status,parentId,createdAt,updatedAt`; Brand `id,code,name,description,status`; pages `items,page,size,totalElements,totalPages`.
@@ -220,7 +221,6 @@ Brand không có timestamps; không có version column.
 | Brand write | `uq_brands_name_lower` | `CAT_008` | `DB_001` |
 | Category parent write | `fk_categories_parent` | `CAT_009` | `DB_001` |
 | Category write | `chk_categories_not_self_parent` | `CAT_010` | `DB_001` |
-| Category delete | `fk_categories_parent` | `CAT_013` | `DB_001` |
 | Status write | `chk_categories_status` / `chk_brands_status` | `CAT_014` / `CAT_015` | `DB_001` |
 | Blank name direct SQL | `chk_categories_name_not_blank` / `chk_brands_name_not_blank` | `SYS_003` | `DB_001` |
 
@@ -233,7 +233,7 @@ Brand không có timestamps; không có version column.
 - Category create/update/delete use `@Transactional`; repository native call `SELECT pg_advisory_xact_lock(1128354892, 1)` is first statement before every read/validation/mutation.
 - No Java hash/dynamic/session lock or optimistic lock; transaction completion/rollback releases it.
 - Cycle algorithm traverses from prospective parent via repository projection `(categoryId,parentId)`, tracking visited UUIDs. Encounter current category => `CAT_011`; repeated/missing ancestor or exceeding `current row count + 1` => `CAT_012`; null parent terminates.
-- Root create also locks. Delete locks, loads target, checks child, then deletes/flushes. Serialization prevents reciprocal reparent and create/move-child vs delete-parent races.
+- Root create also locks. Category DELETE locks, loads target, checks for children, then sets `INACTIVE` and flushes. Serialization prevents reciprocal reparent and create/move-child vs deactivate-parent races.
 - Unique indexes are final race guard; failure rolls back transaction.
 
 ## 7. Acceptance Criteria and Verification
@@ -246,7 +246,7 @@ Brand không có timestamps; không có version column.
 | AC-04 | Validation and uniqueness | API/constraint/concurrency | Exact errors; no duplicates |
 | AC-05 | Deterministic list behavior | Repository/API parameterized | Exact defaults/ties |
 | AC-06 | Hierarchy safety | Service/concurrency | No cycle/race/infinite loop |
-| AC-07 | Delete boundary | Delete/FK tests | Child blocked; Brand succeeds |
+| AC-07 | Delete boundary | Delete/status tests | Category with any child blocked; leaf Category and Brand become `INACTIVE` and remain retrievable; repeating DELETE on a leaf Category or Brand succeeds |
 | AC-08 | Permission rollout | Security integration | DB change effective next request/same token |
 | AC-09 | Mapper/module boundary | Mapper/Spring/source scans | Exact fields/nulls/no boundary breach |
 | AC-10 | General gates | Full suite/diff/credential | PASS; Docker prerequisite |
@@ -269,7 +269,7 @@ Brand không có timestamps; không có version column.
 | OD-02 | `ACTIVE|INACTIVE`, default ACTIVE, DB CHECK | `RESOLVED` |
 | OD-03 | Exact scoped name uniqueness and global stable codes | `RESOLVED` |
 | OD-04 | Exact Category DB timestamp function/trigger; no Brand timestamps | `RESOLVED` |
-| OD-05 | Self-FK RESTRICT; hard delete; Product dependency excluded | `RESOLVED` |
+| OD-05 | Self-FK RESTRICT; Category and Brand DELETE set `INACTIVE` and retain the row; Category with children is blocked; Product dependency excluded | `RESOLVED` |
 | OD-06 | Flat list; inactive parent may have active child; no cascade | `RESOLVED` |
 | OD-07 | Fixed advisory lock and bounded traversal; no version | `RESOLVED` |
 | OD-08 | Exact permissions assigned SHOP_OWNER; DB reload next request | `RESOLVED` |

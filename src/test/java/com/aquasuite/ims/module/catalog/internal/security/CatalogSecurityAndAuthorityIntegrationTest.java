@@ -53,6 +53,9 @@ class CatalogSecurityAndAuthorityIntegrationTest extends AuthIntegrationTestSupp
     @Autowired
     private StringRedisTemplate redisTemplate;
 
+    @org.springframework.boot.test.mock.mockito.SpyBean(name = "redisTemplate")
+    private org.springframework.data.redis.core.RedisTemplate<String, Object> jobRedisTemplate;
+
     @Autowired
     private DataSource dataSource;
 
@@ -374,6 +377,53 @@ class CatalogSecurityAndAuthorityIntegrationTest extends AuthIntegrationTestSupp
             stmt.executeUpdate("INSERT INTO public.role_permissions (role_id, permission_id) VALUES ('" +
                     testRoleId + "', '" + permissionId + "')");
         }
+    }
+
+    @Test
+    void categoryImportHttpEnforcesPermissionOwnershipAndExpiration() throws Exception {
+        String base = "/api/v1/catalog/categories";
+        UUID unknown = UUID.randomUUID();
+        MockMultipartFile file = new MockMultipartFile("file", "categories.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", new byte[]{1, 2, 3});
+        mockMvc.perform(get(base + "/import-template")).andExpect(status().isUnauthorized());
+        mockMvc.perform(multipart(base + "/import-jobs").file(file)).andExpect(status().isUnauthorized());
+        mockMvc.perform(get(base + "/import-jobs/{id}", unknown)).andExpect(status().isUnauthorized());
+        mockMvc.perform(get(base + "/import-jobs/{id}/error-report", unknown)).andExpect(status().isUnauthorized());
+        mockMvc.perform(get(base + "/import-template").header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isForbidden());
+        mockMvc.perform(multipart(base + "/import-jobs").file(file).header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isForbidden());
+        mockMvc.perform(get(base + "/import-jobs/{id}", unknown).header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isForbidden());
+        mockMvc.perform(get(base + "/import-jobs/{id}/error-report", unknown).header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isForbidden());
+
+        MvcResult submitted = mockMvc.perform(multipart(base + "/import-jobs").file(file)
+                .header("Authorization", "Bearer " + shopOwnerToken)).andExpect(status().isAccepted()).andReturn();
+        String id = objectMapper.readTree(submitted.getResponse().getContentAsString()).path("data").path("jobId").asText();
+        grantPermission(catCreatePermId);
+        mockMvc.perform(get(base + "/import-jobs/{id}", id).header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isNotFound());
+        mockMvc.perform(get(base + "/import-jobs/{id}/error-report", id).header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isNotFound());
+        mockMvc.perform(get(base + "/import-jobs/{id}", id).header("Authorization", "Bearer " + shopOwnerToken)).andExpect(status().isOk());
+        boolean terminal = false;
+        for (int i = 0; i < 100; i++) {
+            MvcResult progress = mockMvc.perform(get(base + "/import-jobs/{id}", id)
+                    .header("Authorization", "Bearer " + shopOwnerToken)).andExpect(status().isOk()).andReturn();
+            String jobStatus = objectMapper.readTree(progress.getResponse().getContentAsString()).path("data").path("status").asText();
+            if ("FAILED".equals(jobStatus)) { terminal = true; break; }
+            Thread.sleep(50);
+        }
+        org.junit.jupiter.api.Assertions.assertTrue(terminal, "invalid workbook job must finish");
+        mockMvc.perform(get(base + "/import-jobs/{id}/error-report", id)
+                .header("Authorization", "Bearer " + shopOwnerToken)).andExpect(status().isOk());
+        redisTemplate.delete("aquasuite:category:import:" + id);
+        mockMvc.perform(get(base + "/import-jobs/{id}", id).header("Authorization", "Bearer " + shopOwnerToken)).andExpect(status().isNotFound());
+        mockMvc.perform(get(base + "/import-jobs/{id}/error-report", id).header("Authorization", "Bearer " + shopOwnerToken)).andExpect(status().isNotFound());
+        @SuppressWarnings("unchecked")
+        org.springframework.data.redis.core.ValueOperations<String, Object> unavailable = org.mockito.Mockito.mock(org.springframework.data.redis.core.ValueOperations.class);
+        org.mockito.Mockito.when(unavailable.get(org.mockito.ArgumentMatchers.anyString()))
+                .thenThrow(new org.springframework.dao.DataAccessResourceFailureException("Redis unavailable"));
+        org.mockito.Mockito.doReturn(unavailable).when(jobRedisTemplate).opsForValue();
+        mockMvc.perform(get(base + "/import-jobs/{id}", id).header("Authorization", "Bearer " + shopOwnerToken)).andExpect(status().isServiceUnavailable());
+        mockMvc.perform(get(base + "/import-jobs/{id}/error-report", id).header("Authorization", "Bearer " + shopOwnerToken)).andExpect(status().isServiceUnavailable());
+        org.mockito.Mockito.reset(jobRedisTemplate);
+        revokePermission(catCreatePermId);
     }
 
     private void revokePermission(UUID permissionId) throws Exception {
