@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 @RequiredArgsConstructor
 public enum CrmErrorCode implements BaseErrorCode {
     INVALID_AVATAR("MSG17", "Avatar must be a JPEG, PNG, or WEBP image under 5MB.", HttpStatus.BAD_REQUEST),
+    AVATAR_TOO_LARGE("MSG17", "Avatar must be a JPEG, PNG, or WEBP image under 5MB.", HttpStatus.PAYLOAD_TOO_LARGE),
     DUPLICATE_PHONE("MSG25", "Địa chỉ email hoặc số điện thoại này đã được đăng ký cho một tài khoản khác.", HttpStatus.CONFLICT),
     ADDRESS_NOT_FOUND("CRM_001", "Không tìm thấy địa chỉ giao hàng yêu cầu.", HttpStatus.NOT_FOUND),
     FORBIDDEN_ADDRESS_ACCESS("CRM_002", "Bạn không có quyền thao tác trên địa chỉ giao hàng này.", HttpStatus.FORBIDDEN),

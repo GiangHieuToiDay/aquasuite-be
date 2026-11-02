@@ -87,4 +87,14 @@ class AvatarUploadControllerTest {
                 .andExpect(jsonPath("$.code").value("MSG17"))
                 .andExpect(jsonPath("$.message").value("Avatar must be a JPEG, PNG, or WEBP image under 5MB."));
     }
+
+    @Test
+    void uploadAvatar_Oversize_Returns413WithMSG17() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("file", "large.png", "image/png", new byte[]{1});
+        when(userProfileService.uploadAvatar(eq(userId), any()))
+                .thenThrow(new AppException(CrmErrorCode.AVATAR_TOO_LARGE));
+        mockMvc.perform(multipart("/api/v1/profile/avatar").file(file))
+                .andExpect(status().isPayloadTooLarge())
+                .andExpect(jsonPath("$.code").value("MSG17"));
+    }
 }
