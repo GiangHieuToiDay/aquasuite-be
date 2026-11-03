@@ -34,8 +34,6 @@ public class SalesOrderDetailResponse {
     private BigDecimal subtotal;
     private BigDecimal discountAmount;
     private BigDecimal totalAmount;
-    private BigDecimal paidAmount;
-    private BigDecimal remainingAmount;
     private String deliveryAddress;
     private String note;
     private OffsetDateTime createdAt;
@@ -43,9 +41,4 @@ public class SalesOrderDetailResponse {
 
     @Builder.Default
     private List<SalesOrderItemResponse> items = new ArrayList<>();
-
-    private SalesInvoiceSummaryResponse invoice;
-
-    @Builder.Default
-    private List<com.aquasuite.ims.module.finance.api.dto.PaymentTransactionResponseDto> paymentTransactions = new ArrayList<>();
 }

@@ -1,21 +1,31 @@
 package com.aquasuite.ims.module.sales.api;
 
-import com.aquasuite.ims.module.sales.api.dto.RecordOrderPaymentCommand;
+import com.aquasuite.ims.module.sales.api.dto.SalesOrderPaymentInfoDto;
+
+import java.util.Optional;
+import java.util.UUID;
 
 /**
- * Public synchronous interface của module Sales (UC-21 / Đơn hàng bán lẻ & Dự án).
- * Cho phép các module khác (như Finance / Quản lý tiền cọc) cập nhật số tiền đã thanh toán và trạng thái đơn hàng.
+ * Public synchronous interface của module Sales (UC-21 / UC-22).
+ * Phục vụ module Finance (UC-23: Manage Payment & UC-70: Verify Bank Transfer Payment)
+ * truy vấn tổng tiền đơn hàng và cập nhật trạng thái thanh toán của đơn.
  */
 public interface SalesOrderApi {
 
     /**
-     * Ghi nhận một khoản thanh toán hoặc tiền cọc bổ sung cho đơn hàng.
-     * Phương thức này sẽ:
-     * 1. Cộng dồn số tiền vào orders.paid_amount.
-     * 2. Tự động cập nhật payment_status (PARTIALLY_PAID hoặc PAID).
-     * 3. Đồng bộ trạng thái hóa đơn bán lẻ tương ứng.
+     * Lấy thông tin đơn hàng để kiểm tra đơn tồn tại, còn hiệu lực và lấy tổng tiền cần thanh toán.
      *
-     * @param command Thông tin lệnh thanh toán bao gồm orderId và số tiền thu
+     * @param orderId ID đơn hàng
+     * @return Optional chứa thông tin thanh toán của đơn hàng
      */
-    void recordOrderPayment(RecordOrderPaymentCommand command);
+    Optional<SalesOrderPaymentInfoDto> getOrderPaymentInfo(UUID orderId);
+
+    /**
+     * Cập nhật trạng thái thanh toán của đơn hàng (UNPAID, PARTIALLY_PAID, PAID)
+     * sau khi UC-23 hoặc UC-70 tính lại tổng các giao dịch Verified.
+     *
+     * @param orderId       ID đơn hàng
+     * @param paymentStatus Trạng thái thanh toán mới (UNPAID, PARTIALLY_PAID, PAID)
+     */
+    void updatePaymentStatus(UUID orderId, String paymentStatus);
 }

@@ -93,10 +93,6 @@ public class Order {
     @Builder.Default
     private BigDecimal totalAmount = BigDecimal.ZERO;
 
-    @Column(name = "paid_amount", nullable = false, precision = 15, scale = 2)
-    @Builder.Default
-    private BigDecimal paidAmount = BigDecimal.ZERO;
-
     @Column(name = "delivery_address", columnDefinition = "TEXT")
     private String deliveryAddress;
 
@@ -132,9 +128,6 @@ public class Order {
         if (this.totalAmount == null) {
             this.totalAmount = BigDecimal.ZERO;
         }
-        if (this.paidAmount == null) {
-            this.paidAmount = BigDecimal.ZERO;
-        }
         if (this.orderType == null || this.orderType.isBlank()) {
             this.orderType = "RETAIL";
         }
@@ -143,17 +136,5 @@ public class Order {
     @PreUpdate
     public void preUpdate() {
         this.updatedAt = OffsetDateTime.now();
-    }
-
-    /**
-     * Tính toán số tiền còn thiếu cần thu nốt khi giao hàng / tất toán.
-     * remainingAmount = max(0, totalAmount - paidAmount)
-     */
-    public BigDecimal getRemainingAmount() {
-        if (this.totalAmount == null) {
-            return BigDecimal.ZERO;
-        }
-        BigDecimal paid = this.paidAmount != null ? this.paidAmount : BigDecimal.ZERO;
-        return this.totalAmount.subtract(paid).max(BigDecimal.ZERO);
     }
 }

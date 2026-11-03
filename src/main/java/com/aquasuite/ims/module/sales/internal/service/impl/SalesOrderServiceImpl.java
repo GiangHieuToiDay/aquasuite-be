@@ -5,19 +5,11 @@ import com.aquasuite.ims.module.catalog.api.dto.CatalogBundleSummaryDto;
 import com.aquasuite.ims.module.catalog.api.dto.CatalogSkuSummaryDto;
 import com.aquasuite.ims.module.crm.api.CrmApi;
 import com.aquasuite.ims.module.crm.api.dto.CustomerSummaryDto;
-import com.aquasuite.ims.module.finance.api.FinanceApi;
-import com.aquasuite.ims.module.finance.api.dto.CreatePaymentTransactionCommand;
-import com.aquasuite.ims.module.finance.api.dto.PaymentTransactionResponseDto;
 import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.iam.api.dto.UserSummaryDto;
 import com.aquasuite.ims.module.inventory.api.InventoryApi;
-import com.aquasuite.ims.module.inventory.api.dto.StockAdjustCommand;
-import com.aquasuite.ims.module.inventory.api.dto.StockMovementType;
 import com.aquasuite.ims.module.sales.internal.entity.Order;
 import com.aquasuite.ims.module.sales.internal.entity.OrderItem;
-import com.aquasuite.ims.module.sales.internal.entity.SalesInvoice;
-import com.aquasuite.ims.module.sales.internal.entity.SalesInvoiceItem;
-import com.aquasuite.ims.module.sales.internal.enums.FulfillmentMethod;
 import com.aquasuite.ims.module.sales.internal.enums.OrderChannel;
 import com.aquasuite.ims.module.sales.internal.enums.OrderStatus;
 import com.aquasuite.ims.module.sales.internal.enums.OrderType;
@@ -25,20 +17,15 @@ import com.aquasuite.ims.module.sales.internal.enums.PaymentMethod;
 import com.aquasuite.ims.module.sales.internal.enums.PaymentStatus;
 import com.aquasuite.ims.module.sales.internal.error.SalesErrorCode;
 import com.aquasuite.ims.module.sales.internal.mapper.SalesOrderMapper;
-import com.aquasuite.ims.module.sales.internal.payload.request.CancelOrderRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.CreateComboItemRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.CreateOrderItemRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.CreateSalesOrderRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.SalesOrderFilterRequest;
-import com.aquasuite.ims.module.sales.internal.payload.request.UpdatePreDispatchOrderRequest;
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderDetailResponse;
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderItemResponse;
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderSummaryResponse;
-import com.aquasuite.ims.module.sales.internal.payload.response.SalesInvoiceSummaryResponse;
 import com.aquasuite.ims.module.sales.internal.repository.OrderItemRepository;
 import com.aquasuite.ims.module.sales.internal.repository.OrderRepository;
-import com.aquasuite.ims.module.sales.internal.repository.SalesInvoiceItemRepository;
-import com.aquasuite.ims.module.sales.internal.repository.SalesInvoiceRepository;
 import com.aquasuite.ims.module.sales.internal.service.SalesOrderService;
 import com.aquasuite.ims.module.sales.internal.service.helper.OrderCodeGenerator;
 import com.aquasuite.ims.share.exception.AppException;
@@ -56,7 +43,6 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -68,20 +54,17 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
-    private final SalesInvoiceRepository salesInvoiceRepository;
-    private final SalesInvoiceItemRepository salesInvoiceItemRepository;
     private final CatalogApi catalogApi;
     private final InventoryApi inventoryApi;
     private final CrmApi crmApi;
     private final IamApi iamApi;
-    private final FinanceApi financeApi;
     private final SalesOrderMapper salesOrderMapper;
     private final OrderCodeGenerator orderCodeGenerator;
 
     @Override
     @Transactional
     public SalesOrderDetailResponse createSalesOrder(CreateSalesOrderRequest request) {
-        log.info("Processing POS order creation: channel={}, fulfillment={}, paymentMethod={}",
+        log.info("Processing POS order creation (UC-21): channel={}, fulfillment={}, paymentMethod={}",
                 request.getOrderChannel(), request.getFulfillmentMethod(), request.getPaymentMethod());
 
         // 1. Kiểm tra danh sách mặt hàng
@@ -99,12 +82,12 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
         // 4. Kiểm tra điều kiện nợ / hạn mức công nợ (Nếu chọn hình thức thanh toán CREDIT)
         if (request.getPaymentMethod() == PaymentMethod.CREDIT) {
-            boolean hasOverdueInvoices = orderRepository.hasOverdueUnpaidOrders(
+            boolean hasOverdueOrders = orderRepository.hasOverdueUnpaidOrders(
                     customer.customerId(),
                     LocalDate.now().minusDays(60)
             );
-            if (hasOverdueInvoices) {
-                log.warn("Customer {} has overdue invoices > 60 days. Blocking credit order.", customer.customerId());
+            if (hasOverdueOrders) {
+                log.warn("Customer {} has overdue unpaid balance > 60 days. Blocking credit order.", customer.customerId());
                 throw new AppException(SalesErrorCode.CREDIT_LIMIT_EXCEEDED);
             }
         }
@@ -125,7 +108,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                     throw new AppException(SalesErrorCode.SKU_NOT_ACTIVE, skuDto.sku());
                 }
 
-                // Kiểm tra tồn kho khả dụng
+                // Kiểm tra tồn kho khả dụng (available_qty = on_hand_qty - reserved_qty)
                 boolean isStockAvailable = inventoryApi.checkAvailability(skuDto.variantId(), itemReq.getQuantity());
                 if (!isStockAvailable) {
                     log.warn("Insufficient stock for variant SKU={}, requiredQty={}", skuDto.sku(), itemReq.getQuantity());
@@ -211,56 +194,22 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             finalTotal = BigDecimal.ZERO;
         }
 
-        // 9. Xác định trạng thái đơn hàng và thanh toán
-        OrderStatus resolvedOrderStatus;
-        PaymentStatus resolvedPaymentStatus;
-        LocalDate dueDate = null;
+        // 9. Khởi tạo trạng thái đơn hàng và trạng thái thanh toán ban đầu
+        // Theo chuẩn UC-21 & UC-23: UC-21 chỉ tạo đơn với payment_status = UNPAID và order_status = PROCESSING.
+        // Việc thu tiền và xác minh thanh toán do UC-23 xử lý.
+        OrderStatus resolvedOrderStatus = OrderStatus.PROCESSING;
+        PaymentStatus resolvedPaymentStatus = PaymentStatus.UNPAID;
+        LocalDate dueDate = (request.getPaymentMethod() == PaymentMethod.CREDIT)
+                ? LocalDate.now().plusDays(30)
+                : null;
 
-        if (request.getPaymentMethod() == PaymentMethod.CREDIT) {
-            resolvedOrderStatus = OrderStatus.PROCESSING;
-            resolvedPaymentStatus = PaymentStatus.UNPAID;
-            dueDate = LocalDate.now().plusDays(30);
-        } else {
-            BigDecimal collected = request.getCollectedAmount() != null ? request.getCollectedAmount() : BigDecimal.ZERO;
-            if (collected.compareTo(finalTotal) >= 0 && finalTotal.compareTo(BigDecimal.ZERO) > 0) {
-                resolvedPaymentStatus = PaymentStatus.PAID;
-                resolvedOrderStatus = (request.getFulfillmentMethod() == FulfillmentMethod.IN_STORE_PICKUP)
-                        ? OrderStatus.COMPLETED
-                        : OrderStatus.PROCESSING;
-            } else if (collected.compareTo(BigDecimal.ZERO) > 0) {
-                resolvedPaymentStatus = PaymentStatus.PARTIALLY_PAID;
-                resolvedOrderStatus = OrderStatus.PROCESSING;
-            } else {
-                resolvedPaymentStatus = PaymentStatus.UNPAID;
-                resolvedOrderStatus = OrderStatus.PROCESSING;
-            }
-        }
-
-        // 10. Cập nhật tồn kho dựa trên Phương thức nhận hàng (Fulfillment Method - Step 12)
-        // - Nếu IN_STORE_PICKUP và COMPLETED (nhận tại quầy): Trừ trực tiếp tồn kho thực tế on_hand_qty
-        // - Nếu SCHEDULED_DELIVERY hoặc PROCESSING (chờ giao hàng): Chỉ tăng số lượng đặt giữ reserved_qty
+        // 10. Đặt giữ tồn kho (reserved_qty) cho các mặt hàng trong đơn
         for (OrderItem item : orderItemsToSave) {
-            if (resolvedOrderStatus == OrderStatus.COMPLETED) {
-                inventoryApi.adjustPhysicalStock(StockAdjustCommand.builder()
-                        .variantId(item.getVariantId())
-                        .deltaQty(item.getQuantity().negate()) // Số âm để trừ kho vật lý
-                        .movementType(StockMovementType.STOCK_DISPATCH)
-                        .releaseFromReserved(false)
-                        .referenceType("RETAIL_POS")
-                        .referenceId(orderCode)
-                        .note("Xuất bán lẻ tại quầy POS theo đơn " + orderCode)
-                        .actorUserId(salesStaffId)
-                        .build());
-            } else {
-                inventoryApi.reserveStock(item.getVariantId(), item.getQuantity());
-            }
+            inventoryApi.reserveStock(item.getVariantId(), item.getQuantity());
         }
-
-        BigDecimal actualPaidAmount = (request.getCollectedAmount() != null && request.getCollectedAmount().compareTo(BigDecimal.ZERO) > 0)
-                ? request.getCollectedAmount()
-                : BigDecimal.ZERO;
 
         // 11. Lưu Order Entity & Order Items
+        OffsetDateTime now = OffsetDateTime.now();
         Order order = Order.builder()
                 .orderId(orderId)
                 .orderCode(orderCode)
@@ -270,104 +219,33 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .orderChannel(request.getOrderChannel() != null ? request.getOrderChannel().name() : OrderChannel.IN_STORE.name())
                 .orderStatus(resolvedOrderStatus.name())
                 .paymentStatus(resolvedPaymentStatus.name())
-                .orderDate(OffsetDateTime.now())
+                .orderDate(now)
                 .dueDate(dueDate)
                 .subtotal(calculatedSubtotal)
                 .discountAmount(orderDiscount)
                 .totalAmount(finalTotal)
-                .paidAmount(actualPaidAmount)
                 .deliveryAddress(request.getDeliveryAddress())
                 .note(request.getNote())
-                .createdAt(OffsetDateTime.now())
-                .updatedAt(OffsetDateTime.now())
+                .createdAt(now)
+                .updatedAt(now)
                 .build();
 
         Order savedOrder = orderRepository.save(order);
         List<OrderItem> savedItems = orderItemRepository.saveAll(orderItemsToSave);
 
-        // 12. Phát hành Hóa đơn bán lẻ (Sales Invoice & Sales Invoice Items)
-        String invoiceCode = generateInvoiceCode();
-        OffsetDateTime now = OffsetDateTime.now();
-        SalesInvoice invoice = SalesInvoice.builder()
-                .invoiceId(UUID.randomUUID())
-                .invoiceCode(invoiceCode)
-                .orderId(savedOrder.getOrderId())
-                .customerId(savedOrder.getCustomerId())
-                .invoiceType("RETAIL")
-                .issueDate(now)
-                .subtotal(savedOrder.getSubtotal())
-                .discountAmount(savedOrder.getDiscountAmount())
-                .taxAmount(BigDecimal.ZERO)
-                .totalAmount(savedOrder.getTotalAmount())
-                .status(savedOrder.getPaymentStatus())
-                .createdBy(salesStaffId)
-                .createdAt(now)
-                .build();
-
-        SalesInvoice savedInvoice = salesInvoiceRepository.save(invoice);
-
-        List<SalesInvoiceItem> invoiceItemsToSave = new ArrayList<>();
-        for (OrderItem orderItem : savedItems) {
-            String desc = orderItem.getProductName() != null ? orderItem.getProductName() : "";
-            if (orderItem.getVariantName() != null && !orderItem.getVariantName().isBlank()) {
-                desc = desc.isEmpty() ? orderItem.getVariantName() : desc + " - " + orderItem.getVariantName();
-            }
-
-            SalesInvoiceItem invoiceItem = SalesInvoiceItem.builder()
-                    .invoiceItemId(UUID.randomUUID())
-                    .invoiceId(savedInvoice.getInvoiceId())
-                    .orderItemId(orderItem.getOrderItemId())
-                    .variantId(orderItem.getVariantId())
-                    .description(desc)
-                    .quantity(orderItem.getQuantity())
-                    .unitPrice(orderItem.getUnitPrice())
-                    .discountAmount(orderItem.getDiscountAmount() != null ? orderItem.getDiscountAmount() : BigDecimal.ZERO)
-                    .taxRate(BigDecimal.ZERO)
-                    .lineTotal(orderItem.getLineTotal())
-                    .build();
-            invoiceItemsToSave.add(invoiceItem);
-        }
-        salesInvoiceItemRepository.saveAll(invoiceItemsToSave);
-
-        // 13. Ghi nhận giao dịch thanh toán vào bảng transactions (Module Finance) liên kết với khóa invoice_id
-        List<PaymentTransactionResponseDto> paymentTransactions = new ArrayList<>();
-        if (actualPaidAmount.compareTo(BigDecimal.ZERO) > 0) {
-            var txDto = financeApi.recordPaymentTransaction(CreatePaymentTransactionCommand.builder()
-                    .orderId(orderId)
-                    .invoiceId(savedInvoice.getInvoiceId())
-                    .customerId(customer.customerId())
-                    .amount(request.getCollectedAmount())
-                    .paymentMethod(request.getPaymentMethod() != null ? request.getPaymentMethod().name() : "CASH")
-                    .paymentType(resolvedPaymentStatus == PaymentStatus.PAID ? "FULL_PAYMENT" : "DEPOSIT")
-                    .category("SALES_RETAIL")
-                    .referenceNo(orderCode)
-                    .description("Thu tiền đơn bán lẻ quầy POS mã " + orderCode + " theo hóa đơn " + invoiceCode)
-                    .createdBy(salesStaffId)
-                    .status("VERIFIED")
-                    .build());
-            if (txDto != null) {
-                paymentTransactions.add(txDto);
-            }
-        }
-
-        log.info("Sales Order {} (Invoice {}) committed successfully: totalAmount={}, status={}, paymentStatus={}, paidAmount={}",
-                orderCode, invoiceCode, finalTotal, resolvedOrderStatus, resolvedPaymentStatus, actualPaidAmount);
+        log.info("Sales Order {} committed successfully (UC-21): totalAmount={}, status={}, paymentStatus={}",
+                orderCode, finalTotal, resolvedOrderStatus, resolvedPaymentStatus);
 
         List<SalesOrderItemResponse> itemResponses = salesOrderMapper.toItemResponseList(savedItems);
         String staffName = getStaffName(salesStaffId);
-        SalesInvoiceSummaryResponse invoiceSummary = salesOrderMapper.toInvoiceSummary(savedInvoice);
 
-        SalesOrderDetailResponse response = salesOrderMapper.toDetailResponse(
+        return salesOrderMapper.toDetailResponse(
                 savedOrder,
                 itemResponses,
                 customer.customerName(),
                 customer.phone(),
-                staffName,
-                actualPaidAmount,
-                paymentTransactions
+                staffName
         );
-        response.setInvoice(invoiceSummary);
-        return response;
     }
 
     @Override
@@ -425,85 +303,13 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
         String staffName = getStaffName(order.getSalesStaffId());
 
-        // Lấy lịch sử giao dịch thanh toán từ module Finance
-        List<PaymentTransactionResponseDto> txList = financeApi.getTransactionsByOrderId(orderId);
-        BigDecimal paidAmount = order.getPaidAmount();
-        if (paidAmount == null || (paidAmount.compareTo(BigDecimal.ZERO) == 0 && !txList.isEmpty())) {
-            paidAmount = txList.stream()
-                    .map(PaymentTransactionResponseDto::amount)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-        }
-
-        SalesInvoice invoice = salesInvoiceRepository.findByOrderId(orderId).orElse(null);
-        SalesInvoiceSummaryResponse invoiceSummary = invoice != null ? salesOrderMapper.toInvoiceSummary(invoice) : null;
-
-        SalesOrderDetailResponse response = salesOrderMapper.toDetailResponse(
+        return salesOrderMapper.toDetailResponse(
                 order,
                 itemResponses,
                 customerName,
                 customerPhone,
-                staffName,
-                paidAmount,
-                txList
+                staffName
         );
-        response.setInvoice(invoiceSummary);
-        return response;
-    }
-
-    @Override
-    @Transactional
-    public SalesOrderDetailResponse updatePreDispatch(UUID orderId, UpdatePreDispatchOrderRequest request) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new AppException(SalesErrorCode.ORDER_NOT_FOUND));
-
-        if (!OrderStatus.PROCESSING.name().equalsIgnoreCase(order.getOrderStatus())) {
-            log.warn("Cannot edit order {} in status {}", orderId, order.getOrderStatus());
-            throw new AppException(SalesErrorCode.ORDER_CANNOT_BE_EDITED);
-        }
-
-        if (request.getDeliveryAddress() != null && !request.getDeliveryAddress().isBlank()) {
-            order.setDeliveryAddress(request.getDeliveryAddress().trim());
-        }
-        if (request.getNote() != null) {
-            order.setNote(request.getNote().trim());
-        }
-
-        Order updated = orderRepository.save(order);
-        return getSalesOrderDetail(updated.getOrderId());
-    }
-
-    @Override
-    @Transactional
-    public void cancelOrder(UUID orderId, CancelOrderRequest request) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new AppException(SalesErrorCode.ORDER_NOT_FOUND));
-
-        if (!OrderStatus.PROCESSING.name().equalsIgnoreCase(order.getOrderStatus())) {
-            log.warn("Cannot cancel order {} with status {}", orderId, order.getOrderStatus());
-            throw new AppException(SalesErrorCode.ORDER_CANNOT_BE_CANCELLED);
-        }
-
-        // Đơn PROCESSING là đơn đang đặt giữ reserved_qty -> Giải phóng lượng tồn kho đã đặt giữ
-        List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
-        for (OrderItem item : items) {
-            if (item.getVariantId() != null && item.getQuantity() != null) {
-                inventoryApi.releaseReservedStock(item.getVariantId(), item.getQuantity());
-            }
-        }
-
-        // Cập nhật trạng thái và lý do hủy cho Order
-        order.setOrderStatus(OrderStatus.CANCELLED.name());
-        String reasonNote = "[CANCELLED: " + request.getCancelReason() + "]";
-        order.setNote(order.getNote() != null ? order.getNote() + " | " + reasonNote : reasonNote);
-        orderRepository.save(order);
-
-        // Đồng thời cập nhật trạng thái Hóa đơn sang CANCELLED
-        salesInvoiceRepository.findByOrderId(orderId).ifPresent(inv -> {
-            inv.setStatus("CANCELLED");
-            salesInvoiceRepository.save(inv);
-        });
-
-        log.info("Order {} and invoice successfully cancelled and reserved stock released", order.getOrderCode());
     }
 
     private CustomerSummaryDto resolveCustomer(CreateSalesOrderRequest request) {
@@ -567,21 +373,5 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
             return cb.and(predicates.toArray(new Predicate[0]));
         };
-    }
-
-    private String generateInvoiceCode() {
-        String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String prefix = "INV-" + datePart + "-";
-
-        long currentCount = salesInvoiceRepository.countByInvoiceCodeStartingWith(prefix);
-        long nextSequence = currentCount + 1;
-
-        String code = String.format("%s%04d", prefix, nextSequence);
-        while (salesInvoiceRepository.existsByInvoiceCode(code)) {
-            nextSequence++;
-            code = String.format("%s%04d", prefix, nextSequence);
-        }
-
-        return code;
     }
 }

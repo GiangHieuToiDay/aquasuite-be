@@ -42,13 +42,9 @@ public class CreateSalesOrderRequest {
     @Builder.Default
     private FulfillmentMethod fulfillmentMethod = FulfillmentMethod.IN_STORE_PICKUP;
 
-    /** Hình thức thanh toán: CASH, BANK_TRANSFER, CARD, CREDIT */
+    /** Hình thức thanh toán dự kiến: CASH, BANK_TRANSFER, CARD, CREDIT */
     @Builder.Default
     private PaymentMethod paymentMethod = PaymentMethod.CASH;
-
-    /** Số tiền thực tế khách hàng thanh toán tại thời điểm tạo đơn */
-    @Builder.Default
-    private BigDecimal collectedAmount = BigDecimal.ZERO;
 
     /** Chiết khấu hoặc giảm giá theo chương trình khuyến mãi / promo code */
     @Builder.Default

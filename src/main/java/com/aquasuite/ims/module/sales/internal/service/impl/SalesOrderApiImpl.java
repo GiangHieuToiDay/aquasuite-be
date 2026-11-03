@@ -1,22 +1,24 @@
 package com.aquasuite.ims.module.sales.internal.service.impl;
 
 import com.aquasuite.ims.module.sales.api.SalesOrderApi;
-import com.aquasuite.ims.module.sales.api.dto.RecordOrderPaymentCommand;
+import com.aquasuite.ims.module.sales.api.dto.SalesOrderPaymentInfoDto;
 import com.aquasuite.ims.module.sales.internal.entity.Order;
+import com.aquasuite.ims.module.sales.internal.enums.OrderStatus;
 import com.aquasuite.ims.module.sales.internal.enums.PaymentStatus;
 import com.aquasuite.ims.module.sales.internal.error.SalesErrorCode;
 import com.aquasuite.ims.module.sales.internal.repository.OrderRepository;
-import com.aquasuite.ims.module.sales.internal.repository.SalesInvoiceRepository;
 import com.aquasuite.ims.share.exception.AppException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
+import java.time.OffsetDateTime;
+import java.util.Optional;
+import java.util.UUID;
 
 /**
- * Triển khai nghiệp vụ nội bộ cho SalesOrderApi.
+ * Triển khai nghiệp vụ nội bộ cho SalesOrderApi (cung cấp contract cho UC-23 & UC-70).
  */
 @Slf4j
 @Service
@@ -24,41 +26,54 @@ import java.math.BigDecimal;
 public class SalesOrderApiImpl implements SalesOrderApi {
 
     private final OrderRepository orderRepository;
-    private final SalesInvoiceRepository salesInvoiceRepository;
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<SalesOrderPaymentInfoDto> getOrderPaymentInfo(UUID orderId) {
+        if (orderId == null) {
+            return Optional.empty();
+        }
+        return orderRepository.findById(orderId).map(order -> {
+            boolean isValid = !OrderStatus.CANCELLED.name().equalsIgnoreCase(order.getOrderStatus());
+            return SalesOrderPaymentInfoDto.builder()
+                    .orderId(order.getOrderId())
+                    .orderCode(order.getOrderCode())
+                    .customerId(order.getCustomerId())
+                    .orderType(order.getOrderType())
+                    .orderChannel(order.getOrderChannel())
+                    .orderStatus(order.getOrderStatus())
+                    .paymentStatus(order.getPaymentStatus())
+                    .totalAmount(order.getTotalAmount())
+                    .validForPayment(isValid)
+                    .build();
+        });
+    }
 
     @Override
     @Transactional
-    public void recordOrderPayment(RecordOrderPaymentCommand command) {
-        if (command == null || command.orderId() == null) {
+    public void updatePaymentStatus(UUID orderId, String paymentStatus) {
+        if (orderId == null) {
             throw new IllegalArgumentException("Order ID must not be null");
         }
-        if (command.amount() == null || command.amount().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("Payment amount must be greater than zero");
+        if (paymentStatus == null || paymentStatus.isBlank()) {
+            throw new AppException(SalesErrorCode.INVALID_PAYMENT_STATUS, String.valueOf(paymentStatus));
         }
 
-        Order order = orderRepository.findById(command.orderId())
+        PaymentStatus resolvedStatus;
+        try {
+            resolvedStatus = PaymentStatus.valueOf(paymentStatus.trim().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            throw new AppException(SalesErrorCode.INVALID_PAYMENT_STATUS, paymentStatus);
+        }
+
+        Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(SalesErrorCode.ORDER_NOT_FOUND));
 
-        BigDecimal currentPaid = order.getPaidAmount() != null ? order.getPaidAmount() : BigDecimal.ZERO;
-        BigDecimal newPaid = currentPaid.add(command.amount());
-        order.setPaidAmount(newPaid);
-
-        // Tự động phân giải trạng thái thanh toán mới
-        if (newPaid.compareTo(order.getTotalAmount()) >= 0) {
-            order.setPaymentStatus(PaymentStatus.PAID.name());
-        } else {
-            order.setPaymentStatus(PaymentStatus.PARTIALLY_PAID.name());
-        }
-
+        order.setPaymentStatus(resolvedStatus.name());
+        order.setUpdatedAt(OffsetDateTime.now());
         orderRepository.save(order);
 
-        // Đồng bộ trạng thái hóa đơn bán lẻ
-        salesInvoiceRepository.findByOrderId(order.getOrderId()).ifPresent(invoice -> {
-            invoice.setStatus(order.getPaymentStatus());
-            salesInvoiceRepository.save(invoice);
-        });
-
-        log.info("Recorded payment of {} for order {}. New paidAmount={}, paymentStatus={}",
-                command.amount(), order.getOrderCode(), newPaid, order.getPaymentStatus());
+        log.info("Updated paymentStatus of order {} ({}) to {}",
+                order.getOrderCode(), order.getOrderId(), resolvedStatus.name());
     }
 }
