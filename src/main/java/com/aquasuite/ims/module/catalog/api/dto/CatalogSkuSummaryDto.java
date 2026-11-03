@@ -11,6 +11,7 @@ public record CatalogSkuSummaryDto(
         UUID productId,
         String sku,
         String variantName,
+        String productName,
         String unit,
         BigDecimal sellingPrice,
         BigDecimal costPrice,

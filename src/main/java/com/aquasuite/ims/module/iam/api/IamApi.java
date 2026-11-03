@@ -11,12 +11,6 @@ public interface IamApi {
 
     UUID getCurrentUserId();
 
-    boolean isAdmin();
-
-    boolean isSalesStaffOrAdmin();
-
-    void validateAdminAccess();
-
     UserSummaryDto getUserById(UUID userId);
 
     java.util.Optional<UserSummaryDto> findByEmail(String email);

@@ -11,7 +11,6 @@ import com.aquasuite.ims.module.catalog.internal.payload.req.ProductSearchCriter
 import com.aquasuite.ims.module.catalog.internal.payload.res.*;
 import com.aquasuite.ims.module.catalog.internal.repository.*;
 import com.aquasuite.ims.module.catalog.internal.service.impl.ProductStorefrontServiceImpl;
-import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.inventory.api.InventoryApi;
 import com.aquasuite.ims.module.inventory.api.dto.StockSummaryDto;
 import com.aquasuite.ims.share.exception.AppException;
@@ -57,9 +56,6 @@ class ProductStorefrontServiceTest {
 
     @Mock
     private InventoryApi inventoryApi;
-
-    @Mock
-    private IamApi iamApi;
 
     @InjectMocks
     private ProductStorefrontServiceImpl storefrontService;
@@ -212,7 +208,6 @@ class ProductStorefrontServiceTest {
         when(brandRepository.findById(brandId)).thenReturn(Optional.of(sampleBrand));
         when(variantRepository.findByProductId(productId)).thenReturn(List.of(sampleVariant));
         when(imageRepository.findByProductId(productId)).thenReturn(Collections.emptyList());
-        when(iamApi.isSalesStaffOrAdmin()).thenReturn(false); // Guest / Customer
 
         StockSummaryDto stockDto = StockSummaryDto.builder()
                 .variantId(variantId)
@@ -237,37 +232,6 @@ class ProductStorefrontServiceTest {
     }
 
     @Test
-    @DisplayName("Xem chi tiết sản phẩm cho Sales Staff: Hiển thị chi tiết số lượng theo từng kho")
-    void getProductDetail_SalesStaffView_Success() {
-        when(productRepository.findById(productId)).thenReturn(Optional.of(sampleProduct));
-        when(categoryRepository.findById(categoryId)).thenReturn(Optional.of(sampleCategory));
-        when(brandRepository.findById(brandId)).thenReturn(Optional.of(sampleBrand));
-        when(variantRepository.findByProductId(productId)).thenReturn(List.of(sampleVariant));
-        when(imageRepository.findByProductId(productId)).thenReturn(Collections.emptyList());
-        when(iamApi.isSalesStaffOrAdmin()).thenReturn(true); // Sales Staff!
-
-        StockSummaryDto stockDto = StockSummaryDto.builder()
-                .variantId(variantId)
-                .warehouseCode("KHO_TONG_HN")
-                .onHandQty(new BigDecimal("10"))
-                .reservedQty(new BigDecimal("2"))
-                .availableQty(new BigDecimal("8"))
-                .minimumQty(new BigDecimal("3"))
-                .isLowStock(false)
-                .build();
-        when(inventoryApi.getStockSummaries(anyCollection())).thenReturn(Map.of(variantId, stockDto));
-
-        StorefrontProductDetailResponse detail = storefrontService.getProductDetail(productId);
-
-        assertThat(detail).isNotNull();
-        StorefrontVariantDetailResponse variantRes = detail.variants().get(0);
-        assertThat(variantRes.isSalesStaff()).isTrue();
-        assertThat(variantRes.warehouseBreakdown()).isNotNull().hasSize(1);
-        assertThat(variantRes.warehouseBreakdown().get(0).warehouseCode()).isEqualTo("KHO_TONG_HN");
-        assertThat(variantRes.warehouseBreakdown().get(0).availableQty()).isEqualByComparingTo("8");
-    }
-
-    @Test
     @DisplayName("Alternative Flow Step 6: Biến thể hết hàng (0 inventory) -> Hiển thị badge Out of Stock và bật Add to Quote")
     void getProductDetail_OutOfStockVariant_Step6AlternativeFlow() {
         when(productRepository.findById(productId)).thenReturn(Optional.of(sampleProduct));
@@ -275,7 +239,6 @@ class ProductStorefrontServiceTest {
         when(brandRepository.findById(brandId)).thenReturn(Optional.of(sampleBrand));
         when(variantRepository.findByProductId(productId)).thenReturn(List.of(sampleVariant));
         when(imageRepository.findByProductId(productId)).thenReturn(Collections.emptyList());
-        when(iamApi.isSalesStaffOrAdmin()).thenReturn(false);
 
         // Tồn kho = 0
         StockSummaryDto stockDto = StockSummaryDto.builder()

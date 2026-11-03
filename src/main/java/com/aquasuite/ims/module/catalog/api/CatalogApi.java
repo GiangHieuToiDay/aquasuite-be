@@ -1,5 +1,6 @@
 package com.aquasuite.ims.module.catalog.api;
 
+import com.aquasuite.ims.module.catalog.api.dto.CatalogBundleSummaryDto;
 import com.aquasuite.ims.module.catalog.api.dto.CatalogSkuSummaryDto;
 
 import java.util.Collection;
@@ -21,4 +22,7 @@ public interface CatalogApi {
 
     /** Tra cứu danh sách SKU theo tập hợp variantIds */
     Map<UUID, CatalogSkuSummaryDto> getSkuSummaries(Collection<UUID> variantIds);
+
+    /** Tra cứu thông tin combo/bundle theo bundleId */
+    Optional<CatalogBundleSummaryDto> getBundleSummary(UUID bundleId);
 }

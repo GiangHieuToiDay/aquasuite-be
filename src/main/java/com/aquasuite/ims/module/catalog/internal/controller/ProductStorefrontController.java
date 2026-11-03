@@ -20,7 +20,7 @@ import java.util.UUID;
 /**
  * Controller phục vụ cho Khách hàng (Storefront) và Nhân viên bán hàng (POS).
  * Use Case: UC-12 Search and View Product Information (FE-03).
- * Không yêu cầu quyền Admin; mở cho Khách vãng lai, Khách hàng và Nhân viên bán hàng.
+ * Không yêu cầu quyền Shop Owner; mở cho Khách vãng lai, Khách hàng và Nhân viên bán hàng.
  */
 @Slf4j
 @RestController

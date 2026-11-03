@@ -78,6 +78,21 @@ public class SalesInvoice {
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
+    @Column(name = "invoice_symbol", length = 20)
+    private String invoiceSymbol;
+
+    @Column(name = "signed_at")
+    private OffsetDateTime signedAt;
+
+    @Column(name = "provider_code", length = 50)
+    private String providerCode;
+
+    @Column(name = "provider_invoice_id", length = 100)
+    private String providerInvoiceId;
+
+    @Column(name = "original_invoice_id")
+    private UUID originalInvoiceId;
+
     @PrePersist
     public void prePersist() {
         if (this.invoiceId == null) {

@@ -1,0 +1,135 @@
+package com.aquasuite.ims.module.finance.internal.service;
+
+import com.aquasuite.ims.module.audit.api.AuditQueryApi;
+import com.aquasuite.ims.module.crm.api.CrmApi;
+import com.aquasuite.ims.module.crm.api.dto.CustomerDebtProfileDto;
+import com.aquasuite.ims.module.finance.api.event.CustomerDebtAuditEvent;
+import com.aquasuite.ims.module.finance.internal.entity.Transaction;
+import com.aquasuite.ims.module.finance.internal.notification.DebtEmailNotificationPort;
+import com.aquasuite.ims.module.finance.internal.pdf.StatementDocument;
+import com.aquasuite.ims.module.finance.internal.pdf.StatementPdfService;
+import com.aquasuite.ims.module.finance.internal.repository.TransactionRepository;
+import com.aquasuite.ims.module.finance.internal.service.impl.CustomerDebtServiceImpl;
+import com.aquasuite.ims.module.sales.api.SalesReceivableApi;
+import com.aquasuite.ims.module.sales.api.dto.SalesInvoiceDebtDto;
+import com.aquasuite.ims.module.sales.api.dto.SalesOrderDebtDto;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.jdbc.core.JdbcTemplate;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class CustomerDebtServiceImplTest {
+    private static final UUID CUSTOMER_ID = UUID.fromString("10000000-0000-4000-8000-000000000001");
+    private static final UUID ORDER_ID = UUID.fromString("10000000-0000-4000-8000-000000000002");
+    private static final UUID INVOICE_ID = UUID.fromString("10000000-0000-4000-8000-000000000003");
+
+    @Mock private CrmApi crmApi;
+    @Mock private SalesReceivableApi salesReceivableApi;
+    @Mock private TransactionRepository transactionRepository;
+    @Mock private AuditQueryApi auditQueryApi;
+    @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private DebtEmailNotificationPort emailNotificationPort;
+    @Mock private StatementPdfService statementPdfService;
+    @Mock private JdbcTemplate jdbcTemplate;
+
+    @InjectMocks private CustomerDebtServiceImpl service;
+
+    private CustomerDebtProfileDto customer;
+    private SalesOrderDebtDto order;
+    private SalesInvoiceDebtDto invoice;
+
+    @BeforeEach
+    void setUp() {
+        customer = new CustomerDebtProfileDto(CUSTOMER_ID, "KH-001", "An Khang", "0903118240",
+                "ketoan@example.com", "CONTRACTOR", "0312456789", "An Khang Co.", List.of(), List.of(),
+                new BigDecimal("500.00"), 30, "ACTIVE");
+        order = new SalesOrderDebtDto(ORDER_ID, CUSTOMER_ID, "ORD-100", "COUNTER", "CONFIRMED", "UNPAID",
+                new BigDecimal("200.00"), BigDecimal.ZERO, new BigDecimal("200.00"), LocalDate.now().plusDays(30));
+        invoice = new SalesInvoiceDebtDto(INVOICE_ID, ORDER_ID, CUSTOMER_ID, "INV-100", "MISA-INV-100",
+                OffsetDateTime.now(), null, "ISSUED", new BigDecimal("200.00"), BigDecimal.ZERO, BigDecimal.ZERO,
+                new BigDecimal("200.00"), null);
+        when(salesReceivableApi.findOrdersByCustomerIds(any())).thenReturn(List.of(order));
+        when(salesReceivableApi.findInvoicesByCustomerIds(any())).thenReturn(List.of(invoice));
+    }
+
+    @Test
+    void listUsesOrdersAsTheOnlyOutstandingSourceAndDoesNotDoubleCountInvoices() {
+        Transaction directInvoiceReceipt = receipt(INVOICE_ID, ORDER_ID, new BigDecimal("50.00"));
+        when(crmApi.findAllDebtProfiles()).thenReturn(List.of(customer));
+        when(transactionRepository.findByCustomerIdInAndStatusIgnoreCase(any(), eq("VERIFIED")))
+                .thenReturn(List.of(directInvoiceReceipt));
+
+        var page = service.list(null, null, null, 0, 20);
+
+        assertEquals(1, page.content().size());
+        assertMoney("150.00", page.content().getFirst().outstandingBalance());
+        assertMoney("350.00", page.content().getFirst().availableCredit());
+    }
+
+    @Test
+    void detailLeavesOrderOnlyReceiptUnallocatedFromItsInvoice() {
+        Transaction orderOnlyReceipt = receipt(null, ORDER_ID, new BigDecimal("50.00"));
+        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(java.util.Optional.of(customer));
+        when(transactionRepository.findByCustomerIdInAndStatusIgnoreCase(any(), eq("VERIFIED")))
+                .thenReturn(List.of(orderOnlyReceipt));
+        when(auditQueryApi.findByEntity(any(), any())).thenReturn(List.of());
+
+        var detail = service.detail(CUSTOMER_ID);
+
+        assertMoney("150.00", detail.summary().outstandingBalance());
+        assertMoney("200.00", detail.invoices().getFirst().outstandingAmount());
+        assertMoney("50.00", detail.unallocatedVerifiedReceiptAmount());
+        assertEquals(1, detail.unallocatedOrderReceipts().size());
+        assertEquals(1, detail.orders().size());
+        assertMoney("150.00", detail.orders().getFirst().outstandingAmount());
+        assertEquals(1, detail.verifiedReceipts().size());
+        assertTrue(detail.reminderHistory().isEmpty());
+    }
+
+    @Test
+    void statementEmailFailureReturnsARecoverableResultAndPublishesAuditEvent() {
+        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(java.util.Optional.of(customer));
+        when(transactionRepository.findByCustomerIdInAndStatusIgnoreCase(any(), eq("VERIFIED"))).thenReturn(List.of());
+        when(auditQueryApi.findByEntity(any(), any())).thenReturn(List.of());
+        when(statementPdfService.generate(any())).thenReturn(new StatementDocument("statement-KH-001.pdf", new byte[] {1}));
+        doThrow(new IllegalStateException("SMTP unavailable")).when(emailNotificationPort)
+                .send(any(), any(), any(), any(), any());
+
+        var result = service.emailStatement(CUSTOMER_ID, UUID.randomUUID());
+
+        assertEquals("FAILED", result.emailResult());
+        verify(eventPublisher).publishEvent(argThat((CustomerDebtAuditEvent event) ->
+                "STATEMENT_EMAIL_FAILED".equals(event.action()) && CUSTOMER_ID.equals(event.entityId())));
+    }
+
+    private Transaction receipt(UUID invoiceId, UUID orderId, BigDecimal amount) {
+        return Transaction.builder().transactionId(UUID.randomUUID()).transactionCode("TXT-100")
+                .transactionType("RECEIPT").category("CUSTOMER_PAYMENT").customerId(CUSTOMER_ID)
+                .invoiceId(invoiceId).orderId(orderId).amount(amount).paymentMethod("BANK_TRANSFER")
+                .transactionDate(OffsetDateTime.now()).status("VERIFIED").createdBy(UUID.randomUUID()).build();
+    }
+
+    private void assertMoney(String expected, BigDecimal actual) {
+        assertEquals(0, new BigDecimal(expected).compareTo(actual));
+    }
+}

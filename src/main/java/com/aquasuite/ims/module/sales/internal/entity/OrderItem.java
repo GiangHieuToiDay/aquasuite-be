@@ -20,7 +20,8 @@ import java.util.UUID;
         name = "order_items",
         indexes = {
                 @Index(name = "idx_order_items_order_id", columnList = "order_id"),
-                @Index(name = "idx_order_items_variant_id", columnList = "variant_id")
+                @Index(name = "idx_order_items_variant_id", columnList = "variant_id"),
+                @Index(name = "idx_order_items_combo_id", columnList = "combo_id")
         }
 )
 @Getter
@@ -52,6 +53,18 @@ public class OrderItem {
 
     @Column(name = "line_total", nullable = false, precision = 15, scale = 2)
     private BigDecimal lineTotal;
+
+    @Column(name = "sku", length = 100)
+    private String sku;
+
+    @Column(name = "product_name", length = 255)
+    private String productName;
+
+    @Column(name = "variant_name", length = 255)
+    private String variantName;
+
+    @Column(name = "combo_id")
+    private UUID comboId;
 
     @PrePersist
     public void prePersist() {
