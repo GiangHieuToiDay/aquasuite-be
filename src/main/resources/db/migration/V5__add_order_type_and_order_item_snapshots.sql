@@ -1,4 +1,4 @@
--- V3__add_order_type_and_order_item_snapshots.sql
+-- V5__add_order_type_and_order_item_snapshots.sql
 -- Add order_type to orders and snapshot columns to order_items
 
 -- 1. Bổ sung order_type cho bảng orders

@@ -9,6 +9,8 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.Optional;
+import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 
 @Repository
@@ -30,4 +32,5 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
             @Param("customerId") UUID customerId,
             @Param("overdueDate") LocalDate overdueDate
     );
+    List<Order> findByCustomerIdIn(Collection<UUID> customerIds);
 }

@@ -81,7 +81,9 @@ public class IamPermissionServiceImpl implements IamPermissionService {
         Sort sort = "desc".equals(dir) ? Sort.by(sortField).descending() : Sort.by(sortField).ascending();
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        Page<Permission> pageResult = permissionRepository.searchPermissions(searchTerm, pageable);
+        Page<Permission> pageResult = searchTerm == null
+                ? permissionRepository.findAll(pageable)
+                : permissionRepository.searchPermissions(searchTerm, pageable);
 
         return PageResponse.from(pageResult, permissionMapper::toResponse);
     }

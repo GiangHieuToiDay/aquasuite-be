@@ -1,6 +1,7 @@
 package com.aquasuite.ims.module.crm.api;
 
 import com.aquasuite.ims.module.crm.api.dto.CustomerAddressDto;
+import com.aquasuite.ims.module.crm.api.dto.CustomerDebtProfileDto;
 import com.aquasuite.ims.module.crm.api.dto.CustomerSummaryDto;
 
 import java.util.List;
@@ -26,4 +27,10 @@ public interface CrmApi {
     Optional<CustomerAddressDto> getDefaultDeliveryAddress(UUID customerId);
 
     CustomerSummaryDto getOrCreateWalkInCustomer();
+
+    List<CustomerDebtProfileDto> findAllDebtProfiles();
+
+    Optional<CustomerDebtProfileDto> getDebtProfile(UUID customerId);
+
+    void updateCustomerStatus(UUID customerId, String status);
 }

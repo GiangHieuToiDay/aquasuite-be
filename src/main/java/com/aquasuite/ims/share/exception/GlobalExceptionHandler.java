@@ -62,6 +62,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({
             MissingServletRequestParameterException.class,
+            org.springframework.web.multipart.support.MissingServletRequestPartException.class,
             HandlerMethodValidationException.class
     })
     public ResponseEntity<ApiResponse<Void>> handleInvalidRequestParamException(Exception ex) {
@@ -136,12 +137,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
     public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceeded(org.springframework.web.multipart.MaxUploadSizeExceededException ex) {
-        log.warn("Max upload size exceeded: {}", ex.getMessage());
         return ResponseEntity
-                .status(org.springframework.http.HttpStatus.BAD_REQUEST)
+                .status(org.springframework.http.HttpStatus.PAYLOAD_TOO_LARGE)
                 .body(ApiResponse.error(
-                        "MSG17",
-                        "Avatar must be a JPEG, PNG, or WEBP image under 5MB."
+                        CommonErrorCode.MULTIPART_TOO_LARGE.getCode(),
+                        CommonErrorCode.MULTIPART_TOO_LARGE.getMessage()
                 ));
     }
 
