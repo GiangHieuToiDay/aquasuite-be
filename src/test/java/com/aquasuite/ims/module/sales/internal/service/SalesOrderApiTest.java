@@ -8,6 +8,7 @@ import com.aquasuite.ims.module.sales.internal.enums.OrderType;
 import com.aquasuite.ims.module.sales.internal.enums.PaymentStatus;
 import com.aquasuite.ims.module.sales.internal.error.SalesErrorCode;
 import com.aquasuite.ims.module.sales.internal.repository.OrderRepository;
+import com.aquasuite.ims.module.sales.internal.repository.SalesInvoiceRepository;
 import com.aquasuite.ims.module.sales.internal.service.impl.SalesOrderApiImpl;
 import com.aquasuite.ims.share.exception.AppException;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,6 +36,8 @@ class SalesOrderApiTest {
     @Mock
     private OrderRepository orderRepository;
 
+    @Mock private SalesInvoiceRepository salesInvoiceRepository;
+
     @InjectMocks
     private SalesOrderApiImpl salesOrderApi;
 
@@ -51,7 +54,7 @@ class SalesOrderApiTest {
                 .orderCode("SO-20261103-0001")
                 .customerId(customerId)
                 .orderType(OrderType.RETAIL.name())
-                .orderChannel(OrderChannel.IN_STORE.name())
+                .orderChannel(OrderChannel.COUNTER.name())
                 .orderStatus(OrderStatus.PROCESSING.name())
                 .paymentStatus(PaymentStatus.UNPAID.name())
                 .totalAmount(new BigDecimal("10000000"))
@@ -88,7 +91,7 @@ class SalesOrderApiTest {
     @Test
     @DisplayName("Contract UC-23 (Bước 4): Cập nhật trạng thái thanh toán của đơn sang PARTIALLY_PAID hoặc PAID")
     void updatePaymentStatus_Success() {
-        when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+        when(orderRepository.findForPaymentUpdate(orderId)).thenReturn(Optional.of(order));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // 1. Khi khách trả 3 triệu tiền mặt + 7 triệu chuyển khoản Pending -> UC-23 cập nhật PARTIALLY_PAID
@@ -115,7 +118,7 @@ class SalesOrderApiTest {
     @Test
     @DisplayName("Contract UC-23: Ném lỗi khi đơn hàng không tồn tại")
     void updatePaymentStatus_OrderNotFound_ThrowsAppException() {
-        when(orderRepository.findById(orderId)).thenReturn(Optional.empty());
+        when(orderRepository.findForPaymentUpdate(orderId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> salesOrderApi.updatePaymentStatus(orderId, "PAID"))
                 .isInstanceOf(AppException.class)

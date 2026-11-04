@@ -1,0 +1,26 @@
+meta {
+  name: 07 - Upload Transfer Proof
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/v1/finance/orders/{{paymentOrderId}}/payments/{{paymentBankId}}/proof
+  body: multipartForm
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:multipart-form {
+  file: @file(SELECT_PROOF_FILE_IN_BRUNO.pdf)
+}
+
+tests {
+  test('Upload succeeds', function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().success).to.equal(true);
+  });
+}

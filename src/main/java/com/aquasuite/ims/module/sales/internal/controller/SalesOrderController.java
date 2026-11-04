@@ -39,7 +39,8 @@ public class SalesOrderController {
     private final SalesOrderService salesOrderService;
 
     /**
-     * Tạo mới đơn bán lẻ trực tiếp tại quầy showroom (POS).
+     * Tạo đơn tại quầy và hóa đơn cửa hàng; đơn mua nợ phải qua kiểm tra UC-24.
+     * Đơn mới chưa tự ghi nhận tiền khách thanh toán; khoản thu được ghi qua UC-23.
      * Thông báo thành công: MSG58 - "Sales order created successfully."
      */
     @PostMapping

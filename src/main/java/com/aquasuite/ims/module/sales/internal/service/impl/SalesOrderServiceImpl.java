@@ -5,11 +5,15 @@ import com.aquasuite.ims.module.catalog.api.dto.CatalogBundleSummaryDto;
 import com.aquasuite.ims.module.catalog.api.dto.CatalogSkuSummaryDto;
 import com.aquasuite.ims.module.crm.api.CrmApi;
 import com.aquasuite.ims.module.crm.api.dto.CustomerSummaryDto;
+import com.aquasuite.ims.module.finance.api.CreditControlApi;
+import com.aquasuite.ims.module.finance.api.dto.CreditAuthorizationCommand;
 import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.iam.api.dto.UserSummaryDto;
 import com.aquasuite.ims.module.inventory.api.InventoryApi;
 import com.aquasuite.ims.module.sales.internal.entity.Order;
 import com.aquasuite.ims.module.sales.internal.entity.OrderItem;
+import com.aquasuite.ims.module.sales.internal.entity.SalesInvoice;
+import com.aquasuite.ims.module.sales.internal.entity.SalesInvoiceItem;
 import com.aquasuite.ims.module.sales.internal.enums.OrderChannel;
 import com.aquasuite.ims.module.sales.internal.enums.OrderStatus;
 import com.aquasuite.ims.module.sales.internal.enums.OrderType;
@@ -26,6 +30,8 @@ import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderItemRe
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderSummaryResponse;
 import com.aquasuite.ims.module.sales.internal.repository.OrderItemRepository;
 import com.aquasuite.ims.module.sales.internal.repository.OrderRepository;
+import com.aquasuite.ims.module.sales.internal.repository.SalesInvoiceRepository;
+import com.aquasuite.ims.module.sales.internal.repository.SalesInvoiceItemRepository;
 import com.aquasuite.ims.module.sales.internal.service.SalesOrderService;
 import com.aquasuite.ims.module.sales.internal.service.helper.OrderCodeGenerator;
 import com.aquasuite.ims.share.exception.AppException;
@@ -47,6 +53,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+/** Tạo đơn tại quầy và cung cấp danh sách, chi tiết đơn hàng bán. */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -54,6 +61,9 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
+    private final SalesInvoiceRepository salesInvoiceRepository;
+    private final SalesInvoiceItemRepository salesInvoiceItemRepository;
+    private final CreditControlApi creditControlApi;
     private final CatalogApi catalogApi;
     private final InventoryApi inventoryApi;
     private final CrmApi crmApi;
@@ -61,6 +71,13 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     private final SalesOrderMapper salesOrderMapper;
     private final OrderCodeGenerator orderCodeGenerator;
 
+    /**
+     * Tạo đơn tại quầy: kiểm tra khách, tính tổng, kiểm tra mua nợ nếu cần,
+     * giữ tồn kho và lưu đơn cùng hóa đơn cửa hàng trong một transaction.
+     * @param request khách hàng, hàng hóa và thông tin đơn cần tạo
+     * @return chi tiết đơn và mã hóa đơn cửa hàng
+     * @throws AppException nếu dữ liệu, khách, hàng hóa hoặc điều kiện mua nợ không hợp lệ
+     */
     @Override
     @Transactional
     public SalesOrderDetailResponse createSalesOrder(CreateSalesOrderRequest request) {
@@ -79,18 +96,15 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
         // 3. Nhân viên bán hàng hiện tại
         UUID salesStaffId = resolveCurrentStaffId();
-
-        // 4. Kiểm tra điều kiện nợ / hạn mức công nợ (Nếu chọn hình thức thanh toán CREDIT)
-        if (request.getPaymentMethod() == PaymentMethod.CREDIT) {
-            boolean hasOverdueOrders = orderRepository.hasOverdueUnpaidOrders(
-                    customer.customerId(),
-                    LocalDate.now().minusDays(60)
-            );
-            if (hasOverdueOrders) {
-                log.warn("Customer {} has overdue unpaid balance > 60 days. Blocking credit order.", customer.customerId());
-                throw new AppException(SalesErrorCode.CREDIT_LIMIT_EXCEEDED);
-            }
+        if (salesStaffId == null) {
+            throw new AppException(SalesErrorCode.ACTOR_REQUIRED);
         }
+        if (request.getPaymentMethod() == null || request.getPaymentMethod() == PaymentMethod.CARD) {
+            throw new AppException(SalesErrorCode.UNSUPPORTED_PAYMENT_METHOD);
+        }
+
+        // Dùng cùng khóa theo khách với thao tác chặn mua hàng và kiểm tra công nợ.
+        creditControlApi.requireCustomerOrderAllowed(customer.customerId());
 
         // 5. Chuẩn bị đơn hàng
         UUID orderId = UUID.randomUUID();
@@ -193,15 +207,22 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         if (finalTotal.compareTo(BigDecimal.ZERO) < 0) {
             finalTotal = BigDecimal.ZERO;
         }
+        OrderChannel channel = request.getOrderChannel() == null || request.getOrderChannel() == OrderChannel.POS
+                ? OrderChannel.COUNTER : request.getOrderChannel();
+        if (request.getPaymentMethod() == PaymentMethod.CREDIT) {
+            var decision = creditControlApi.authorize(new CreditAuthorizationCommand(
+                    customer.customerId(), orderId, channel.name(), finalTotal));
+            if (decision == null || !decision.approved()) {
+                throw new AppException(SalesErrorCode.CREDIT_LIMIT_EXCEEDED);
+            }
+        }
 
         // 9. Khởi tạo trạng thái đơn hàng và trạng thái thanh toán ban đầu
         // Theo chuẩn UC-21 & UC-23: UC-21 chỉ tạo đơn với payment_status = UNPAID và order_status = PROCESSING.
         // Việc thu tiền và xác minh thanh toán do UC-23 xử lý.
         OrderStatus resolvedOrderStatus = OrderStatus.PROCESSING;
         PaymentStatus resolvedPaymentStatus = PaymentStatus.UNPAID;
-        LocalDate dueDate = (request.getPaymentMethod() == PaymentMethod.CREDIT)
-                ? LocalDate.now().plusDays(30)
-                : null;
+        LocalDate dueDate = null; // Hạn nợ theo đợt được tính khi có hóa đơn điện tử tương ứng.
 
         // 10. Đặt giữ tồn kho (reserved_qty) cho các mặt hàng trong đơn
         for (OrderItem item : orderItemsToSave) {
@@ -216,7 +237,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .customerId(customer.customerId())
                 .salesStaffId(salesStaffId)
                 .orderType(request.getOrderType() != null ? request.getOrderType().name() : OrderType.RETAIL.name())
-                .orderChannel(request.getOrderChannel() != null ? request.getOrderChannel().name() : OrderChannel.IN_STORE.name())
+                .orderChannel(channel.name())
                 .orderStatus(resolvedOrderStatus.name())
                 .paymentStatus(resolvedPaymentStatus.name())
                 .orderDate(now)
@@ -230,8 +251,35 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .updatedAt(now)
                 .build();
 
-        Order savedOrder = orderRepository.save(order);
-        List<OrderItem> savedItems = orderItemRepository.saveAll(orderItemsToSave);
+        // Liên kết qua ID nên ghi các bản ghi cha trước khi ghi dòng phụ thuộc.
+        Order savedOrder = orderRepository.saveAndFlush(order);
+        List<OrderItem> savedItems = orderItemRepository.saveAllAndFlush(orderItemsToSave);
+        UUID storeInvoiceId = UUID.randomUUID();
+        salesInvoiceRepository.saveAndFlush(SalesInvoice.builder()
+                .invoiceId(storeInvoiceId)
+                .invoiceCode("STORE-" + orderId)
+                .orderId(orderId)
+                .customerId(customer.customerId())
+                .invoiceType("STORE")
+                .issueDate(now)
+                .subtotal(calculatedSubtotal)
+                .discountAmount(orderDiscount)
+                .totalAmount(finalTotal)
+                .status("DRAFT")
+                .createdBy(salesStaffId)
+                .createdAt(now)
+                .build());
+        salesInvoiceItemRepository.saveAll(savedItems.stream().map(item -> SalesInvoiceItem.builder()
+                .invoiceItemId(UUID.randomUUID())
+                .invoiceId(storeInvoiceId)
+                .orderItemId(item.getOrderItemId())
+                .variantId(item.getVariantId())
+                .description(item.getProductName() + " - " + item.getVariantName())
+                .quantity(item.getQuantity())
+                .unitPrice(item.getUnitPrice())
+                .discountAmount(item.getDiscountAmount())
+                .lineTotal(item.getLineTotal())
+                .build()).toList());
 
         log.info("Sales Order {} committed successfully (UC-21): totalAmount={}, status={}, paymentStatus={}",
                 orderCode, finalTotal, resolvedOrderStatus, resolvedPaymentStatus);
@@ -239,15 +287,23 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         List<SalesOrderItemResponse> itemResponses = salesOrderMapper.toItemResponseList(savedItems);
         String staffName = getStaffName(salesStaffId);
 
-        return salesOrderMapper.toDetailResponse(
+        SalesOrderDetailResponse response = salesOrderMapper.toDetailResponse(
                 savedOrder,
                 itemResponses,
                 customer.customerName(),
                 customer.phone(),
                 staffName
         );
+        response.setStoreInvoiceId(storeInvoiceId);
+        return response;
     }
 
+    /**
+     * Lấy danh sách đơn theo bộ lọc và thông tin phân trang.
+     * @param filter điều kiện lọc đơn
+     * @param pageable trang và số lượng kết quả
+     * @return trang tóm tắt đơn hàng
+     */
     @Override
     @Transactional(readOnly = true)
     public Page<SalesOrderSummaryResponse> getSalesOrders(SalesOrderFilterRequest filter, Pageable pageable) {
@@ -280,6 +336,12 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         });
     }
 
+    /**
+     * Lấy thông tin đơn, mặt hàng và hóa đơn cửa hàng nếu có.
+     * @param orderId mã đơn cần xem
+     * @return chi tiết đơn hàng
+     * @throws AppException nếu không tìm thấy đơn
+     */
     @Override
     @Transactional(readOnly = true)
     public SalesOrderDetailResponse getSalesOrderDetail(UUID orderId) {
@@ -303,15 +365,19 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
         String staffName = getStaffName(order.getSalesStaffId());
 
-        return salesOrderMapper.toDetailResponse(
+        SalesOrderDetailResponse response = salesOrderMapper.toDetailResponse(
                 order,
                 itemResponses,
                 customerName,
                 customerPhone,
                 staffName
         );
+        salesInvoiceRepository.findByOrderIdAndInvoiceType(orderId, "STORE")
+                .ifPresent(invoice -> response.setStoreInvoiceId(invoice.getInvoiceId()));
+        return response;
     }
 
+    /** Xác định khách theo mã, số điện thoại hoặc khách vãng lai từ yêu cầu tạo đơn. */
     private CustomerSummaryDto resolveCustomer(CreateSalesOrderRequest request) {
         if (request.getCustomerId() != null) {
             return crmApi.getCustomerById(request.getCustomerId())
@@ -324,6 +390,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         return crmApi.getOrCreateWalkInCustomer();
     }
 
+    /** Lấy mã nhân viên đang đăng nhập; trả null nếu không xác định được. */
     private UUID resolveCurrentStaffId() {
         try {
             return iamApi.getCurrentUserId();
@@ -333,6 +400,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         }
     }
 
+    /** Lấy tên nhân viên để hiển thị, dùng tên mặc định khi không tra được. */
     private String getStaffName(UUID staffId) {
         if (staffId == null) return "Nhân viên bán hàng";
         try {
@@ -343,6 +411,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         }
     }
 
+    /** Tạo điều kiện truy vấn đơn hàng từ các trường lọc được cung cấp. */
     private Specification<Order> buildFilterSpecification(SalesOrderFilterRequest filter) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();

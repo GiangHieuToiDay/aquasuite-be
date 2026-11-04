@@ -5,6 +5,7 @@ import com.aquasuite.ims.module.sales.internal.enums.OrderChannel;
 import com.aquasuite.ims.module.sales.internal.enums.OrderType;
 import com.aquasuite.ims.module.sales.internal.enums.PaymentMethod;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -34,15 +35,16 @@ public class CreateSalesOrderRequest {
     @Builder.Default
     private OrderType orderType = OrderType.RETAIL;
 
-    /** Kênh bán hàng: mặc định IN_STORE tại quầy POS */
+    /** Kênh bán hàng: mặc định COUNTER tại quầy. */
     @Builder.Default
-    private OrderChannel orderChannel = OrderChannel.IN_STORE;
+    private OrderChannel orderChannel = OrderChannel.COUNTER;
 
     /** Phương thức nhận hàng: IN_STORE_PICKUP (mặc định) hoặc SCHEDULED_DELIVERY */
     @Builder.Default
     private FulfillmentMethod fulfillmentMethod = FulfillmentMethod.IN_STORE_PICKUP;
 
-    /** Hình thức thanh toán dự kiến: CASH, BANK_TRANSFER, CARD, CREDIT */
+    /** Hình thức thanh toán dự kiến; CARD không được hỗ trợ. */
+    @NotNull
     @Builder.Default
     private PaymentMethod paymentMethod = PaymentMethod.CASH;
 

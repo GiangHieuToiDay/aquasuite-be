@@ -6,6 +6,7 @@ import com.aquasuite.ims.module.crm.api.dto.CustomerDebtProfileDto;
 import com.aquasuite.ims.module.finance.api.event.CustomerDebtAuditEvent;
 import com.aquasuite.ims.module.finance.internal.entity.Transaction;
 import com.aquasuite.ims.module.finance.internal.notification.DebtEmailNotificationPort;
+import com.aquasuite.ims.module.finance.internal.payload.request.CreditCheckRequest;
 import com.aquasuite.ims.module.finance.internal.pdf.StatementDocument;
 import com.aquasuite.ims.module.finance.internal.pdf.StatementPdfService;
 import com.aquasuite.ims.module.finance.internal.repository.TransactionRepository;
@@ -20,7 +21,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.jdbc.core.JdbcTemplate;
+import com.aquasuite.ims.module.finance.internal.repository.FinanceLockRepository;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -50,7 +51,7 @@ class CustomerDebtServiceImplTest {
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private DebtEmailNotificationPort emailNotificationPort;
     @Mock private StatementPdfService statementPdfService;
-    @Mock private JdbcTemplate jdbcTemplate;
+    @Mock private FinanceLockRepository financeLocks;
 
     @InjectMocks private CustomerDebtServiceImpl service;
 
@@ -67,9 +68,30 @@ class CustomerDebtServiceImplTest {
                 new BigDecimal("200.00"), BigDecimal.ZERO, new BigDecimal("200.00"), LocalDate.now().plusDays(30));
         invoice = new SalesInvoiceDebtDto(INVOICE_ID, ORDER_ID, CUSTOMER_ID, "INV-100", "MISA-INV-100",
                 OffsetDateTime.now(), null, "ISSUED", new BigDecimal("200.00"), BigDecimal.ZERO, BigDecimal.ZERO,
-                new BigDecimal("200.00"), null);
+                new BigDecimal("200.00"), null, "ELECTRONIC");
         when(salesReceivableApi.findOrdersByCustomerIds(any())).thenReturn(List.of(order));
         when(salesReceivableApi.findInvoicesByCustomerIds(any())).thenReturn(List.of(invoice));
+    }
+
+    @Test
+    void creditAuthorizationRequiresValidCreditTerm() {
+        when(transactionRepository.findByCustomerIdInAndStatusIgnoreCase(any(), eq("VERIFIED")))
+                .thenReturn(List.of());
+        CreditCheckRequest request = new CreditCheckRequest(null, "COUNTER", new BigDecimal("100.00"));
+        for (Integer term : new Integer[] {null, 0, 31, 1, 30}) {
+            CustomerDebtProfileDto profile = new CustomerDebtProfileDto(CUSTOMER_ID, "KH-001", "An Khang",
+                    "0903118240", "ketoan@example.com", "CONTRACTOR", "0312456789", "An Khang Co.",
+                    List.of(), List.of(), new BigDecimal("500.00"), term, "ACTIVE");
+            when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(java.util.Optional.of(profile));
+
+            var result = service.checkCredit(CUSTOMER_ID, request);
+            boolean expected = term != null && term >= 1 && term <= 30;
+            assertEquals(expected, result.approved(), "credit term=" + term);
+            if (!expected) {
+                assertEquals("INVALID_CREDIT_TERM", result.reasonCode());
+                assertEquals(false, result.overrideAllowed());
+            }
+        }
     }
 
     @Test
@@ -104,6 +126,81 @@ class CustomerDebtServiceImplTest {
         assertMoney("150.00", detail.orders().getFirst().outstandingAmount());
         assertEquals(1, detail.verifiedReceipts().size());
         assertTrue(detail.reminderHistory().isEmpty());
+    }
+
+    @Test
+    void receiptLinkedToStoreInvoiceIsUnallocatedToIssuedDeliveryInvoice() {
+        Transaction receipt = receipt(UUID.randomUUID(), ORDER_ID, new BigDecimal("50.00"));
+        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(java.util.Optional.of(customer));
+        when(transactionRepository.findByCustomerIdInAndStatusIgnoreCase(any(), eq("VERIFIED")))
+                .thenReturn(List.of(receipt));
+        when(auditQueryApi.findByEntity(any(), any())).thenReturn(List.of());
+        var detail = service.detail(CUSTOMER_ID);
+        assertMoney("150.00", detail.orders().getFirst().outstandingAmount());
+        assertMoney("200.00", detail.invoices().getFirst().outstandingAmount());
+        assertMoney("50.00", detail.unallocatedVerifiedReceiptAmount());
+    }
+
+    @Test
+    void storeInvoiceReceiptRemainsUnallocatedWhenDeliveryInvoiceIsIssued() {
+        UUID storeInvoiceId = UUID.randomUUID();
+        SalesOrderDebtDto order100 = new SalesOrderDebtDto(ORDER_ID, CUSTOMER_ID, "ORD-100", "COUNTER",
+                "CONFIRMED", "PARTIALLY_PAID", new BigDecimal("100.00"), BigDecimal.ZERO,
+                new BigDecimal("100.00"), LocalDate.now().plusDays(30));
+        SalesInvoiceDebtDto storeInvoice = new SalesInvoiceDebtDto(storeInvoiceId, ORDER_ID, CUSTOMER_ID,
+                "STORE-100", null, OffsetDateTime.now(), null, "DRAFT", new BigDecimal("100.00"),
+                BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal("100.00"), null, "STORE");
+        SalesInvoiceDebtDto deliveryInvoice = new SalesInvoiceDebtDto(INVOICE_ID, ORDER_ID, CUSTOMER_ID,
+                "INV-40", "MISA-INV-40", OffsetDateTime.now(), null, "ISSUED", new BigDecimal("40.00"),
+                BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal("40.00"), null, "ELECTRONIC");
+        when(salesReceivableApi.findOrdersByCustomerIds(any())).thenReturn(List.of(order100));
+        when(salesReceivableApi.findInvoicesByCustomerIds(any())).thenReturn(List.of(storeInvoice, deliveryInvoice));
+        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(java.util.Optional.of(customer));
+        when(transactionRepository.findByCustomerIdInAndStatusIgnoreCase(any(), eq("VERIFIED")))
+                .thenReturn(List.of(receipt(storeInvoiceId, ORDER_ID, new BigDecimal("30.00"))));
+        when(auditQueryApi.findByEntity(any(), any())).thenReturn(List.of());
+
+        var detail = service.detail(CUSTOMER_ID);
+
+        assertMoney("70.00", detail.summary().outstandingBalance());
+        assertMoney("30.00", detail.unallocatedVerifiedReceiptAmount());
+        assertEquals(1, detail.unallocatedOrderReceipts().size());
+        assertEquals(1, detail.invoices().size());
+        assertMoney("40.00", detail.invoices().getFirst().outstandingAmount());
+    }
+
+    @Test
+    void issuedStoreInvoiceNeverStartsInvoiceDebtOrAllocatesReceipt() {
+        SalesInvoiceDebtDto store = new SalesInvoiceDebtDto(INVOICE_ID, ORDER_ID, CUSTOMER_ID,
+                "STORE-1", null, OffsetDateTime.now().minusDays(100), null, "ISSUED",
+                new BigDecimal("200.00"), BigDecimal.ZERO, BigDecimal.ZERO,
+                new BigDecimal("200.00"), null, "STORE");
+        when(salesReceivableApi.findInvoicesByCustomerIds(any())).thenReturn(List.of(store));
+        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(java.util.Optional.of(customer));
+        when(transactionRepository.findByCustomerIdInAndStatusIgnoreCase(any(), eq("VERIFIED")))
+                .thenReturn(List.of(receipt(INVOICE_ID, ORDER_ID, new BigDecimal("50.00"))));
+        when(auditQueryApi.findByEntity(any(), any())).thenReturn(List.of());
+
+        var detail = service.detail(CUSTOMER_ID);
+
+        assertMoney("150.00", detail.summary().outstandingBalance());
+        assertMoney("0.00", detail.summary().overdueBalance());
+        assertMoney("50.00", detail.unallocatedVerifiedReceiptAmount());
+        assertTrue(detail.invoices().isEmpty());
+    }
+
+    @Test
+    void creditCheckAcceptsLegacyCounterAliases() {
+        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(java.util.Optional.of(customer));
+        when(transactionRepository.findByCustomerIdInAndStatusIgnoreCase(any(), eq("VERIFIED")))
+                .thenReturn(List.of());
+        when(salesReceivableApi.findInvoicesByCustomerIds(any())).thenReturn(List.of());
+        for (String channel : List.of("COUNTER", "POS")) {
+            assertTrue(service.checkCredit(CUSTOMER_ID,
+                    new CreditCheckRequest(null, channel, new BigDecimal("100.00"))).approved(), channel);
+        }
+        assertEquals(false, service.checkCredit(CUSTOMER_ID,
+                new CreditCheckRequest(null, "IN_STORE", new BigDecimal("100.00"))).approved());
     }
 
     @Test

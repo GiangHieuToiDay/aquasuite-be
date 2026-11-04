@@ -70,7 +70,7 @@ class SalesOrderControllerTest {
                                 .customerPhone("0912345678")
                                 .salesStaffName("Nhân Viên Bán Hàng")
                                 .orderType("RETAIL")
-                                .orderChannel("IN_STORE")
+                                .orderChannel("COUNTER")
                                 .orderStatus("PROCESSING")
                                 .paymentStatus("UNPAID")
                                 .orderDate(OffsetDateTime.now())
@@ -155,6 +155,6 @@ class SalesOrderControllerTest {
                 mockMvc.perform(get("/api/v1/sales/orders/{orderId}", unknownId))
                                 .andExpect(status().isNotFound())
                                 .andExpect(jsonPath("$.success").value(false))
-                                .andExpect(jsonPath("$.errorCode").value("SALES_003"));
+                                .andExpect(jsonPath("$.code").value("SALES_003"));
         }
 }

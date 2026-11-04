@@ -36,10 +36,33 @@ class FlywayMigrationIT {
     @Test
     void emptyDatabaseMigratesAndRetryDoesNothing() throws Exception {
         var flyway = config(database()).load();
-        assertEquals(4, flyway.migrate().migrationsExecuted);
+        assertEquals(9, flyway.migrate().migrationsExecuted);
         assertTrue(flyway.validateWithResult().validationSuccessful);
         assertEquals(0, flyway.migrate().migrationsExecuted);
         assertThrows(FlywayException.class, flyway::clean);
+    }
+
+    @Test
+    void creditProfileMigrationStopsForLegacyNullTermAndEnforcesValidTerms() throws Exception {
+        String url = database();
+        config(url).target("5").load().migrate();
+        var db = BundleCoreTestSupport.DB;
+        try (var connection = DriverManager.getConnection(url, db.getUsername(), db.getPassword());
+                var statement = connection.createStatement()) {
+            statement.execute("INSERT INTO public.customers (customer_id, customer_code, customer_name, phone, credit_limit, credit_term_days) "
+                    + "VALUES ('10000000-0000-4000-8000-000000000099', 'MIG-CREDIT', 'Test', '0900000000', 100, NULL)");
+            assertThrows(FlywayException.class, () -> config(url).load().migrate());
+            try (var result = statement.executeQuery("SELECT credit_limit, credit_term_days FROM public.customers WHERE customer_code='MIG-CREDIT'")) {
+                assertTrue(result.next());
+                assertEquals(100, result.getBigDecimal(1).intValue());
+                assertEquals(null, result.getObject(2));
+            }
+            statement.execute("UPDATE public.customers SET credit_term_days=30 WHERE customer_code='MIG-CREDIT'");
+            config(url).load().migrate();
+            assertThrows(java.sql.SQLException.class, () -> statement.execute("UPDATE public.customers SET credit_term_days=NULL WHERE customer_code='MIG-CREDIT'"));
+            assertThrows(java.sql.SQLException.class, () -> statement.execute("UPDATE public.customers SET credit_term_days=31 WHERE customer_code='MIG-CREDIT'"));
+            statement.execute("UPDATE public.customers SET credit_term_days=1 WHERE customer_code='MIG-CREDIT'");
+        }
     }
 
     @Test

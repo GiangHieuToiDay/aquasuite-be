@@ -4,8 +4,10 @@ package com.aquasuite.ims.module.sales.internal.enums;
  * Kênh bán hàng phát sinh đơn.
  */
 public enum OrderChannel {
-    /** Bán hàng trực tiếp tại cửa hàng / quầy POS */
-    IN_STORE,
+    /** Kênh bán tại quầy theo contract mới. */
+    COUNTER,
+    /** Alias cũ chỉ kênh bán hàng tại quầy, không phải phương thức trả bằng thẻ. */
+    POS,
 
     /** Bán hàng trực tuyến / Web Storefront */
     ONLINE,

@@ -1,0 +1,47 @@
+meta {
+  name: 04 - Record Bank Transfer
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/v1/finance/orders/{{paymentOrderId}}/payments
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "idempotencyKey": "{{paymentBankKey}}",
+    "amount": {{paymentBankAmount}},
+    "paymentMethod": "BANK_TRANSFER",
+    "referenceNo": "BRUNO-UC23",
+    "description": "Bruno UC-23 transfer test"
+  }
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (res.getStatus() === 200 && body && body.data) bru.setVar('paymentBankId', body.data.transactionId);
+}
+
+tests {
+  test('Bank transfer is pending verification', function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(200);
+    expect(body.success).to.equal(true);
+    expect(body.data.orderId).to.equal(bru.getEnvVar('paymentOrderId'));
+    expect(body.data.transactionId).to.be.a('string').and.not.empty;
+    expect(body.data.paymentMethod).to.equal('BANK_TRANSFER');
+    expect(body.data.status).to.equal('PENDING');
+    expect(Number(body.data.amount)).to.equal(Number(bru.getEnvVar('paymentBankAmount')));
+  });
+}

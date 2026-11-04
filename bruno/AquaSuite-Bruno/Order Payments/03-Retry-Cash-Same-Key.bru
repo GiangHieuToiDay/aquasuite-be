@@ -1,0 +1,36 @@
+meta {
+  name: 03 - Retry Cash Same Key
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/finance/orders/{{paymentOrderId}}/payments
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "idempotencyKey": "{{paymentCashKey}}",
+    "amount": {{paymentCashAmount}},
+    "paymentMethod": "CASH",
+    "description": "Bruno UC-23 cash test"
+  }
+}
+
+tests {
+  test('Retry returns the original transaction', function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(bru.getVar('paymentCashId')).to.be.a('string').and.not.empty;
+    expect(res.getBody().data.transactionId).to.equal(bru.getVar('paymentCashId'));
+  });
+}

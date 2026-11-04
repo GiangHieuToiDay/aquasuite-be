@@ -17,6 +17,7 @@ import com.aquasuite.ims.module.finance.internal.notification.DebtEmailNotificat
 import com.aquasuite.ims.module.finance.internal.pdf.StatementDocument;
 import com.aquasuite.ims.module.finance.internal.pdf.StatementPdfService;
 import com.aquasuite.ims.module.finance.internal.repository.TransactionRepository;
+import com.aquasuite.ims.module.finance.internal.repository.FinanceLockRepository;
 import com.aquasuite.ims.module.finance.internal.service.CustomerDebtService;
 import com.aquasuite.ims.module.sales.api.SalesReceivableApi;
 import com.aquasuite.ims.module.sales.api.dto.SalesInvoiceDebtDto;
@@ -24,7 +25,6 @@ import com.aquasuite.ims.module.sales.api.dto.SalesOrderDebtDto;
 import com.aquasuite.ims.share.exception.AppException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,7 +49,17 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
     private final ApplicationEventPublisher eventPublisher;
     private final DebtEmailNotificationPort emailNotificationPort;
     private final StatementPdfService statementPdfService;
-    private final JdbcTemplate jdbcTemplate;
+    private final FinanceLockRepository financeLocks;
+
+    /** Kiểm tra khách bị khóa trước mọi đơn mới, kể cả đơn thanh toán ngay. */
+    @Override
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void requireCustomerOrderAllowed(UUID customerId) {
+        lock("customer-credit:" + customerId);
+        if ("BLOCKED".equalsIgnoreCase(getCustomer(customerId).status())) {
+            throw new AppException(CustomerDebtErrorCode.CUSTOMER_BLOCKED);
+        }
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -105,6 +115,7 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
                 summary.debtStatus(), blacklisted, summary.overdueBalance(), reason);
     }
 
+    /** Kiểm tra công nợ, kỳ hạn 1–30 ngày và hạn mức đối với giá trị đơn dự kiến. */
     @Override
     @Transactional(readOnly = true)
     public CreditCheckResponse checkCredit(UUID customerId, CreditCheckRequest request) {
@@ -114,11 +125,17 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
         boolean counter = "COUNTER".equalsIgnoreCase(request.orderChannel()) || "POS".equalsIgnoreCase(request.orderChannel());
         boolean eligibleType = "CONTRACTOR".equalsIgnoreCase(customer.customerType())
                 || "PROJECT_CUSTOMER".equalsIgnoreCase(customer.customerType());
-        boolean approved = counter && eligibleType && calculation.summary().debtStatus() == DebtStatus.WITHIN_TERM
+        boolean validCreditTerm = customer.creditTermDays() != null
+                && customer.creditTermDays() >= 1 && customer.creditTermDays() <= 30;
+        boolean approved = counter && eligibleType && validCreditTerm && calculation.summary().debtStatus() == DebtStatus.WITHIN_TERM
                 && calculation.summary().availableCredit().compareTo(request.newOrderAmount()) >= 0;
-        String reason = approved ? "APPROVED" : reasonFor(customer, calculation, counter, eligibleType, request.newOrderAmount());
+        String reason = approved ? "APPROVED"
+                : calculation.summary().debtStatus() == DebtStatus.BLOCKED ? "CUSTOMER_BLOCKED"
+                : calculation.summary().debtStatus() == DebtStatus.BLACKLISTED ? "BLACKLISTED"
+                : !validCreditTerm ? "INVALID_CREDIT_TERM"
+                : reasonFor(customer, calculation, counter, eligibleType, request.newOrderAmount());
         return CreditCheckResponse.builder().customerId(customerId).approved(approved)
-                .overrideAllowed(!approved && calculation.summary().debtStatus() != DebtStatus.BLACKLISTED
+                .overrideAllowed(!approved && validCreditTerm && calculation.summary().debtStatus() != DebtStatus.BLACKLISTED
                         && calculation.summary().debtStatus() != DebtStatus.BLOCKED)
                 .debtStatus(calculation.summary().debtStatus()).reasonCode(reason)
                 .creditLimit(calculation.summary().creditLimit()).outstandingBalance(calculation.summary().outstandingBalance())
@@ -133,7 +150,8 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
                 .orElseThrow(() -> new AppException(CustomerDebtErrorCode.INVALID_CREDIT_REQUEST));
         CustomerDebtProfileDto customer = getCustomer(order.customerId());
         DebtStatus status = calculate(customer, documentsFor(Set.of(customer.customerId()))).summary().debtStatus();
-        if (status == DebtStatus.BLACKLISTED || status == DebtStatus.BLOCKED) {
+        if (status == DebtStatus.BLACKLISTED || status == DebtStatus.BLOCKED
+                || customer.creditTermDays() == null || customer.creditTermDays() < 1 || customer.creditTermDays() > 30) {
             throw new AppException(CustomerDebtErrorCode.OVERRIDE_NOT_ALLOWED);
         }
         boolean alreadyOverridden = auditQueryApi.findByEntity("ORDER", orderId).stream()
@@ -248,13 +266,22 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
         return new Documents(orders, invoices, transactions);
     }
 
+    /**
+     * Tính dư đơn, dư hóa đơn đã phát hành và khoản thu chưa gắn với hóa đơn tính nợ.
+     * Hóa đơn STORE không được dùng để tính hạn nợ; khoản thu của đơn vẫn được tính một lần.
+     * @param customer hồ sơ và điều kiện tín dụng của khách
+     * @param documents đơn, hóa đơn và khoản thu đã xác minh được đọc cho khách
+     * @return kết quả tổng hợp công nợ và các danh sách chi tiết
+     */
     private DebtCalculation calculate(CustomerDebtProfileDto customer, Documents documents) {
         List<SalesOrderDebtDto> orders = documents.orders().stream()
                 .filter(order -> customer.customerId().equals(order.customerId()))
                 .filter(order -> !"CANCELLED".equalsIgnoreCase(order.orderStatus())).toList();
         List<SalesInvoiceDebtDto> invoices = documents.invoices().stream()
                 .filter(invoice -> customer.customerId().equals(invoice.customerId()))
-                .filter(invoice -> "ISSUED".equalsIgnoreCase(invoice.status())).toList();
+                // Hóa đơn cửa hàng không làm phát sinh hạn nợ hóa đơn điện tử, kể cả khi ISSUED.
+                .filter(invoice -> "ISSUED".equalsIgnoreCase(invoice.status()))
+                .filter(invoice -> !"STORE".equalsIgnoreCase(invoice.invoiceType())).toList();
         Map<UUID, UUID> invoiceOrder = invoices.stream().collect(Collectors.toMap(SalesInvoiceDebtDto::invoiceId, SalesInvoiceDebtDto::orderId));
         Map<UUID, BigDecimal> orderPaid = new HashMap<>();
         Map<UUID, BigDecimal> invoicePaid = new HashMap<>();
@@ -265,8 +292,10 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
             if (!customer.customerId().equals(transaction.getCustomerId())) continue;
             UUID orderId = transaction.getOrderId() != null ? transaction.getOrderId() : invoiceOrder.get(transaction.getInvoiceId());
             if (orderId != null) orderPaid.merge(orderId, amount(transaction.getAmount()), BigDecimal::add);
-            if (transaction.getInvoiceId() != null) invoicePaid.merge(transaction.getInvoiceId(), amount(transaction.getAmount()), BigDecimal::add);
-            else if (transaction.getOrderId() != null) {
+            // Chỉ hóa đơn đã phát hành mới nhận tiền trực tiếp; hóa đơn cửa hàng còn chờ phân bổ.
+            if (transaction.getInvoiceId() != null && invoiceOrder.containsKey(transaction.getInvoiceId())) {
+                invoicePaid.merge(transaction.getInvoiceId(), amount(transaction.getAmount()), BigDecimal::add);
+            } else if (transaction.getOrderId() != null) {
                 BigDecimal receiptAmount = amount(transaction.getAmount());
                 unallocated = unallocated.add(receiptAmount);
                 unallocatedReceipts.add(new UnallocatedReceiptResponse(transaction.getTransactionId(),
@@ -363,7 +392,7 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
 
     /** Transaction-scoped lock serializes finance actions for one business aggregate. */
     private void lock(String key) {
-        jdbcTemplate.query("SELECT pg_advisory_xact_lock(hashtext(?))", statement -> statement.setString(1, key), resultSet -> null);
+        financeLocks.lockCreditKey(key);
     }
 
     private static BigDecimal amount(BigDecimal value) { return value == null ? ZERO : value; }

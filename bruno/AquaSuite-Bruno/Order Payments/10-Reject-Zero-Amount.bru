@@ -1,0 +1,33 @@
+meta {
+  name: 10 - Reject Zero Amount
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/api/v1/finance/orders/{{paymentOrderId}}/payments
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "idempotencyKey": "{{paymentBankKey}}",
+    "amount": 0,
+    "paymentMethod": "CASH"
+  }
+}
+
+tests {
+  test('Zero amount is invalid', function () {
+    expect(res.getStatus()).to.equal(400);
+  });
+}

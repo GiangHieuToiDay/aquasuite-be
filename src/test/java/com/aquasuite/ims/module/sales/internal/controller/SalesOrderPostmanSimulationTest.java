@@ -103,6 +103,9 @@ public class SalesOrderPostmanSimulationTest {
 
         OrderRepository orderRepository = Mockito.mock(OrderRepository.class);
         OrderItemRepository orderItemRepository = Mockito.mock(OrderItemRepository.class);
+        var salesInvoiceRepository = Mockito.mock(com.aquasuite.ims.module.sales.internal.repository.SalesInvoiceRepository.class);
+        var salesInvoiceItemRepository = Mockito.mock(com.aquasuite.ims.module.sales.internal.repository.SalesInvoiceItemRepository.class);
+        var creditControlApi = Mockito.mock(com.aquasuite.ims.module.finance.api.CreditControlApi.class);
         CatalogApi catalogApi = Mockito.mock(CatalogApi.class);
         InventoryApi inventoryApi = Mockito.mock(InventoryApi.class);
         CrmApi crmApi = Mockito.mock(CrmApi.class);
@@ -213,7 +216,16 @@ public class SalesOrderPostmanSimulationTest {
             orderStore.put(o.getOrderId(), o);
             return o;
         });
+        when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> {
+            Order o = inv.getArgument(0);
+            orderStore.put(o.getOrderId(), o);
+            return o;
+        });
         when(orderRepository.findById(any(UUID.class))).thenAnswer(inv -> {
+            UUID id = inv.getArgument(0);
+            return Optional.ofNullable(orderStore.get(id));
+        });
+        org.mockito.Mockito.lenient().when(orderRepository.findForPaymentUpdate(any(UUID.class))).thenAnswer(inv -> {
             UUID id = inv.getArgument(0);
             return Optional.ofNullable(orderStore.get(id));
         });
@@ -224,8 +236,13 @@ public class SalesOrderPostmanSimulationTest {
         });
         when(orderRepository.hasOverdueUnpaidOrders(eq(retailCustomerId), any(LocalDate.class))).thenReturn(false);
         when(orderRepository.hasOverdueUnpaidOrders(eq(overdueCustomerId), any(LocalDate.class))).thenReturn(true);
+        when(creditControlApi.authorize(any())).thenAnswer(inv -> {
+            var command = (com.aquasuite.ims.module.finance.api.dto.CreditAuthorizationCommand) inv.getArgument(0);
+            boolean approved = !overdueCustomerId.equals(command.customerId());
+            return new com.aquasuite.ims.module.finance.api.dto.CreditAuthorizationDecision(approved, approved ? "APPROVED" : "OVERDUE", BigDecimal.ZERO);
+        });
 
-        when(orderItemRepository.saveAll(anyList())).thenAnswer(inv -> {
+        when(orderItemRepository.saveAllAndFlush(anyList())).thenAnswer(inv -> {
             List<OrderItem> items = inv.getArgument(0);
             if (!items.isEmpty()) {
                 UUID ordId = items.get(0).getOrderId();
@@ -241,6 +258,9 @@ public class SalesOrderPostmanSimulationTest {
         SalesOrderService salesOrderService = new SalesOrderServiceImpl(
                 orderRepository,
                 orderItemRepository,
+                salesInvoiceRepository,
+                salesInvoiceItemRepository,
+                creditControlApi,
                 catalogApi,
                 inventoryApi,
                 crmApi,
@@ -249,7 +269,7 @@ public class SalesOrderPostmanSimulationTest {
                 orderCodeGenerator
         );
 
-        salesOrderApi = new SalesOrderApiImpl(orderRepository);
+        salesOrderApi = new SalesOrderApiImpl(orderRepository, salesInvoiceRepository);
         SalesOrderController controller = new SalesOrderController(salesOrderService);
 
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
@@ -266,7 +286,7 @@ public class SalesOrderPostmanSimulationTest {
         CreateSalesOrderRequest request = CreateSalesOrderRequest.builder()
                 .customerId(retailCustomerId)
                 .orderType(OrderType.RETAIL)
-                .orderChannel(OrderChannel.IN_STORE)
+                .orderChannel(OrderChannel.COUNTER)
                 .fulfillmentMethod(FulfillmentMethod.IN_STORE_PICKUP)
                 .paymentMethod(PaymentMethod.CASH)
                 .discountAmount(BigDecimal.ZERO)
@@ -310,7 +330,7 @@ public class SalesOrderPostmanSimulationTest {
         CreateSalesOrderRequest request = CreateSalesOrderRequest.builder()
                 .customerId(retailCustomerId)
                 .orderType(OrderType.RETAIL)
-                .orderChannel(OrderChannel.IN_STORE)
+                .orderChannel(OrderChannel.COUNTER)
                 .fulfillmentMethod(FulfillmentMethod.SCHEDULED_DELIVERY)
                 .paymentMethod(PaymentMethod.BANK_TRANSFER)
                 .discountAmount(new BigDecimal("500000"))
@@ -348,7 +368,7 @@ public class SalesOrderPostmanSimulationTest {
         CreateSalesOrderRequest request = CreateSalesOrderRequest.builder()
                 .customerId(retailCustomerId)
                 .orderType(OrderType.RETAIL)
-                .orderChannel(OrderChannel.IN_STORE)
+                .orderChannel(OrderChannel.COUNTER)
                 .fulfillmentMethod(FulfillmentMethod.SCHEDULED_DELIVERY)
                 .paymentMethod(PaymentMethod.CREDIT)
                 .deliveryAddress("Khu đô thị Vinhomes Smart City, Hà Nội")
@@ -370,10 +390,10 @@ public class SalesOrderPostmanSimulationTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.orderCode").value("SO-20261103-0003"))
                 .andExpect(jsonPath("$.data.paymentStatus").value("UNPAID"))
-                .andExpect(jsonPath("$.data.dueDate").value(LocalDate.now().plusDays(30).toString()))
+                .andExpect(jsonPath("$.data.dueDate").doesNotExist())
                 .andReturn();
 
-        printHttpResult("3. POST /api/v1/sales/orders (Mua công nợ CREDIT hợp lệ - Hạn trả +30 ngày)", reqJson, result);
+        printHttpResult("3. POST /api/v1/sales/orders (Mua công nợ CREDIT hợp lệ - Chưa tính hạn hóa đơn điện tử)", reqJson, result);
     }
 
     @Test

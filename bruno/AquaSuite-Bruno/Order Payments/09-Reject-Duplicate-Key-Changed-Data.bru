@@ -1,0 +1,35 @@
+meta {
+  name: 09 - Reject Duplicate Key Changed Data
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/v1/finance/orders/{{paymentOrderId}}/payments
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "idempotencyKey": "{{paymentCashKey}}",
+    "amount": {{paymentCashAmount}},
+    "paymentMethod": "CASH",
+    "description": "Changed description"
+  }
+}
+
+tests {
+  test('Changed request with the same key is rejected', function () {
+    expect(res.getStatus()).to.equal(409);
+    expect(res.getBody().code).to.equal('PAY_004');
+  });
+}

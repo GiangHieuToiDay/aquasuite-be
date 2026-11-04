@@ -5,6 +5,8 @@ import com.aquasuite.ims.module.catalog.api.dto.CatalogBundleSummaryDto;
 import com.aquasuite.ims.module.catalog.api.dto.CatalogSkuSummaryDto;
 import com.aquasuite.ims.module.crm.api.CrmApi;
 import com.aquasuite.ims.module.crm.api.dto.CustomerSummaryDto;
+import com.aquasuite.ims.module.finance.api.CreditControlApi;
+import com.aquasuite.ims.module.finance.api.dto.CreditAuthorizationDecision;
 import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.inventory.api.InventoryApi;
 import com.aquasuite.ims.module.sales.internal.entity.Order;
@@ -25,6 +27,8 @@ import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderDetail
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderSummaryResponse;
 import com.aquasuite.ims.module.sales.internal.repository.OrderItemRepository;
 import com.aquasuite.ims.module.sales.internal.repository.OrderRepository;
+import com.aquasuite.ims.module.sales.internal.repository.SalesInvoiceRepository;
+import com.aquasuite.ims.module.sales.internal.repository.SalesInvoiceItemRepository;
 import com.aquasuite.ims.module.sales.internal.service.helper.OrderCodeGenerator;
 import com.aquasuite.ims.module.sales.internal.service.impl.SalesOrderServiceImpl;
 import com.aquasuite.ims.share.exception.AppException;
@@ -68,6 +72,10 @@ class SalesOrderServiceTest {
     @Mock
     private OrderItemRepository orderItemRepository;
 
+    @Mock private SalesInvoiceRepository salesInvoiceRepository;
+    @Mock private SalesInvoiceItemRepository salesInvoiceItemRepository;
+    @Mock private CreditControlApi creditControlApi;
+
     @Mock
     private CatalogApi catalogApi;
 
@@ -99,6 +107,7 @@ class SalesOrderServiceTest {
     void setUp() {
         customerId = UUID.randomUUID();
         staffId = UUID.randomUUID();
+        org.mockito.Mockito.lenient().when(iamApi.getCurrentUserId()).thenReturn(staffId);
         variantId = UUID.randomUUID();
 
         customerDto = CustomerSummaryDto.builder()
@@ -126,7 +135,7 @@ class SalesOrderServiceTest {
         CreateSalesOrderRequest request = CreateSalesOrderRequest.builder()
                 .customerId(customerId)
                 .orderType(OrderType.RETAIL)
-                .orderChannel(OrderChannel.IN_STORE)
+                .orderChannel(OrderChannel.COUNTER)
                 .fulfillmentMethod(FulfillmentMethod.IN_STORE_PICKUP)
                 .paymentMethod(PaymentMethod.CASH)
                 .discountAmount(new BigDecimal("500000"))
@@ -146,8 +155,8 @@ class SalesOrderServiceTest {
         when(orderCodeGenerator.generateOrderCode()).thenReturn("SO-20261103-0001");
         when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.of(skuDto));
         when(inventoryApi.checkAvailability(variantId, new BigDecimal("2"))).thenReturn(true);
-        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(orderItemRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderItemRepository.saveAllAndFlush(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
         SalesOrderDetailResponse response = salesOrderService.createSalesOrder(request);
@@ -155,6 +164,8 @@ class SalesOrderServiceTest {
         // Assert
         assertThat(response).isNotNull();
         assertThat(response.getOrderCode()).isEqualTo("SO-20261103-0001");
+        assertThat(response.getOrderChannel()).isEqualTo("COUNTER");
+        assertThat(response.getStoreInvoiceId()).isNotNull();
         assertThat(response.getOrderStatus()).isEqualTo(OrderStatus.PROCESSING.name());
         assertThat(response.getPaymentStatus()).isEqualTo(PaymentStatus.UNPAID.name());
         assertThat(response.getSubtotal()).isEqualByComparingTo(new BigDecimal("10000000"));
@@ -164,7 +175,29 @@ class SalesOrderServiceTest {
 
         // Xác nhận chỉ đặt giữ tồn kho (reserved_qty), không tự ý trừ on_hand_qty (thuộc UC-37)
         verify(inventoryApi).reserveStock(variantId, new BigDecimal("2"));
+        verify(salesInvoiceRepository).saveAndFlush(org.mockito.ArgumentMatchers.argThat(invoice ->
+                "STORE".equals(invoice.getInvoiceType()) && "DRAFT".equals(invoice.getStatus())
+                        && customerId.equals(invoice.getCustomerId())
+                        && invoice.getTotalAmount().compareTo(new BigDecimal("9500000")) == 0));
+        verify(salesInvoiceItemRepository).saveAll(anyList());
         verify(inventoryApi, never()).adjustPhysicalStock(any());
+    }
+
+    @Test
+    void legacyPosChannelIsStoredAsCounter() {
+        CreateSalesOrderRequest request = CreateSalesOrderRequest.builder()
+                .customerId(customerId).orderChannel(OrderChannel.POS).paymentMethod(PaymentMethod.CASH)
+                .items(List.of(CreateOrderItemRequest.builder().variantId(variantId)
+                        .quantity(BigDecimal.ONE).discountAmount(BigDecimal.ZERO).build())).build();
+        when(crmApi.getCustomerById(customerId)).thenReturn(Optional.of(customerDto));
+        when(iamApi.getCurrentUserId()).thenReturn(staffId);
+        when(orderCodeGenerator.generateOrderCode()).thenReturn("SO-20261103-0100");
+        when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.of(skuDto));
+        when(inventoryApi.checkAvailability(variantId, BigDecimal.ONE)).thenReturn(true);
+        when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderItemRepository.saveAllAndFlush(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        assertThat(salesOrderService.createSalesOrder(request).getOrderChannel()).isEqualTo("COUNTER");
     }
 
     @Test
@@ -216,8 +249,8 @@ class SalesOrderServiceTest {
         when(catalogApi.getBundleSummary(comboId)).thenReturn(Optional.of(comboDto));
         when(inventoryApi.checkAvailability(compVariant1, new BigDecimal("2"))).thenReturn(true);
         when(inventoryApi.checkAvailability(compVariant2, new BigDecimal("2"))).thenReturn(true);
-        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(orderItemRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderItemRepository.saveAllAndFlush(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
         SalesOrderDetailResponse response = salesOrderService.createSalesOrder(request);
@@ -235,7 +268,7 @@ class SalesOrderServiceTest {
     }
 
     @Test
-    @DisplayName("UC-21: Tạo đơn hàng mua công nợ (CREDIT) hợp lệ -> Tự động gán dueDate = +30 ngày")
+    @DisplayName("UC-21: Tạo đơn CREDIT hợp lệ sau kiểm tra UC-24, chưa tính hạn theo hóa đơn điện tử")
     void createSalesOrder_Success_CreditEligible_SetsDueDate() {
         // Arrange
         CreateSalesOrderRequest request = CreateSalesOrderRequest.builder()
@@ -250,18 +283,18 @@ class SalesOrderServiceTest {
                 .build();
 
         when(crmApi.getCustomerById(customerId)).thenReturn(Optional.of(customerDto));
-        when(orderRepository.hasOverdueUnpaidOrders(eq(customerId), any(LocalDate.class))).thenReturn(false);
+        when(creditControlApi.authorize(any())).thenReturn(new CreditAuthorizationDecision(true, "APPROVED", BigDecimal.TEN));
         when(orderCodeGenerator.generateOrderCode()).thenReturn("SO-20261103-0003");
         when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.of(skuDto));
         when(inventoryApi.checkAvailability(variantId, BigDecimal.ONE)).thenReturn(true);
-        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(orderItemRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderItemRepository.saveAllAndFlush(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
         SalesOrderDetailResponse response = salesOrderService.createSalesOrder(request);
 
         // Assert
-        assertThat(response.getDueDate()).isEqualTo(LocalDate.now().plusDays(30));
+        assertThat(response.getDueDate()).isNull();
         assertThat(response.getPaymentStatus()).isEqualTo(PaymentStatus.UNPAID.name());
     }
 
@@ -307,7 +340,7 @@ class SalesOrderServiceTest {
     }
 
     @Test
-    @DisplayName("UC-21: Chặn mua hàng công nợ nếu có đơn chưa thanh toán quá hạn trên 60 ngày (CREDIT_LIMIT_EXCEEDED / MSG63)")
+    @DisplayName("UC-21: Chặn đơn CREDIT khi UC-24 từ chối")
     void createSalesOrder_CreditOverdue_ThrowsAppException() {
         CreateSalesOrderRequest request = CreateSalesOrderRequest.builder()
                 .customerId(customerId)
@@ -321,7 +354,10 @@ class SalesOrderServiceTest {
                 .build();
 
         when(crmApi.getCustomerById(customerId)).thenReturn(Optional.of(customerDto));
-        when(orderRepository.hasOverdueUnpaidOrders(eq(customerId), any(LocalDate.class))).thenReturn(true);
+        when(orderCodeGenerator.generateOrderCode()).thenReturn("SO-20261103-0004");
+        when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.of(skuDto));
+        when(inventoryApi.checkAvailability(variantId, BigDecimal.ONE)).thenReturn(true);
+        when(creditControlApi.authorize(any())).thenReturn(new CreditAuthorizationDecision(false, "OVERDUE", BigDecimal.ZERO));
 
         assertThatThrownBy(() -> salesOrderService.createSalesOrder(request))
                 .isInstanceOf(AppException.class)
@@ -341,7 +377,7 @@ class SalesOrderServiceTest {
                 .customerId(customerId)
                 .salesStaffId(staffId)
                 .orderType(OrderType.RETAIL.name())
-                .orderChannel(OrderChannel.IN_STORE.name())
+                .orderChannel(OrderChannel.COUNTER.name())
                 .orderStatus(OrderStatus.PROCESSING.name())
                 .paymentStatus(PaymentStatus.UNPAID.name())
                 .totalAmount(new BigDecimal("5000000"))
@@ -374,7 +410,7 @@ class SalesOrderServiceTest {
                 .orderCode("SO-20261103-0009")
                 .customerId(customerId)
                 .orderType(OrderType.RETAIL.name())
-                .orderChannel(OrderChannel.IN_STORE.name())
+                .orderChannel(OrderChannel.COUNTER.name())
                 .orderStatus(OrderStatus.PROCESSING.name())
                 .paymentStatus(PaymentStatus.UNPAID.name())
                 .orderDate(OffsetDateTime.now())

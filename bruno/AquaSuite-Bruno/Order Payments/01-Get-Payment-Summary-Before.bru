@@ -1,0 +1,38 @@
+meta {
+  name: 01 - Get Payment Summary Before
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/finance/orders/{{paymentOrderId}}/payment-summary
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (res.getStatus() === 200 && body && body.data) {
+    bru.setVar('paymentInitialVerified', String(body.data.verifiedPaid));
+    bru.setVar('paymentInitialPending', String(body.data.pendingAmount));
+    bru.setVar('paymentInitialRemaining', String(body.data.remaining));
+  }
+}
+
+tests {
+  test('Summary is consistent with verified payments', function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(200);
+    expect(body.success).to.equal(true);
+    expect(body.data.orderId).to.equal(bru.getEnvVar('paymentOrderId'));
+    const total = Number(body.data.totalAmount);
+    const verified = Number(body.data.verifiedPaid);
+    expect(Number(body.data.pendingAmount)).to.be.at.least(0);
+    expect(Number(body.data.remaining)).to.equal(Math.max(total - verified, 0));
+    expect(body.data.paymentStatus).to.be.oneOf(['UNPAID', 'PARTIALLY_PAID', 'PAID']);
+  });
+}

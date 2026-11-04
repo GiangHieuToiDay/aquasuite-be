@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+/** Cung cấp dữ liệu đơn và hóa đơn chỉ đọc cho module Finance tính công nợ. */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -23,6 +24,7 @@ public class SalesReceivableApiImpl implements SalesReceivableApi {
     private final OrderRepository orderRepository;
     private final SalesInvoiceRepository salesInvoiceRepository;
 
+    /** Lấy các đơn thuộc tập khách hàng được yêu cầu. */
     @Override
     public List<SalesOrderDebtDto> findOrdersByCustomerIds(Collection<UUID> customerIds) {
         if (customerIds == null || customerIds.isEmpty()) {
@@ -31,6 +33,7 @@ public class SalesReceivableApiImpl implements SalesReceivableApi {
         return orderRepository.findByCustomerIdIn(customerIds).stream().map(this::toOrderDto).toList();
     }
 
+    /** Lấy các hóa đơn thuộc tập khách hàng được yêu cầu. */
     @Override
     public List<SalesInvoiceDebtDto> findInvoicesByCustomerIds(Collection<UUID> customerIds) {
         if (customerIds == null || customerIds.isEmpty()) {
@@ -39,21 +42,24 @@ public class SalesReceivableApiImpl implements SalesReceivableApi {
         return salesInvoiceRepository.findByCustomerIdIn(customerIds).stream().map(this::toInvoiceDto).toList();
     }
 
+    /** Lấy thông tin công nợ của một đơn theo mã đơn. */
     @Override
     public Optional<SalesOrderDebtDto> findOrderById(UUID orderId) {
         return orderRepository.findById(orderId).map(this::toOrderDto);
     }
 
+    /** Chuyển đơn nội bộ thành dữ liệu chỉ đọc cho Finance. */
     private SalesOrderDebtDto toOrderDto(Order order) {
         return new SalesOrderDebtDto(order.getOrderId(), order.getCustomerId(), order.getOrderCode(),
                 order.getOrderChannel(), order.getOrderStatus(), order.getPaymentStatus(),
                 order.getSubtotal(), order.getDiscountAmount(), order.getTotalAmount(), order.getDueDate());
     }
 
+    /** Chuyển hóa đơn nội bộ, bao gồm loại hóa đơn, thành dữ liệu chỉ đọc cho Finance. */
     private SalesInvoiceDebtDto toInvoiceDto(SalesInvoice invoice) {
         return new SalesInvoiceDebtDto(invoice.getInvoiceId(), invoice.getOrderId(), invoice.getCustomerId(),
                 invoice.getInvoiceCode(), invoice.getInvoiceSymbol(), invoice.getIssueDate(), invoice.getSignedAt(),
                 invoice.getStatus(), invoice.getSubtotal(), invoice.getDiscountAmount(), invoice.getTaxAmount(),
-                invoice.getTotalAmount(), invoice.getOriginalInvoiceId());
+                invoice.getTotalAmount(), invoice.getOriginalInvoiceId(), invoice.getInvoiceType());
     }
 }

@@ -1,0 +1,46 @@
+meta {
+  name: 02 - Record Cash
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/finance/orders/{{paymentOrderId}}/payments
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "idempotencyKey": "{{paymentCashKey}}",
+    "amount": {{paymentCashAmount}},
+    "paymentMethod": "CASH",
+    "description": "Bruno UC-23 cash test"
+  }
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (res.getStatus() === 200 && body && body.data) bru.setVar('paymentCashId', body.data.transactionId);
+}
+
+tests {
+  test('Cash is recorded as verified', function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(200);
+    expect(body.success).to.equal(true);
+    expect(body.data.orderId).to.equal(bru.getEnvVar('paymentOrderId'));
+    expect(body.data.transactionId).to.be.a('string').and.not.empty;
+    expect(body.data.paymentMethod).to.equal('CASH');
+    expect(body.data.status).to.equal('VERIFIED');
+    expect(Number(body.data.amount)).to.equal(Number(bru.getEnvVar('paymentCashAmount')));
+  });
+}
