@@ -5,6 +5,8 @@ import com.aquasuite.ims.module.catalog.api.dto.CatalogBundleSummaryDto;
 import com.aquasuite.ims.module.catalog.api.dto.CatalogSkuSummaryDto;
 import com.aquasuite.ims.module.crm.api.CrmApi;
 import com.aquasuite.ims.module.crm.api.dto.CustomerSummaryDto;
+import com.aquasuite.ims.module.finance.api.CreditControlApi;
+import com.aquasuite.ims.module.finance.api.dto.CreditAuthorizationDecision;
 import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.inventory.api.InventoryApi;
 import com.aquasuite.ims.module.sales.internal.entity.Order;
@@ -76,6 +78,9 @@ class SalesOrderServiceTest {
 
     @Mock
     private CrmApi crmApi;
+
+    @Mock
+    private CreditControlApi creditControlApi;
 
     @Mock
     private IamApi iamApi;
@@ -235,8 +240,8 @@ class SalesOrderServiceTest {
     }
 
     @Test
-    @DisplayName("UC-21: Tạo đơn hàng mua công nợ (CREDIT) hợp lệ -> Tự động gán dueDate = +30 ngày")
-    void createSalesOrder_Success_CreditEligible_SetsDueDate() {
+    @DisplayName("UC-21: Tạo đơn hàng mua công nợ hợp lệ -> Finance authorizes and Order has no due date")
+    void createSalesOrder_Success_CreditEligible_AuthorizesAndLeavesDueDateForInvoice() {
         // Arrange
         CreateSalesOrderRequest request = CreateSalesOrderRequest.builder()
                 .customerId(customerId)
@@ -250,7 +255,7 @@ class SalesOrderServiceTest {
                 .build();
 
         when(crmApi.getCustomerById(customerId)).thenReturn(Optional.of(customerDto));
-        when(orderRepository.hasOverdueUnpaidOrders(eq(customerId), any(LocalDate.class))).thenReturn(false);
+        when(creditControlApi.authorize(any())).thenReturn(new CreditAuthorizationDecision(true, "APPROVED", new BigDecimal("100000000")));
         when(orderCodeGenerator.generateOrderCode()).thenReturn("SO-20261103-0003");
         when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.of(skuDto));
         when(inventoryApi.checkAvailability(variantId, BigDecimal.ONE)).thenReturn(true);
@@ -261,8 +266,9 @@ class SalesOrderServiceTest {
         SalesOrderDetailResponse response = salesOrderService.createSalesOrder(request);
 
         // Assert
-        assertThat(response.getDueDate()).isEqualTo(LocalDate.now().plusDays(30));
+        assertThat(response.getDueDate()).isNull();
         assertThat(response.getPaymentStatus()).isEqualTo(PaymentStatus.UNPAID.name());
+        verify(creditControlApi).authorize(any());
     }
 
     @Test
@@ -307,8 +313,8 @@ class SalesOrderServiceTest {
     }
 
     @Test
-    @DisplayName("UC-21: Chặn mua hàng công nợ nếu có đơn chưa thanh toán quá hạn trên 60 ngày (CREDIT_LIMIT_EXCEEDED / MSG63)")
-    void createSalesOrder_CreditOverdue_ThrowsAppException() {
+    @DisplayName("UC-21: Chặn mua hàng công nợ khi Finance từ chối final authorization")
+    void createSalesOrder_CreditDenied_ThrowsAppException() {
         CreateSalesOrderRequest request = CreateSalesOrderRequest.builder()
                 .customerId(customerId)
                 .paymentMethod(PaymentMethod.CREDIT)
@@ -321,7 +327,9 @@ class SalesOrderServiceTest {
                 .build();
 
         when(crmApi.getCustomerById(customerId)).thenReturn(Optional.of(customerDto));
-        when(orderRepository.hasOverdueUnpaidOrders(eq(customerId), any(LocalDate.class))).thenReturn(true);
+        when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.of(skuDto));
+        when(inventoryApi.checkAvailability(variantId, BigDecimal.ONE)).thenReturn(true);
+        when(creditControlApi.authorize(any())).thenReturn(new CreditAuthorizationDecision(false, "OVERDUE", BigDecimal.ZERO));
 
         assertThatThrownBy(() -> salesOrderService.createSalesOrder(request))
                 .isInstanceOf(AppException.class)

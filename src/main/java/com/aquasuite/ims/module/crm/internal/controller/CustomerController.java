@@ -2,7 +2,11 @@ package com.aquasuite.ims.module.crm.internal.controller;
 
 import com.aquasuite.ims.module.crm.internal.entity.Customer;
 import com.aquasuite.ims.module.crm.internal.payload.res.CustomerResponse;
+import com.aquasuite.ims.module.crm.internal.payload.request.UpdateCustomerCreditProfileRequest;
+import com.aquasuite.ims.module.crm.internal.payload.res.CustomerCreditProfileResponse;
 import com.aquasuite.ims.module.crm.internal.repository.CustomerRepository;
+import com.aquasuite.ims.module.crm.internal.service.CustomerCreditProfileService;
+import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.share.dto.ApiResponse;
 import com.aquasuite.ims.share.dto.PageResponse;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +16,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -27,6 +32,8 @@ import java.util.UUID;
 public class CustomerController {
 
     private final CustomerRepository customerRepository;
+    private final CustomerCreditProfileService customerCreditProfileService;
+    private final IamApi iamApi;
 
     /**
      * Lấy danh sách khách hàng hoạt động (ACTIVE) phục vụ cho dropdown/select khi lập báo giá.
@@ -67,6 +74,16 @@ public class CustomerController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    /** Consumes a short-lived Shop Owner approval grant while preserving the initiating Sales Staff identity. */
+    @PatchMapping("/{customerId}/credit-profile")
+    @PreAuthorize("hasAnyRole('SALES_STAFF','SHOP_OWNER')")
+    public ResponseEntity<ApiResponse<CustomerCreditProfileResponse>> updateCreditProfile(
+            @PathVariable UUID customerId,
+            @jakarta.validation.Valid @RequestBody UpdateCustomerCreditProfileRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(customerCreditProfileService.update(customerId,
+                iamApi.getCurrentUserId(), request), "Customer credit profile updated."));
+    }
+
     private CustomerResponse toResponse(Customer c) {
         String addressStr = (c.getAddress() != null && c.getAddress().length > 0)
                 ? String.join(", ", c.getAddress())
@@ -83,6 +100,8 @@ public class CustomerController {
                 .taxCode(c.getTaxCode())
                 .companyName(c.getCompanyName())
                 .address(addressStr)
+                .creditLimit(c.getCreditLimit())
+                .creditTermDays(c.getCreditTermDays())
                 .status(c.getStatus())
                 .createdAt(c.getCreatedAt())
                 .updatedAt(c.getUpdatedAt())

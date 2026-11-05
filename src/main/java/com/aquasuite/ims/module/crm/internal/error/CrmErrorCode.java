@@ -14,7 +14,9 @@ public enum CrmErrorCode implements BaseErrorCode {
     ADDRESS_NOT_FOUND("CRM_001", "Không tìm thấy địa chỉ giao hàng yêu cầu.", HttpStatus.NOT_FOUND),
     FORBIDDEN_ADDRESS_ACCESS("CRM_002", "Bạn không có quyền thao tác trên địa chỉ giao hàng này.", HttpStatus.FORBIDDEN),
     CUSTOMER_NOT_FOUND("CRM_003", "Không tìm thấy hồ sơ khách hàng tương ứng với tài khoản này.", HttpStatus.NOT_FOUND),
-    AVATAR_UPLOAD_FAILED("CRM_005", "Tải lên ảnh đại diện thất bại. Vui lòng thử lại sau.", HttpStatus.INTERNAL_SERVER_ERROR);
+    AVATAR_UPLOAD_FAILED("CRM_005", "Tải lên ảnh đại diện thất bại. Vui lòng thử lại sau.", HttpStatus.INTERNAL_SERVER_ERROR),
+    INVALID_CREDIT_PROFILE("CRM_006", "Hạn mức tín dụng phải lớn hơn 0 và kỳ hạn nợ phải từ 1 đến 30 ngày.", HttpStatus.BAD_REQUEST),
+    CUSTOMER_NOT_ACTIVE_FOR_CREDIT("CRM_007", "Chỉ khách hàng đang hoạt động mới có thể được cấp tín dụng.", HttpStatus.CONFLICT);
 
     private final String code;
     private final String message;

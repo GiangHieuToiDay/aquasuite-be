@@ -5,6 +5,9 @@ import com.aquasuite.ims.module.catalog.api.dto.CatalogBundleSummaryDto;
 import com.aquasuite.ims.module.catalog.api.dto.CatalogSkuSummaryDto;
 import com.aquasuite.ims.module.crm.api.CrmApi;
 import com.aquasuite.ims.module.crm.api.dto.CustomerSummaryDto;
+import com.aquasuite.ims.module.finance.api.CreditControlApi;
+import com.aquasuite.ims.module.finance.api.dto.CreditAuthorizationCommand;
+import com.aquasuite.ims.module.finance.api.dto.CreditAuthorizationDecision;
 import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.iam.api.dto.UserSummaryDto;
 import com.aquasuite.ims.module.inventory.api.InventoryApi;
@@ -39,7 +42,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -57,6 +59,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     private final CatalogApi catalogApi;
     private final InventoryApi inventoryApi;
     private final CrmApi crmApi;
+    private final CreditControlApi creditControlApi;
     private final IamApi iamApi;
     private final SalesOrderMapper salesOrderMapper;
     private final OrderCodeGenerator orderCodeGenerator;
@@ -80,19 +83,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         // 3. Nhân viên bán hàng hiện tại
         UUID salesStaffId = resolveCurrentStaffId();
 
-        // 4. Kiểm tra điều kiện nợ / hạn mức công nợ (Nếu chọn hình thức thanh toán CREDIT)
-        if (request.getPaymentMethod() == PaymentMethod.CREDIT) {
-            boolean hasOverdueOrders = orderRepository.hasOverdueUnpaidOrders(
-                    customer.customerId(),
-                    LocalDate.now().minusDays(60)
-            );
-            if (hasOverdueOrders) {
-                log.warn("Customer {} has overdue unpaid balance > 60 days. Blocking credit order.", customer.customerId());
-                throw new AppException(SalesErrorCode.CREDIT_LIMIT_EXCEEDED);
-            }
-        }
-
-        // 5. Chuẩn bị đơn hàng
+        // 4. Chuẩn bị đơn hàng
         UUID orderId = UUID.randomUUID();
         String orderCode = orderCodeGenerator.generateOrderCode();
         List<OrderItem> orderItemsToSave = new ArrayList<>();
@@ -187,11 +178,21 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             }
         }
 
-        // 8. Tính tổng tiền và chiết khấu
+        // 7. Tính tổng tiền và chiết khấu
         BigDecimal orderDiscount = request.getDiscountAmount() != null ? request.getDiscountAmount() : BigDecimal.ZERO;
         BigDecimal finalTotal = calculatedSubtotal.subtract(orderDiscount);
         if (finalTotal.compareTo(BigDecimal.ZERO) < 0) {
             finalTotal = BigDecimal.ZERO;
+        }
+
+        // 8. Final credit authorization is serialized by Finance and remains inside this order-write transaction.
+        if (request.getPaymentMethod() == PaymentMethod.CREDIT) {
+            CreditAuthorizationDecision decision = creditControlApi.authorize(new CreditAuthorizationCommand(
+                    customer.customerId(), orderId, request.getOrderChannel().name(), finalTotal));
+            if (!decision.approved()) {
+                log.warn("Credit order denied for customer {}: reason={}", customer.customerId(), decision.reasonCode());
+                throw new AppException(SalesErrorCode.CREDIT_LIMIT_EXCEEDED);
+            }
         }
 
         // 9. Khởi tạo trạng thái đơn hàng và trạng thái thanh toán ban đầu
@@ -199,9 +200,8 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         // Việc thu tiền và xác minh thanh toán do UC-23 xử lý.
         OrderStatus resolvedOrderStatus = OrderStatus.PROCESSING;
         PaymentStatus resolvedPaymentStatus = PaymentStatus.UNPAID;
-        LocalDate dueDate = (request.getPaymentMethod() == PaymentMethod.CREDIT)
-                ? LocalDate.now().plusDays(30)
-                : null;
+        // Payment due date belongs to an ISSUED invoice, never to order creation.
+        java.time.LocalDate dueDate = null;
 
         // 10. Đặt giữ tồn kho (reserved_qty) cho các mặt hàng trong đơn
         for (OrderItem item : orderItemsToSave) {

@@ -5,6 +5,7 @@ import com.aquasuite.ims.module.catalog.api.dto.CatalogBundleSummaryDto;
 import com.aquasuite.ims.module.catalog.api.dto.CatalogSkuSummaryDto;
 import com.aquasuite.ims.module.crm.api.CrmApi;
 import com.aquasuite.ims.module.crm.api.dto.CustomerSummaryDto;
+import com.aquasuite.ims.module.finance.api.CreditControlApi;
 import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.iam.api.dto.UserSummaryDto;
 import com.aquasuite.ims.module.inventory.api.InventoryApi;
@@ -106,6 +107,7 @@ public class SalesOrderPostmanSimulationTest {
         CatalogApi catalogApi = Mockito.mock(CatalogApi.class);
         InventoryApi inventoryApi = Mockito.mock(InventoryApi.class);
         CrmApi crmApi = Mockito.mock(CrmApi.class);
+        CreditControlApi creditControlApi = Mockito.mock(CreditControlApi.class);
         IamApi iamApi = Mockito.mock(IamApi.class);
         OrderCodeGenerator orderCodeGenerator = Mockito.mock(OrderCodeGenerator.class);
         SalesOrderMapper salesOrderMapper = Mappers.getMapper(SalesOrderMapper.class);
@@ -137,6 +139,12 @@ public class SalesOrderPostmanSimulationTest {
         when(crmApi.getCustomerById(retailCustomerId)).thenReturn(Optional.of(retailCustomer));
         when(crmApi.getCustomerById(overdueCustomerId)).thenReturn(Optional.of(overdueCustomer));
         when(crmApi.getOrCreateWalkInCustomer()).thenReturn(retailCustomer);
+        when(creditControlApi.authorize(any())).thenAnswer(invocation -> {
+            var command = invocation.getArgument(0, com.aquasuite.ims.module.finance.api.dto.CreditAuthorizationCommand.class);
+            boolean approved = !overdueCustomerId.equals(command.customerId());
+            return new com.aquasuite.ims.module.finance.api.dto.CreditAuthorizationDecision(
+                    approved, approved ? "APPROVED" : "OVERDUE", approved ? new BigDecimal("100000000") : BigDecimal.ZERO);
+        });
 
         // Mock IAM
         when(iamApi.getCurrentUserId()).thenReturn(staffId);
@@ -244,6 +252,7 @@ public class SalesOrderPostmanSimulationTest {
                 catalogApi,
                 inventoryApi,
                 crmApi,
+                creditControlApi,
                 iamApi,
                 salesOrderMapper,
                 orderCodeGenerator
@@ -343,7 +352,7 @@ public class SalesOrderPostmanSimulationTest {
 
     @Test
     @org.junit.jupiter.api.Order(3)
-    @DisplayName("3. [POST /api/v1/sales/orders] Tạo đơn mua nợ (CREDIT) cho khách đủ điều kiện -> 201 Created & dueDate = +30 ngày")
+    @DisplayName("3. [POST /api/v1/sales/orders] Tạo đơn mua nợ sau Finance authorization -> 201 Created")
     void test3_CreateRetailOrder_PurchaseOnCredit_Success() throws Exception {
         CreateSalesOrderRequest request = CreateSalesOrderRequest.builder()
                 .customerId(retailCustomerId)
@@ -370,7 +379,6 @@ public class SalesOrderPostmanSimulationTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.orderCode").value("SO-20261103-0003"))
                 .andExpect(jsonPath("$.data.paymentStatus").value("UNPAID"))
-                .andExpect(jsonPath("$.data.dueDate").value(LocalDate.now().plusDays(30).toString()))
                 .andReturn();
 
         printHttpResult("3. POST /api/v1/sales/orders (Mua công nợ CREDIT hợp lệ - Hạn trả +30 ngày)", reqJson, result);
