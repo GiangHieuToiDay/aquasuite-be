@@ -1,13 +1,12 @@
 package com.aquasuite.ims.module.crm.internal.service.impl;
 
 import com.aquasuite.ims.module.crm.internal.entity.Customer;
-import com.aquasuite.ims.module.crm.internal.entity.CustomerAddress;
+import com.aquasuite.ims.module.crm.internal.entity.DeliveryAddressItem;
 import com.aquasuite.ims.module.crm.internal.enums.CustomerType;
 import com.aquasuite.ims.module.crm.internal.error.CrmErrorCode;
 import com.aquasuite.ims.module.crm.internal.payload.req.CreateDeliveryAddressRequest;
 import com.aquasuite.ims.module.crm.internal.payload.req.UpdateDeliveryAddressRequest;
 import com.aquasuite.ims.module.crm.internal.payload.res.DeliveryAddressResponse;
-import com.aquasuite.ims.module.crm.internal.repository.CustomerAddressRepository;
 import com.aquasuite.ims.module.crm.internal.repository.CustomerRepository;
 import com.aquasuite.ims.module.crm.internal.service.DeliveryAddressService;
 import com.aquasuite.ims.module.iam.api.IamApi;
@@ -18,8 +17,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -31,17 +32,18 @@ import java.util.concurrent.ThreadLocalRandom;
 public class DeliveryAddressServiceImpl implements DeliveryAddressService {
 
     private final CustomerRepository customerRepository;
-    private final CustomerAddressRepository customerAddressRepository;
     private final IamApi iamApi;
 
     @Override
     @Transactional(readOnly = true)
     public List<DeliveryAddressResponse> getAddressesByUserId(UUID userId) {
         return customerRepository.findByUserId(userId)
-                .map(customer -> customerAddressRepository
-                        .findByCustomerIdAndIsDeletedFalseOrderByIsDefaultDescUpdatedAtDesc(customer.getCustomerId())
-                        .stream()
-                        .map(this::toResponse)
+                .map(customer -> customer.getDeliveryAddresses().stream()
+                        .filter(a -> !a.isDeleted())
+                        .sorted(Comparator.comparing(DeliveryAddressItem::isDefault).reversed()
+                                .thenComparing(Comparator.comparing(DeliveryAddressItem::getUpdatedAt,
+                                        Comparator.nullsLast(Comparator.reverseOrder()))))
+                        .map(a -> toResponse(a, customer.getCustomerId()))
                         .toList())
                 .orElseGet(List::of);
     }
@@ -51,11 +53,11 @@ public class DeliveryAddressServiceImpl implements DeliveryAddressService {
     public DeliveryAddressResponse getAddressDetail(UUID userId, UUID addressId) {
         Customer customer = customerRepository.findByUserId(userId)
                 .orElseThrow(() -> new AppException(CrmErrorCode.ADDRESS_NOT_FOUND));
-        CustomerAddress address = customerAddressRepository
-                .findByAddressIdAndCustomerIdAndIsDeletedFalse(addressId, customer.getCustomerId())
+
+        DeliveryAddressItem address = findAddressInCustomer(customer, addressId)
                 .orElseThrow(() -> new AppException(CrmErrorCode.ADDRESS_NOT_FOUND));
 
-        return toResponse(address);
+        return toResponse(address, customer.getCustomerId());
     }
 
     @Override
@@ -63,11 +65,12 @@ public class DeliveryAddressServiceImpl implements DeliveryAddressService {
     public DeliveryAddressResponse createAddress(UUID userId, CreateDeliveryAddressRequest request) {
         Customer customer = getOrCreateCustomer(userId);
 
-        long activeCount = customerAddressRepository.countByCustomerIdAndIsDeletedFalse(customer.getCustomerId());
+        List<DeliveryAddressItem> list = customer.getDeliveryAddresses();
+        long activeCount = list.stream().filter(a -> !a.isDeleted()).count();
         boolean shouldBeDefault = activeCount == 0 || Boolean.TRUE.equals(request.isDefault());
 
         if (shouldBeDefault && activeCount > 0) {
-            customerAddressRepository.clearDefaultAddresses(customer.getCustomerId());
+            clearDefaultAddresses(customer);
         }
 
         String label = (request.label() != null && !request.label().isBlank())
@@ -75,10 +78,10 @@ public class DeliveryAddressServiceImpl implements DeliveryAddressService {
                 : "Home";
 
         String addressText = buildAddressText(request.streetAddress(), request.ward(), request.district(), request.province());
+        Instant now = Instant.now();
 
-        CustomerAddress newAddress = CustomerAddress.builder()
+        DeliveryAddressItem newAddress = DeliveryAddressItem.builder()
                 .addressId(UUID.randomUUID())
-                .customerId(customer.getCustomerId())
                 .recipientName(request.recipientName().trim())
                 .phone(request.phone().trim())
                 .province(request.province().trim())
@@ -89,11 +92,14 @@ public class DeliveryAddressServiceImpl implements DeliveryAddressService {
                 .label(label)
                 .isDefault(shouldBeDefault)
                 .isDeleted(false)
+                .createdAt(now)
+                .updatedAt(now)
                 .build();
 
-        CustomerAddress saved = customerAddressRepository.save(newAddress);
-        log.info("Created delivery address ID={} for customerId={}", saved.getAddressId(), customer.getCustomerId());
-        return toResponse(saved);
+        list.add(newAddress);
+        Customer savedCustomer = customerRepository.save(customer);
+        log.info("Created delivery address ID={} in JSONB list for customerId={}", newAddress.getAddressId(), savedCustomer.getCustomerId());
+        return toResponse(newAddress, savedCustomer.getCustomerId());
     }
 
     @Override
@@ -101,23 +107,20 @@ public class DeliveryAddressServiceImpl implements DeliveryAddressService {
     public DeliveryAddressResponse updateAddress(UUID userId, UUID addressId, UpdateDeliveryAddressRequest request) {
         Customer customer = getOrCreateCustomer(userId);
 
-        CustomerAddress address = customerAddressRepository
-                .findByAddressIdAndIsDeletedFalse(addressId)
-                .orElseThrow(() -> new AppException(CrmErrorCode.ADDRESS_NOT_FOUND));
-
-        if (!address.getCustomerId().equals(customer.getCustomerId())) {
-            log.warn("Access denied: User {} cannot update address {} owned by customer {}",
-                    userId, addressId, address.getCustomerId());
-            throw new AppException(CrmErrorCode.FORBIDDEN_ADDRESS_ACCESS);
+        Optional<DeliveryAddressItem> targetOpt = findAddressInCustomer(customer, addressId);
+        if (targetOpt.isEmpty()) {
+            checkIfAddressBelongsToAnotherCustomer(addressId, customer.getCustomerId(), userId);
+            throw new AppException(CrmErrorCode.ADDRESS_NOT_FOUND);
         }
 
+        DeliveryAddressItem address = targetOpt.get();
         boolean willBeDefault = Boolean.TRUE.equals(request.isDefault());
+
         if (willBeDefault && !address.isDefault()) {
-            customerAddressRepository.clearDefaultAddresses(customer.getCustomerId());
+            clearDefaultAddresses(customer);
             address.setDefault(true);
         } else if (request.isDefault() != null && !request.isDefault() && address.isDefault()) {
-            // Không cho phép tự gỡ mặc định nếu đây là địa chỉ duy nhất
-            long activeCount = customerAddressRepository.countByCustomerIdAndIsDeletedFalse(customer.getCustomerId());
+            long activeCount = customer.getDeliveryAddresses().stream().filter(a -> !a.isDeleted()).count();
             if (activeCount > 1) {
                 address.setDefault(false);
             }
@@ -137,10 +140,11 @@ public class DeliveryAddressServiceImpl implements DeliveryAddressService {
         address.setStreetAddress(request.streetAddress().trim());
         address.setAddressText(addressText);
         address.setLabel(label);
+        address.setUpdatedAt(Instant.now());
 
-        CustomerAddress updated = customerAddressRepository.save(address);
-        log.info("Updated delivery address ID={} for customerId={}", addressId, customer.getCustomerId());
-        return toResponse(updated);
+        Customer savedCustomer = customerRepository.save(customer);
+        log.info("Updated delivery address ID={} in JSONB list for customerId={}", addressId, savedCustomer.getCustomerId());
+        return toResponse(address, savedCustomer.getCustomerId());
     }
 
     @Override
@@ -148,33 +152,35 @@ public class DeliveryAddressServiceImpl implements DeliveryAddressService {
     public void deleteAddress(UUID userId, UUID addressId) {
         Customer customer = getOrCreateCustomer(userId);
 
-        CustomerAddress address = customerAddressRepository
-                .findByAddressIdAndIsDeletedFalse(addressId)
-                .orElseThrow(() -> new AppException(CrmErrorCode.ADDRESS_NOT_FOUND));
-
-        if (!address.getCustomerId().equals(customer.getCustomerId())) {
-            log.warn("Access denied: User {} cannot delete address {} owned by customer {}",
-                    userId, addressId, address.getCustomerId());
-            throw new AppException(CrmErrorCode.FORBIDDEN_ADDRESS_ACCESS);
+        Optional<DeliveryAddressItem> targetOpt = findAddressInCustomer(customer, addressId);
+        if (targetOpt.isEmpty()) {
+            checkIfAddressBelongsToAnotherCustomer(addressId, customer.getCustomerId(), userId);
+            throw new AppException(CrmErrorCode.ADDRESS_NOT_FOUND);
         }
 
+        DeliveryAddressItem address = targetOpt.get();
         boolean wasDefault = address.isDefault();
+
         address.setDeleted(true);
         address.setDefault(false);
-        customerAddressRepository.save(address);
-        log.info("Soft-deleted delivery address ID={} for customerId={}", addressId, customer.getCustomerId());
+        address.setUpdatedAt(Instant.now());
 
-        // Nếu địa chỉ bị xóa là địa chỉ mặc định, tự động đôn địa chỉ còn lại lên làm mặc định
+        // Nếu xóa địa chỉ mặc định, đôn địa chỉ còn lại gần nhất lên làm mặc định
         if (wasDefault) {
-            Optional<CustomerAddress> nextCandidate = customerAddressRepository
-                    .findFirstByCustomerIdAndIsDeletedFalseOrderByUpdatedAtDesc(customer.getCustomerId());
+            Optional<DeliveryAddressItem> nextCandidate = customer.getDeliveryAddresses().stream()
+                    .filter(a -> !a.isDeleted())
+                    .max(Comparator.comparing(DeliveryAddressItem::getUpdatedAt, Comparator.nullsLast(Comparator.naturalOrder())));
+
             if (nextCandidate.isPresent()) {
-                CustomerAddress newDefault = nextCandidate.get();
+                DeliveryAddressItem newDefault = nextCandidate.get();
                 newDefault.setDefault(true);
-                customerAddressRepository.save(newDefault);
+                newDefault.setUpdatedAt(Instant.now());
                 log.info("Designated new default delivery address ID={}", newDefault.getAddressId());
             }
         }
+
+        customerRepository.save(customer);
+        log.info("Soft-deleted delivery address ID={} in JSONB list for customerId={}", addressId, customer.getCustomerId());
     }
 
     @Override
@@ -182,21 +188,50 @@ public class DeliveryAddressServiceImpl implements DeliveryAddressService {
     public DeliveryAddressResponse setDefaultAddress(UUID userId, UUID addressId) {
         Customer customer = getOrCreateCustomer(userId);
 
-        CustomerAddress address = customerAddressRepository
-                .findByAddressIdAndIsDeletedFalse(addressId)
-                .orElseThrow(() -> new AppException(CrmErrorCode.ADDRESS_NOT_FOUND));
-
-        if (!address.getCustomerId().equals(customer.getCustomerId())) {
-            log.warn("Access denied: User {} cannot set default on address {} owned by customer {}",
-                    userId, addressId, address.getCustomerId());
-            throw new AppException(CrmErrorCode.FORBIDDEN_ADDRESS_ACCESS);
+        Optional<DeliveryAddressItem> targetOpt = findAddressInCustomer(customer, addressId);
+        if (targetOpt.isEmpty()) {
+            checkIfAddressBelongsToAnotherCustomer(addressId, customer.getCustomerId(), userId);
+            throw new AppException(CrmErrorCode.ADDRESS_NOT_FOUND);
         }
 
-        customerAddressRepository.clearDefaultAddresses(customer.getCustomerId());
+        DeliveryAddressItem address = targetOpt.get();
+        clearDefaultAddresses(customer);
         address.setDefault(true);
-        CustomerAddress saved = customerAddressRepository.save(address);
-        log.info("Set address ID={} as default for customerId={}", addressId, customer.getCustomerId());
-        return toResponse(saved);
+        address.setUpdatedAt(Instant.now());
+
+        Customer saved = customerRepository.save(customer);
+        log.info("Set address ID={} as default in JSONB list for customerId={}", addressId, saved.getCustomerId());
+        return toResponse(address, saved.getCustomerId());
+    }
+
+    private Optional<DeliveryAddressItem> findAddressInCustomer(Customer customer, UUID addressId) {
+        return customer.getDeliveryAddresses().stream()
+                .filter(a -> a.getAddressId() != null && a.getAddressId().equals(addressId) && !a.isDeleted())
+                .findFirst();
+    }
+
+    private void clearDefaultAddresses(Customer customer) {
+        customer.getDeliveryAddresses().forEach(a -> {
+            if (a.isDefault()) {
+                a.setDefault(false);
+                a.setUpdatedAt(Instant.now());
+            }
+        });
+    }
+
+    private void checkIfAddressBelongsToAnotherCustomer(UUID addressId, UUID currentCustomerId, UUID userId) {
+        List<Customer> allCustomers = customerRepository.findAll();
+        for (Customer c : allCustomers) {
+            if (!c.getCustomerId().equals(currentCustomerId)) {
+                boolean foundInOther = c.getDeliveryAddresses().stream()
+                        .anyMatch(a -> a.getAddressId() != null && a.getAddressId().equals(addressId) && !a.isDeleted());
+                if (foundInOther) {
+                    log.warn("Access denied: User {} cannot access address {} owned by customer {}",
+                            userId, addressId, c.getCustomerId());
+                    throw new AppException(CrmErrorCode.FORBIDDEN_ADDRESS_ACCESS);
+                }
+            }
+        }
     }
 
     private Customer getOrCreateCustomer(UUID userId) {
@@ -234,10 +269,10 @@ public class DeliveryAddressServiceImpl implements DeliveryAddressService {
         });
     }
 
-    private DeliveryAddressResponse toResponse(CustomerAddress address) {
+    private DeliveryAddressResponse toResponse(DeliveryAddressItem address, UUID customerId) {
         return DeliveryAddressResponse.builder()
                 .addressId(address.getAddressId())
-                .customerId(address.getCustomerId())
+                .customerId(customerId)
                 .recipientName(address.getRecipientName())
                 .phone(address.getPhone())
                 .province(address.getProvince())

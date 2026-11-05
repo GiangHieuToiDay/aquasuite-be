@@ -1,13 +1,12 @@
 package com.aquasuite.ims.module.crm.internal.service;
 
 import com.aquasuite.ims.module.crm.internal.entity.Customer;
-import com.aquasuite.ims.module.crm.internal.entity.CustomerAddress;
+import com.aquasuite.ims.module.crm.internal.entity.DeliveryAddressItem;
 import com.aquasuite.ims.module.crm.internal.enums.CustomerType;
 import com.aquasuite.ims.module.crm.internal.error.CrmErrorCode;
 import com.aquasuite.ims.module.crm.internal.payload.req.CreateDeliveryAddressRequest;
 import com.aquasuite.ims.module.crm.internal.payload.req.UpdateDeliveryAddressRequest;
 import com.aquasuite.ims.module.crm.internal.payload.res.DeliveryAddressResponse;
-import com.aquasuite.ims.module.crm.internal.repository.CustomerAddressRepository;
 import com.aquasuite.ims.module.crm.internal.repository.CustomerRepository;
 import com.aquasuite.ims.module.crm.internal.service.impl.DeliveryAddressServiceImpl;
 import com.aquasuite.ims.module.iam.api.IamApi;
@@ -21,6 +20,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -37,9 +37,6 @@ class DeliveryAddressServiceTest {
     private CustomerRepository customerRepository;
 
     @Mock
-    private CustomerAddressRepository customerAddressRepository;
-
-    @Mock
     private IamApi iamApi;
 
     @InjectMocks
@@ -48,27 +45,16 @@ class DeliveryAddressServiceTest {
     private UUID userId;
     private UUID customerId;
     private Customer sampleCustomer;
-    private CustomerAddress sampleAddress1;
-    private CustomerAddress sampleAddress2;
+    private DeliveryAddressItem sampleAddress1;
+    private DeliveryAddressItem sampleAddress2;
 
     @BeforeEach
     void setUp() {
         userId = UUID.randomUUID();
         customerId = UUID.randomUUID();
 
-        sampleCustomer = Customer.builder()
-                .customerId(customerId)
-                .userId(userId)
-                .customerCode("KH-202610-001")
-                .customerName("Tran Van B")
-                .phone("0987654321")
-                .customerType(CustomerType.RETAIL)
-                .status("ACTIVE")
-                .build();
-
-        sampleAddress1 = CustomerAddress.builder()
+        sampleAddress1 = DeliveryAddressItem.builder()
                 .addressId(UUID.randomUUID())
-                .customerId(customerId)
                 .recipientName("Tran Van B")
                 .phone("0987654321")
                 .province("Ha Noi")
@@ -83,9 +69,8 @@ class DeliveryAddressServiceTest {
                 .updatedAt(Instant.now().minusSeconds(3600))
                 .build();
 
-        sampleAddress2 = CustomerAddress.builder()
+        sampleAddress2 = DeliveryAddressItem.builder()
                 .addressId(UUID.randomUUID())
-                .customerId(customerId)
                 .recipientName("Tran Van B (VP)")
                 .phone("0987654321")
                 .province("Ha Noi")
@@ -99,14 +84,23 @@ class DeliveryAddressServiceTest {
                 .createdAt(Instant.now())
                 .updatedAt(Instant.now())
                 .build();
+
+        sampleCustomer = Customer.builder()
+                .customerId(customerId)
+                .userId(userId)
+                .customerCode("KH-202610-001")
+                .customerName("Tran Van B")
+                .phone("0987654321")
+                .customerType(CustomerType.RETAIL)
+                .status("ACTIVE")
+                .deliveryAddresses(new ArrayList<>(List.of(sampleAddress1, sampleAddress2)))
+                .build();
     }
 
     @Test
     @DisplayName("getAddressesByUserId: returns addresses sorted default first")
     void getAddressesByUserId_ReturnsSortedAddresses() {
         when(customerRepository.findByUserId(userId)).thenReturn(Optional.of(sampleCustomer));
-        when(customerAddressRepository.findByCustomerIdAndIsDeletedFalseOrderByIsDefaultDescUpdatedAtDesc(customerId))
-                .thenReturn(List.of(sampleAddress1, sampleAddress2));
 
         List<DeliveryAddressResponse> list = deliveryAddressService.getAddressesByUserId(userId);
 
@@ -118,6 +112,8 @@ class DeliveryAddressServiceTest {
     @Test
     @DisplayName("createAddress: first address for customer is automatically designated as default")
     void createAddress_FirstAddress_AutomaticallySetAsDefault() {
+        sampleCustomer.getDeliveryAddresses().clear();
+
         CreateDeliveryAddressRequest request = CreateDeliveryAddressRequest.builder()
                 .recipientName("Tran Van B")
                 .phone("0987654321")
@@ -130,14 +126,13 @@ class DeliveryAddressServiceTest {
                 .build();
 
         when(customerRepository.findByUserId(userId)).thenReturn(Optional.of(sampleCustomer));
-        when(customerAddressRepository.countByCustomerIdAndIsDeletedFalse(customerId)).thenReturn(0L);
-        when(customerAddressRepository.save(any(CustomerAddress.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(customerRepository.save(any(Customer.class))).thenAnswer(inv -> inv.getArgument(0));
 
         DeliveryAddressResponse response = deliveryAddressService.createAddress(userId, request);
 
         assertThat(response.isDefault()).isTrue();
         assertThat(response.recipientName()).isEqualTo("Tran Van B");
-        verify(customerAddressRepository, never()).clearDefaultAddresses(any());
+        assertThat(sampleCustomer.getDeliveryAddresses()).hasSize(1);
     }
 
     @Test
@@ -155,20 +150,37 @@ class DeliveryAddressServiceTest {
                 .build();
 
         when(customerRepository.findByUserId(userId)).thenReturn(Optional.of(sampleCustomer));
-        when(customerAddressRepository.countByCustomerIdAndIsDeletedFalse(customerId)).thenReturn(1L);
-        when(customerAddressRepository.save(any(CustomerAddress.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(customerRepository.save(any(Customer.class))).thenAnswer(inv -> inv.getArgument(0));
 
         DeliveryAddressResponse response = deliveryAddressService.createAddress(userId, request);
 
-        verify(customerAddressRepository).clearDefaultAddresses(customerId);
         assertThat(response.isDefault()).isTrue();
+        assertThat(sampleAddress1.isDefault()).isFalse();
+        assertThat(sampleCustomer.getDeliveryAddresses()).hasSize(3);
     }
 
     @Test
     @DisplayName("updateAddress: forbidden access when updating another user's address")
     void updateAddress_AnotherCustomerAddress_ThrowsForbiddenAccess() {
         UUID otherCustomerId = UUID.randomUUID();
-        sampleAddress1.setCustomerId(otherCustomerId);
+        DeliveryAddressItem otherAddress = DeliveryAddressItem.builder()
+                .addressId(UUID.randomUUID())
+                .recipientName("Victim")
+                .phone("0911111111")
+                .province("HN")
+                .district("CG")
+                .ward("DV")
+                .streetAddress("100 Street")
+                .isDefault(true)
+                .isDeleted(false)
+                .build();
+
+        Customer otherCustomer = Customer.builder()
+                .customerId(otherCustomerId)
+                .userId(UUID.randomUUID())
+                .customerCode("CUS-OTHER")
+                .deliveryAddresses(new ArrayList<>(List.of(otherAddress)))
+                .build();
 
         UpdateDeliveryAddressRequest request = UpdateDeliveryAddressRequest.builder()
                 .recipientName("Hacker")
@@ -180,10 +192,9 @@ class DeliveryAddressServiceTest {
                 .build();
 
         when(customerRepository.findByUserId(userId)).thenReturn(Optional.of(sampleCustomer));
-        when(customerAddressRepository.findByAddressIdAndIsDeletedFalse(sampleAddress1.getAddressId()))
-                .thenReturn(Optional.of(sampleAddress1));
+        when(customerRepository.findAll()).thenReturn(List.of(sampleCustomer, otherCustomer));
 
-        assertThatThrownBy(() -> deliveryAddressService.updateAddress(userId, sampleAddress1.getAddressId(), request))
+        assertThatThrownBy(() -> deliveryAddressService.updateAddress(userId, otherAddress.getAddressId(), request))
                 .isInstanceOf(AppException.class)
                 .satisfies(ex -> {
                     AppException appEx = (AppException) ex;
@@ -197,19 +208,14 @@ class DeliveryAddressServiceTest {
         UUID deletingId = sampleAddress1.getAddressId();
 
         when(customerRepository.findByUserId(userId)).thenReturn(Optional.of(sampleCustomer));
-        when(customerAddressRepository.findByAddressIdAndIsDeletedFalse(deletingId))
-                .thenReturn(Optional.of(sampleAddress1));
-        when(customerAddressRepository.findFirstByCustomerIdAndIsDeletedFalseOrderByUpdatedAtDesc(customerId))
-                .thenReturn(Optional.of(sampleAddress2));
+        when(customerRepository.save(any(Customer.class))).thenAnswer(inv -> inv.getArgument(0));
 
         deliveryAddressService.deleteAddress(userId, deletingId);
 
         assertThat(sampleAddress1.isDeleted()).isTrue();
         assertThat(sampleAddress1.isDefault()).isFalse();
-        verify(customerAddressRepository).save(sampleAddress1);
-
         assertThat(sampleAddress2.isDefault()).isTrue();
-        verify(customerAddressRepository).save(sampleAddress2);
+        verify(customerRepository, times(1)).save(sampleCustomer);
     }
 
     @Test
@@ -218,13 +224,13 @@ class DeliveryAddressServiceTest {
         UUID targetId = sampleAddress2.getAddressId();
 
         when(customerRepository.findByUserId(userId)).thenReturn(Optional.of(sampleCustomer));
-        when(customerAddressRepository.findByAddressIdAndIsDeletedFalse(targetId))
-                .thenReturn(Optional.of(sampleAddress2));
-        when(customerAddressRepository.save(any(CustomerAddress.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(customerRepository.save(any(Customer.class))).thenAnswer(inv -> inv.getArgument(0));
 
         DeliveryAddressResponse response = deliveryAddressService.setDefaultAddress(userId, targetId);
 
-        verify(customerAddressRepository).clearDefaultAddresses(customerId);
         assertThat(response.isDefault()).isTrue();
+        assertThat(sampleAddress1.isDefault()).isFalse();
+        assertThat(sampleAddress2.isDefault()).isTrue();
+        verify(customerRepository, times(1)).save(sampleCustomer);
     }
 }

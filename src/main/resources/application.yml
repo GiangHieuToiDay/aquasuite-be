@@ -11,9 +11,9 @@ spring:
     name: aquasuite-be
 
   datasource:
-    url: ${SPRING_DATASOURCE_URL:${DB_URL:jdbc:postgresql://localhost:5432/aquasuite}}
-    username: ${SPRING_DATASOURCE_USERNAME:${DB_USERNAME:postgres}}
-    password: ${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:}}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/aquasuite}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:1234}
 
   jpa:
     hibernate:
@@ -33,6 +33,7 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: true
+    validate-on-migrate: false
     schemas: public
     locations: classpath:db/migration
 

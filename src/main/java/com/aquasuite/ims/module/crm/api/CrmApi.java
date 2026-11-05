@@ -26,6 +26,8 @@ public interface CrmApi {
 
     Optional<CustomerAddressDto> getDefaultDeliveryAddress(UUID customerId);
 
+    CustomerSummaryDto getOrCreateWalkInCustomer();
+
     List<CustomerDebtProfileDto> findAllDebtProfiles();
 
     Optional<CustomerDebtProfileDto> getDebtProfile(UUID customerId);

@@ -30,4 +30,5 @@ public class QuotationListItemResponse {
     private LocalDate validUntil;
     private BigDecimal totalAmount;
     private String createdByName;
+    private Boolean requiresApproval;
 }

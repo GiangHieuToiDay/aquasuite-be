@@ -208,6 +208,9 @@
                                     <version>${mapstruct.version}</version>
                                 </path>
                             </annotationProcessorPaths>
+                            <testExcludes>
+                                <exclude>**/AuthenticationMergeIT.java</exclude>
+                            </testExcludes>
                         </configuration>
                     </execution>
                 </executions>

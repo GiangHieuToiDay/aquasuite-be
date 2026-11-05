@@ -9,6 +9,7 @@ import static com.aquasuite.ims.module.sales.internal.calculator.QuotationConsta
 import static com.aquasuite.ims.module.sales.internal.calculator.QuotationConstants.PERCENT_SCALE;
 import static com.aquasuite.ims.module.sales.internal.calculator.QuotationConstants.ROUNDING_MODE;
 
+@org.springframework.stereotype.Component
 public class QuotationCalculator {
 
     private static final BigDecimal ONE_HUNDRED = BigDecimal.valueOf(100);

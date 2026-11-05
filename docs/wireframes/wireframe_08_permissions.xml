@@ -1,0 +1,1171 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" modified="2026-11-03T00:00:00.000Z" agent="Codex" version="24.7.17" type="device">
+  <diagram id="aquasuite-permissions-list" name="Quản lý Quyền">
+    <mxGraphModel dx="1400" dy="950" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1300" pageHeight="950" math="0" shadow="0">
+      <root>
+        <mxCell id="0" style="" />
+        <mxCell id="1" parent="0" style="" />
+        <mxCell id="c2" value="" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#A0A0A0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="30" y="20" width="1240" height="888" as="geometry" />
+        </mxCell>
+        <mxCell id="c3" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=#E5E5E5;strokeColor=#888888;" vertex="1" parent="1">
+          <mxGeometry x="30" y="20" width="1240" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c4" value="AquaSuite Admin" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#A0A0A0;spacingLeft=12;" vertex="1" parent="1">
+          <mxGeometry x="42" y="26" width="156" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="browser_nav" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#A0A0A0;" vertex="1" parent="1">
+          <mxGeometry x="30" y="48" width="1240" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="browser_back" value="←" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=20;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="44" y="56" width="30" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="browser_forward" value="→" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=20;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="75" y="56" width="30" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="browser_refresh" value="↻" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=19;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="106" y="56" width="30" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="c7" value="https://aquasuite.vn/admin/permissions" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=12;spacingLeft=12;" vertex="1" parent="1">
+          <mxGeometry x="145" y="56" width="1107" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="c8" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="30" y="94" width="1240" height="814" as="geometry" />
+        </mxCell>
+        <mxCell id="c9" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="30" y="94" width="220" height="814" as="geometry" />
+        </mxCell>
+        <mxCell id="c10" value="◉  AquaSuite" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=20;fontColor=#242424;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="52" y="114" width="170" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="c11" value="HỆ THỐNG QUẢN LÝ" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=9;fontColor=#242424;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="53" y="149" width="170" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="c12" value="Bảng điều khiển" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="207" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c13" value="Sản phẩm" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="262" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c14" value="" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#EEEEEE;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="43" y="484" width="194" height="37" as="geometry" />
+        </mxCell>
+        <mxCell id="c15" value="Danh mục" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="302" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c16" value="Thương hiệu" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="342" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c17" value="Tồn kho" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="382" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c18" value="Vai trò" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="448" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c19" value="Quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="488" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c20" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;" vertex="1" parent="1">
+          <mxGeometry x="250" y="94" width="1020" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="c21" value="Xin chào, Shop Owner!" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1005" y="108" width="150" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="c22" value="Đăng xuất" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#B8B8B8;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1160" y="107" width="88" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="c23" value="AquaSuite — Hệ thống quản lý đại lý thiết bị vệ sinh" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=11;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="275" y="877" width="960" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bread" value="AquaSuite  /  Quản lý truy cập  /  Quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=11;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="280" y="180" width="640" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="icon" value="◇" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=#F2F2F2;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="287" y="218" width="30" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="title" value="Quản lý Quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=22;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="335" y="210" width="620" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="Danh mục quyền trong hệ thống" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="335" y="245" width="620" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="back_dashboard" value="← Về bảng điều khiển" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1092" y="218" width="154" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="add_permission" value="+ Thêm quyền" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#EEEEEE;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="286" width="146" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="filter_panel" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="280" y="341" width="966" height="111" as="geometry" />
+        </mxCell>
+        <mxCell id="filter_label0" value="Tìm kiếm" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="298" y="351" width="460" height="23" as="geometry" />
+        </mxCell>
+        <mxCell id="filter_label1" value="Sắp xếp theo" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="791" y="351" width="180" height="23" as="geometry" />
+        </mxCell>
+        <mxCell id="filter_label2" value="Thứ tự" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1002" y="351" width="200" height="23" as="geometry" />
+        </mxCell>
+        <mxCell id="search" value="⌕  Tìm mã hoặc mô tả" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#B8B8B8;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="298" y="382" width="460" height="39" as="geometry" />
+        </mxCell>
+        <mxCell id="sort" value="Mã  ▾" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#B8B8B8;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="791" y="382" width="180" height="39" as="geometry" />
+        </mxCell>
+        <mxCell id="direction" value="Tăng dần  ▾" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#B8B8B8;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1002" y="382" width="200" height="39" as="geometry" />
+        </mxCell>
+        <mxCell id="table_panel" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="280" y="476" width="966" height="326" as="geometry" />
+        </mxCell>
+        <mxCell id="table_title" value="Danh sách quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=16;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="298" y="490" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="table_head" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#F5F5F5;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="281" y="530" width="964" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="h0" value="Mã quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="299" y="539" width="320" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="h1" value="Mô tả" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="635" y="539" width="390" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="h2" value="Thao tác" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1050" y="539" width="170" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="row_bg0" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="281" y="572" width="964" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="code0" value="CATALOG_CATEGORY_READ" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="299" y="586" width="320" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="desc0" value="Xem danh mục sản phẩm" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="635" y="586" width="390" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="action0_0" value="Xem" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="586" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action0_1" value="Sửa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="586" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action0_2" value="Xóa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="586" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="row_bg1" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="281" y="634" width="964" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="code1" value="CATALOG_CATEGORY_CREATE" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="299" y="648" width="320" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="desc1" value="Tạo danh mục sản phẩm" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="635" y="648" width="390" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="action1_0" value="Xem" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="648" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action1_1" value="Sửa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="648" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action1_2" value="Xóa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="648" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="row_bg2" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="281" y="696" width="964" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="code2" value="CATALOG_BRAND_READ" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="299" y="710" width="320" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="desc2" value="Xem thương hiệu" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="635" y="710" width="390" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="action2_0" value="Xem" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="710" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action2_1" value="Sửa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="710" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action2_2" value="Xóa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="710" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="previous" value="Trước" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="297" y="760" width="67" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="page_num" value="Trang 1 / 1" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="376" y="760" width="105" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="next" value="Tiếp" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="492" y="760" width="67" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="total" value="Tổng số: 3" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1130" y="760" width="95" height="36" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="aquasuite-permissions-create" name="Thêm quyền — hộp thoại">
+    <mxGraphModel dx="1400" dy="950" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1300" pageHeight="950" math="0" shadow="0">
+      <root>
+        <mxCell id="0" style="" />
+        <mxCell id="1" parent="0" style="" />
+        <mxCell id="c2" value="" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#A0A0A0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="30" y="20" width="1240" height="888" as="geometry" />
+        </mxCell>
+        <mxCell id="c3" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=#E5E5E5;strokeColor=#888888;" vertex="1" parent="1">
+          <mxGeometry x="30" y="20" width="1240" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c4" value="AquaSuite Admin" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#A0A0A0;spacingLeft=12;" vertex="1" parent="1">
+          <mxGeometry x="42" y="26" width="156" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="browser_nav" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#A0A0A0;" vertex="1" parent="1">
+          <mxGeometry x="30" y="48" width="1240" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="browser_back" value="←" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=20;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="44" y="56" width="30" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="browser_forward" value="→" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=20;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="75" y="56" width="30" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="browser_refresh" value="↻" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=19;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="106" y="56" width="30" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="c7" value="https://aquasuite.vn/admin/permissions" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=12;spacingLeft=12;" vertex="1" parent="1">
+          <mxGeometry x="145" y="56" width="1107" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="c8" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="30" y="94" width="1240" height="814" as="geometry" />
+        </mxCell>
+        <mxCell id="c9" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="30" y="94" width="220" height="814" as="geometry" />
+        </mxCell>
+        <mxCell id="c10" value="◉  AquaSuite" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=20;fontColor=#242424;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="52" y="114" width="170" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="c11" value="HỆ THỐNG QUẢN LÝ" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=9;fontColor=#242424;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="53" y="149" width="170" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="c12" value="Bảng điều khiển" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="207" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c13" value="Sản phẩm" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="262" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c14" value="" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#EEEEEE;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="43" y="484" width="194" height="37" as="geometry" />
+        </mxCell>
+        <mxCell id="c15" value="Danh mục" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="302" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c16" value="Thương hiệu" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="342" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c17" value="Tồn kho" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="382" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c18" value="Vai trò" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="448" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c19" value="Quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="488" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c20" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;" vertex="1" parent="1">
+          <mxGeometry x="250" y="94" width="1020" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="c21" value="Xin chào, Shop Owner!" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1005" y="108" width="150" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="c22" value="Đăng xuất" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#B8B8B8;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1160" y="107" width="88" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="c23" value="AquaSuite — Hệ thống quản lý đại lý thiết bị vệ sinh" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=11;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="275" y="877" width="960" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bread" value="AquaSuite  /  Quản lý truy cập  /  Quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=11;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="280" y="180" width="640" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="icon" value="◇" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=#F2F2F2;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="287" y="218" width="30" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="title" value="Quản lý Quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=22;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="335" y="210" width="620" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="Danh mục quyền trong hệ thống" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="335" y="245" width="620" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="back_dashboard" value="← Về bảng điều khiển" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1092" y="218" width="154" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="add_permission" value="+ Thêm quyền" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#EEEEEE;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="286" width="146" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="filter_panel" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="280" y="341" width="966" height="111" as="geometry" />
+        </mxCell>
+        <mxCell id="filter_label0" value="Tìm kiếm" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="298" y="351" width="460" height="23" as="geometry" />
+        </mxCell>
+        <mxCell id="filter_label1" value="Sắp xếp theo" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="791" y="351" width="180" height="23" as="geometry" />
+        </mxCell>
+        <mxCell id="filter_label2" value="Thứ tự" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1002" y="351" width="200" height="23" as="geometry" />
+        </mxCell>
+        <mxCell id="search" value="⌕  Tìm mã hoặc mô tả" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#B8B8B8;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="298" y="382" width="460" height="39" as="geometry" />
+        </mxCell>
+        <mxCell id="sort" value="Mã  ▾" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#B8B8B8;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="791" y="382" width="180" height="39" as="geometry" />
+        </mxCell>
+        <mxCell id="direction" value="Tăng dần  ▾" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#B8B8B8;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1002" y="382" width="200" height="39" as="geometry" />
+        </mxCell>
+        <mxCell id="table_panel" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="280" y="476" width="966" height="326" as="geometry" />
+        </mxCell>
+        <mxCell id="table_title" value="Danh sách quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=16;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="298" y="490" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="table_head" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#F5F5F5;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="281" y="530" width="964" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="h0" value="Mã quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="299" y="539" width="320" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="h1" value="Mô tả" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="635" y="539" width="390" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="h2" value="Thao tác" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1050" y="539" width="170" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="row_bg0" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="281" y="572" width="964" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="code0" value="CATALOG_CATEGORY_READ" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="299" y="586" width="320" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="desc0" value="Xem danh mục sản phẩm" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="635" y="586" width="390" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="action0_0" value="Xem" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="586" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action0_1" value="Sửa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="586" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action0_2" value="Xóa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="586" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="row_bg1" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="281" y="634" width="964" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="code1" value="CATALOG_CATEGORY_CREATE" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="299" y="648" width="320" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="desc1" value="Tạo danh mục sản phẩm" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="635" y="648" width="390" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="action1_0" value="Xem" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="648" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action1_1" value="Sửa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="648" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action1_2" value="Xóa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="648" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="row_bg2" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="281" y="696" width="964" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="code2" value="CATALOG_BRAND_READ" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="299" y="710" width="320" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="desc2" value="Xem thương hiệu" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="635" y="710" width="390" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="action2_0" value="Xem" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="710" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action2_1" value="Sửa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="710" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action2_2" value="Xóa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="710" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="previous" value="Trước" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="297" y="760" width="67" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="page_num" value="Trang 1 / 1" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="376" y="760" width="105" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="next" value="Tiếp" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="492" y="760" width="67" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="total" value="Tổng số: 3" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1130" y="760" width="95" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="pf_shade" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=none;arcSize=10;opacity=38;" vertex="1" parent="1">
+          <mxGeometry x="30" y="94" width="1240" height="814" as="geometry" />
+        </mxCell>
+        <mxCell id="pf_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="350" y="218" width="600" height="466" as="geometry" />
+        </mxCell>
+        <mxCell id="pf_title" value="Thêm quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=18;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="376" y="232" width="500" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="pf_x" value="×" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="895" y="234" width="32" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="pf_rule" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#D0D0D0;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="350" y="279" width="600" height="1" as="geometry" />
+        </mxCell>
+        <mxCell id="code_label" value="Mã quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="378" y="308" width="520" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="code_input" value="Ví dụ: CATALOG_CATEGORY_READ" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#B8B8B8;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="378" y="338" width="544" height="41" as="geometry" />
+        </mxCell>
+        <mxCell id="code_hint" value="Chữ cái, chữ số và dấu gạch dưới; không bắt đầu ROLE_." style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=11;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="378" y="387" width="544" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="description_label" value="Mô tả" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="378" y="429" width="520" height="23" as="geometry" />
+        </mxCell>
+        <mxCell id="description_input" value="Nhập mô tả" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#B8B8B8;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="378" y="460" width="544" height="107" as="geometry" />
+        </mxCell>
+        <mxCell id="description_hint" value="Không bắt buộc, tối đa 500 ký tự." style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=11;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="378" y="574" width="544" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="footer_line" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#D0D0D0;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="350" y="625" width="600" height="1" as="geometry" />
+        </mxCell>
+        <mxCell id="cancel" value="Hủy" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="720" y="640" width="88" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="submit" value="Lưu" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#EEEEEE;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="817" y="640" width="105" height="36" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="aquasuite-permissions-view" name="Chi tiết quyền — hộp thoại">
+    <mxGraphModel dx="1400" dy="950" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1300" pageHeight="950" math="0" shadow="0">
+      <root>
+        <mxCell id="0" style="" />
+        <mxCell id="1" parent="0" style="" />
+        <mxCell id="c2" value="" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#A0A0A0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="30" y="20" width="1240" height="888" as="geometry" />
+        </mxCell>
+        <mxCell id="c3" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=#E5E5E5;strokeColor=#888888;" vertex="1" parent="1">
+          <mxGeometry x="30" y="20" width="1240" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c4" value="AquaSuite Admin" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#A0A0A0;spacingLeft=12;" vertex="1" parent="1">
+          <mxGeometry x="42" y="26" width="156" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="browser_nav" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#A0A0A0;" vertex="1" parent="1">
+          <mxGeometry x="30" y="48" width="1240" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="browser_back" value="←" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=20;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="44" y="56" width="30" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="browser_forward" value="→" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=20;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="75" y="56" width="30" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="browser_refresh" value="↻" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=19;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="106" y="56" width="30" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="c7" value="https://aquasuite.vn/admin/permissions" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=12;spacingLeft=12;" vertex="1" parent="1">
+          <mxGeometry x="145" y="56" width="1107" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="c8" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="30" y="94" width="1240" height="814" as="geometry" />
+        </mxCell>
+        <mxCell id="c9" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="30" y="94" width="220" height="814" as="geometry" />
+        </mxCell>
+        <mxCell id="c10" value="◉  AquaSuite" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=20;fontColor=#242424;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="52" y="114" width="170" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="c11" value="HỆ THỐNG QUẢN LÝ" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=9;fontColor=#242424;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="53" y="149" width="170" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="c12" value="Bảng điều khiển" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="207" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c13" value="Sản phẩm" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="262" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c14" value="" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#EEEEEE;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="43" y="484" width="194" height="37" as="geometry" />
+        </mxCell>
+        <mxCell id="c15" value="Danh mục" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="302" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c16" value="Thương hiệu" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="342" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c17" value="Tồn kho" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="382" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c18" value="Vai trò" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="448" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c19" value="Quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="488" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c20" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;" vertex="1" parent="1">
+          <mxGeometry x="250" y="94" width="1020" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="c21" value="Xin chào, Shop Owner!" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1005" y="108" width="150" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="c22" value="Đăng xuất" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#B8B8B8;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1160" y="107" width="88" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="c23" value="AquaSuite — Hệ thống quản lý đại lý thiết bị vệ sinh" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=11;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="275" y="877" width="960" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bread" value="AquaSuite  /  Quản lý truy cập  /  Quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=11;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="280" y="180" width="640" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="icon" value="◇" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=#F2F2F2;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="287" y="218" width="30" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="title" value="Quản lý Quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=22;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="335" y="210" width="620" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="Danh mục quyền trong hệ thống" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="335" y="245" width="620" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="back_dashboard" value="← Về bảng điều khiển" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1092" y="218" width="154" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="add_permission" value="+ Thêm quyền" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#EEEEEE;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="286" width="146" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="filter_panel" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="280" y="341" width="966" height="111" as="geometry" />
+        </mxCell>
+        <mxCell id="filter_label0" value="Tìm kiếm" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="298" y="351" width="460" height="23" as="geometry" />
+        </mxCell>
+        <mxCell id="filter_label1" value="Sắp xếp theo" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="791" y="351" width="180" height="23" as="geometry" />
+        </mxCell>
+        <mxCell id="filter_label2" value="Thứ tự" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1002" y="351" width="200" height="23" as="geometry" />
+        </mxCell>
+        <mxCell id="search" value="⌕  Tìm mã hoặc mô tả" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#B8B8B8;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="298" y="382" width="460" height="39" as="geometry" />
+        </mxCell>
+        <mxCell id="sort" value="Mã  ▾" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#B8B8B8;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="791" y="382" width="180" height="39" as="geometry" />
+        </mxCell>
+        <mxCell id="direction" value="Tăng dần  ▾" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#B8B8B8;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1002" y="382" width="200" height="39" as="geometry" />
+        </mxCell>
+        <mxCell id="table_panel" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="280" y="476" width="966" height="326" as="geometry" />
+        </mxCell>
+        <mxCell id="table_title" value="Danh sách quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=16;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="298" y="490" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="table_head" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#F5F5F5;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="281" y="530" width="964" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="h0" value="Mã quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="299" y="539" width="320" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="h1" value="Mô tả" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="635" y="539" width="390" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="h2" value="Thao tác" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1050" y="539" width="170" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="row_bg0" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="281" y="572" width="964" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="code0" value="CATALOG_CATEGORY_READ" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="299" y="586" width="320" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="desc0" value="Xem danh mục sản phẩm" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="635" y="586" width="390" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="action0_0" value="Xem" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="586" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action0_1" value="Sửa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="586" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action0_2" value="Xóa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="586" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="row_bg1" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="281" y="634" width="964" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="code1" value="CATALOG_CATEGORY_CREATE" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="299" y="648" width="320" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="desc1" value="Tạo danh mục sản phẩm" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="635" y="648" width="390" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="action1_0" value="Xem" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="648" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action1_1" value="Sửa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="648" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action1_2" value="Xóa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="648" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="row_bg2" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="281" y="696" width="964" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="code2" value="CATALOG_BRAND_READ" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="299" y="710" width="320" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="desc2" value="Xem thương hiệu" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="635" y="710" width="390" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="action2_0" value="Xem" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="710" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action2_1" value="Sửa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="710" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action2_2" value="Xóa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="710" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="previous" value="Trước" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="297" y="760" width="67" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="page_num" value="Trang 1 / 1" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="376" y="760" width="105" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="next" value="Tiếp" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="492" y="760" width="67" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="total" value="Tổng số: 3" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1130" y="760" width="95" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="pf_shade" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=none;arcSize=10;opacity=38;" vertex="1" parent="1">
+          <mxGeometry x="30" y="94" width="1240" height="814" as="geometry" />
+        </mxCell>
+        <mxCell id="pf_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="350" y="218" width="600" height="466" as="geometry" />
+        </mxCell>
+        <mxCell id="pf_title" value="Chi tiết quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=18;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="376" y="232" width="500" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="pf_x" value="×" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="895" y="234" width="32" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="pf_rule" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#D0D0D0;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="350" y="279" width="600" height="1" as="geometry" />
+        </mxCell>
+        <mxCell id="code_label" value="Mã quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="378" y="308" width="520" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="code_input" value="CATALOG_CATEGORY_READ" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#F2F2F2;strokeColor=#B8B8B8;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="378" y="338" width="544" height="41" as="geometry" />
+        </mxCell>
+        <mxCell id="code_hint" value="Chữ cái, chữ số và dấu gạch dưới; không bắt đầu ROLE_." style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=11;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="378" y="387" width="544" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="description_label" value="Mô tả" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="378" y="429" width="520" height="23" as="geometry" />
+        </mxCell>
+        <mxCell id="description_input" value="Xem danh mục sản phẩm" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#F2F2F2;strokeColor=#B8B8B8;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="378" y="460" width="544" height="107" as="geometry" />
+        </mxCell>
+        <mxCell id="description_hint" value="Không bắt buộc, tối đa 500 ký tự." style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=11;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="378" y="574" width="544" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="footer_line" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#D0D0D0;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="350" y="625" width="600" height="1" as="geometry" />
+        </mxCell>
+        <mxCell id="cancel" value="Đóng" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="815" y="640" width="106" height="36" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="aquasuite-permissions-edit" name="Sửa quyền — hộp thoại">
+    <mxGraphModel dx="1400" dy="950" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1300" pageHeight="950" math="0" shadow="0">
+      <root>
+        <mxCell id="0" style="" />
+        <mxCell id="1" parent="0" style="" />
+        <mxCell id="c2" value="" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#A0A0A0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="30" y="20" width="1240" height="888" as="geometry" />
+        </mxCell>
+        <mxCell id="c3" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=#E5E5E5;strokeColor=#888888;" vertex="1" parent="1">
+          <mxGeometry x="30" y="20" width="1240" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c4" value="AquaSuite Admin" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#A0A0A0;spacingLeft=12;" vertex="1" parent="1">
+          <mxGeometry x="42" y="26" width="156" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="browser_nav" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#A0A0A0;" vertex="1" parent="1">
+          <mxGeometry x="30" y="48" width="1240" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="browser_back" value="←" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=20;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="44" y="56" width="30" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="browser_forward" value="→" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=20;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="75" y="56" width="30" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="browser_refresh" value="↻" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=19;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="106" y="56" width="30" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="c7" value="https://aquasuite.vn/admin/permissions" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=12;spacingLeft=12;" vertex="1" parent="1">
+          <mxGeometry x="145" y="56" width="1107" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="c8" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="30" y="94" width="1240" height="814" as="geometry" />
+        </mxCell>
+        <mxCell id="c9" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="30" y="94" width="220" height="814" as="geometry" />
+        </mxCell>
+        <mxCell id="c10" value="◉  AquaSuite" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=20;fontColor=#242424;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="52" y="114" width="170" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="c11" value="HỆ THỐNG QUẢN LÝ" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=9;fontColor=#242424;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="53" y="149" width="170" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="c12" value="Bảng điều khiển" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="207" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c13" value="Sản phẩm" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="262" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c14" value="" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#EEEEEE;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="43" y="484" width="194" height="37" as="geometry" />
+        </mxCell>
+        <mxCell id="c15" value="Danh mục" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="302" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c16" value="Thương hiệu" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="342" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c17" value="Tồn kho" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="382" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c18" value="Vai trò" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="448" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c19" value="Quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="488" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c20" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;" vertex="1" parent="1">
+          <mxGeometry x="250" y="94" width="1020" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="c21" value="Xin chào, Shop Owner!" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1005" y="108" width="150" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="c22" value="Đăng xuất" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#B8B8B8;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1160" y="107" width="88" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="c23" value="AquaSuite — Hệ thống quản lý đại lý thiết bị vệ sinh" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=11;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="275" y="877" width="960" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bread" value="AquaSuite  /  Quản lý truy cập  /  Quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=11;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="280" y="180" width="640" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="icon" value="◇" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=#F2F2F2;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="287" y="218" width="30" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="title" value="Quản lý Quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=22;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="335" y="210" width="620" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="Danh mục quyền trong hệ thống" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="335" y="245" width="620" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="back_dashboard" value="← Về bảng điều khiển" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1092" y="218" width="154" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="add_permission" value="+ Thêm quyền" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#EEEEEE;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="286" width="146" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="filter_panel" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="280" y="341" width="966" height="111" as="geometry" />
+        </mxCell>
+        <mxCell id="filter_label0" value="Tìm kiếm" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="298" y="351" width="460" height="23" as="geometry" />
+        </mxCell>
+        <mxCell id="filter_label1" value="Sắp xếp theo" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="791" y="351" width="180" height="23" as="geometry" />
+        </mxCell>
+        <mxCell id="filter_label2" value="Thứ tự" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1002" y="351" width="200" height="23" as="geometry" />
+        </mxCell>
+        <mxCell id="search" value="⌕  Tìm mã hoặc mô tả" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#B8B8B8;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="298" y="382" width="460" height="39" as="geometry" />
+        </mxCell>
+        <mxCell id="sort" value="Mã  ▾" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#B8B8B8;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="791" y="382" width="180" height="39" as="geometry" />
+        </mxCell>
+        <mxCell id="direction" value="Tăng dần  ▾" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#B8B8B8;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1002" y="382" width="200" height="39" as="geometry" />
+        </mxCell>
+        <mxCell id="table_panel" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="280" y="476" width="966" height="326" as="geometry" />
+        </mxCell>
+        <mxCell id="table_title" value="Danh sách quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=16;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="298" y="490" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="table_head" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#F5F5F5;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="281" y="530" width="964" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="h0" value="Mã quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="299" y="539" width="320" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="h1" value="Mô tả" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="635" y="539" width="390" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="h2" value="Thao tác" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1050" y="539" width="170" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="row_bg0" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="281" y="572" width="964" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="code0" value="CATALOG_CATEGORY_READ" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="299" y="586" width="320" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="desc0" value="Xem danh mục sản phẩm" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="635" y="586" width="390" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="action0_0" value="Xem" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="586" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action0_1" value="Sửa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="586" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action0_2" value="Xóa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="586" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="row_bg1" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="281" y="634" width="964" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="code1" value="CATALOG_CATEGORY_CREATE" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="299" y="648" width="320" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="desc1" value="Tạo danh mục sản phẩm" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="635" y="648" width="390" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="action1_0" value="Xem" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="648" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action1_1" value="Sửa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="648" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action1_2" value="Xóa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="648" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="row_bg2" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="281" y="696" width="964" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="code2" value="CATALOG_BRAND_READ" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="299" y="710" width="320" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="desc2" value="Xem thương hiệu" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="635" y="710" width="390" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="action2_0" value="Xem" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="710" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action2_1" value="Sửa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="710" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action2_2" value="Xóa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="710" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="previous" value="Trước" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="297" y="760" width="67" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="page_num" value="Trang 1 / 1" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="376" y="760" width="105" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="next" value="Tiếp" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="492" y="760" width="67" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="total" value="Tổng số: 3" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1130" y="760" width="95" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="pf_shade" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=none;arcSize=10;opacity=38;" vertex="1" parent="1">
+          <mxGeometry x="30" y="94" width="1240" height="814" as="geometry" />
+        </mxCell>
+        <mxCell id="pf_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="350" y="218" width="600" height="466" as="geometry" />
+        </mxCell>
+        <mxCell id="pf_title" value="Sửa quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=18;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="376" y="232" width="500" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="pf_x" value="×" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="895" y="234" width="32" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="pf_rule" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#D0D0D0;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="350" y="279" width="600" height="1" as="geometry" />
+        </mxCell>
+        <mxCell id="code_label" value="Mã quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="378" y="308" width="520" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="code_input" value="CATALOG_CATEGORY_READ" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#F2F2F2;strokeColor=#B8B8B8;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="378" y="338" width="544" height="41" as="geometry" />
+        </mxCell>
+        <mxCell id="code_hint" value="Chữ cái, chữ số và dấu gạch dưới; không bắt đầu ROLE_." style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=11;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="378" y="387" width="544" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="description_label" value="Mô tả" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="378" y="429" width="520" height="23" as="geometry" />
+        </mxCell>
+        <mxCell id="description_input" value="Xem danh mục sản phẩm" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#B8B8B8;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="378" y="460" width="544" height="107" as="geometry" />
+        </mxCell>
+        <mxCell id="description_hint" value="Không bắt buộc, tối đa 500 ký tự." style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=11;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="378" y="574" width="544" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="footer_line" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#D0D0D0;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="350" y="625" width="600" height="1" as="geometry" />
+        </mxCell>
+        <mxCell id="cancel" value="Hủy" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="720" y="640" width="88" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="submit" value="Lưu" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#EEEEEE;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="817" y="640" width="105" height="36" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="aquasuite-permissions-delete" name="Xác nhận xóa quyền — hộp thoại">
+    <mxGraphModel dx="1400" dy="950" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1300" pageHeight="950" math="0" shadow="0">
+      <root>
+        <mxCell id="0" style="" />
+        <mxCell id="1" parent="0" style="" />
+        <mxCell id="c2" value="" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#A0A0A0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="30" y="20" width="1240" height="888" as="geometry" />
+        </mxCell>
+        <mxCell id="c3" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=#E5E5E5;strokeColor=#888888;" vertex="1" parent="1">
+          <mxGeometry x="30" y="20" width="1240" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c4" value="AquaSuite Admin" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#A0A0A0;spacingLeft=12;" vertex="1" parent="1">
+          <mxGeometry x="42" y="26" width="156" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="browser_nav" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#A0A0A0;" vertex="1" parent="1">
+          <mxGeometry x="30" y="48" width="1240" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="browser_back" value="←" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=20;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="44" y="56" width="30" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="browser_forward" value="→" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=20;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="75" y="56" width="30" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="browser_refresh" value="↻" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=19;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="106" y="56" width="30" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="c7" value="https://aquasuite.vn/admin/permissions" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=12;spacingLeft=12;" vertex="1" parent="1">
+          <mxGeometry x="145" y="56" width="1107" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="c8" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="30" y="94" width="1240" height="814" as="geometry" />
+        </mxCell>
+        <mxCell id="c9" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="30" y="94" width="220" height="814" as="geometry" />
+        </mxCell>
+        <mxCell id="c10" value="◉  AquaSuite" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=20;fontColor=#242424;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="52" y="114" width="170" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="c11" value="HỆ THỐNG QUẢN LÝ" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=9;fontColor=#242424;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="53" y="149" width="170" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="c12" value="Bảng điều khiển" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="207" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c13" value="Sản phẩm" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="262" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c14" value="" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#EEEEEE;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="43" y="484" width="194" height="37" as="geometry" />
+        </mxCell>
+        <mxCell id="c15" value="Danh mục" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="302" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c16" value="Thương hiệu" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="342" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c17" value="Tồn kho" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="382" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c18" value="Vai trò" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="448" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c19" value="Quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#242424;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="58" y="488" width="170" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="c20" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;" vertex="1" parent="1">
+          <mxGeometry x="250" y="94" width="1020" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="c21" value="Xin chào, Shop Owner!" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1005" y="108" width="150" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="c22" value="Đăng xuất" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#B8B8B8;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1160" y="107" width="88" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="c23" value="AquaSuite — Hệ thống quản lý đại lý thiết bị vệ sinh" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=11;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="275" y="877" width="960" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bread" value="AquaSuite  /  Quản lý truy cập  /  Quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=11;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="280" y="180" width="640" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="icon" value="◇" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=#F2F2F2;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="287" y="218" width="30" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="title" value="Quản lý Quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=22;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="335" y="210" width="620" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="Danh mục quyền trong hệ thống" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="335" y="245" width="620" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="back_dashboard" value="← Về bảng điều khiển" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1092" y="218" width="154" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="add_permission" value="+ Thêm quyền" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#EEEEEE;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="286" width="146" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="filter_panel" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="280" y="341" width="966" height="111" as="geometry" />
+        </mxCell>
+        <mxCell id="filter_label0" value="Tìm kiếm" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="298" y="351" width="460" height="23" as="geometry" />
+        </mxCell>
+        <mxCell id="filter_label1" value="Sắp xếp theo" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="791" y="351" width="180" height="23" as="geometry" />
+        </mxCell>
+        <mxCell id="filter_label2" value="Thứ tự" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1002" y="351" width="200" height="23" as="geometry" />
+        </mxCell>
+        <mxCell id="search" value="⌕  Tìm mã hoặc mô tả" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#B8B8B8;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="298" y="382" width="460" height="39" as="geometry" />
+        </mxCell>
+        <mxCell id="sort" value="Mã  ▾" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#B8B8B8;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="791" y="382" width="180" height="39" as="geometry" />
+        </mxCell>
+        <mxCell id="direction" value="Tăng dần  ▾" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#B8B8B8;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1002" y="382" width="200" height="39" as="geometry" />
+        </mxCell>
+        <mxCell id="table_panel" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="280" y="476" width="966" height="326" as="geometry" />
+        </mxCell>
+        <mxCell id="table_title" value="Danh sách quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=16;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="298" y="490" width="400" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="table_head" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#F5F5F5;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="281" y="530" width="964" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="h0" value="Mã quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="299" y="539" width="320" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="h1" value="Mô tả" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="635" y="539" width="390" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="h2" value="Thao tác" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1050" y="539" width="170" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="row_bg0" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="281" y="572" width="964" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="code0" value="CATALOG_CATEGORY_READ" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="299" y="586" width="320" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="desc0" value="Xem danh mục sản phẩm" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="635" y="586" width="390" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="action0_0" value="Xem" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="586" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action0_1" value="Sửa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="586" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action0_2" value="Xóa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="586" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="row_bg1" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="281" y="634" width="964" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="code1" value="CATALOG_CATEGORY_CREATE" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="299" y="648" width="320" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="desc1" value="Tạo danh mục sản phẩm" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="635" y="648" width="390" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="action1_0" value="Xem" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="648" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action1_1" value="Sửa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="648" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action1_2" value="Xóa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="648" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="row_bg2" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#D0D0D0;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="281" y="696" width="964" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="code2" value="CATALOG_BRAND_READ" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="299" y="710" width="320" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="desc2" value="Xem thương hiệu" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="635" y="710" width="390" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="action2_0" value="Xem" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="710" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action2_1" value="Sửa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1095" y="710" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="action2_2" value="Xóa" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="710" width="50" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="previous" value="Trước" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="297" y="760" width="67" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="page_num" value="Trang 1 / 1" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=center;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="376" y="760" width="105" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="next" value="Tiếp" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="492" y="760" width="67" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="total" value="Tổng số: 3" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1130" y="760" width="95" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="pf_shade" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=none;arcSize=10;opacity=38;" vertex="1" parent="1">
+          <mxGeometry x="30" y="94" width="1240" height="814" as="geometry" />
+        </mxCell>
+        <mxCell id="pf_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="350" y="291" width="600" height="291" as="geometry" />
+        </mxCell>
+        <mxCell id="pf_title" value="Xác nhận xóa quyền" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=18;fontColor=#333333;fontStyle=1;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="376" y="305" width="500" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="pf_x" value="×" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="895" y="307" width="32" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="pf_rule" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#D0D0D0;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="350" y="352" width="600" height="1" as="geometry" />
+        </mxCell>
+        <mxCell id="question" value="Bạn muốn xóa quyền CATALOG_CATEGORY_READ?" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=14;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="378" y="390" width="520" height="33" as="geometry" />
+        </mxCell>
+        <mxCell id="warning" value="Quyền đang được gán cho vai trò sẽ không thể xóa." style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=12;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=none;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="378" y="434" width="520" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="line" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=0;align=left;verticalAlign=middle;spacing=0;fillColor=#D0D0D0;strokeColor=none;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="350" y="514" width="600" height="1" as="geometry" />
+        </mxCell>
+        <mxCell id="cancel" value="Hủy" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#FFFFFF;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="720" y="531" width="87" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="submit" value="Xóa quyền" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Segoe UI;fontSize=13;fontColor=#333333;fontStyle=1;align=center;verticalAlign=middle;spacing=0;fillColor=#EEEEEE;strokeColor=#888888;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="815" y="531" width="109" height="36" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

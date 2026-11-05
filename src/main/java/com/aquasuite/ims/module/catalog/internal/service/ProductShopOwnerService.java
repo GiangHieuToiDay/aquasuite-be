@@ -12,7 +12,10 @@ import org.springframework.data.domain.Pageable;
 
 import java.util.UUID;
 
-public interface ProductAdminService {
+/**
+ * Service quản lý danh mục sản phẩm dành riêng cho Chủ cửa hàng (Shop Owner).
+ */
+public interface ProductShopOwnerService {
 
     /** Tạo mới sản phẩm cùng các biến thể và hình ảnh */
     ProductDetailResponse createProduct(CreateProductRequest request);

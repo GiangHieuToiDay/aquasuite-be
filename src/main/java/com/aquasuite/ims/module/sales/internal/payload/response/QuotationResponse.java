@@ -38,11 +38,17 @@ public class QuotationResponse {
     private String customerName;
     private String projectName;
     private String deliveryAddress;
+    private String deliverySchedule;
+    private String sentToEmail;
     private String note;
 
     // Line items
     @Builder.Default
     private List<QuotationItemResponse> items = new ArrayList<>();
+
+    // Payment milestones
+    @Builder.Default
+    private List<QuotationPaymentMilestoneResponse> milestones = new ArrayList<>();
 
     // Financial summary
     private QuotationSummaryResponse summary;
@@ -50,7 +56,7 @@ public class QuotationResponse {
     // Approval info
     private QuotationApprovalInfo approval;
 
-    // Milestones
+    // Milestones / Status lifecycle timestamps & files
     private OffsetDateTime sentAt;
     private String pdfUrl;
     private OffsetDateTime acceptedAt;

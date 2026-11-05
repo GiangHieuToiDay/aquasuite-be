@@ -7,8 +7,7 @@ import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateProductReques
 import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateProductStatusRequest;
 import com.aquasuite.ims.module.catalog.internal.payload.res.ProductDetailResponse;
 import com.aquasuite.ims.module.catalog.internal.payload.res.ProductSummaryResponse;
-import com.aquasuite.ims.module.catalog.internal.service.ProductAdminService;
-import com.aquasuite.ims.module.iam.api.IamApi;
+import com.aquasuite.ims.module.catalog.internal.service.ProductShopOwnerService;
 import com.aquasuite.ims.share.dto.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,36 +18,40 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
+/**
+ * Controller quản lý sản phẩm dành riêng cho Chủ cửa hàng (Shop Owner).
+ * Quyền yêu cầu toàn bộ endpoint: SHOP_OWNER
+ */
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/catalog")
 @RequiredArgsConstructor
-public class ProductAdminController {
+@PreAuthorize("hasRole('SHOP_OWNER')")
+public class ProductShopOwnerController {
 
-    private final ProductAdminService productAdminService;
-    private final IamApi iamApi;
+    private final ProductShopOwnerService productShopOwnerService;
 
     /**
      * Tạo mới sản phẩm (kèm biến thể SKU và hình ảnh)
-     * Quyền yêu cầu: ADMIN
+     * Quyền yêu cầu: SHOP_OWNER
      */
     @PostMapping("/products")
     public ResponseEntity<ApiResponse<ProductDetailResponse>> createProduct(
             @Valid @RequestBody CreateProductRequest request
     ) {
-        iamApi.validateAdminAccess();
-        ProductDetailResponse response = productAdminService.createProduct(request);
+        ProductDetailResponse response = productShopOwnerService.createProduct(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok(response, "Product created successfully. Please configure SKUs and variants."));
     }
 
     /**
      * Lấy danh sách sản phẩm có phân trang, tìm kiếm theo tên/mã, và lọc theo danh mục/thương hiệu/trạng thái
-     * Quyền yêu cầu: ADMIN
+     * Quyền yêu cầu: SHOP_OWNER
      */
     @GetMapping("/products")
     public ResponseEntity<ApiResponse<Page<ProductSummaryResponse>>> listProducts(
@@ -59,8 +62,7 @@ public class ProductAdminController {
             @RequestParam(required = false) ProductType productType,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
     ) {
-        iamApi.validateAdminAccess();
-        Page<ProductSummaryResponse> response = productAdminService.listProducts(
+        Page<ProductSummaryResponse> response = productShopOwnerService.listProducts(
                 keyword, categoryId, brandId, status, productType, pageable
         );
         return ResponseEntity.ok(ApiResponse.ok(response));
@@ -68,42 +70,39 @@ public class ProductAdminController {
 
     /**
      * Xem thông tin chi tiết một sản phẩm theo ID (kèm toàn bộ biến thể và hình ảnh)
-     * Quyền yêu cầu: ADMIN
+     * Quyền yêu cầu: SHOP_OWNER
      */
     @GetMapping("/products/{productId}")
     public ResponseEntity<ApiResponse<ProductDetailResponse>> getProductDetail(
             @PathVariable UUID productId
     ) {
-        iamApi.validateAdminAccess();
-        ProductDetailResponse response = productAdminService.getProductDetail(productId);
+        ProductDetailResponse response = productShopOwnerService.getProductDetail(productId);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
     /**
      * Cập nhật thông tin sản phẩm và danh sách biến thể
-     * Quyền yêu cầu: ADMIN
+     * Quyền yêu cầu: SHOP_OWNER
      */
     @PutMapping("/products/{productId}")
     public ResponseEntity<ApiResponse<ProductDetailResponse>> updateProduct(
             @PathVariable UUID productId,
             @Valid @RequestBody UpdateProductRequest request
     ) {
-        iamApi.validateAdminAccess();
-        ProductDetailResponse response = productAdminService.updateProduct(productId, request);
+        ProductDetailResponse response = productShopOwnerService.updateProduct(productId, request);
         return ResponseEntity.ok(ApiResponse.ok(response, "Product details updated successfully."));
     }
 
     /**
      * Đổi trạng thái sản phẩm (Bản nháp / Hoạt động / Ngừng kinh doanh)
-     * Quyền yêu cầu: ADMIN
+     * Quyền yêu cầu: SHOP_OWNER
      */
     @PatchMapping("/products/{productId}/status")
     public ResponseEntity<ApiResponse<ProductDetailResponse>> updateProductStatus(
             @PathVariable UUID productId,
             @Valid @RequestBody UpdateProductStatusRequest request
     ) {
-        iamApi.validateAdminAccess();
-        ProductDetailResponse response = productAdminService.updateProductStatus(productId, request);
+        ProductDetailResponse response = productShopOwnerService.updateProductStatus(productId, request);
         String message = request.status() == ProductStatus.DISCONTINUED
                 ? "Product marked as Discontinued."
                 : "Cập nhật trạng thái sản phẩm thành công";
@@ -112,14 +111,13 @@ public class ProductAdminController {
 
     /**
      * Xóa mềm sản phẩm (chuyển sang trạng thái DELETED)
-     * Quyền yêu cầu: ADMIN
+     * Quyền yêu cầu: SHOP_OWNER
      */
     @DeleteMapping("/products/{productId}")
     public ResponseEntity<ApiResponse<Void>> deleteProduct(
             @PathVariable UUID productId
     ) {
-        iamApi.validateAdminAccess();
-        productAdminService.deleteProduct(productId);
+        productShopOwnerService.deleteProduct(productId);
         return ResponseEntity.ok(ApiResponse.ok(null, "Xóa sản phẩm thành công"));
     }
 
