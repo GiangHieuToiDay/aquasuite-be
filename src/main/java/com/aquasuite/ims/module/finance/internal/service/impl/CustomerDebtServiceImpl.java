@@ -111,9 +111,10 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
         lock("customer-credit:" + customerId);
         CustomerDebtProfileDto customer = getCustomer(customerId);
         DebtCalculation calculation = calculate(customer, documentsFor(Set.of(customerId)));
-        boolean counter = "COUNTER".equalsIgnoreCase(request.orderChannel()) || "POS".equalsIgnoreCase(request.orderChannel());
-        boolean eligibleType = "CONTRACTOR".equalsIgnoreCase(customer.customerType())
-                || "PROJECT_CUSTOMER".equalsIgnoreCase(customer.customerType());
+        boolean counter = "COUNTER".equalsIgnoreCase(request.orderChannel()) || "POS".equalsIgnoreCase(request.orderChannel())
+                || "IN_STORE".equalsIgnoreCase(request.orderChannel());
+        // Retail customers may receive a one-time Shop Owner approved credit profile at the POS.
+        boolean eligibleType = customer.customerType() != null;
         boolean approved = counter && eligibleType && calculation.summary().debtStatus() == DebtStatus.WITHIN_TERM
                 && calculation.summary().availableCredit().compareTo(request.newOrderAmount()) >= 0;
         String reason = approved ? "APPROVED" : reasonFor(customer, calculation, counter, eligibleType, request.newOrderAmount());
@@ -278,8 +279,6 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
                     .paymentMethod(transaction.getPaymentMethod()).transactionDate(transaction.getTransactionDate())
                     .status(transaction.getStatus()).build());
         }
-        BigDecimal outstanding = orders.stream().map(order -> positive(amount(order.totalAmount()).subtract(orderPaid.getOrDefault(order.orderId(), ZERO))))
-                .reduce(ZERO, BigDecimal::add);
         List<OrderDebtResponse> orderResponses = orders.stream().map(order -> OrderDebtResponse.builder()
                 .orderId(order.orderId()).orderCode(order.orderCode()).orderChannel(order.orderChannel())
                 .orderStatus(order.orderStatus()).paymentStatus(order.paymentStatus()).dueDate(order.dueDate())
@@ -294,7 +293,9 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
         for (SalesInvoiceDebtDto invoice : invoices) {
             BigDecimal paid = invoicePaid.getOrDefault(invoice.invoiceId(), ZERO);
             BigDecimal invoiceOutstanding = positive(amount(invoice.totalAmount()).subtract(paid));
-            LocalDate due = invoice.issueDate().toLocalDate().plusDays(customer.creditTermDays() == null ? 0 : customer.creditTermDays());
+            // Legacy invoices have no snapshot until the issuing use case is upgraded; preserve V4 behavior for them.
+            LocalDate due = invoice.dueDate() != null ? invoice.dueDate()
+                    : invoice.issueDate().toLocalDate().plusDays(customer.creditTermDays() == null ? 0 : customer.creditTermDays());
             if (invoiceOutstanding.compareTo(ZERO) > 0) {
                 if (nearestDue == null || due.isBefore(nearestDue)) nearestDue = due;
                 if (due.isBefore(today)) overdue = overdue.add(invoiceOutstanding);
@@ -305,12 +306,24 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
                     .signedAt(invoice.signedAt()).dueDate(due).status(invoice.status()).totalAmount(amount(invoice.totalAmount()))
                     .verifiedPaidAmount(paid).outstandingAmount(invoiceOutstanding).build());
         }
+        Map<UUID, BigDecimal> invoicedAmountByOrder = invoices.stream().collect(Collectors.groupingBy(
+                SalesInvoiceDebtDto::orderId,
+                Collectors.reducing(ZERO, invoice -> amount(invoice.totalAmount()), BigDecimal::add)));
+        BigDecimal unbilledCommitment = orders.stream().map(order -> positive(amount(order.totalAmount())
+                        .subtract(invoicedAmountByOrder.getOrDefault(order.orderId(), ZERO))))
+                .reduce(ZERO, BigDecimal::add);
+        BigDecimal issuedInvoiceReceivable = invoiceResponses.stream().map(InvoiceDebtResponse::outstandingAmount)
+                .reduce(ZERO, BigDecimal::add);
+        // A verified order-only receipt offsets total exposure once, until UC-63 allocates it to a specific invoice.
+        BigDecimal outstanding = positive(unbilledCommitment.add(issuedInvoiceReceivable).subtract(unallocated));
         BigDecimal limit = amount(customer.creditLimit());
         BigDecimal available = limit.subtract(outstanding);
         DebtStatus status = resolveStatus(customer, limit, outstanding, overdue, blacklisted);
         CustomerDebtSummaryResponse summary = CustomerDebtSummaryResponse.builder().customerId(customer.customerId())
                 .customerCode(customer.customerCode()).customerName(customer.customerName()).phone(customer.phone())
                 .companyName(customer.companyName()).customerType(customer.customerType()).creditLimit(limit)
+                .unbilledCommitment(unbilledCommitment).issuedInvoiceReceivable(issuedInvoiceReceivable)
+                .unallocatedAdvanceAmount(unallocated)
                 .outstandingBalance(outstanding).overdueBalance(overdue).availableCredit(available)
                 .nearestDueDate(nearestDue).debtStatus(status).build();
         return new DebtCalculation(summary, invoiceResponses, orderResponses, receiptResponses, unallocated, unallocatedReceipts);

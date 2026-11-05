@@ -66,7 +66,7 @@ class CustomerDebtServiceImplTest {
         order = new SalesOrderDebtDto(ORDER_ID, CUSTOMER_ID, "ORD-100", "COUNTER", "CONFIRMED", "UNPAID",
                 new BigDecimal("200.00"), BigDecimal.ZERO, new BigDecimal("200.00"), LocalDate.now().plusDays(30));
         invoice = new SalesInvoiceDebtDto(INVOICE_ID, ORDER_ID, CUSTOMER_ID, "INV-100", "MISA-INV-100",
-                OffsetDateTime.now(), null, "ISSUED", new BigDecimal("200.00"), BigDecimal.ZERO, BigDecimal.ZERO,
+                OffsetDateTime.now(), null, 30, LocalDate.now().plusDays(30), "ISSUED", new BigDecimal("200.00"), BigDecimal.ZERO, BigDecimal.ZERO,
                 new BigDecimal("200.00"), null);
         when(salesReceivableApi.findOrdersByCustomerIds(any())).thenReturn(List.of(order));
         when(salesReceivableApi.findInvoicesByCustomerIds(any())).thenReturn(List.of(invoice));
@@ -83,6 +83,8 @@ class CustomerDebtServiceImplTest {
 
         assertEquals(1, page.content().size());
         assertMoney("150.00", page.content().getFirst().outstandingBalance());
+        assertMoney("0.00", page.content().getFirst().unbilledCommitment());
+        assertMoney("150.00", page.content().getFirst().issuedInvoiceReceivable());
         assertMoney("350.00", page.content().getFirst().availableCredit());
     }
 
