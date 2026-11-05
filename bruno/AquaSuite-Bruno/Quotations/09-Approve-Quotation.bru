@@ -1,0 +1,40 @@
+meta {
+  name: 09 - Approve Quotation (Sếp duyệt chiết khấu)
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/v1/sales/quotations/{{quotationId}}/approve
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "approvalNote": "Duyệt mức 14%. Tiến độ thanh toán tạm ứng 40% phải thực hiện đúng hợp đồng."
+  }
+}
+
+tests {
+  test("Sếp phê duyệt thành công (HTTP 200)", function () {
+    expect(res.getStatus()).to.equal(200);
+    const body = res.getBody();
+    expect(body.success).to.equal(true);
+    expect(body.data.status).to.equal("APPROVED");
+    expect(body.data.approval.approvedBy).to.not.be.null;
+    expect(body.data.approval.approvedAt).to.not.be.null;
+    // Kiểm tra đã chốt biên lợi nhuận (nếu là role admin)
+    if (body.data.ownerData) {
+      expect(body.data.ownerData.marginPercentAtApproval).to.be.a('number');
+    }
+  });
+}

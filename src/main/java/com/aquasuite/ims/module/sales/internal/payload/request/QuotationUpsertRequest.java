@@ -33,6 +33,10 @@ public class QuotationUpsertRequest {
 
     private String deliveryAddress;
 
+    private String deliverySchedule;
+
+    private String sentToEmail;
+
     private LocalDate validUntil;
 
     @AllowedVatRate
@@ -46,4 +50,8 @@ public class QuotationUpsertRequest {
     @Valid
     @Builder.Default
     private List<QuotationItemRequest> items = new ArrayList<>();
+
+    @Valid
+    @Builder.Default
+    private List<QuotationPaymentMilestoneRequest> milestones = new ArrayList<>();
 }

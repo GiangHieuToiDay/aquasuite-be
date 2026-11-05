@@ -1,0 +1,34 @@
+meta {
+  name: 05 - Submit For Approval (Trình sếp duyệt)
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/v1/sales/quotations/{{quotationId}}/submit-approval
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "approvalNote": "Dự án Riviera là khách hàng chiến lược, đối thủ đang chào chiết khấu 16%, em xin phép đề xuất 18% để chốt nhanh hợp đồng."
+  }
+}
+
+tests {
+  test("Trình duyệt báo giá thành công (HTTP 200)", function () {
+    expect(res.getStatus()).to.equal(200);
+    const body = res.getBody();
+    expect(body.success).to.equal(true);
+    expect(body.data.status).to.equal("PENDING_APPROVAL");
+  });
+}

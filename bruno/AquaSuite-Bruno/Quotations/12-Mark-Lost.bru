@@ -1,0 +1,41 @@
+meta {
+  name: 12 - Mark Lost (Ghi nhận mất dự án)
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/api/v1/sales/quotations/{{quotationId}}/lost
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "lostReason": "Chủ đầu tư chọn nhà thầu phụ quen và ép giá thấp hơn 15%, bên mình không thể giảm thêm."
+  }
+}
+
+tests {
+  test("Ghi nhận mất dự án thành công (HTTP 200 hoặc 400 nếu chưa SENT)", function () {
+    if (res.getStatus() === 200) {
+      const body = res.getBody();
+      expect(body.success).to.equal(true);
+      expect(body.data.status).to.equal("LOST");
+      expect(body.data.lostAt).to.not.be.null;
+      expect(body.data.lostReason).to.include("ép giá");
+    } else {
+      expect(res.getStatus()).to.equal(400);
+      const body = res.getBody();
+      expect(body.code).to.equal("QUOTATION_NOT_SENT");
+    }
+  });
+}
