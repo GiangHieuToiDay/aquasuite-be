@@ -36,6 +36,7 @@ Hệ thống tài liệu backend bao gồm các tài liệu chuyên đề sau:
   - Quy chuẩn đặt tên URI và phương thức HTTP cho các Feature Spec tương lai.
 
 ### 3. Specifications and Templates
+- [`specifications/WORK-019-uc70-pending-payment-verifications.md`](specifications/WORK-019-uc70-pending-payment-verifications.md): Dự thảo thiết kế BE UC-70 xác minh chuyển khoản đang chờ; các quyết định về quyền và contract còn mở, Design Review PENDING.
 - [`specifications/UC-13-product-combos.md`](specifications/UC-13-product-combos.md):
   - Đặc tả mục tiêu UC-13: combo SKU cố định, endpoint/DTO, publication, giá/tồn, thành phần và kiểm chứng.
   - Thay thế spec/code guide SCRUM14 cũ; Design Review PENDING, không chứng nhận implementation hiện tại.
