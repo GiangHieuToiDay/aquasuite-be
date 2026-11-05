@@ -43,41 +43,6 @@ public class CurrentIamApi implements IamApi {
     }
 
     @Override
-    public boolean isAdmin() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            return false;
-        }
-        return auth.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN")
-                        || a.getAuthority().equals("ROLE_SUPER_ADMIN")
-                        || a.getAuthority().equals("ADMIN")
-                        || a.getAuthority().equalsIgnoreCase("SCOPE_ADMIN"));
-    }
-
-    @Override
-    public boolean isSalesStaffOrAdmin() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            return false;
-        }
-        return auth.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN")
-                        || a.getAuthority().equals("ROLE_SUPER_ADMIN")
-                        || a.getAuthority().equals("ADMIN")
-                        || a.getAuthority().equals("ROLE_SALES_STAFF")
-                        || a.getAuthority().equals("ROLE_STAFF")
-                        || a.getAuthority().equals("SALES_STAFF"));
-    }
-
-    @Override
-    public void validateAdminAccess() {
-        if (!isAdmin()) {
-            throw new AppException(CommonErrorCode.ACCESS_DENIED, "Chỉ tài khoản Quản trị viên (Admin) mới có quyền thực hiện thao tác này");
-        }
-    }
-
-    @Override
     @Transactional(readOnly = true)
     public UserSummaryDto getUserById(UUID userId) {
         User user = userRepository.findWithRolesAndPermissionsById(userId)

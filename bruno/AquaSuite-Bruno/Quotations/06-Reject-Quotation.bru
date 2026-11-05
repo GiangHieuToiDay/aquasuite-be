@@ -1,0 +1,34 @@
+meta {
+  name: 06 - Reject Quotation (Sếp từ chối chiết khấu)
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/v1/sales/quotations/{{quotationId}}/reject
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "approvalNote": "Chiết khấu 18% làm biên lãi gộp tụt dưới 8%, không đạt target. Đề nghị đàm phán lại mức tối đa 14%."
+  }
+}
+
+tests {
+  test("Sếp từ chối chiết khấu thành công (HTTP 200)", function () {
+    expect(res.getStatus()).to.equal(200);
+    const body = res.getBody();
+    expect(body.success).to.equal(true);
+    expect(body.data.status).to.equal("REJECTED");
+  });
+}

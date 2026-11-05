@@ -1,0 +1,68 @@
+meta {
+  name: 02 - Create Draft Quotation (Lưu nháp mới)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/sales/quotations
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "customerId": "{{customerId}}",
+    "projectName": "Công trình Biệt thự Riviera Quận 2",
+    "deliveryAddress": "Số 12 Đường Giang Văn Minh, Phường An Phú, TP. Thủ Đức",
+    "deliverySchedule": "Giao 2 đợt theo tiến độ hoàn thiện thô",
+    "validUntil": "2026-11-30",
+    "vatRate": 10,
+    "shippingFee": 250000,
+    "note": "Điều khoản: Thanh toán tạm ứng 40% ngay khi chốt báo giá",
+    "items": [
+      {
+        "variantId": "{{variantId1}}",
+        "quantity": 2,
+        "discountRate": 5
+      },
+      {
+        "variantId": "{{variantId2}}",
+        "quantity": 10,
+        "discountRate": 15
+      }
+    ]
+  }
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (res.getStatus() === 201 && body && body.data) {
+    bru.setVar('quotationId', body.data.quotationId);
+    bru.setVar('quotationCode', body.data.quotationCode);
+    console.log("Created Quotation ID:", body.data.quotationId);
+    console.log("Created Quotation Code:", body.data.quotationCode);
+  }
+}
+
+tests {
+  test("Tạo báo giá nháp thành công (HTTP 201 Created)", function () {
+    expect(res.getStatus()).to.equal(201);
+    const body = res.getBody();
+    expect(body.success).to.equal(true);
+    expect(body.data.quotationId).to.be.a('string');
+    expect(body.data.quotationCode).to.match(/^BG-\d{6}-\d{4}$/);
+    expect(body.data.revisionNo).to.equal(1);
+    expect(body.data.status).to.equal("DRAFT");
+    expect(body.data.items).to.be.an('array');
+    expect(body.data.items.length).to.equal(2);
+  });
+}

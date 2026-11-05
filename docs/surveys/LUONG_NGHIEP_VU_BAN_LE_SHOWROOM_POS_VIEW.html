@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>AquaSuite - Quy Trình Bán Hàng & Quản Lý Kho Showroom</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', -apple-system, Arial, sans-serif;
+        }
+        body {
+            background-color: #0f172a;
+            width: 1480px;
+            padding: 24px;
+            color: #1e293b;
+        }
+        .canvas {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 24px 28px;
+            box-shadow: 0 4px 25px rgba(0,0,0,0.15);
+            border: 1px solid #cbd5e1;
+        }
+        /* Header Banner */
+        .header-banner {
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            border: 2px solid #0284c7;
+            border-radius: 10px;
+            padding: 16px 20px;
+            color: #ffffff;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .header-banner h1 {
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            color: #ffffff;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+        .header-banner p {
+            font-size: 13px;
+            color: #cbd5e1;
+        }
+
+        /* 3 Input blocks row */
+        .inputs-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .input-card {
+            flex: 1;
+            background: #f0f9ff;
+            border: 1.5px solid #0284c7;
+            border-radius: 8px;
+            padding: 12px 14px;
+            box-shadow: 0 2px 6px rgba(2, 132, 199, 0.08);
+        }
+        .input-card h3 {
+            font-size: 13.5px;
+            font-weight: 800;
+            color: #0369a1;
+            margin-bottom: 4px;
+        }
+        .input-card ul {
+            list-style: none;
+            font-size: 12px;
+            color: #334155;
+            line-height: 1.5;
+            margin-top: 4px;
+        }
+        .input-card li {
+            margin-bottom: 4px;
+        }
+
+        /* Decision Box */
+        .decision-row {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .decision-box {
+            background: #0284c7;
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 14px;
+            padding: 12px 36px;
+            border-radius: 30px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+            text-transform: uppercase;
+        }
+        .decision-box span {
+            display: block;
+            font-size: 11.5px;
+            font-weight: normal;
+            color: #e0f2fe;
+            margin-top: 2px;
+            text-transform: none;
+        }
+
+        /* Two Branches */
+        .branches-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            margin-bottom: 18px;
+        }
+        .branch-col {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .branch-header {
+            padding: 10px 14px;
+            border-radius: 8px;
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 13.5px;
+            text-align: center;
+            text-transform: uppercase;
+        }
+        .branch-header.green {
+            background: #059669;
+            box-shadow: 0 2px 8px rgba(5, 150, 105, 0.2);
+        }
+        .branch-header.amber {
+            background: #d97706;
+            box-shadow: 0 2px 8px rgba(217, 119, 6, 0.2);
+        }
+
+        .branch-card {
+            border-radius: 8px;
+            padding: 12px 16px;
+            border: 1.5px solid;
+        }
+        .branch-card.green {
+            background: #ecfdf5;
+            border-color: #10b981;
+        }
+        .branch-card.amber {
+            background: #fffbeb;
+            border-color: #f59e0b;
+        }
+        .branch-card.purple {
+            background: #faf5ff;
+            border-color: #8b5cf6;
+        }
+        .branch-card h4 {
+            font-size: 13px;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+        .branch-card.green h4 { color: #047857; }
+        .branch-card.amber h4 { color: #b45309; }
+        .branch-card.purple h4 { color: #6d28d9; }
+        .branch-card p {
+            font-size: 12px;
+            color: #334155;
+            line-height: 1.5;
+        }
+
+        .branch-footer {
+            padding: 10px 14px;
+            border-radius: 8px;
+            color: #ffffff;
+            text-align: left;
+        }
+        .branch-footer.green {
+            background: #047857;
+        }
+        .branch-footer.amber {
+            background: #b45309;
+        }
+        .branch-footer h5 {
+            font-size: 13.5px;
+            font-weight: 800;
+            margin-bottom: 3px;
+        }
+        .branch-footer p {
+            font-size: 11.5px;
+            color: #e2e8f0;
+            line-height: 1.4;
+        }
+
+        /* Post Changes Section */
+        .changes-section {
+            background: #f8fafc;
+            border: 1.5px dashed #94a3b8;
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-bottom: 14px;
+        }
+        .changes-title {
+            text-align: center;
+            font-size: 13px;
+            font-weight: 800;
+            color: #0f172a;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        .changes-row {
+            display: flex;
+            gap: 16px;
+        }
+        .change-card {
+            flex: 1;
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1.5px solid;
+        }
+        .change-card.blue {
+            background: #f0f9ff;
+            border-color: #0284c7;
+        }
+        .change-card.rose {
+            background: #fff1f2;
+            border-color: #f43f5e;
+        }
+        .change-card h5 {
+            font-size: 12.5px;
+            font-weight: 800;
+            margin-bottom: 3px;
+        }
+        .change-card.blue h5 { color: #0369a1; }
+        .change-card.rose h5 { color: #be123c; }
+        .change-card p {
+            font-size: 12px;
+            color: #334155;
+            line-height: 1.45;
+        }
+
+        /* Safety Banner */
+        .safety-banner {
+            background: #fffbeb;
+            border: 2px solid #f59e0b;
+            border-radius: 8px;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .safety-icon {
+            font-size: 24px;
+        }
+        .safety-text {
+            font-size: 12px;
+            color: #1e293b;
+            line-height: 1.45;
+        }
+        .safety-text strong {
+            color: #be123c;
+        }
+    </style>
+</head>
+<body>
+
+<div class="canvas">
+    <!-- Tiêu đề -->
+    <div class="header-banner">
+        <h1>QUY TRÌNH BÁN HÀNG &amp; QUẢN LÝ KHO TẠI CỬA HÀNG (SHOWROOM)</h1>
+        <p>Sơ đồ tóm tắt quy trình vận hành thực tế - Dành riêng cho Chủ cửa hàng theo dõi &amp; đánh giá</p>
+    </div>
+
+    <!-- Hàng 1: Bước 1 - Lên đơn bán hàng -->
+    <div class="inputs-row">
+        <!-- Khối 1: Người lập & Khách hàng -->
+        <div class="input-card">
+            <h3>👤 1. NGƯỜI LẬP &amp; KHÁCH HÀNG</h3>
+            <ul>
+                <li>• <strong>Thu ngân / Bán hàng:</strong> Nhân viên phụ trách đăng nhập để lên đơn.</li>
+                <li>• <strong>Khách quen / Thợ điện nước / Nhà thầu:</strong> Tìm kiếm nhanh bằng Số điện thoại để lưu lịch sử mua hàng, áp dụng giá quen &amp; theo dõi sổ nợ.</li>
+                <li>• <strong>Khách mua lẻ vãng lai:</strong> Tự động xếp vào nhóm <em>Khách lẻ tại quầy</em>, lên đơn bán ngay, không cần hỏi thông tin rườm rà.</li>
+            </ul>
+        </div>
+
+        <!-- Khối 2: Hàng lẻ & Combo -->
+        <div class="input-card">
+            <h3>📦 2. CHỌN HÀNG LẺ HOẶC BỘ COMBO</h3>
+            <ul>
+                <li>• <strong>Mặt hàng bán lẻ:</strong> Bồn cầu, chậu rửa, sen vòi, bình nước nóng, ống nước... theo bảng giá niêm yết.</li>
+                <li>• <strong>Gói Combo trọn gói:</strong> Bộ thiết bị vệ sinh phòng tắm, Combo máy lọc nước gia đình...</li>
+                <li>• <strong>Tự động kiểm tra kho:</strong> Tự bóc tách từng phụ kiện nhỏ trong Combo; kiểm tra kho còn đủ hàng mới cho phép nhân viên bán.</li>
+            </ul>
+        </div>
+
+        <!-- Khối 3: Giảm giá & Bớt tiền -->
+        <div class="input-card">
+            <h3>🏷️ 3. CHÍNH SÁCH GIẢM GIÁ &amp; BỚT TIỀN</h3>
+            <ul>
+                <li>• <strong>Chương trình khuyến mãi:</strong> Áp dụng các đợt giảm giá ưu đãi hiện có của cửa hàng.</li>
+                <li>• <strong>Bớt tiền trực tiếp:</strong> Giảm giá linh hoạt trên từng món hàng hoặc giảm trực tiếp một khoản tiền trên tổng đơn cho khách.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Hàng 2: Khối quyết định cách nhận hàng -->
+    <div class="decision-row">
+        <div class="decision-box">
+            KHÁCH CHỌN CÁCH NHẬN HÀNG NÀO?
+            <span>(Quyết định việc trừ kho hay giữ chỗ, và cách thu tiền của cửa hàng)</span>
+        </div>
+    </div>
+
+    <!-- Hàng 3: Hai nhánh nhận hàng -->
+    <div class="branches-container">
+        <!-- Nhánh 1: Khách lấy hàng ngay -->
+        <div class="branch-col">
+            <div class="branch-header green">
+                NHÁNH 1: KHÁCH LẤY HÀNG MANG VỀ NGAY TẠI QUẦY
+            </div>
+
+            <!-- Kho & Đơn hàng -->
+            <div class="branch-card green">
+                <h4>📦 KHO HÀNG: TRỪ KHO THỰC TẾ NGAY LẬP TỨC</h4>
+                <p>
+                    • <strong>Trừ kho thực tế:</strong> Giảm trực tiếp số lượng hàng có trong kho của Showroom ngay khi trao hàng cho khách.<br>
+                    • <strong>Ghi sổ xuất kho:</strong> Tự động ghi nhật ký <em>"Xuất bán lẻ mang về ngay"</em>.<br>
+                    • <strong>Đơn hàng:</strong> Ghi nhận đơn hàng ở trạng thái <strong style="color:#047857;">ĐÃ HOÀN THÀNH XONG</strong>.
+                </p>
+            </div>
+
+            <!-- Hóa đơn & Thu tiền -->
+            <div class="branch-card purple">
+                <h4>🧾 PHÁT HÀNH HÓA ĐƠN BÁN LẺ &amp; THU ĐỦ 100% TIỀN HÀNG</h4>
+                <p>
+                    • <strong>Tự động phát hành Hóa đơn bán lẻ:</strong> Khóa cố định giá bán và tiền giảm giá ngay tại thời điểm xuất đơn để làm căn cứ minh bạch với khách.<br>
+                    • <strong>Thu đủ 100% tiền hàng:</strong> Nhận tiền qua <strong>Tiền mặt</strong>, <strong>Chuyển khoản QR ngân hàng</strong> hoặc <strong>Quẹt thẻ POS</strong>.<br>
+                    • <strong>Sổ quỹ &amp; Hóa đơn:</strong> Đánh dấu <strong style="color:#059669;">ĐÃ THANH TOÁN ĐỦ</strong> gắn liền với mã hóa đơn.
+                </p>
+            </div>
+
+            <div class="branch-footer green">
+                <h5>✅ KẾT THÚC: GIAO DỊCH HOÀN TẤT TRỌN VẸN</h5>
+                <p>
+                    • Tự động ghi chép lịch sử giao dịch vào sổ theo dõi của cửa hàng.<br>
+                    • In Hóa đơn bán lẻ giao cho khách cầm về cùng sản phẩm. Kết thúc bán hàng thành công.
+                </p>
+            </div>
+        </div>
+
+        <!-- Nhánh 2: Giao hàng tận nơi -->
+        <div class="branch-col">
+            <div class="branch-header amber">
+                NHÁNH 2: CỬA HÀNG GIAO TẬN NƠI / CÔNG TRÌNH THEO HẸN
+            </div>
+
+            <!-- Kho & Đơn hàng -->
+            <div class="branch-card amber">
+                <h4>🔒 KHO HÀNG: KHÓA SỐ LƯỢNG GIỮ CHỖ AN TOÀN TRONG KHO</h4>
+                <p>
+                    • <strong>Khóa giữ chỗ:</strong> Hàng vẫn nằm ở kho Showroom nhưng đã dành riêng cho đơn này; nhân viên khác không thể bán đè cho ai khác, tránh bị hụt hàng khi đi giao.<br>
+                    • <strong>Ghi sổ giữ chỗ:</strong> Tự động ghi nhật ký <em>"Đặt giữ hàng chờ giao xe"</em>.<br>
+                    • <strong>Đơn hàng:</strong> Trạng thái <strong style="color:#b45309;">ĐANG XỬ LÝ - CHỜ GIAO XE</strong>, lưu Địa chỉ giao &amp; Ngày hẹn.
+                </p>
+            </div>
+
+            <!-- Hóa đơn & Thu tiền -->
+            <div class="branch-card purple">
+                <h4>🧾 PHÁT HÀNH HÓA ĐƠN &amp; THU TIỀN CỌC / GHI SỔ NỢ</h4>
+                <p>
+                    • <strong>Tự động phát hành Hóa đơn bán lẻ:</strong> Làm chứng từ pháp lý giao nhận hàng hóa &amp; đối soát số tiền còn thiếu.<br>
+                    • <strong>Thu tiền cọc:</strong> Nhận cọc (30% - 50%), theo dõi số tiền còn nợ để tài xế thu nốt khi giao.<br>
+                    • <strong>Bán cho nợ (Thầu/Thợ quen):</strong> Ghi nợ 30 ngày. 🛡️ <em style="color:#dc2626;">Tự động chặn nếu khách đang có nợ cũ quá hạn trên 60 ngày chưa trả (bảo vệ tiền cho cửa hàng).</em>
+                </p>
+            </div>
+
+            <div class="branch-footer amber">
+                <h5>🚚 TRẠNG THÁI: CHUYỂN KHO BỐC XẾP LÊN XE THEO LỊCH HẸN</h5>
+                <p>
+                    • Tự động ghi chép lịch sử giao dịch vào sổ theo dõi của cửa hàng.<br>
+                    • Chuyển phiếu lệnh xuất kho cho thủ kho bốc hàng lên xe ba gác / xe tải theo đúng lịch hẹn.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hàng 4: Xử lý phát sinh trước khi xuất kho giao xe -->
+    <div class="changes-section">
+        <div class="changes-title">
+            ⚙️ XỬ LÝ 2 TÌNH HUỐNG PHÁT SINH KHI ĐƠN HÀNG ĐANG CHỜ GIAO XE
+        </div>
+        <div class="changes-row">
+            <div class="change-card blue">
+                <h5>Tình huống 1: Khách đổi địa chỉ hoặc hẹn lại giờ giao</h5>
+                <p>
+                    • Nhân viên vào đơn hàng đang chờ giao để sửa lại địa chỉ công trình hoặc ghi chú giờ giao mới.<br>
+                    • Đảm bảo tài xế nhận thông tin chính xác, giao đúng nhà, đúng giờ, không lạc đường.
+                </p>
+            </div>
+            <div class="change-card rose">
+                <h5>Tình huống 2: Khách đổi ý không mua nữa (Hủy đơn)</h5>
+                <p>
+                    • <strong>Bắt buộc ghi rõ lý do hủy:</strong> Nhân viên phải nhập rõ nguyên nhân hủy để chủ cửa hàng nắm bắt.<br>
+                    • <strong>Hóa đơn &amp; Đơn hàng:</strong> Chuyển sang trạng thái <strong style="color:#be123c;">ĐÃ HỦY</strong>.<br>
+                    • 🎯 <strong>TỰ ĐỘNG NHẢ HÀNG GIỮ CHỖ VỀ KHO NGAY LẬP TỨC:</strong> Trả lại toàn bộ hàng giữ chỗ về kho tự do để bán ngay cho khách khác, không lo bị om hàng hay quên nhả kho.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hàng 5: Banner quy tắc an toàn chống gian lận -->
+    <div class="safety-banner">
+        <div class="safety-icon">🛡️</div>
+        <div class="safety-text">
+            <strong>QUY TẮC AN TOÀN CHO CỬA HÀNG (CHẶN THẤT THOÁT &amp; GIAN LẬN TIỀN/HÀNG):</strong> Khi đơn hàng đã ở trạng thái <strong>ĐÃ HOÀN THÀNH XONG</strong> (khách đã chở hàng về) hoặc hàng hóa đã bốc lên xe xuất kho đi giao, hệ thống <strong>KHÓA CHẶT TUYỆT ĐỐI</strong>. Không một nhân viên nào được phép tự ý sửa tiền hàng, sửa số lượng hay tự ý hủy đơn nhằm bảo vệ tuyệt đối an toàn kho bãi và doanh thu của Showroom.
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

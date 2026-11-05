@@ -1,9 +1,8 @@
 package com.aquasuite.ims.module.crm.internal.config;
 
 import com.aquasuite.ims.module.crm.internal.entity.Customer;
-import com.aquasuite.ims.module.crm.internal.entity.CustomerAddress;
+import com.aquasuite.ims.module.crm.internal.entity.DeliveryAddressItem;
 import com.aquasuite.ims.module.crm.internal.enums.CustomerType;
-import com.aquasuite.ims.module.crm.internal.repository.CustomerAddressRepository;
 import com.aquasuite.ims.module.crm.internal.repository.CustomerRepository;
 import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.iam.api.dto.UserSummaryDto;
@@ -13,6 +12,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 import org.springframework.core.annotation.Order;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -23,7 +23,6 @@ import java.util.UUID;
 public class CrmDataInitializer implements CommandLineRunner {
 
     private final CustomerRepository customerRepository;
-    private final CustomerAddressRepository customerAddressRepository;
     private final IamApi iamApi;
 
     @Override
@@ -59,10 +58,11 @@ public class CrmDataInitializer implements CommandLineRunner {
             return saved;
         });
 
-        if (customerAddressRepository.countByCustomerIdAndIsDeletedFalse(customer.getCustomerId()) == 0) {
-            CustomerAddress defaultAddress = CustomerAddress.builder()
+        long activeCount = customer.getDeliveryAddresses().stream().filter(a -> !a.isDeleted()).count();
+        if (activeCount == 0) {
+            Instant now = Instant.now();
+            DeliveryAddressItem defaultAddress = DeliveryAddressItem.builder()
                     .addressId(UUID.randomUUID())
-                    .customerId(customer.getCustomerId())
                     .recipientName("Nguyễn Văn A")
                     .phone("0987654321")
                     .province("Hà Nội")
@@ -73,9 +73,12 @@ public class CrmDataInitializer implements CommandLineRunner {
                     .label("Home")
                     .isDefault(true)
                     .isDeleted(false)
+                    .createdAt(now)
+                    .updatedAt(now)
                     .build();
-            customerAddressRepository.save(defaultAddress);
-            log.info("Initialized default delivery address for customerId={}", customer.getCustomerId());
+            customer.getDeliveryAddresses().add(defaultAddress);
+            customerRepository.save(customer);
+            log.info("Initialized default delivery address in JSONB for customerId={}", customer.getCustomerId());
         }
     }
 }

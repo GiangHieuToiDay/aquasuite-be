@@ -5,8 +5,7 @@ import com.aquasuite.ims.module.crm.api.dto.CustomerAddressDto;
 import com.aquasuite.ims.module.crm.api.dto.CustomerDebtProfileDto;
 import com.aquasuite.ims.module.crm.api.dto.CustomerSummaryDto;
 import com.aquasuite.ims.module.crm.internal.entity.Customer;
-import com.aquasuite.ims.module.crm.internal.entity.CustomerAddress;
-import com.aquasuite.ims.module.crm.internal.repository.CustomerAddressRepository;
+import com.aquasuite.ims.module.crm.internal.entity.DeliveryAddressItem;
 import com.aquasuite.ims.module.crm.internal.repository.CustomerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -14,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -23,7 +23,6 @@ import java.util.UUID;
 public class CrmApiImpl implements CrmApi {
 
     private final CustomerRepository customerRepository;
-    private final CustomerAddressRepository customerAddressRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -69,11 +68,15 @@ public class CrmApiImpl implements CrmApi {
         if (customerId == null) {
             return Collections.emptyList();
         }
-        return customerAddressRepository
-                .findByCustomerIdAndIsDeletedFalseOrderByIsDefaultDescUpdatedAtDesc(customerId)
-                .stream()
-                .map(this::toAddressDto)
-                .toList();
+        return customerRepository.findById(customerId)
+                .map(customer -> customer.getDeliveryAddresses().stream()
+                        .filter(a -> !a.isDeleted())
+                        .sorted(Comparator.comparing(DeliveryAddressItem::isDefault).reversed()
+                                .thenComparing(Comparator.comparing(DeliveryAddressItem::getUpdatedAt,
+                                        Comparator.nullsLast(Comparator.reverseOrder()))))
+                        .map(a -> toAddressDto(a, customer.getCustomerId()))
+                        .toList())
+                .orElse(Collections.emptyList());
     }
 
     @Override
@@ -82,9 +85,29 @@ public class CrmApiImpl implements CrmApi {
         if (customerId == null) {
             return Optional.empty();
         }
-        return customerAddressRepository
-                .findByCustomerIdAndIsDefaultTrueAndIsDeletedFalse(customerId)
-                .map(this::toAddressDto);
+        return customerRepository.findById(customerId)
+                .flatMap(customer -> customer.getDeliveryAddresses().stream()
+                        .filter(a -> !a.isDeleted() && a.isDefault())
+                        .findFirst()
+                        .map(a -> toAddressDto(a, customer.getCustomerId())));
+    }
+
+    @Override
+    @Transactional
+    public CustomerSummaryDto getOrCreateWalkInCustomer() {
+        return customerRepository.findByPhone("0000000000")
+                .map(this::toSummaryDto)
+                .orElseGet(() -> {
+                    Customer walkIn = Customer.builder()
+                            .customerId(UUID.randomUUID())
+                            .customerCode("CUS-WALKIN")
+                            .customerName("Walk-in Retail Customer")
+                            .phone("0000000000")
+                            .customerType(com.aquasuite.ims.module.crm.internal.enums.CustomerType.RETAIL)
+                            .status("ACTIVE")
+                            .build();
+                    return toSummaryDto(customerRepository.save(walkIn));
+                });
     }
 
     @Override
@@ -125,10 +148,10 @@ public class CrmApiImpl implements CrmApi {
                 .build();
     }
 
-    private CustomerAddressDto toAddressDto(CustomerAddress a) {
+    private CustomerAddressDto toAddressDto(DeliveryAddressItem a, UUID customerId) {
         return CustomerAddressDto.builder()
                 .addressId(a.getAddressId())
-                .customerId(a.getCustomerId())
+                .customerId(customerId)
                 .recipientName(a.getRecipientName())
                 .phone(a.getPhone())
                 .province(a.getProvince())
