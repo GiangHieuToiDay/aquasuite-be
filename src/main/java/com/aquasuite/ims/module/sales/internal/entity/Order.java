@@ -96,6 +96,36 @@ public class Order {
     @Column(name = "delivery_address", columnDefinition = "TEXT")
     private String deliveryAddress;
 
+    @Column(name = "quotation_code", length = 100)
+    private String quotationCode;
+
+    @Column(name = "project_name", length = 255)
+    private String projectName;
+
+    @Column(name = "delivery_schedule", columnDefinition = "TEXT")
+    private String deliverySchedule;
+
+    @Column(name = "vat_rate", precision = 5, scale = 2)
+    private BigDecimal vatRate;
+
+    @Column(name = "shipping_fee", precision = 15, scale = 2)
+    private BigDecimal shippingFee;
+
+    @Column(name = "deposit_percent", precision = 5, scale = 2)
+    private BigDecimal depositPercent;
+
+    @Column(name = "deposit_amount", precision = 15, scale = 2)
+    private BigDecimal depositAmount;
+
+    @Column(name = "credit_term_days")
+    private Integer creditTermDays;
+
+    @Column(name = "remaining_debt_amount", precision = 15, scale = 2)
+    private BigDecimal remainingDebtAmount;
+
+    @Column(name = "debt_condition", columnDefinition = "TEXT")
+    private String debtCondition;
+
     @Column(name = "note", columnDefinition = "TEXT")
     private String note;
 

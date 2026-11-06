@@ -19,7 +19,10 @@ public enum SalesErrorCode implements BaseErrorCode {
     ORDER_ITEMS_EMPTY("SALES_010", "Đơn hàng phải chứa ít nhất một sản phẩm hoặc combo", HttpStatus.BAD_REQUEST),
     INVALID_PAYMENT_STATUS("SALES_011", "Trạng thái thanh toán không hợp lệ: {0}", HttpStatus.BAD_REQUEST),
     UNSUPPORTED_PAYMENT_METHOD("SALES_012", "Phương thức thanh toán không được hỗ trợ", HttpStatus.BAD_REQUEST),
-    ACTOR_REQUIRED("SALES_013", "Cần xác định nhân viên tạo đơn", HttpStatus.UNAUTHORIZED);
+    ACTOR_REQUIRED("SALES_013", "Cần xác định nhân viên tạo đơn", HttpStatus.UNAUTHORIZED),
+    ALREADY_CONVERTED_TO_ORDER("SALES_014", "Báo giá {0} đã được chuyển đổi thành đơn hàng: {1}", HttpStatus.CONFLICT),
+    QUOTATION_NOT_ACCEPTED_OR_APPROVED("SALES_015", "Báo giá phải ở trạng thái ĐÃ DUYỆT (APPROVED) hoặc ĐÃ CHỐT (ACCEPTED) mới được tạo đơn hàng, trạng thái hiện tại: {0}", HttpStatus.BAD_REQUEST),
+    QUOTATION_NOT_FOUND("SALES_016", "Không tìm thấy thông tin báo giá: {0}", HttpStatus.NOT_FOUND);
 
     private final String code;
     private final String message;

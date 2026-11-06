@@ -95,6 +95,21 @@ public class Quotation {
     @Column(name = "total_amount", nullable = false, precision = 15, scale = 2)
     private BigDecimal totalAmount = BigDecimal.ZERO;
 
+    @Column(name = "deposit_percent", precision = 5, scale = 2)
+    private BigDecimal depositPercent;
+
+    @Column(name = "deposit_amount", precision = 15, scale = 2)
+    private BigDecimal depositAmount;
+
+    @Column(name = "credit_term_days")
+    private Integer creditTermDays;
+
+    @Column(name = "remaining_debt_amount", precision = 15, scale = 2)
+    private BigDecimal remainingDebtAmount;
+
+    @Column(name = "debt_condition", columnDefinition = "TEXT")
+    private String debtCondition;
+
     @Column(name = "approved_by")
     private UUID approvedBy;
 

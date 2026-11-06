@@ -1,6 +1,7 @@
 package com.aquasuite.ims.module.sales.internal.controller;
 
 import com.aquasuite.ims.module.sales.internal.payload.request.ApproveQuotationRequest;
+import com.aquasuite.ims.module.sales.internal.payload.request.ConvertQuotationToOrderRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.MarkAcceptedRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.MarkLostRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.QuotationFilterRequest;
@@ -9,7 +10,9 @@ import com.aquasuite.ims.module.sales.internal.payload.request.RejectQuotationRe
 import com.aquasuite.ims.module.sales.internal.payload.request.SubmitApprovalRequest;
 import com.aquasuite.ims.module.sales.internal.payload.response.QuotationListItemResponse;
 import com.aquasuite.ims.module.sales.internal.payload.response.QuotationResponse;
+import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderDetailResponse;
 import com.aquasuite.ims.module.sales.internal.service.QuotationService;
+import com.aquasuite.ims.module.sales.internal.service.SalesOrderService;
 import com.aquasuite.ims.share.dto.ApiResponse;
 import com.aquasuite.ims.share.dto.PageResponse;
 import jakarta.validation.Valid;
@@ -39,6 +42,7 @@ import java.util.UUID;
 public class QuotationController {
 
     private final QuotationService quotationService;
+    private final SalesOrderService salesOrderService;
 
     /**
      * 1. Tính nhẩm trước báo giá (Preview calculation - Pure in-memory)
@@ -198,5 +202,18 @@ public class QuotationController {
         log.info("API: List quotations with filters");
         PageResponse<QuotationListItemResponse> response = quotationService.listQuotations(filterRequest);
         return ResponseEntity.ok(ApiResponse.ok(response, "Lấy danh sách báo giá thành công"));
+    }
+
+    /**
+     * 14. Chuyển đổi báo giá đã duyệt/chốt thành đơn hàng công trình (UC-28 / UC-073)
+     */
+    @PostMapping("/{quotationId}/convert-to-order")
+    public ResponseEntity<ApiResponse<SalesOrderDetailResponse>> convertToOrder(
+            @PathVariable UUID quotationId,
+            @RequestBody(required = false) ConvertQuotationToOrderRequest request) {
+        log.info("API: Convert quotation quotationId={} to sales order", quotationId);
+        SalesOrderDetailResponse response = salesOrderService.convertQuotationToOrder(quotationId, request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok(response, "Chuyển báo giá thành đơn hàng công trình thành công!"));
     }
 }

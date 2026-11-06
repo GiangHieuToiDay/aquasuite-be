@@ -1,17 +1,8 @@
-package com.aquasuite.ims.module.inventory.internal.entity;
+package com.aquasuite.ims.module.purchasing.internal.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Index;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.*;
+import lombok.*;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -38,12 +29,19 @@ public class PurchaseOrderItem {
     @Column(name = "purchase_order_item_id", nullable = false, updatable = false)
     private UUID purchaseOrderItemId;
 
-    @Column(name = "purchase_order_id", nullable = false)
-    private UUID purchaseOrderId;
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "purchase_order_id", nullable = false)
+    private PurchaseOrder purchaseOrder;
 
-    /** Tham chiếu Scalar ID sang module catalog (product_variants.variant_id) */
     @Column(name = "variant_id", nullable = false)
     private UUID variantId;
+
+    @Column(name = "sku", length = 100)
+    private String sku;
+
+    @Column(name = "product_name", length = 255)
+    private String productName;
 
     @Column(name = "unit", nullable = false, length = 50)
     private String unit;
@@ -55,11 +53,22 @@ public class PurchaseOrderItem {
     @Builder.Default
     private BigDecimal quantityReceived = BigDecimal.ZERO;
 
-    @Column(name = "unit_cost", nullable = false, precision = 15, scale = 2)
+    @Column(name = "unit_cost", precision = 15, scale = 2)
     private BigDecimal unitCost;
 
-    @Column(name = "line_total", nullable = false, precision = 15, scale = 2)
+    @Column(name = "line_total", precision = 15, scale = 2)
     private BigDecimal lineTotal;
+
+    @Column(name = "sort_order", nullable = false)
+    @Builder.Default
+    private Integer sortOrder = 0;
+
+    @Transient
+    public BigDecimal getRemainingQty() {
+        BigDecimal ordered = this.quantityOrdered != null ? this.quantityOrdered : BigDecimal.ZERO;
+        BigDecimal received = this.quantityReceived != null ? this.quantityReceived : BigDecimal.ZERO;
+        return ordered.subtract(received).max(BigDecimal.ZERO);
+    }
 
     @PrePersist
     public void prePersist() {
@@ -68,6 +77,9 @@ public class PurchaseOrderItem {
         }
         if (this.quantityReceived == null) {
             this.quantityReceived = BigDecimal.ZERO;
+        }
+        if (this.sortOrder == null) {
+            this.sortOrder = 0;
         }
     }
 }

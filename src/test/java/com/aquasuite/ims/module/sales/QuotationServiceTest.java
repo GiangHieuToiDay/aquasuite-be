@@ -23,6 +23,7 @@ import com.aquasuite.ims.module.sales.internal.payload.request.QuotationUpsertRe
 import com.aquasuite.ims.module.sales.internal.payload.request.RejectQuotationRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.SubmitApprovalRequest;
 import com.aquasuite.ims.module.sales.internal.payload.response.QuotationResponse;
+import com.aquasuite.ims.module.sales.internal.repository.OrderRepository;
 import com.aquasuite.ims.module.sales.internal.repository.QuotationItemRepository;
 import com.aquasuite.ims.module.sales.internal.repository.QuotationPaymentMilestoneRepository;
 import com.aquasuite.ims.module.sales.internal.repository.QuotationRepository;
@@ -84,6 +85,9 @@ class QuotationServiceTest {
     @Mock
     private QuotationPaymentMilestoneRepository quotationPaymentMilestoneRepository;
 
+    @Mock
+    private OrderRepository orderRepository;
+
     private QuotationService quotationService;
 
     private final UUID customerId = UUID.randomUUID();
@@ -106,7 +110,8 @@ class QuotationServiceTest {
                 mapper,
                 quotationRepository,
                 quotationItemRepository,
-                quotationPaymentMilestoneRepository
+                quotationPaymentMilestoneRepository,
+                orderRepository
         );
     }
 

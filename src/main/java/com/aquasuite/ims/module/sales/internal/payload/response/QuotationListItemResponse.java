@@ -31,4 +31,8 @@ public class QuotationListItemResponse {
     private BigDecimal totalAmount;
     private String createdByName;
     private Boolean requiresApproval;
+
+    // Linked Order (when converted to order - UC-28 / UC-073)
+    private UUID orderId;
+    private String orderCode;
 }

@@ -11,28 +11,41 @@ import com.aquasuite.ims.module.finance.api.dto.CreditAuthorizationDecision;
 import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.iam.api.dto.UserSummaryDto;
 import com.aquasuite.ims.module.inventory.api.InventoryApi;
+import com.aquasuite.ims.module.inventory.api.dto.StockSummaryDto;
 import com.aquasuite.ims.module.sales.internal.entity.Order;
 import com.aquasuite.ims.module.sales.internal.entity.OrderItem;
+import com.aquasuite.ims.module.sales.internal.entity.OrderPaymentMilestone;
+import com.aquasuite.ims.module.sales.internal.entity.Quotation;
+import com.aquasuite.ims.module.sales.internal.entity.QuotationItem;
+import com.aquasuite.ims.module.sales.internal.entity.QuotationPaymentMilestone;
 import com.aquasuite.ims.module.sales.internal.entity.SalesInvoice;
 import com.aquasuite.ims.module.sales.internal.entity.SalesInvoiceItem;
+import com.aquasuite.ims.module.sales.internal.enums.FulfillmentMethod;
 import com.aquasuite.ims.module.sales.internal.enums.OrderChannel;
 import com.aquasuite.ims.module.sales.internal.enums.OrderStatus;
 import com.aquasuite.ims.module.sales.internal.enums.OrderType;
 import com.aquasuite.ims.module.sales.internal.enums.PaymentMethod;
 import com.aquasuite.ims.module.sales.internal.enums.PaymentStatus;
+import com.aquasuite.ims.module.sales.internal.enums.QuotationStatus;
 import com.aquasuite.ims.module.sales.internal.error.SalesErrorCode;
 import com.aquasuite.ims.module.sales.internal.mapper.SalesOrderMapper;
+import com.aquasuite.ims.module.sales.internal.payload.request.ConvertQuotationToOrderRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.CreateComboItemRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.CreateOrderItemRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.CreateSalesOrderRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.SalesOrderFilterRequest;
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderDetailResponse;
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderItemResponse;
+import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderMilestoneResponse;
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderSummaryResponse;
 import com.aquasuite.ims.module.sales.internal.repository.OrderItemRepository;
+import com.aquasuite.ims.module.sales.internal.repository.OrderPaymentMilestoneRepository;
 import com.aquasuite.ims.module.sales.internal.repository.OrderRepository;
-import com.aquasuite.ims.module.sales.internal.repository.SalesInvoiceRepository;
+import com.aquasuite.ims.module.sales.internal.repository.QuotationItemRepository;
+import com.aquasuite.ims.module.sales.internal.repository.QuotationPaymentMilestoneRepository;
+import com.aquasuite.ims.module.sales.internal.repository.QuotationRepository;
 import com.aquasuite.ims.module.sales.internal.repository.SalesInvoiceItemRepository;
+import com.aquasuite.ims.module.sales.internal.repository.SalesInvoiceRepository;
 import com.aquasuite.ims.module.sales.internal.service.SalesOrderService;
 import com.aquasuite.ims.module.sales.internal.service.helper.OrderCodeGenerator;
 import com.aquasuite.ims.share.exception.AppException;
@@ -46,12 +59,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /** Tạo đơn tại quầy và cung cấp danh sách, chi tiết đơn hàng bán. */
@@ -71,13 +86,19 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     private final IamApi iamApi;
     private final SalesOrderMapper salesOrderMapper;
     private final OrderCodeGenerator orderCodeGenerator;
+    private final QuotationRepository quotationRepository;
+    private final QuotationItemRepository quotationItemRepository;
+    private final QuotationPaymentMilestoneRepository quotationPaymentMilestoneRepository;
+    private final OrderPaymentMilestoneRepository orderPaymentMilestoneRepository;
 
     /**
      * Tạo đơn tại quầy: kiểm tra khách, tính tổng, kiểm tra mua nợ nếu cần,
      * giữ tồn kho và lưu đơn cùng hóa đơn cửa hàng trong một transaction.
+     * 
      * @param request khách hàng, hàng hóa và thông tin đơn cần tạo
      * @return chi tiết đơn và mã hóa đơn cửa hàng
-     * @throws AppException nếu dữ liệu, khách, hàng hóa hoặc điều kiện mua nợ không hợp lệ
+     * @throws AppException nếu dữ liệu, khách, hàng hóa hoặc điều kiện mua nợ không
+     *                      hợp lệ
      */
     @Override
     @Transactional
@@ -126,12 +147,15 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 // Kiểm tra tồn kho khả dụng (available_qty = on_hand_qty - reserved_qty)
                 boolean isStockAvailable = inventoryApi.checkAvailability(skuDto.variantId(), itemReq.getQuantity());
                 if (!isStockAvailable) {
-                    log.warn("Insufficient stock for variant SKU={}, requiredQty={}", skuDto.sku(), itemReq.getQuantity());
-                    throw new AppException(SalesErrorCode.INSUFFICIENT_STOCK, skuDto.sku() + " (" + skuDto.variantName() + ")");
+                    log.warn("Insufficient stock for variant SKU={}, requiredQty={}", skuDto.sku(),
+                            itemReq.getQuantity());
+                    throw new AppException(SalesErrorCode.INSUFFICIENT_STOCK,
+                            skuDto.sku() + " (" + skuDto.variantName() + ")");
                 }
 
                 BigDecimal unitPrice = skuDto.sellingPrice() != null ? skuDto.sellingPrice() : BigDecimal.ZERO;
-                BigDecimal itemDiscount = itemReq.getDiscountAmount() != null ? itemReq.getDiscountAmount() : BigDecimal.ZERO;
+                BigDecimal itemDiscount = itemReq.getDiscountAmount() != null ? itemReq.getDiscountAmount()
+                        : BigDecimal.ZERO;
                 BigDecimal lineTotal = unitPrice.multiply(itemReq.getQuantity()).subtract(itemDiscount);
                 if (lineTotal.compareTo(BigDecimal.ZERO) < 0) {
                     lineTotal = BigDecimal.ZERO;
@@ -169,7 +193,8 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                         BigDecimal requiredQty = BigDecimal.valueOf((long) comp.quantity() * comboQty);
                         boolean isCompAvailable = inventoryApi.checkAvailability(comp.variantId(), requiredQty);
                         if (!isCompAvailable) {
-                            log.warn("Insufficient stock for combo component SKU={}, combo={}", comp.sku(), bundleDto.bundleName());
+                            log.warn("Insufficient stock for combo component SKU={}, combo={}", comp.sku(),
+                                    bundleDto.bundleName());
                             throw new AppException(SalesErrorCode.INSUFFICIENT_STOCK,
                                     comp.sku() + " (thuộc combo " + bundleDto.bundleName() + ")");
                         }
@@ -209,7 +234,8 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             finalTotal = BigDecimal.ZERO;
         }
         OrderChannel channel = request.getOrderChannel() == null || request.getOrderChannel() == OrderChannel.POS
-                ? OrderChannel.COUNTER : request.getOrderChannel();
+                ? OrderChannel.COUNTER
+                : request.getOrderChannel();
 
         // 8. Kiểm tra hạn mức mua nợ (đồng bộ trong cùng transaction tạo đơn)
         if (request.getPaymentMethod() == PaymentMethod.CREDIT) {
@@ -223,8 +249,6 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         }
 
         // 9. Khởi tạo trạng thái đơn hàng và trạng thái thanh toán ban đầu
-        // Theo chuẩn UC-21 & UC-23: UC-21 chỉ tạo đơn với payment_status = UNPAID và order_status = PROCESSING.
-        // Việc thu tiền và xác minh thanh toán do UC-23 xử lý.
         OrderStatus resolvedOrderStatus = OrderStatus.PROCESSING;
         PaymentStatus resolvedPaymentStatus = PaymentStatus.UNPAID;
         LocalDate dueDate = null; // Hạn nợ theo đợt được tính khi có hóa đơn điện tử tương ứng.
@@ -297,15 +321,282 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 itemResponses,
                 customer.customerName(),
                 customer.phone(),
-                staffName
-        );
+                staffName);
         response.setStoreInvoiceId(storeInvoiceId);
+        return response;
+    }
+
+    @Override
+    @Transactional
+    public SalesOrderDetailResponse convertQuotationToOrder(UUID quotationId, ConvertQuotationToOrderRequest request) {
+        log.info("Processing quotation conversion to project sales order (UC-28 / UC-073) for quotationId={}",
+                quotationId);
+
+        if (quotationId == null) {
+            throw new AppException(SalesErrorCode.QUOTATION_NOT_FOUND, "null");
+        }
+
+        // 1. Kiểm tra tồn tại của báo giá
+        Quotation quotation = quotationRepository.findById(quotationId)
+                .orElseThrow(() -> new AppException(SalesErrorCode.QUOTATION_NOT_FOUND, quotationId));
+
+        // 2. Kiểm tra trạng thái báo giá: Bắt buộc là ACCEPTED hoặc APPROVED
+        if (quotation.getStatus() != QuotationStatus.ACCEPTED && quotation.getStatus() != QuotationStatus.APPROVED) {
+            log.warn("Quotation {} has status {}, cannot convert to order", quotation.getQuotationCode(),
+                    quotation.getStatus());
+            throw new AppException(SalesErrorCode.QUOTATION_NOT_ACCEPTED_OR_APPROVED, quotation.getStatus());
+        }
+
+        // 3. Kiểm tra xem báo giá đã được chuyển đổi thành đơn hàng trước đó chưa
+        Optional<Order> existingOrder = orderRepository.findByQuotationId(quotationId);
+        if (existingOrder.isPresent()) {
+            log.warn("Quotation {} has already been converted to order {}", quotation.getQuotationCode(),
+                    existingOrder.get().getOrderCode());
+            throw new AppException(SalesErrorCode.ALREADY_CONVERTED_TO_ORDER, quotation.getQuotationCode(),
+                    existingOrder.get().getOrderCode());
+        }
+
+        // 4. Lấy danh sách sản phẩm trong báo giá
+        List<QuotationItem> quotationItems = quotationItemRepository.findByQuotationIdOrderBySortOrderAsc(quotationId);
+        if (quotationItems == null || quotationItems.isEmpty()) {
+            throw new AppException(SalesErrorCode.ORDER_ITEMS_EMPTY);
+        }
+
+        // 5. Định danh khách hàng
+        CustomerSummaryDto customer = crmApi.getCustomerById(quotation.getCustomerId())
+                .orElse(null);
+        String customerName = customer != null ? customer.customerName() : "Khách hàng dự án";
+        String customerPhone = customer != null ? customer.phone() : null;
+
+        // 6. Nhân viên bán hàng phụ trách (ưu tiên user hiện tại, nếu không lấy người
+        // tạo báo giá)
+        UUID currentStaffId = resolveCurrentStaffId();
+        if (currentStaffId == null) {
+            currentStaffId = quotation.getCreatedBy();
+        }
+
+        // 7. Tạo mã và chuẩn bị các dòng đơn hàng từ quotation items
+        UUID orderId = UUID.randomUUID();
+        String orderCode = orderCodeGenerator.generateOrderCode();
+        List<OrderItem> orderItemsToSave = new ArrayList<>();
+        BigDecimal calculatedSubtotal = BigDecimal.ZERO;
+        BigDecimal totalDiscount = BigDecimal.ZERO;
+
+        for (QuotationItem qItem : quotationItems) {
+            CatalogSkuSummaryDto skuDto = catalogApi.getSkuSummary(qItem.getVariantId())
+                    .orElseThrow(() -> new AppException(SalesErrorCode.SKU_NOT_FOUND, qItem.getVariantId()));
+
+            if ("INACTIVE".equalsIgnoreCase(skuDto.status())) {
+                throw new AppException(SalesErrorCode.SKU_NOT_ACTIVE, skuDto.sku());
+            }
+
+            BigDecimal qty = qItem.getQuantity() != null ? qItem.getQuantity() : BigDecimal.ONE;
+            BigDecimal unitPrice = qItem.getUnitPrice() != null ? qItem.getUnitPrice() : BigDecimal.ZERO;
+            BigDecimal grossLine = qty.multiply(unitPrice).setScale(2, RoundingMode.HALF_UP);
+
+            BigDecimal lineDiscount = BigDecimal.ZERO;
+            if (qItem.getDiscountRate() != null && qItem.getDiscountRate().compareTo(BigDecimal.ZERO) > 0) {
+                lineDiscount = grossLine.multiply(qItem.getDiscountRate())
+                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            }
+
+            BigDecimal lineTotal = grossLine.subtract(lineDiscount);
+            if (lineTotal.compareTo(BigDecimal.ZERO) < 0) {
+                lineTotal = BigDecimal.ZERO;
+            }
+
+            OrderItem orderItem = OrderItem.builder()
+                    .orderItemId(UUID.randomUUID())
+                    .orderId(orderId)
+                    .variantId(skuDto.variantId())
+                    .sku(skuDto.sku())
+                    .productName(skuDto.productName() != null ? skuDto.productName() : skuDto.variantName())
+                    .variantName(skuDto.variantName())
+                    .quantity(qty)
+                    .unitPrice(unitPrice)
+                    .discountAmount(lineDiscount)
+                    .lineTotal(lineTotal)
+                    .build();
+
+            orderItemsToSave.add(orderItem);
+            calculatedSubtotal = calculatedSubtotal.add(grossLine);
+            totalDiscount = totalDiscount.add(lineDiscount);
+
+            // Giữ chỗ tồn kho khả dụng nếu kho đang có sẵn hàng (UC-086)
+            try {
+                Optional<StockSummaryDto> stockOpt = inventoryApi.getStockSummary(skuDto.variantId());
+                if (stockOpt.isPresent() && stockOpt.get().availableQty() != null) {
+                    BigDecimal avail = stockOpt.get().availableQty();
+                    if (avail.compareTo(BigDecimal.ZERO) > 0) {
+                        BigDecimal toReserve = qty.min(avail);
+                        inventoryApi.reserveStock(skuDto.variantId(), toReserve);
+                        log.info("Reserved stock {}/{} for variant SKU {} on project order {}",
+                                toReserve, qty, skuDto.sku(), orderCode);
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("Stock reservation skipped for variant {}: {}", skuDto.variantId(), ex.getMessage());
+            }
+        }
+
+        // 8. Tính tổng tiền đơn hàng
+        // Kế thừa tổng tiền báo giá (đã gồm VAT/phí vận chuyển nếu có), hoặc tính từ
+        // subtotal - discount
+        BigDecimal finalTotal = quotation.getTotalAmount() != null
+                && quotation.getTotalAmount().compareTo(BigDecimal.ZERO) > 0
+                        ? quotation.getTotalAmount()
+                        : calculatedSubtotal.subtract(totalDiscount);
+        if (finalTotal.compareTo(BigDecimal.ZERO) < 0) {
+            finalTotal = BigDecimal.ZERO;
+        }
+
+        // 9. Chuẩn bị địa chỉ, hạn thanh toán và ghi chú
+        String deliveryAddress = (request != null && request.getDeliveryAddress() != null
+                && !request.getDeliveryAddress().isBlank())
+                        ? request.getDeliveryAddress().trim()
+                        : quotation.getDeliveryAddress();
+
+        String userNote = (request != null && request.getNote() != null && !request.getNote().isBlank())
+                ? request.getNote().trim()
+                : quotation.getNote();
+
+        String combinedNote = String.format("[Báo giá: %s (rev.%d)%s]",
+                quotation.getQuotationCode(),
+                quotation.getRevisionNo(),
+                quotation.getProjectName() != null && !quotation.getProjectName().isBlank()
+                        ? " - " + quotation.getProjectName()
+                        : "");
+
+        if (quotation.getDepositPercent() != null && quotation.getDepositPercent().compareTo(BigDecimal.ZERO) > 0) {
+            combinedNote += String.format(" [Cọc: %s%%]",
+                    quotation.getDepositPercent().stripTrailingZeros().toPlainString());
+        }
+        if (quotation.getCreditTermDays() != null && quotation.getCreditTermDays() > 0) {
+            combinedNote += String.format(" [Công nợ: %d ngày]", quotation.getCreditTermDays());
+        }
+
+        if (userNote != null && !userNote.isBlank()) {
+            combinedNote += " " + userNote;
+        }
+
+        LocalDate dueDate = (request != null && request.getDueDate() != null)
+                ? request.getDueDate()
+                : (quotation.getCreditTermDays() != null && quotation.getCreditTermDays() > 0
+                        ? LocalDate.now().plusDays(quotation.getCreditTermDays())
+                        : (quotation.getValidUntil() != null ? quotation.getValidUntil()
+                                : LocalDate.now().plusDays(30)));
+
+        OffsetDateTime now = OffsetDateTime.now();
+
+        BigDecimal depositPercent = quotation.getDepositPercent();
+        BigDecimal depositAmount = quotation.getDepositAmount();
+        if (depositAmount == null && depositPercent != null && depositPercent.compareTo(BigDecimal.ZERO) > 0) {
+            depositAmount = finalTotal.multiply(depositPercent)
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        }
+
+        BigDecimal remainingDebtAmount = quotation.getRemainingDebtAmount();
+        if (remainingDebtAmount == null && depositAmount != null) {
+            remainingDebtAmount = finalTotal.subtract(depositAmount).max(BigDecimal.ZERO);
+        }
+
+        // 10. Khởi tạo và lưu Order kèm toàn bộ thông tin snapshot từ Báo giá
+        Order order = Order.builder()
+                .orderId(orderId)
+                .orderCode(orderCode)
+                .customerId(quotation.getCustomerId())
+                .quotationId(quotationId)
+                .quotationCode(quotation.getQuotationCode())
+                .projectName(quotation.getProjectName())
+                .deliverySchedule(quotation.getDeliverySchedule())
+                .vatRate(quotation.getVatRate())
+                .shippingFee(quotation.getShippingFee())
+                .depositPercent(depositPercent)
+                .depositAmount(depositAmount)
+                .creditTermDays(quotation.getCreditTermDays())
+                .remainingDebtAmount(remainingDebtAmount)
+                .debtCondition(quotation.getDebtCondition())
+                .salesStaffId(currentStaffId)
+                .orderType(OrderType.PROJECT.name())
+                .orderChannel(OrderChannel.DIRECT_SALES.name())
+                .orderStatus(OrderStatus.PROCESSING.name())
+                .paymentStatus(PaymentStatus.UNPAID.name())
+                .orderDate(now)
+                .dueDate(dueDate)
+                .subtotal(calculatedSubtotal)
+                .discountAmount(totalDiscount)
+                .totalAmount(finalTotal)
+                .deliveryAddress(deliveryAddress)
+                .note(combinedNote)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+
+        Order savedOrder = orderRepository.save(order);
+        List<OrderItem> savedItems = orderItemRepository.saveAll(orderItemsToSave);
+
+        // 10.1. Snapshot các đợt thanh toán (milestones) từ Báo giá sang Đơn hàng
+        List<QuotationPaymentMilestone> quotationMilestones = quotationPaymentMilestoneRepository != null
+                ? quotationPaymentMilestoneRepository.findByQuotationIdOrderBySortOrderAsc(quotationId)
+                : List.of();
+        List<OrderPaymentMilestone> savedMilestones = new ArrayList<>();
+        if (quotationMilestones != null && !quotationMilestones.isEmpty()) {
+            List<OrderPaymentMilestone> milestonesToSave = new ArrayList<>();
+            int idx = 1;
+            for (QuotationPaymentMilestone qm : quotationMilestones) {
+                BigDecimal pct = qm.getPercent() != null ? qm.getPercent() : BigDecimal.ZERO;
+                BigDecimal milestoneAmount = finalTotal.multiply(pct)
+                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                milestonesToSave.add(OrderPaymentMilestone.builder()
+                        .milestoneId(UUID.randomUUID())
+                        .orderId(orderId)
+                        .stageName(qm.getStageName())
+                        .percent(pct)
+                        .amount(milestoneAmount)
+                        .sortOrder(qm.getSortOrder() != null ? qm.getSortOrder() : idx)
+                        .build());
+                idx++;
+            }
+            if (orderPaymentMilestoneRepository != null) {
+                savedMilestones = orderPaymentMilestoneRepository.saveAll(milestonesToSave);
+                if (savedMilestones == null) {
+                    savedMilestones = milestonesToSave;
+                }
+            } else {
+                savedMilestones = milestonesToSave;
+            }
+        }
+
+        // 11. Cập nhật báo giá sang ACCEPTED nếu trước đó đang là APPROVED
+        if (quotation.getStatus() == QuotationStatus.APPROVED) {
+            quotation.setStatus(QuotationStatus.ACCEPTED);
+            if (quotation.getAcceptedAt() == null) {
+                quotation.setAcceptedAt(now);
+            }
+            quotationRepository.save(quotation);
+        }
+
+        log.info("Quotation {} converted to Project Order {} successfully (UC-28 / UC-073): totalAmount={}",
+                quotation.getQuotationCode(), orderCode, finalTotal);
+
+        List<SalesOrderItemResponse> itemResponses = salesOrderMapper.toItemResponseList(savedItems);
+        List<SalesOrderMilestoneResponse> milestoneResponses = salesOrderMapper.toMilestoneResponseList(savedMilestones);
+        String staffName = getStaffName(currentStaffId);
+
+        SalesOrderDetailResponse response = salesOrderMapper.toDetailResponse(
+                savedOrder,
+                itemResponses,
+                customerName,
+                customerPhone,
+                staffName);
+        response.setMilestones(milestoneResponses != null ? milestoneResponses : new ArrayList<>());
         return response;
     }
 
     /**
      * Lấy danh sách đơn theo bộ lọc và thông tin phân trang.
-     * @param filter điều kiện lọc đơn
+     * 
+     * @param filter   điều kiện lọc đơn
      * @param pageable trang và số lượng kết quả
      * @return trang tóm tắt đơn hàng
      */
@@ -336,13 +627,13 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                     itemCount,
                     customerName,
                     customerPhone,
-                    staffName
-            );
+                    staffName);
         });
     }
 
     /**
      * Lấy thông tin đơn, mặt hàng và hóa đơn cửa hàng nếu có.
+     * 
      * @param orderId mã đơn cần xem
      * @return chi tiết đơn hàng
      * @throws AppException nếu không tìm thấy đơn
@@ -375,23 +666,31 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 itemResponses,
                 customerName,
                 customerPhone,
-                staffName
-        );
+                staffName);
+        if (orderPaymentMilestoneRepository != null) {
+            List<OrderPaymentMilestone> milestones = orderPaymentMilestoneRepository.findByOrderIdOrderBySortOrderAsc(orderId);
+            List<SalesOrderMilestoneResponse> milestoneResponses = salesOrderMapper.toMilestoneResponseList(milestones);
+            response.setMilestones(milestoneResponses != null ? milestoneResponses : new ArrayList<>());
+        }
         salesInvoiceRepository.findByOrderIdAndInvoiceType(orderId, "STORE")
                 .ifPresent(invoice -> response.setStoreInvoiceId(invoice.getInvoiceId()));
         return response;
     }
 
-    /** Xác định khách theo mã, số điện thoại hoặc khách vãng lai từ yêu cầu tạo đơn. */
+    // =========================================================================
+    // PRIVATE HELPER METHODS
+    // =========================================================================
     private CustomerSummaryDto resolveCustomer(CreateSalesOrderRequest request) {
         if (request.getCustomerId() != null) {
             return crmApi.getCustomerById(request.getCustomerId())
                     .orElseThrow(() -> new AppException(SalesErrorCode.CUSTOMER_NOT_FOUND));
         }
+
         if (request.getCustomerPhone() != null && !request.getCustomerPhone().isBlank()) {
             return crmApi.getCustomerByPhone(request.getCustomerPhone().trim())
-                    .orElseGet(crmApi::getOrCreateWalkInCustomer);
+                    .orElseGet(() -> crmApi.getOrCreateWalkInCustomer());
         }
+
         return crmApi.getOrCreateWalkInCustomer();
     }
 
@@ -407,7 +706,8 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
     /** Lấy tên nhân viên để hiển thị, dùng tên mặc định khi không tra được. */
     private String getStaffName(UUID staffId) {
-        if (staffId == null) return "Nhân viên bán hàng";
+        if (staffId == null)
+            return "Nhân viên bán hàng";
         try {
             UserSummaryDto user = iamApi.getUserById(staffId);
             return user != null && user.fullName() != null ? user.fullName() : "Nhân viên bán hàng";

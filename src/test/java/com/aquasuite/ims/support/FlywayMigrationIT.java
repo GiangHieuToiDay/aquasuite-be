@@ -36,7 +36,7 @@ class FlywayMigrationIT {
     @Test
     void emptyDatabaseMigratesAndRetryDoesNothing() throws Exception {
         var flyway = config(database()).load();
-        assertEquals(10, flyway.migrate().migrationsExecuted);
+        assertEquals(13, flyway.migrate().migrationsExecuted);
         assertTrue(flyway.validateWithResult().validationSuccessful);
         assertEquals(0, flyway.migrate().migrationsExecuted);
         assertThrows(FlywayException.class, flyway::clean);

@@ -25,6 +25,17 @@ public class SalesOrderDetailResponse {
     private UUID customerId;
     private String customerName;
     private String customerPhone;
+    private UUID quotationId;
+    private String quotationCode;
+    private String projectName;
+    private String deliverySchedule;
+    private BigDecimal vatRate;
+    private BigDecimal shippingFee;
+    private BigDecimal depositPercent;
+    private BigDecimal depositAmount;
+    private Integer creditTermDays;
+    private BigDecimal remainingDebtAmount;
+    private String debtCondition;
     private UUID salesStaffId;
     private String salesStaffName;
     private String orderType;
@@ -43,4 +54,7 @@ public class SalesOrderDetailResponse {
 
     @Builder.Default
     private List<SalesOrderItemResponse> items = new ArrayList<>();
+
+    @Builder.Default
+    private List<SalesOrderMilestoneResponse> milestones = new ArrayList<>();
 }
