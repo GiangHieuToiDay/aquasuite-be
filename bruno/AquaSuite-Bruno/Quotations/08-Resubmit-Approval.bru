@@ -1,0 +1,34 @@
+meta {
+  name: 08 - Resubmit Approval (Trình duyệt lại mức 14%)
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/v1/sales/quotations/{{quotationId}}/submit-approval
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "approvalNote": "Dạ em đã đàm phán lại với khách hàng và chốt mức chiết khấu 14%, em xin phép trình lại sếp duyệt ạ."
+  }
+}
+
+tests {
+  test("Trình duyệt lại thành công (HTTP 200)", function () {
+    expect(res.getStatus()).to.equal(200);
+    const body = res.getBody();
+    expect(body.success).to.equal(true);
+    expect(body.data.status).to.equal("PENDING_APPROVAL");
+  });
+}

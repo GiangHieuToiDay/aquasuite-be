@@ -5,6 +5,7 @@ import com.aquasuite.ims.module.catalog.api.dto.CatalogBundleSummaryDto;
 import com.aquasuite.ims.module.catalog.api.dto.CatalogSkuSummaryDto;
 import com.aquasuite.ims.module.crm.api.CrmApi;
 import com.aquasuite.ims.module.crm.api.dto.CustomerSummaryDto;
+import com.aquasuite.ims.module.finance.api.CreditControlApi;
 import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.iam.api.dto.UserSummaryDto;
 import com.aquasuite.ims.module.inventory.api.InventoryApi;
@@ -105,7 +106,7 @@ public class SalesOrderPostmanSimulationTest {
         OrderItemRepository orderItemRepository = Mockito.mock(OrderItemRepository.class);
         var salesInvoiceRepository = Mockito.mock(com.aquasuite.ims.module.sales.internal.repository.SalesInvoiceRepository.class);
         var salesInvoiceItemRepository = Mockito.mock(com.aquasuite.ims.module.sales.internal.repository.SalesInvoiceItemRepository.class);
-        var creditControlApi = Mockito.mock(com.aquasuite.ims.module.finance.api.CreditControlApi.class);
+        CreditControlApi creditControlApi = Mockito.mock(CreditControlApi.class);
         CatalogApi catalogApi = Mockito.mock(CatalogApi.class);
         InventoryApi inventoryApi = Mockito.mock(InventoryApi.class);
         CrmApi crmApi = Mockito.mock(CrmApi.class);
@@ -140,6 +141,12 @@ public class SalesOrderPostmanSimulationTest {
         when(crmApi.getCustomerById(retailCustomerId)).thenReturn(Optional.of(retailCustomer));
         when(crmApi.getCustomerById(overdueCustomerId)).thenReturn(Optional.of(overdueCustomer));
         when(crmApi.getOrCreateWalkInCustomer()).thenReturn(retailCustomer);
+        when(creditControlApi.authorize(any())).thenAnswer(invocation -> {
+            var command = invocation.getArgument(0, com.aquasuite.ims.module.finance.api.dto.CreditAuthorizationCommand.class);
+            boolean approved = !overdueCustomerId.equals(command.customerId());
+            return new com.aquasuite.ims.module.finance.api.dto.CreditAuthorizationDecision(
+                    approved, approved ? "APPROVED" : "OVERDUE", approved ? new BigDecimal("100000000") : BigDecimal.ZERO);
+        });
 
         // Mock IAM
         when(iamApi.getCurrentUserId()).thenReturn(staffId);
@@ -234,14 +241,6 @@ public class SalesOrderPostmanSimulationTest {
             List<Order> list = new ArrayList<>(orderStore.values());
             return new PageImpl<>(list, pageable, list.size());
         });
-        when(orderRepository.hasOverdueUnpaidOrders(eq(retailCustomerId), any(LocalDate.class))).thenReturn(false);
-        when(orderRepository.hasOverdueUnpaidOrders(eq(overdueCustomerId), any(LocalDate.class))).thenReturn(true);
-        when(creditControlApi.authorize(any())).thenAnswer(inv -> {
-            var command = (com.aquasuite.ims.module.finance.api.dto.CreditAuthorizationCommand) inv.getArgument(0);
-            boolean approved = !overdueCustomerId.equals(command.customerId());
-            return new com.aquasuite.ims.module.finance.api.dto.CreditAuthorizationDecision(approved, approved ? "APPROVED" : "OVERDUE", BigDecimal.ZERO);
-        });
-
         when(orderItemRepository.saveAllAndFlush(anyList())).thenAnswer(inv -> {
             List<OrderItem> items = inv.getArgument(0);
             if (!items.isEmpty()) {
@@ -363,7 +362,7 @@ public class SalesOrderPostmanSimulationTest {
 
     @Test
     @org.junit.jupiter.api.Order(3)
-    @DisplayName("3. [POST /api/v1/sales/orders] Tạo đơn mua nợ (CREDIT) cho khách đủ điều kiện -> 201 Created & dueDate = +30 ngày")
+    @DisplayName("3. [POST /api/v1/sales/orders] Tạo đơn mua nợ sau Finance authorization -> 201 Created")
     void test3_CreateRetailOrder_PurchaseOnCredit_Success() throws Exception {
         CreateSalesOrderRequest request = CreateSalesOrderRequest.builder()
                 .customerId(retailCustomerId)

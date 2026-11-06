@@ -269,7 +269,7 @@ class SalesOrderServiceTest {
 
     @Test
     @DisplayName("UC-21: Tạo đơn CREDIT hợp lệ sau kiểm tra UC-24, chưa tính hạn theo hóa đơn điện tử")
-    void createSalesOrder_Success_CreditEligible_SetsDueDate() {
+    void createSalesOrder_Success_CreditEligible_AuthorizesAndLeavesDueDateForInvoice() {
         // Arrange
         CreateSalesOrderRequest request = CreateSalesOrderRequest.builder()
                 .customerId(customerId)
@@ -283,7 +283,7 @@ class SalesOrderServiceTest {
                 .build();
 
         when(crmApi.getCustomerById(customerId)).thenReturn(Optional.of(customerDto));
-        when(creditControlApi.authorize(any())).thenReturn(new CreditAuthorizationDecision(true, "APPROVED", BigDecimal.TEN));
+        when(creditControlApi.authorize(any())).thenReturn(new CreditAuthorizationDecision(true, "APPROVED", new BigDecimal("100000000")));
         when(orderCodeGenerator.generateOrderCode()).thenReturn("SO-20261103-0003");
         when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.of(skuDto));
         when(inventoryApi.checkAvailability(variantId, BigDecimal.ONE)).thenReturn(true);
@@ -296,6 +296,7 @@ class SalesOrderServiceTest {
         // Assert
         assertThat(response.getDueDate()).isNull();
         assertThat(response.getPaymentStatus()).isEqualTo(PaymentStatus.UNPAID.name());
+        verify(creditControlApi).authorize(any());
     }
 
     @Test
@@ -341,7 +342,7 @@ class SalesOrderServiceTest {
 
     @Test
     @DisplayName("UC-21: Chặn đơn CREDIT khi UC-24 từ chối")
-    void createSalesOrder_CreditOverdue_ThrowsAppException() {
+    void createSalesOrder_CreditDenied_ThrowsAppException() {
         CreateSalesOrderRequest request = CreateSalesOrderRequest.builder()
                 .customerId(customerId)
                 .paymentMethod(PaymentMethod.CREDIT)

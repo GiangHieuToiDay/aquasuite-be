@@ -1,4 +1,4 @@
--- Redis Lua script: rotate-refresh.lua (V2)
+﻿-- Redis Lua script: rotate-refresh.lua (V2)
 -- KEYS[1]: auth:v2:session:{sid}
 -- KEYS[2]: auth:v2:session-revoked:{sid}
 -- KEYS[3]: auth:v2:refresh-used:{sid}:{oldJti}
@@ -27,8 +27,9 @@ local usedTtlSeconds = tonumber(ARGV[7]) or 1296000
 local expectedGen = tonumber(ARGV[8]) or 2
 
 -- Get current time from Redis as authoritative clock source
-local redisTime = redis.call('TIME')
-local redisNowMs = tonumber(redisTime[1]) * 1000 + math.floor(tonumber(redisTime[2]) / 1000)
+-- deterministic clock from ARGV
+-- local redisTime = redis.call('TIME')
+local redisNowMs = nowEpochMs
 
 -- 1. Check if session was revoked (valid tombstone always wins over active session)
 if redis.call('EXISTS', revokedKey) == 1 then

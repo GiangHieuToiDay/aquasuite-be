@@ -7,6 +7,7 @@ import com.aquasuite.ims.module.crm.api.CrmApi;
 import com.aquasuite.ims.module.crm.api.dto.CustomerSummaryDto;
 import com.aquasuite.ims.module.finance.api.CreditControlApi;
 import com.aquasuite.ims.module.finance.api.dto.CreditAuthorizationCommand;
+import com.aquasuite.ims.module.finance.api.dto.CreditAuthorizationDecision;
 import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.iam.api.dto.UserSummaryDto;
 import com.aquasuite.ims.module.inventory.api.InventoryApi;
@@ -201,7 +202,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             }
         }
 
-        // 8. Tính tổng tiền và chiết khấu
+        // 7. Tính tổng tiền và chiết khấu
         BigDecimal orderDiscount = request.getDiscountAmount() != null ? request.getDiscountAmount() : BigDecimal.ZERO;
         BigDecimal finalTotal = calculatedSubtotal.subtract(orderDiscount);
         if (finalTotal.compareTo(BigDecimal.ZERO) < 0) {
@@ -209,10 +210,14 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         }
         OrderChannel channel = request.getOrderChannel() == null || request.getOrderChannel() == OrderChannel.POS
                 ? OrderChannel.COUNTER : request.getOrderChannel();
+
+        // 8. Kiểm tra hạn mức mua nợ (đồng bộ trong cùng transaction tạo đơn)
         if (request.getPaymentMethod() == PaymentMethod.CREDIT) {
-            var decision = creditControlApi.authorize(new CreditAuthorizationCommand(
+            CreditAuthorizationDecision decision = creditControlApi.authorize(new CreditAuthorizationCommand(
                     customer.customerId(), orderId, channel.name(), finalTotal));
             if (decision == null || !decision.approved()) {
+                log.warn("Credit order denied for customer {}: reason={}",
+                        customer.customerId(), decision != null ? decision.reasonCode() : "NULL");
                 throw new AppException(SalesErrorCode.CREDIT_LIMIT_EXCEEDED);
             }
         }

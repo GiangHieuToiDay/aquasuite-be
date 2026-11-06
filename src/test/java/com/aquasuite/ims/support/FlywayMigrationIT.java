@@ -36,7 +36,7 @@ class FlywayMigrationIT {
     @Test
     void emptyDatabaseMigratesAndRetryDoesNothing() throws Exception {
         var flyway = config(database()).load();
-        assertEquals(9, flyway.migrate().migrationsExecuted);
+        assertEquals(10, flyway.migrate().migrationsExecuted);
         assertTrue(flyway.validateWithResult().validationSuccessful);
         assertEquals(0, flyway.migrate().migrationsExecuted);
         assertThrows(FlywayException.class, flyway::clean);
@@ -45,7 +45,7 @@ class FlywayMigrationIT {
     @Test
     void creditProfileMigrationStopsForLegacyNullTermAndEnforcesValidTerms() throws Exception {
         String url = database();
-        config(url).target("5").load().migrate();
+        config(url).target("6").load().migrate();
         var db = BundleCoreTestSupport.DB;
         try (var connection = DriverManager.getConnection(url, db.getUsername(), db.getPassword());
                 var statement = connection.createStatement()) {

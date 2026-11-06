@@ -1,4 +1,4 @@
--- Redis Lua script: revoke-session.lua (V2)
+﻿-- Redis Lua script: revoke-session.lua (V2)
 -- KEYS[1]: auth:v2:session:{sid}
 -- KEYS[2]: auth:v2:session-revoked:{sid}
 -- KEYS[3]: auth:v2:user-sessions:{userId}
@@ -20,8 +20,9 @@ local nowEpochMs = tonumber(ARGV[4])
 local defaultTtlSeconds = tonumber(ARGV[5]) or 1296000
 local expectedGen = tonumber(ARGV[6]) or 2
 
-local redisTime = redis.call('TIME')
-local redisNowMs = tonumber(redisTime[1]) * 1000 + math.floor(tonumber(redisTime[2]) / 1000)
+-- deterministic clock from ARGV
+-- local redisTime = redis.call('TIME')
+local redisNowMs = nowEpochMs
 
 -- 1. If revoked marker already exists, ensure sessionKey is deleted and return SUCCESS (idempotent logout)
 if redis.call('EXISTS', revokedKey) == 1 then
