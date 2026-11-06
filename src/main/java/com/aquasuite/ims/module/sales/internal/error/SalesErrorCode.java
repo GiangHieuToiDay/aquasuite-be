@@ -17,7 +17,10 @@ public enum SalesErrorCode implements BaseErrorCode {
     SKU_NOT_ACTIVE("SALES_008", "Biến thể SKU {0} không ở trạng thái hoạt động", HttpStatus.BAD_REQUEST),
     COMBO_NOT_FOUND("SALES_009", "Không tìm thấy thông tin gói combo: {0}", HttpStatus.NOT_FOUND),
     ORDER_ITEMS_EMPTY("SALES_010", "Đơn hàng phải chứa ít nhất một sản phẩm hoặc combo", HttpStatus.BAD_REQUEST),
-    INVALID_PAYMENT_STATUS("SALES_011", "Trạng thái thanh toán không hợp lệ: {0}", HttpStatus.BAD_REQUEST);
+    INVALID_PAYMENT_STATUS("SALES_011", "Trạng thái thanh toán không hợp lệ: {0}", HttpStatus.BAD_REQUEST),
+    ALREADY_CONVERTED_TO_ORDER("SALES_012", "Báo giá {0} đã được chuyển đổi thành đơn hàng: {1}", HttpStatus.CONFLICT),
+    QUOTATION_NOT_ACCEPTED_OR_APPROVED("SALES_013", "Báo giá phải ở trạng thái ĐÃ DUYỆT (APPROVED) hoặc ĐÃ CHỐT (ACCEPTED) mới được tạo đơn hàng, trạng thái hiện tại: {0}", HttpStatus.BAD_REQUEST),
+    QUOTATION_NOT_FOUND("SALES_014", "Không tìm thấy thông tin báo giá: {0}", HttpStatus.NOT_FOUND);
 
     private final String code;
     private final String message;

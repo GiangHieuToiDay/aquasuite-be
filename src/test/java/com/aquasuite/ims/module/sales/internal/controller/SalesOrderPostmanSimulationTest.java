@@ -22,6 +22,8 @@ import com.aquasuite.ims.module.sales.internal.payload.request.CreateOrderItemRe
 import com.aquasuite.ims.module.sales.internal.payload.request.CreateSalesOrderRequest;
 import com.aquasuite.ims.module.sales.internal.repository.OrderItemRepository;
 import com.aquasuite.ims.module.sales.internal.repository.OrderRepository;
+import com.aquasuite.ims.module.sales.internal.repository.QuotationItemRepository;
+import com.aquasuite.ims.module.sales.internal.repository.QuotationRepository;
 import com.aquasuite.ims.module.sales.internal.service.SalesOrderService;
 import com.aquasuite.ims.module.sales.internal.service.helper.OrderCodeGenerator;
 import com.aquasuite.ims.module.sales.internal.service.impl.SalesOrderApiImpl;
@@ -108,6 +110,8 @@ public class SalesOrderPostmanSimulationTest {
         CrmApi crmApi = Mockito.mock(CrmApi.class);
         IamApi iamApi = Mockito.mock(IamApi.class);
         OrderCodeGenerator orderCodeGenerator = Mockito.mock(OrderCodeGenerator.class);
+        QuotationRepository quotationRepository = Mockito.mock(QuotationRepository.class);
+        QuotationItemRepository quotationItemRepository = Mockito.mock(QuotationItemRepository.class);
         SalesOrderMapper salesOrderMapper = Mappers.getMapper(SalesOrderMapper.class);
 
         retailCustomerId = UUID.fromString("11111111-2222-3333-4444-555555555501");
@@ -246,7 +250,9 @@ public class SalesOrderPostmanSimulationTest {
                 crmApi,
                 iamApi,
                 salesOrderMapper,
-                orderCodeGenerator
+                orderCodeGenerator,
+                quotationRepository,
+                quotationItemRepository
         );
 
         salesOrderApi = new SalesOrderApiImpl(orderRepository);

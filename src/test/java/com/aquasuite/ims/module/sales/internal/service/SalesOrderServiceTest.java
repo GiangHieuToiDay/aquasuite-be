@@ -9,14 +9,18 @@ import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.inventory.api.InventoryApi;
 import com.aquasuite.ims.module.sales.internal.entity.Order;
 import com.aquasuite.ims.module.sales.internal.entity.OrderItem;
+import com.aquasuite.ims.module.sales.internal.entity.Quotation;
+import com.aquasuite.ims.module.sales.internal.entity.QuotationItem;
 import com.aquasuite.ims.module.sales.internal.enums.FulfillmentMethod;
 import com.aquasuite.ims.module.sales.internal.enums.OrderChannel;
 import com.aquasuite.ims.module.sales.internal.enums.OrderStatus;
 import com.aquasuite.ims.module.sales.internal.enums.OrderType;
 import com.aquasuite.ims.module.sales.internal.enums.PaymentMethod;
 import com.aquasuite.ims.module.sales.internal.enums.PaymentStatus;
+import com.aquasuite.ims.module.sales.internal.enums.QuotationStatus;
 import com.aquasuite.ims.module.sales.internal.error.SalesErrorCode;
 import com.aquasuite.ims.module.sales.internal.mapper.SalesOrderMapper;
+import com.aquasuite.ims.module.sales.internal.payload.request.ConvertQuotationToOrderRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.CreateComboItemRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.CreateOrderItemRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.CreateSalesOrderRequest;
@@ -25,6 +29,8 @@ import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderDetail
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderSummaryResponse;
 import com.aquasuite.ims.module.sales.internal.repository.OrderItemRepository;
 import com.aquasuite.ims.module.sales.internal.repository.OrderRepository;
+import com.aquasuite.ims.module.sales.internal.repository.QuotationItemRepository;
+import com.aquasuite.ims.module.sales.internal.repository.QuotationRepository;
 import com.aquasuite.ims.module.sales.internal.service.helper.OrderCodeGenerator;
 import com.aquasuite.ims.module.sales.internal.service.impl.SalesOrderServiceImpl;
 import com.aquasuite.ims.share.exception.AppException;
@@ -85,6 +91,12 @@ class SalesOrderServiceTest {
 
     @Mock
     private OrderCodeGenerator orderCodeGenerator;
+
+    @Mock
+    private QuotationRepository quotationRepository;
+
+    @Mock
+    private QuotationItemRepository quotationItemRepository;
 
     @InjectMocks
     private SalesOrderServiceImpl salesOrderService;
@@ -407,5 +419,211 @@ class SalesOrderServiceTest {
         assertThat(response.getCustomerName()).isEqualTo("Khách Hàng Thử Nghiệm");
         assertThat(response.getItems()).hasSize(1);
         assertThat(response.getItems().get(0).getSku()).isEqualTo("SKU-TOILET-01");
+    }
+
+    // =========================================================================
+    // UC-28 / UC-073: Chuyển đổi báo giá thành đơn hàng công trình (Convert Quotation to Order)
+    // =========================================================================
+
+    @Test
+    @DisplayName("UC-28 / UC-073: Chuyển đổi báo giá đã chốt (ACCEPTED) thành Đơn hàng công trình thành công")
+    void convertQuotationToOrder_Success_WhenAccepted() {
+        UUID quotationId = UUID.randomUUID();
+        Quotation quotation = Quotation.builder()
+                .quotationId(quotationId)
+                .quotationCode("BG-202611-0001")
+                .revisionNo(1)
+                .customerId(customerId)
+                .projectName("Villa Ecopark")
+                .status(QuotationStatus.ACCEPTED)
+                .deliveryAddress("Ecopark, Hưng Yên")
+                .note("Giao hàng giờ hành chính")
+                .totalAmount(new BigDecimal("9000000"))
+                .createdBy(staffId)
+                .build();
+
+        QuotationItem qItem = QuotationItem.builder()
+                .quotationItemId(UUID.randomUUID())
+                .quotationId(quotationId)
+                .variantId(variantId)
+                .sku("SKU-TOILET-01")
+                .unit("bộ")
+                .quantity(new BigDecimal("2"))
+                .unitPrice(new BigDecimal("5000000"))
+                .discountRate(new BigDecimal("10")) // 10% chiết khấu -> 1,000,000 đ
+                .build();
+
+        ConvertQuotationToOrderRequest request = ConvertQuotationToOrderRequest.builder()
+                .note("Đã thỏa thuận cọc 30%")
+                .build();
+
+        when(quotationRepository.findById(quotationId)).thenReturn(Optional.of(quotation));
+        when(orderRepository.findByQuotationId(quotationId)).thenReturn(Optional.empty());
+        when(quotationItemRepository.findByQuotationIdOrderBySortOrderAsc(quotationId)).thenReturn(List.of(qItem));
+        when(crmApi.getCustomerById(customerId)).thenReturn(Optional.of(customerDto));
+        when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.of(skuDto));
+        when(orderCodeGenerator.generateOrderCode()).thenReturn("SO-20261105-0001");
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(orderItemRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        SalesOrderDetailResponse response = salesOrderService.convertQuotationToOrder(quotationId, request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getOrderCode()).isEqualTo("SO-20261105-0001");
+        assertThat(response.getQuotationId()).isEqualTo(quotationId);
+        assertThat(response.getOrderType()).isEqualTo(OrderType.PROJECT.name());
+        assertThat(response.getOrderChannel()).isEqualTo(OrderChannel.DIRECT_SALES.name());
+        assertThat(response.getOrderStatus()).isEqualTo(OrderStatus.PROCESSING.name());
+        assertThat(response.getPaymentStatus()).isEqualTo(PaymentStatus.UNPAID.name());
+        assertThat(response.getSubtotal()).isEqualByComparingTo(new BigDecimal("10000000"));
+        assertThat(response.getDiscountAmount()).isEqualByComparingTo(new BigDecimal("1000000"));
+        assertThat(response.getTotalAmount()).isEqualByComparingTo(new BigDecimal("9000000"));
+        assertThat(response.getItems()).hasSize(1);
+        assertThat(response.getNote()).contains("Villa Ecopark").contains("Đã thỏa thuận cọc 30%");
+    }
+
+    @Test
+    @DisplayName("UC-28 / UC-073: Chuyển đổi báo giá đã duyệt (APPROVED) -> Tự động chuyển báo giá sang ACCEPTED")
+    void convertQuotationToOrder_Success_WhenApproved_UpdatesQuotationToAccepted() {
+        UUID quotationId = UUID.randomUUID();
+        Quotation quotation = Quotation.builder()
+                .quotationId(quotationId)
+                .quotationCode("BG-202611-0002")
+                .revisionNo(1)
+                .customerId(customerId)
+                .status(QuotationStatus.APPROVED)
+                .totalAmount(new BigDecimal("5000000"))
+                .createdBy(staffId)
+                .build();
+
+        QuotationItem qItem = QuotationItem.builder()
+                .quotationItemId(UUID.randomUUID())
+                .quotationId(quotationId)
+                .variantId(variantId)
+                .sku("SKU-TOILET-01")
+                .unit("cái")
+                .quantity(BigDecimal.ONE)
+                .unitPrice(new BigDecimal("5000000"))
+                .discountRate(BigDecimal.ZERO)
+                .build();
+
+        when(quotationRepository.findById(quotationId)).thenReturn(Optional.of(quotation));
+        when(orderRepository.findByQuotationId(quotationId)).thenReturn(Optional.empty());
+        when(quotationItemRepository.findByQuotationIdOrderBySortOrderAsc(quotationId)).thenReturn(List.of(qItem));
+        when(crmApi.getCustomerById(customerId)).thenReturn(Optional.of(customerDto));
+        when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.of(skuDto));
+        when(orderCodeGenerator.generateOrderCode()).thenReturn("SO-20261105-0002");
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(orderItemRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        SalesOrderDetailResponse response = salesOrderService.convertQuotationToOrder(quotationId, null);
+
+        assertThat(response).isNotNull();
+        assertThat(quotation.getStatus()).isEqualTo(QuotationStatus.ACCEPTED);
+        assertThat(quotation.getAcceptedAt()).isNotNull();
+        verify(quotationRepository).save(quotation);
+    }
+
+    @Test
+    @DisplayName("UC-28 / UC-073: Báo lỗi khi không tìm thấy báo giá (QUOTATION_NOT_FOUND)")
+    void convertQuotationToOrder_Throws_WhenQuotationNotFound() {
+        UUID quotationId = UUID.randomUUID();
+        when(quotationRepository.findById(quotationId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> salesOrderService.convertQuotationToOrder(quotationId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", SalesErrorCode.QUOTATION_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("UC-28 / UC-073: Báo lỗi khi báo giá đang ở trạng thái DRAFT (QUOTATION_NOT_ACCEPTED_OR_APPROVED)")
+    void convertQuotationToOrder_Throws_WhenStatusInvalid() {
+        UUID quotationId = UUID.randomUUID();
+        Quotation quotation = Quotation.builder()
+                .quotationId(quotationId)
+                .status(QuotationStatus.DRAFT)
+                .build();
+
+        when(quotationRepository.findById(quotationId)).thenReturn(Optional.of(quotation));
+
+        assertThatThrownBy(() -> salesOrderService.convertQuotationToOrder(quotationId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", SalesErrorCode.QUOTATION_NOT_ACCEPTED_OR_APPROVED);
+    }
+
+    @Test
+    @DisplayName("UC-28 / UC-073: Chặn chuyển đổi trùng lặp nếu báo giá đã có đơn hàng (ALREADY_CONVERTED_TO_ORDER)")
+    void convertQuotationToOrder_Throws_WhenAlreadyConverted() {
+        UUID quotationId = UUID.randomUUID();
+        Quotation quotation = Quotation.builder()
+                .quotationId(quotationId)
+                .quotationCode("BG-202611-0003")
+                .status(QuotationStatus.ACCEPTED)
+                .build();
+
+        Order existingOrder = Order.builder()
+                .orderId(UUID.randomUUID())
+                .orderCode("SO-20261103-9999")
+                .quotationId(quotationId)
+                .build();
+
+        when(quotationRepository.findById(quotationId)).thenReturn(Optional.of(quotation));
+        when(orderRepository.findByQuotationId(quotationId)).thenReturn(Optional.of(existingOrder));
+
+        assertThatThrownBy(() -> salesOrderService.convertQuotationToOrder(quotationId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", SalesErrorCode.ALREADY_CONVERTED_TO_ORDER);
+    }
+
+    @Test
+    @DisplayName("UC-28 / UC-073: Báo lỗi khi danh sách sản phẩm trong báo giá trống (ORDER_ITEMS_EMPTY)")
+    void convertQuotationToOrder_Throws_WhenNoItems() {
+        UUID quotationId = UUID.randomUUID();
+        Quotation quotation = Quotation.builder()
+                .quotationId(quotationId)
+                .status(QuotationStatus.ACCEPTED)
+                .build();
+
+        when(quotationRepository.findById(quotationId)).thenReturn(Optional.of(quotation));
+        when(orderRepository.findByQuotationId(quotationId)).thenReturn(Optional.empty());
+        when(quotationItemRepository.findByQuotationIdOrderBySortOrderAsc(quotationId)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> salesOrderService.convertQuotationToOrder(quotationId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", SalesErrorCode.ORDER_ITEMS_EMPTY);
+    }
+
+    @Test
+    @DisplayName("UC-28 / UC-073: Báo lỗi khi biến thể sản phẩm trong báo giá đã ngừng hoạt động (SKU_NOT_ACTIVE)")
+    void convertQuotationToOrder_Throws_WhenSkuInactive() {
+        UUID quotationId = UUID.randomUUID();
+        Quotation quotation = Quotation.builder()
+                .quotationId(quotationId)
+                .customerId(customerId)
+                .status(QuotationStatus.ACCEPTED)
+                .build();
+
+        QuotationItem qItem = QuotationItem.builder()
+                .quotationItemId(UUID.randomUUID())
+                .quotationId(quotationId)
+                .variantId(variantId)
+                .quantity(BigDecimal.ONE)
+                .unitPrice(new BigDecimal("1000000"))
+                .build();
+
+        CatalogSkuSummaryDto inactiveSku = CatalogSkuSummaryDto.builder()
+                .variantId(variantId)
+                .sku("SKU-INACTIVE")
+                .status("INACTIVE")
+                .build();
+
+        when(quotationRepository.findById(quotationId)).thenReturn(Optional.of(quotation));
+        when(orderRepository.findByQuotationId(quotationId)).thenReturn(Optional.empty());
+        when(quotationItemRepository.findByQuotationIdOrderBySortOrderAsc(quotationId)).thenReturn(List.of(qItem));
+        when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.of(inactiveSku));
+
+        assertThatThrownBy(() -> salesOrderService.convertQuotationToOrder(quotationId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", SalesErrorCode.SKU_NOT_ACTIVE);
     }
 }

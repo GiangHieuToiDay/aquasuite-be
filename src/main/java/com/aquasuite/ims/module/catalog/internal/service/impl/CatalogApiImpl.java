@@ -5,6 +5,7 @@ import com.aquasuite.ims.module.catalog.api.dto.CatalogBundleSummaryDto;
 import com.aquasuite.ims.module.catalog.api.dto.CatalogSkuSummaryDto;
 import com.aquasuite.ims.module.catalog.internal.entity.Product;
 import com.aquasuite.ims.module.catalog.internal.entity.ProductVariant;
+import com.aquasuite.ims.module.catalog.internal.enums.VariantStatus;
 import com.aquasuite.ims.module.catalog.internal.payload.res.BundleResponse;
 import com.aquasuite.ims.module.catalog.internal.repository.ProductRepository;
 import com.aquasuite.ims.module.catalog.internal.repository.ProductVariantRepository;
@@ -84,6 +85,24 @@ public class CatalogApiImpl implements CatalogApi {
             log.warn("Bundle {} not found or error retrieving bundle: {}", bundleId, ex.getMessage());
             return Optional.empty();
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CatalogSkuSummaryDto> getSkusByProductIds(Collection<UUID> productIds) {
+        if (productIds == null || productIds.isEmpty()) return Collections.emptyList();
+        return productVariantRepository.findByProductIdIn(productIds).stream()
+                .filter(v -> v.getStatus() == VariantStatus.ACTIVE)
+                .map(this::toDto)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CatalogSkuSummaryDto> getAllActiveSkus() {
+        return productVariantRepository.findByStatus(VariantStatus.ACTIVE).stream()
+                .map(this::toDto)
+                .toList();
     }
 
     private CatalogSkuSummaryDto toDto(ProductVariant variant) {

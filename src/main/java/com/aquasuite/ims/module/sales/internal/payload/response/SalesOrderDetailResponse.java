@@ -23,6 +23,7 @@ public class SalesOrderDetailResponse {
     private UUID customerId;
     private String customerName;
     private String customerPhone;
+    private UUID quotationId;
     private UUID salesStaffId;
     private String salesStaffName;
     private String orderType;
