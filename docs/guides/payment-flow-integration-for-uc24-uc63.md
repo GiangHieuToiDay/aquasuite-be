@@ -23,6 +23,7 @@ flowchart TD
     P -->|UC-70 từ chối| R[transactions RECEIPT / REJECTED + reject_reason]
     V -->|đọc VERIFIED theo khách| D[UC-24 công nợ]
     V -->|phân bổ vào hóa đơn điện tử| A[UC-63 allocation - CHƯA làm]
+    V -->|getOrderReceivable: depositSatisfied| H[UC-29 giữ hàng theo cọc - CHƯA làm]
 ```
 
 **Tóm tắt:** Báo giá (hoặc POS) tạo **đơn** + **các mốc thanh toán** + **hóa đơn cửa hàng STORE**. UC-23 ghi khoản thu vào bảng `transactions`. UC-70 lật PENDING → VERIFIED/REJECTED. UC-24 và UC-63 **đọc sổ `transactions`** làm nguồn sự thật, **không** tự tạo khoản thu.
@@ -96,6 +97,7 @@ transactionRepository.findByCustomerIdInAndStatusIgnoreCase(customerIds, "VERIFI
 | `SalesOrderApi.getOrderPaymentMilestones` | finance → sales | Đọc mốc để tính tiến độ |
 | `SalesReceivableApi.findOrders/Invoices/OrderById` | finance → sales | UC-24 đọc đơn & hóa đơn công nợ |
 | `CreditControlApi.requireCustomerOrderAllowed / authorize` | sales → finance | UC-21 kiểm tra khách BLOCKED + hạn mức mua nợ khi tạo đơn |
+| `OrderReceivableApi.getOrderReceivable(orderId)` | bất kỳ module → finance | UC-29 đọc verifiedPaid / remaining / tình trạng cọc của đơn để quyết định giữ hàng |
 
 **Nguyên tắc:** chỉ chia sẻ qua `*.api`; cấm import `*.internal` chéo module; liên kết dữ liệu chéo module bằng **scalar UUID**, không JPA association.
 
@@ -140,7 +142,34 @@ transactionRepository.findByCustomerIdInAndStatusIgnoreCase(customerIds, "VERIFI
 
 ---
 
-## 10. Tham chiếu
+## 10. UC-29 — Giữ hàng theo cọc (public API `OrderReceivableApi`)
+
+UC-29 giữ hàng khi khách **đã cọc đủ**. "Đã cọc" = có khoản thu **VERIFIED** đủ mức cọc — dữ liệu này do UC-23/UC-70 tạo. Finance cung cấp hợp đồng công khai để UC-29 đọc, không cần import `finance.internal`.
+
+### Hợp đồng
+```java
+// com.aquasuite.ims.module.finance.api
+Optional<OrderReceivableView> getOrderReceivable(UUID orderId);
+```
+`OrderReceivableView`: `orderId, totalAmount, verifiedPaid, pendingAmount, remaining, paymentStatus, depositRequired, depositSatisfied`.
+
+- **`depositRequired`** = ưu tiên `order.deposit_amount`; nếu không có thì lấy **số tiền mốc đầu tiên** ("Đặt cọc"); 0 nếu không xác định.
+- **`depositSatisfied`** = `true` khi `verifiedPaid ≥ depositRequired` (và `depositRequired > 0`).
+- Khoản **PENDING KHÔNG** làm thỏa cọc (tiền chưa chắc về) → chỉ giữ hàng khi đã VERIFIED.
+
+### Cách UC-29 dùng
+```java
+orderReceivableApi.getOrderReceivable(orderId)
+    .filter(OrderReceivableView::depositSatisfied)
+    .ifPresent(v -> reserveStock(orderId)); // chỉ giữ hàng khi đã cọc đủ
+```
+
+### Ràng buộc UC-29 phải lưu ý
+- Nếu `depositRequired == 0` (đơn không đặt cọc, không mốc) → `depositSatisfied=false`; UC-29 tự chọn ngưỡng khác từ `verifiedPaid` nếu cần.
+- Sau khi giữ hàng, nếu khoản cọc bị **UC-70 từ chối** hoặc **đơn bị hủy (UC-26)** → UC-29 phải có cơ chế **nhả hàng (release)**. API này chỉ cho biết tình trạng hiện tại, không tự nhả hàng.
+- API chỉ đọc, không tạo/sửa giao dịch; gọi lúc nào cũng phản ánh ảnh chụp nhất quán của sổ giao dịch.
+
+## 11. Tham chiếu
 
 - Tổng quan luồng + sơ đồ: [`WORK-018-sales-payment-overview.md`](WORK-018-sales-payment-overview.md)
 - Spec UC-23: [`../specifications/WORK-018-uc23-order-payments.md`](../specifications/WORK-018-uc23-order-payments.md)
