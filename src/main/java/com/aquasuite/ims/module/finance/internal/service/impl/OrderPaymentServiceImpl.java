@@ -204,6 +204,7 @@ public class OrderPaymentServiceImpl implements OrderPaymentService {
      */
     private static OrderPaymentResponse response(Transaction t) {
         return new OrderPaymentResponse(t.getTransactionId(), t.getTransactionCode(), t.getOrderId(), t.getInvoiceId(), t.getAmount(),
-                t.getPaymentMethod(), t.getStatus(), t.getReferenceNo(), t.getDescription(), t.getTransactionDate(), t.getCreatedBy());
+                t.getPaymentMethod(), t.getStatus(), t.getReferenceNo(), t.getDescription(), t.getRejectReason(),
+                t.getTransactionDate(), t.getCreatedBy());
     }
 }
