@@ -3,6 +3,7 @@ package com.aquasuite.ims.module.finance.internal.service;
 import com.aquasuite.ims.module.finance.api.dto.CreditAuthorizationCommand;
 import com.aquasuite.ims.module.finance.internal.payload.request.CreditCheckRequest;
 import com.aquasuite.ims.module.finance.internal.payload.response.CreditCheckResponse;
+import com.aquasuite.ims.module.finance.internal.service.impl.CreditControlApiImpl;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
@@ -40,6 +41,8 @@ class CreditControlApiPostgresLockIT {
             AtomicInteger checks = new AtomicInteger();
 
             CustomerDebtService debtService = new CustomerDebtService() {
+                @Override public void requireCustomerOrderAllowed(UUID customerId) { }
+
                 @Override
                 public CreditCheckResponse checkCredit(UUID customerId, CreditCheckRequest request) {
                     if (checks.incrementAndGet() == 1) {
@@ -55,9 +58,10 @@ class CreditControlApiPostgresLockIT {
                             .reasonCode("APPROVED").availableCredit(BigDecimal.TEN).build();
                 }
 
-                @Override public com.aquasuite.ims.module.finance.internal.payload.response.CustomerDebtPageResponse list(String keyword, String customerType, String debtStatus, int page, int size) { throw new UnsupportedOperationException(); }
+                @Override public com.aquasuite.ims.module.finance.internal.payload.response.CustomerDebtPageResponse list(String keyword, String customerType, String debtStatus, String sortBy, String direction, int page, int size) { throw new UnsupportedOperationException(); }
                 @Override public com.aquasuite.ims.module.finance.internal.payload.response.DebtDashboardStatsResponse stats() { throw new UnsupportedOperationException(); }
                 @Override public com.aquasuite.ims.module.finance.internal.payload.response.CustomerDebtDetailResponse detail(UUID customerId) { throw new UnsupportedOperationException(); }
+                @Override public com.aquasuite.ims.module.finance.internal.payload.response.CustomerCreditSummaryResponse creditSummary(UUID customerId) { throw new UnsupportedOperationException(); }
                 @Override public com.aquasuite.ims.module.finance.internal.payload.response.BlacklistStatusResponse blacklistStatus(UUID customerId) { throw new UnsupportedOperationException(); }
                 @Override public void approveOverride(UUID orderId, com.aquasuite.ims.module.finance.internal.payload.request.ReasonRequest request, UUID actorId) { throw new UnsupportedOperationException(); }
                 @Override public com.aquasuite.ims.module.finance.internal.payload.response.DebtReminderResponse sendReminder(UUID customerId, com.aquasuite.ims.module.finance.internal.payload.request.DebtReminderRequest request, UUID actorId) { throw new UnsupportedOperationException(); }

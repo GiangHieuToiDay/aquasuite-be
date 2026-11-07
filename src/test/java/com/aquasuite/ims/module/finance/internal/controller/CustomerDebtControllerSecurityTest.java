@@ -1,6 +1,8 @@
 package com.aquasuite.ims.module.finance.internal.controller;
 
 import com.aquasuite.ims.module.finance.internal.payload.request.ReasonRequest;
+import com.aquasuite.ims.module.finance.internal.payload.DebtStatus;
+import com.aquasuite.ims.module.finance.internal.payload.response.CustomerCreditSummaryResponse;
 import com.aquasuite.ims.module.finance.internal.payload.response.CustomerDebtPageResponse;
 import com.aquasuite.ims.module.finance.internal.service.CustomerDebtService;
 import com.aquasuite.ims.module.iam.api.IamApi;
@@ -37,7 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(
-        controllers = CustomerDebtController.class,
+        controllers = {CustomerDebtController.class, CreditControlController.class},
         excludeFilters = @ComponentScan.Filter(
                 type = FilterType.ASSIGNABLE_TYPE,
                 classes = {AuthSecurityConfig.class, AccessAuthenticationConverter.class}))
@@ -63,14 +65,49 @@ class CustomerDebtControllerSecurityTest {
     }
 
     @Test
-    @WithMockUser(roles = "SALES_STAFF")
-    void salesStaffCanReadDashboard() throws Exception {
-        when(customerDebtService.list(null, null, null, 0, 20))
+    @WithMockUser(roles = "ACCOUNTANT")
+    void accountantCanReadDashboard() throws Exception {
+        when(customerDebtService.list(null, null, null, "customerCode", "asc", 0, 20))
                 .thenReturn(new CustomerDebtPageResponse(List.of(), 0, 20, 0, 0));
 
         mockMvc.perform(get("/api/v1/finance/customer-debts"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    @WithMockUser(roles = "SHOP_OWNER")
+    void shopOwnerCanReadDashboard() throws Exception {
+        when(customerDebtService.list(null, null, null, "customerCode", "asc", 0, 20))
+                .thenReturn(new CustomerDebtPageResponse(List.of(), 0, 20, 0, 0));
+
+        mockMvc.perform(get("/api/v1/finance/customer-debts"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(roles = "SALES_STAFF")
+    void salesStaffCannotReadDebtManagementDashboardOrDetail() throws Exception {
+        mockMvc.perform(get("/api/v1/finance/customer-debts"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/finance/customer-debts/{customerId}", CUSTOMER_ID))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "SALES_STAFF")
+    void salesStaffCanReadOnlyMinimalCreditSummaryForPos() throws Exception {
+        when(customerDebtService.creditSummary(CUSTOMER_ID)).thenReturn(CustomerCreditSummaryResponse.builder()
+                .customerId(CUSTOMER_ID).customerCode("KH-001").customerName("Khách POS")
+                .customerStatus("ACTIVE").creditLimit(java.math.BigDecimal.TEN)
+                .outstandingBalance(java.math.BigDecimal.ONE).overdueBalance(java.math.BigDecimal.ZERO)
+                .availableCredit(java.math.BigDecimal.valueOf(9)).debtStatus(DebtStatus.WITHIN_TERM).build());
+
+        mockMvc.perform(get("/api/v1/finance/credit-control/customers/{customerId}/summary", CUSTOMER_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.customerCode").value("KH-001"))
+                .andExpect(jsonPath("$.data.invoices").doesNotExist())
+                .andExpect(jsonPath("$.data.reminderHistory").doesNotExist());
     }
 
     @Test

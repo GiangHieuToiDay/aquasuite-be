@@ -30,6 +30,9 @@ public interface CatalogApi {
     /** Tra cứu danh sách SKU active thuộc tập hợp productIds */
     List<CatalogSkuSummaryDto> getSkusByProductIds(Collection<UUID> productIds);
 
+    /** Lấy ID của mọi SKU thuộc một sản phẩm gốc, kể cả SKU đã xóa mềm. */
+    List<UUID> getVariantIdsByProductId(UUID productId);
+
     /** Lấy toàn bộ SKU đang ở trạng thái ACTIVE */
     List<CatalogSkuSummaryDto> getAllActiveSkus();
 }

@@ -8,7 +8,7 @@ BEGIN
            OR (credit_limit = 0 AND credit_term_days IS NOT NULL)
            OR (credit_limit > 0 AND (credit_term_days IS NULL OR credit_term_days NOT BETWEEN 1 AND 30))
     ) THEN
-        RAISE EXCEPTION 'Invalid customer credit profiles require remediation before V6';
+        RAISE EXCEPTION 'Invalid customer credit profiles require remediation before V14';
     END IF;
 END $$;
 

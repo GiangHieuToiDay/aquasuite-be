@@ -17,13 +17,20 @@ public interface CustomerDebtService {
      */
     void requireCustomerOrderAllowed(UUID customerId);
     /** Tìm danh sách công nợ theo điều kiện lọc và phân trang. */
-    CustomerDebtPageResponse list(String keyword, String customerType, String debtStatus, int page, int size);
+    CustomerDebtPageResponse list(String keyword, String customerType, String debtStatus,
+                                  String sortBy, String direction, int page, int size);
 
     /** Tính thống kê tổng quan công nợ. */
     DebtDashboardStatsResponse stats();
 
     /** Xem đơn, hóa đơn và khoản thu trong chi tiết công nợ của một khách. */
     CustomerDebtDetailResponse detail(UUID customerId);
+
+    /**
+     * Trả về snapshot tín dụng tối thiểu cho luồng tạo đơn; không lộ chứng từ,
+     * lịch sử nhắc nợ hay audit của màn quản lý công nợ.
+     */
+    CustomerCreditSummaryResponse creditSummary(UUID customerId);
 
     /** Xem tình trạng chặn tín dụng của khách. */
     BlacklistStatusResponse blacklistStatus(UUID customerId);

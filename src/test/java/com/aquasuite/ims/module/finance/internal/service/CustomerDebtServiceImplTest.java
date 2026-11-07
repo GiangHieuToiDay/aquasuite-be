@@ -101,7 +101,7 @@ class CustomerDebtServiceImplTest {
         when(transactionRepository.findByCustomerIdInAndStatusIgnoreCase(any(), eq("VERIFIED")))
                 .thenReturn(List.of(directInvoiceReceipt));
 
-        var page = service.list(null, null, null, 0, 20);
+        var page = service.list(null, null, null, "customerCode", "asc", 0, 20);
 
         assertEquals(1, page.content().size());
         assertMoney("150.00", page.content().getFirst().outstandingBalance());

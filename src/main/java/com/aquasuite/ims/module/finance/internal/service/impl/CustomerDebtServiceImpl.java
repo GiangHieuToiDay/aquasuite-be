@@ -63,10 +63,11 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
 
     @Override
     @Transactional(readOnly = true)
-    public CustomerDebtPageResponse list(String keyword, String customerType, String debtStatus, int page, int size) {
+    public CustomerDebtPageResponse list(String keyword, String customerType, String debtStatus,
+                                         String sortBy, String direction, int page, int size) {
         List<CustomerDebtSummaryResponse> summaries = calculateAll().stream()
                 .filter(summary -> matches(summary, keyword, customerType, debtStatus))
-                .sorted(Comparator.comparing(CustomerDebtSummaryResponse::customerCode, Comparator.nullsLast(String::compareToIgnoreCase)))
+                .sorted(debtSummaryComparator(sortBy, direction))
                 .toList();
         int safePage = Math.max(page, 0);
         int safeSize = Math.min(Math.max(size, 1), 100);
@@ -100,6 +101,25 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
         return new CustomerDebtDetailResponse(customer, calculation.summary(), calculation.invoices(),
                 calculation.orders(), calculation.receipts(), calculation.unallocatedReceipts(),
                 calculation.unallocatedReceiptAmount(), history);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CustomerCreditSummaryResponse creditSummary(UUID customerId) {
+        CustomerDebtProfileDto customer = getCustomer(customerId);
+        CustomerDebtSummaryResponse summary = calculate(customer, documentsFor(Set.of(customerId))).summary();
+        return CustomerCreditSummaryResponse.builder()
+                .customerId(customer.customerId())
+                .customerCode(customer.customerCode())
+                .customerName(customer.customerName())
+                .customerStatus(customer.status())
+                .creditTermDays(customer.creditTermDays())
+                .creditLimit(summary.creditLimit())
+                .outstandingBalance(summary.outstandingBalance())
+                .overdueBalance(summary.overdueBalance())
+                .availableCredit(summary.availableCredit())
+                .debtStatus(summary.debtStatus())
+                .build();
     }
 
     @Override
@@ -372,6 +392,24 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
                 || contains(value.customerName(), keyword) || contains(value.companyName(), keyword) || contains(value.phone(), keyword);
         return keywordMatches && (customerType == null || customerType.isBlank() || customerType.equalsIgnoreCase(value.customerType()))
                 && (debtStatus == null || debtStatus.isBlank() || debtStatus.equalsIgnoreCase(value.debtStatus().name()));
+    }
+
+    private Comparator<CustomerDebtSummaryResponse> debtSummaryComparator(String sortBy, String direction) {
+        String normalized = sortBy == null ? "customerCode" : sortBy.trim();
+        Comparator<CustomerDebtSummaryResponse> comparator = switch (normalized) {
+            case "customerName" -> Comparator.comparing(CustomerDebtSummaryResponse::customerName,
+                    Comparator.nullsLast(String::compareToIgnoreCase));
+            case "outstandingBalance" -> Comparator.comparing(CustomerDebtSummaryResponse::outstandingBalance,
+                    Comparator.nullsLast(BigDecimal::compareTo));
+            case "availableCredit" -> Comparator.comparing(CustomerDebtSummaryResponse::availableCredit,
+                    Comparator.nullsLast(BigDecimal::compareTo));
+            case "nearestDueDate" -> Comparator.comparing(CustomerDebtSummaryResponse::nearestDueDate,
+                    Comparator.nullsLast(LocalDate::compareTo));
+            case "debtStatus" -> Comparator.comparing(value -> value.debtStatus().name());
+            default -> Comparator.comparing(CustomerDebtSummaryResponse::customerCode,
+                    Comparator.nullsLast(String::compareToIgnoreCase));
+        };
+        return "desc".equalsIgnoreCase(direction) ? comparator.reversed() : comparator;
     }
 
     private String reasonFor(CustomerDebtProfileDto customer, DebtCalculation calculation, boolean counter, boolean eligibleType, BigDecimal proposed) {
