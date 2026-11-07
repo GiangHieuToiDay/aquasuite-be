@@ -1,4 +1,4 @@
-﻿-- Redis Lua script: revoke-session.lua (V2)
+-- Redis Lua script: revoke-session.lua (V2)
 -- KEYS[1]: auth:v2:session:{sid}
 -- KEYS[2]: auth:v2:session-revoked:{sid}
 -- KEYS[3]: auth:v2:user-sessions:{userId}
