@@ -26,6 +26,8 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
 
     Optional<ProductVariant> findBySkuIgnoreCase(String sku);
 
+    List<ProductVariant> findByStatus(VariantStatus status);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT variant FROM ProductVariant variant WHERE variant.productId = :productId AND variant.variantId = :variantId")
     Optional<ProductVariant> findByProductIdAndVariantIdForUpdate(

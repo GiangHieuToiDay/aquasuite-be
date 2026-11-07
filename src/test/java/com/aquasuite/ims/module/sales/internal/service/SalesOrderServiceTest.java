@@ -11,14 +11,20 @@ import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.inventory.api.InventoryApi;
 import com.aquasuite.ims.module.sales.internal.entity.Order;
 import com.aquasuite.ims.module.sales.internal.entity.OrderItem;
+import com.aquasuite.ims.module.sales.internal.entity.OrderPaymentMilestone;
+import com.aquasuite.ims.module.sales.internal.entity.Quotation;
+import com.aquasuite.ims.module.sales.internal.entity.QuotationItem;
+import com.aquasuite.ims.module.sales.internal.entity.QuotationPaymentMilestone;
 import com.aquasuite.ims.module.sales.internal.enums.FulfillmentMethod;
 import com.aquasuite.ims.module.sales.internal.enums.OrderChannel;
 import com.aquasuite.ims.module.sales.internal.enums.OrderStatus;
 import com.aquasuite.ims.module.sales.internal.enums.OrderType;
 import com.aquasuite.ims.module.sales.internal.enums.PaymentMethod;
 import com.aquasuite.ims.module.sales.internal.enums.PaymentStatus;
+import com.aquasuite.ims.module.sales.internal.enums.QuotationStatus;
 import com.aquasuite.ims.module.sales.internal.error.SalesErrorCode;
 import com.aquasuite.ims.module.sales.internal.mapper.SalesOrderMapper;
+import com.aquasuite.ims.module.sales.internal.payload.request.ConvertQuotationToOrderRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.CreateComboItemRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.CreateOrderItemRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.CreateSalesOrderRequest;
@@ -26,7 +32,13 @@ import com.aquasuite.ims.module.sales.internal.payload.request.SalesOrderFilterR
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderDetailResponse;
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderSummaryResponse;
 import com.aquasuite.ims.module.sales.internal.repository.OrderItemRepository;
+import com.aquasuite.ims.module.sales.internal.repository.OrderPaymentMilestoneRepository;
 import com.aquasuite.ims.module.sales.internal.repository.OrderRepository;
+import com.aquasuite.ims.module.sales.internal.repository.QuotationItemRepository;
+import com.aquasuite.ims.module.sales.internal.repository.QuotationPaymentMilestoneRepository;
+import com.aquasuite.ims.module.sales.internal.repository.QuotationRepository;
+import com.aquasuite.ims.module.sales.internal.repository.SalesInvoiceItemRepository;
+import com.aquasuite.ims.module.sales.internal.repository.SalesInvoiceRepository;
 import com.aquasuite.ims.module.sales.internal.service.helper.OrderCodeGenerator;
 import com.aquasuite.ims.module.sales.internal.service.impl.SalesOrderServiceImpl;
 import com.aquasuite.ims.share.exception.AppException;
@@ -70,6 +82,10 @@ class SalesOrderServiceTest {
     @Mock
     private OrderItemRepository orderItemRepository;
 
+    @Mock private SalesInvoiceRepository salesInvoiceRepository;
+    @Mock private SalesInvoiceItemRepository salesInvoiceItemRepository;
+    @Mock private CreditControlApi creditControlApi;
+
     @Mock
     private CatalogApi catalogApi;
 
@@ -80,9 +96,6 @@ class SalesOrderServiceTest {
     private CrmApi crmApi;
 
     @Mock
-    private CreditControlApi creditControlApi;
-
-    @Mock
     private IamApi iamApi;
 
     @Spy
@@ -90,6 +103,18 @@ class SalesOrderServiceTest {
 
     @Mock
     private OrderCodeGenerator orderCodeGenerator;
+
+    @Mock
+    private QuotationRepository quotationRepository;
+
+    @Mock
+    private QuotationItemRepository quotationItemRepository;
+
+    @Mock
+    private QuotationPaymentMilestoneRepository quotationPaymentMilestoneRepository;
+
+    @Mock
+    private OrderPaymentMilestoneRepository orderPaymentMilestoneRepository;
 
     @InjectMocks
     private SalesOrderServiceImpl salesOrderService;
@@ -104,6 +129,7 @@ class SalesOrderServiceTest {
     void setUp() {
         customerId = UUID.randomUUID();
         staffId = UUID.randomUUID();
+        org.mockito.Mockito.lenient().when(iamApi.getCurrentUserId()).thenReturn(staffId);
         variantId = UUID.randomUUID();
 
         customerDto = CustomerSummaryDto.builder()
@@ -131,7 +157,7 @@ class SalesOrderServiceTest {
         CreateSalesOrderRequest request = CreateSalesOrderRequest.builder()
                 .customerId(customerId)
                 .orderType(OrderType.RETAIL)
-                .orderChannel(OrderChannel.IN_STORE)
+                .orderChannel(OrderChannel.COUNTER)
                 .fulfillmentMethod(FulfillmentMethod.IN_STORE_PICKUP)
                 .paymentMethod(PaymentMethod.CASH)
                 .discountAmount(new BigDecimal("500000"))
@@ -151,8 +177,8 @@ class SalesOrderServiceTest {
         when(orderCodeGenerator.generateOrderCode()).thenReturn("SO-20261103-0001");
         when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.of(skuDto));
         when(inventoryApi.checkAvailability(variantId, new BigDecimal("2"))).thenReturn(true);
-        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(orderItemRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderItemRepository.saveAllAndFlush(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
         SalesOrderDetailResponse response = salesOrderService.createSalesOrder(request);
@@ -160,6 +186,8 @@ class SalesOrderServiceTest {
         // Assert
         assertThat(response).isNotNull();
         assertThat(response.getOrderCode()).isEqualTo("SO-20261103-0001");
+        assertThat(response.getOrderChannel()).isEqualTo("COUNTER");
+        assertThat(response.getStoreInvoiceId()).isNotNull();
         assertThat(response.getOrderStatus()).isEqualTo(OrderStatus.PROCESSING.name());
         assertThat(response.getPaymentStatus()).isEqualTo(PaymentStatus.UNPAID.name());
         assertThat(response.getSubtotal()).isEqualByComparingTo(new BigDecimal("10000000"));
@@ -169,7 +197,29 @@ class SalesOrderServiceTest {
 
         // Xác nhận chỉ đặt giữ tồn kho (reserved_qty), không tự ý trừ on_hand_qty (thuộc UC-37)
         verify(inventoryApi).reserveStock(variantId, new BigDecimal("2"));
+        verify(salesInvoiceRepository).saveAndFlush(org.mockito.ArgumentMatchers.argThat(invoice ->
+                "STORE".equals(invoice.getInvoiceType()) && "DRAFT".equals(invoice.getStatus())
+                        && customerId.equals(invoice.getCustomerId())
+                        && invoice.getTotalAmount().compareTo(new BigDecimal("9500000")) == 0));
+        verify(salesInvoiceItemRepository).saveAll(anyList());
         verify(inventoryApi, never()).adjustPhysicalStock(any());
+    }
+
+    @Test
+    void legacyPosChannelIsStoredAsCounter() {
+        CreateSalesOrderRequest request = CreateSalesOrderRequest.builder()
+                .customerId(customerId).orderChannel(OrderChannel.POS).paymentMethod(PaymentMethod.CASH)
+                .items(List.of(CreateOrderItemRequest.builder().variantId(variantId)
+                        .quantity(BigDecimal.ONE).discountAmount(BigDecimal.ZERO).build())).build();
+        when(crmApi.getCustomerById(customerId)).thenReturn(Optional.of(customerDto));
+        when(iamApi.getCurrentUserId()).thenReturn(staffId);
+        when(orderCodeGenerator.generateOrderCode()).thenReturn("SO-20261103-0100");
+        when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.of(skuDto));
+        when(inventoryApi.checkAvailability(variantId, BigDecimal.ONE)).thenReturn(true);
+        when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderItemRepository.saveAllAndFlush(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        assertThat(salesOrderService.createSalesOrder(request).getOrderChannel()).isEqualTo("COUNTER");
     }
 
     @Test
@@ -221,8 +271,8 @@ class SalesOrderServiceTest {
         when(catalogApi.getBundleSummary(comboId)).thenReturn(Optional.of(comboDto));
         when(inventoryApi.checkAvailability(compVariant1, new BigDecimal("2"))).thenReturn(true);
         when(inventoryApi.checkAvailability(compVariant2, new BigDecimal("2"))).thenReturn(true);
-        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(orderItemRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderItemRepository.saveAllAndFlush(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
         SalesOrderDetailResponse response = salesOrderService.createSalesOrder(request);
@@ -240,7 +290,7 @@ class SalesOrderServiceTest {
     }
 
     @Test
-    @DisplayName("UC-21: Tạo đơn hàng mua công nợ hợp lệ -> Finance authorizes and Order has no due date")
+    @DisplayName("UC-21: Tạo đơn CREDIT hợp lệ sau kiểm tra UC-24, chưa tính hạn theo hóa đơn điện tử")
     void createSalesOrder_Success_CreditEligible_AuthorizesAndLeavesDueDateForInvoice() {
         // Arrange
         CreateSalesOrderRequest request = CreateSalesOrderRequest.builder()
@@ -259,8 +309,8 @@ class SalesOrderServiceTest {
         when(orderCodeGenerator.generateOrderCode()).thenReturn("SO-20261103-0003");
         when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.of(skuDto));
         when(inventoryApi.checkAvailability(variantId, BigDecimal.ONE)).thenReturn(true);
-        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(orderItemRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderItemRepository.saveAllAndFlush(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
         SalesOrderDetailResponse response = salesOrderService.createSalesOrder(request);
@@ -313,7 +363,7 @@ class SalesOrderServiceTest {
     }
 
     @Test
-    @DisplayName("UC-21: Chặn mua hàng công nợ khi Finance từ chối final authorization")
+    @DisplayName("UC-21: Chặn đơn CREDIT khi UC-24 từ chối")
     void createSalesOrder_CreditDenied_ThrowsAppException() {
         CreateSalesOrderRequest request = CreateSalesOrderRequest.builder()
                 .customerId(customerId)
@@ -327,6 +377,7 @@ class SalesOrderServiceTest {
                 .build();
 
         when(crmApi.getCustomerById(customerId)).thenReturn(Optional.of(customerDto));
+        when(orderCodeGenerator.generateOrderCode()).thenReturn("SO-20261103-0004");
         when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.of(skuDto));
         when(inventoryApi.checkAvailability(variantId, BigDecimal.ONE)).thenReturn(true);
         when(creditControlApi.authorize(any())).thenReturn(new CreditAuthorizationDecision(false, "OVERDUE", BigDecimal.ZERO));
@@ -349,7 +400,7 @@ class SalesOrderServiceTest {
                 .customerId(customerId)
                 .salesStaffId(staffId)
                 .orderType(OrderType.RETAIL.name())
-                .orderChannel(OrderChannel.IN_STORE.name())
+                .orderChannel(OrderChannel.COUNTER.name())
                 .orderStatus(OrderStatus.PROCESSING.name())
                 .paymentStatus(PaymentStatus.UNPAID.name())
                 .totalAmount(new BigDecimal("5000000"))
@@ -382,7 +433,7 @@ class SalesOrderServiceTest {
                 .orderCode("SO-20261103-0009")
                 .customerId(customerId)
                 .orderType(OrderType.RETAIL.name())
-                .orderChannel(OrderChannel.IN_STORE.name())
+                .orderChannel(OrderChannel.COUNTER.name())
                 .orderStatus(OrderStatus.PROCESSING.name())
                 .paymentStatus(PaymentStatus.UNPAID.name())
                 .orderDate(OffsetDateTime.now())
@@ -415,5 +466,252 @@ class SalesOrderServiceTest {
         assertThat(response.getCustomerName()).isEqualTo("Khách Hàng Thử Nghiệm");
         assertThat(response.getItems()).hasSize(1);
         assertThat(response.getItems().get(0).getSku()).isEqualTo("SKU-TOILET-01");
+    }
+
+    // =========================================================================
+    // UC-28 / UC-073: Chuyển đổi báo giá thành đơn hàng công trình (Convert Quotation to Order)
+    // =========================================================================
+
+    @Test
+    @DisplayName("UC-28 / UC-073: Chuyển đổi báo giá đã chốt (ACCEPTED) thành Đơn hàng công trình thành công")
+    void convertQuotationToOrder_Success_WhenAccepted() {
+        UUID quotationId = UUID.randomUUID();
+        Quotation quotation = Quotation.builder()
+                .quotationId(quotationId)
+                .quotationCode("BG-202611-0001")
+                .revisionNo(1)
+                .customerId(customerId)
+                .projectName("Villa Ecopark")
+                .status(QuotationStatus.ACCEPTED)
+                .deliveryAddress("Ecopark, Hưng Yên")
+                .deliverySchedule("Giao làm 2 đợt theo tiến độ")
+                .vatRate(new BigDecimal("10.00"))
+                .shippingFee(new BigDecimal("500000"))
+                .depositPercent(new BigDecimal("30.00"))
+                .depositAmount(new BigDecimal("2700000"))
+                .creditTermDays(30)
+                .remainingDebtAmount(new BigDecimal("6300000"))
+                .debtCondition("Thanh toán trong 30 ngày sau nghiệm thu")
+                .note("Giao hàng giờ hành chính")
+                .totalAmount(new BigDecimal("9000000"))
+                .createdBy(staffId)
+                .build();
+
+        QuotationItem qItem = QuotationItem.builder()
+                .quotationItemId(UUID.randomUUID())
+                .quotationId(quotationId)
+                .variantId(variantId)
+                .sku("SKU-TOILET-01")
+                .unit("bộ")
+                .quantity(new BigDecimal("2"))
+                .unitPrice(new BigDecimal("5000000"))
+                .discountRate(new BigDecimal("10")) // 10% chiết khấu -> 1,000,000 đ
+                .build();
+
+        QuotationPaymentMilestone m1 = QuotationPaymentMilestone.builder()
+                .milestoneId(UUID.randomUUID())
+                .quotationId(quotationId)
+                .stageName("Đợt 1: Đặt cọc 30%")
+                .percent(new BigDecimal("30.00"))
+                .sortOrder(1)
+                .build();
+        QuotationPaymentMilestone m2 = QuotationPaymentMilestone.builder()
+                .milestoneId(UUID.randomUUID())
+                .quotationId(quotationId)
+                .stageName("Đợt 2: Quyết toán 70%")
+                .percent(new BigDecimal("70.00"))
+                .sortOrder(2)
+                .build();
+
+        ConvertQuotationToOrderRequest request = ConvertQuotationToOrderRequest.builder()
+                .note("Đã thỏa thuận cọc 30%")
+                .build();
+
+        when(quotationRepository.findById(quotationId)).thenReturn(Optional.of(quotation));
+        when(orderRepository.findByQuotationId(quotationId)).thenReturn(Optional.empty());
+        when(quotationItemRepository.findByQuotationIdOrderBySortOrderAsc(quotationId)).thenReturn(List.of(qItem));
+        when(quotationPaymentMilestoneRepository.findByQuotationIdOrderBySortOrderAsc(quotationId))
+                .thenReturn(List.of(m1, m2));
+        when(crmApi.getCustomerById(customerId)).thenReturn(Optional.of(customerDto));
+        when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.of(skuDto));
+        when(orderCodeGenerator.generateOrderCode()).thenReturn("SO-20261105-0001");
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(orderItemRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+        when(orderPaymentMilestoneRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        SalesOrderDetailResponse response = salesOrderService.convertQuotationToOrder(quotationId, request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getOrderCode()).isEqualTo("SO-20261105-0001");
+        assertThat(response.getQuotationId()).isEqualTo(quotationId);
+        assertThat(response.getQuotationCode()).isEqualTo("BG-202611-0001");
+        assertThat(response.getProjectName()).isEqualTo("Villa Ecopark");
+        assertThat(response.getDeliverySchedule()).isEqualTo("Giao làm 2 đợt theo tiến độ");
+        assertThat(response.getVatRate()).isEqualByComparingTo(new BigDecimal("10.00"));
+        assertThat(response.getShippingFee()).isEqualByComparingTo(new BigDecimal("500000"));
+        assertThat(response.getDepositPercent()).isEqualByComparingTo(new BigDecimal("30.00"));
+        assertThat(response.getDepositAmount()).isEqualByComparingTo(new BigDecimal("2700000"));
+        assertThat(response.getCreditTermDays()).isEqualTo(30);
+        assertThat(response.getRemainingDebtAmount()).isEqualByComparingTo(new BigDecimal("6300000"));
+        assertThat(response.getDebtCondition()).isEqualTo("Thanh toán trong 30 ngày sau nghiệm thu");
+        assertThat(response.getOrderType()).isEqualTo(OrderType.PROJECT.name());
+        assertThat(response.getOrderChannel()).isEqualTo(OrderChannel.DIRECT_SALES.name());
+        assertThat(response.getOrderStatus()).isEqualTo(OrderStatus.PROCESSING.name());
+        assertThat(response.getPaymentStatus()).isEqualTo(PaymentStatus.UNPAID.name());
+        assertThat(response.getSubtotal()).isEqualByComparingTo(new BigDecimal("10000000"));
+        assertThat(response.getDiscountAmount()).isEqualByComparingTo(new BigDecimal("1000000"));
+        assertThat(response.getTotalAmount()).isEqualByComparingTo(new BigDecimal("9000000"));
+        assertThat(response.getItems()).hasSize(1);
+        assertThat(response.getMilestones()).hasSize(2);
+        assertThat(response.getMilestones().get(0).getStageName()).isEqualTo("Đợt 1: Đặt cọc 30%");
+        assertThat(response.getMilestones().get(0).getAmount()).isEqualByComparingTo(new BigDecimal("2700000.00"));
+        assertThat(response.getMilestones().get(1).getStageName()).isEqualTo("Đợt 2: Quyết toán 70%");
+        assertThat(response.getMilestones().get(1).getAmount()).isEqualByComparingTo(new BigDecimal("6300000.00"));
+        assertThat(response.getNote()).contains("Villa Ecopark").contains("Đã thỏa thuận cọc 30%");
+    }
+
+    @Test
+    @DisplayName("UC-28 / UC-073: Chuyển đổi báo giá đã duyệt (APPROVED) -> Tự động chuyển báo giá sang ACCEPTED")
+    void convertQuotationToOrder_Success_WhenApproved_UpdatesQuotationToAccepted() {
+        UUID quotationId = UUID.randomUUID();
+        Quotation quotation = Quotation.builder()
+                .quotationId(quotationId)
+                .quotationCode("BG-202611-0002")
+                .revisionNo(1)
+                .customerId(customerId)
+                .status(QuotationStatus.APPROVED)
+                .totalAmount(new BigDecimal("5000000"))
+                .createdBy(staffId)
+                .build();
+
+        QuotationItem qItem = QuotationItem.builder()
+                .quotationItemId(UUID.randomUUID())
+                .quotationId(quotationId)
+                .variantId(variantId)
+                .sku("SKU-TOILET-01")
+                .unit("cái")
+                .quantity(BigDecimal.ONE)
+                .unitPrice(new BigDecimal("5000000"))
+                .discountRate(BigDecimal.ZERO)
+                .build();
+
+        when(quotationRepository.findById(quotationId)).thenReturn(Optional.of(quotation));
+        when(orderRepository.findByQuotationId(quotationId)).thenReturn(Optional.empty());
+        when(quotationItemRepository.findByQuotationIdOrderBySortOrderAsc(quotationId)).thenReturn(List.of(qItem));
+        when(crmApi.getCustomerById(customerId)).thenReturn(Optional.of(customerDto));
+        when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.of(skuDto));
+        when(orderCodeGenerator.generateOrderCode()).thenReturn("SO-20261105-0002");
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(orderItemRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        SalesOrderDetailResponse response = salesOrderService.convertQuotationToOrder(quotationId, null);
+
+        assertThat(response).isNotNull();
+        assertThat(quotation.getStatus()).isEqualTo(QuotationStatus.ACCEPTED);
+        assertThat(quotation.getAcceptedAt()).isNotNull();
+        verify(quotationRepository).save(quotation);
+    }
+
+    @Test
+    @DisplayName("UC-28 / UC-073: Báo lỗi khi không tìm thấy báo giá (QUOTATION_NOT_FOUND)")
+    void convertQuotationToOrder_Throws_WhenQuotationNotFound() {
+        UUID quotationId = UUID.randomUUID();
+        when(quotationRepository.findById(quotationId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> salesOrderService.convertQuotationToOrder(quotationId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", SalesErrorCode.QUOTATION_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("UC-28 / UC-073: Báo lỗi khi báo giá đang ở trạng thái DRAFT (QUOTATION_NOT_ACCEPTED_OR_APPROVED)")
+    void convertQuotationToOrder_Throws_WhenStatusInvalid() {
+        UUID quotationId = UUID.randomUUID();
+        Quotation quotation = Quotation.builder()
+                .quotationId(quotationId)
+                .status(QuotationStatus.DRAFT)
+                .build();
+
+        when(quotationRepository.findById(quotationId)).thenReturn(Optional.of(quotation));
+
+        assertThatThrownBy(() -> salesOrderService.convertQuotationToOrder(quotationId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", SalesErrorCode.QUOTATION_NOT_ACCEPTED_OR_APPROVED);
+    }
+
+    @Test
+    @DisplayName("UC-28 / UC-073: Chặn chuyển đổi trùng lặp nếu báo giá đã có đơn hàng (ALREADY_CONVERTED_TO_ORDER)")
+    void convertQuotationToOrder_Throws_WhenAlreadyConverted() {
+        UUID quotationId = UUID.randomUUID();
+        Quotation quotation = Quotation.builder()
+                .quotationId(quotationId)
+                .quotationCode("BG-202611-0003")
+                .status(QuotationStatus.ACCEPTED)
+                .build();
+
+        Order existingOrder = Order.builder()
+                .orderId(UUID.randomUUID())
+                .orderCode("SO-20261103-9999")
+                .quotationId(quotationId)
+                .build();
+
+        when(quotationRepository.findById(quotationId)).thenReturn(Optional.of(quotation));
+        when(orderRepository.findByQuotationId(quotationId)).thenReturn(Optional.of(existingOrder));
+
+        assertThatThrownBy(() -> salesOrderService.convertQuotationToOrder(quotationId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", SalesErrorCode.ALREADY_CONVERTED_TO_ORDER);
+    }
+
+    @Test
+    @DisplayName("UC-28 / UC-073: Báo lỗi khi danh sách sản phẩm trong báo giá trống (ORDER_ITEMS_EMPTY)")
+    void convertQuotationToOrder_Throws_WhenNoItems() {
+        UUID quotationId = UUID.randomUUID();
+        Quotation quotation = Quotation.builder()
+                .quotationId(quotationId)
+                .status(QuotationStatus.ACCEPTED)
+                .build();
+
+        when(quotationRepository.findById(quotationId)).thenReturn(Optional.of(quotation));
+        when(orderRepository.findByQuotationId(quotationId)).thenReturn(Optional.empty());
+        when(quotationItemRepository.findByQuotationIdOrderBySortOrderAsc(quotationId)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> salesOrderService.convertQuotationToOrder(quotationId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", SalesErrorCode.ORDER_ITEMS_EMPTY);
+    }
+
+    @Test
+    @DisplayName("UC-28 / UC-073: Báo lỗi khi biến thể sản phẩm trong báo giá đã ngừng hoạt động (SKU_NOT_ACTIVE)")
+    void convertQuotationToOrder_Throws_WhenSkuInactive() {
+        UUID quotationId = UUID.randomUUID();
+        Quotation quotation = Quotation.builder()
+                .quotationId(quotationId)
+                .customerId(customerId)
+                .status(QuotationStatus.ACCEPTED)
+                .build();
+
+        QuotationItem qItem = QuotationItem.builder()
+                .quotationItemId(UUID.randomUUID())
+                .quotationId(quotationId)
+                .variantId(variantId)
+                .quantity(BigDecimal.ONE)
+                .unitPrice(new BigDecimal("1000000"))
+                .build();
+
+        CatalogSkuSummaryDto inactiveSku = CatalogSkuSummaryDto.builder()
+                .variantId(variantId)
+                .sku("SKU-INACTIVE")
+                .status("INACTIVE")
+                .build();
+
+        when(quotationRepository.findById(quotationId)).thenReturn(Optional.of(quotation));
+        when(orderRepository.findByQuotationId(quotationId)).thenReturn(Optional.empty());
+        when(quotationItemRepository.findByQuotationIdOrderBySortOrderAsc(quotationId)).thenReturn(List.of(qItem));
+        when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.of(inactiveSku));
+
+        assertThatThrownBy(() -> salesOrderService.convertQuotationToOrder(quotationId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", SalesErrorCode.SKU_NOT_ACTIVE);
     }
 }

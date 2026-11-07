@@ -44,7 +44,6 @@ public class CrmDataInitializer implements CommandLineRunner {
                 customerCode = "CUS-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
             }
             Customer newCustomer = Customer.builder()
-                    .customerId(UUID.randomUUID())
                     .userId(user.id())
                     .customerCode(customerCode)
                     .customerName(user.fullName() != null ? user.fullName() : "Nguyễn Văn A")

@@ -70,7 +70,7 @@ class SalesOrderControllerTest {
                                 .customerPhone("0912345678")
                                 .salesStaffName("Nhân Viên Bán Hàng")
                                 .orderType("RETAIL")
-                                .orderChannel("IN_STORE")
+                                .orderChannel("COUNTER")
                                 .orderStatus("PROCESSING")
                                 .paymentStatus("UNPAID")
                                 .orderDate(OffsetDateTime.now())

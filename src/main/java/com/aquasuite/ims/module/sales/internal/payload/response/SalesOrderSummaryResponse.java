@@ -21,6 +21,13 @@ public class SalesOrderSummaryResponse {
     private UUID customerId;
     private String customerName;
     private String customerPhone;
+    private UUID quotationId;
+    private String quotationCode;
+    private String projectName;
+    private BigDecimal depositPercent;
+    private BigDecimal depositAmount;
+    private Integer creditTermDays;
+    private BigDecimal remainingDebtAmount;
     private UUID salesStaffId;
     private String salesStaffName;
     private String orderType;

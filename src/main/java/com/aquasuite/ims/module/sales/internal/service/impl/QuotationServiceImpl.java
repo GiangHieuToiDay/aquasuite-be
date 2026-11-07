@@ -13,6 +13,7 @@ import com.aquasuite.ims.module.sales.internal.calculator.DiscountPolicyChecker.
 import com.aquasuite.ims.module.sales.internal.calculator.QuotationCalculator;
 import com.aquasuite.ims.module.sales.internal.calculator.QuotationCalculator.CalculationLine;
 import com.aquasuite.ims.module.sales.internal.calculator.QuotationCalculator.QuotationTotals;
+import com.aquasuite.ims.module.sales.internal.entity.Order;
 import com.aquasuite.ims.module.sales.internal.entity.Quotation;
 import com.aquasuite.ims.module.sales.internal.entity.QuotationItem;
 import com.aquasuite.ims.module.sales.internal.entity.QuotationPaymentMilestone;
@@ -31,6 +32,7 @@ import com.aquasuite.ims.module.sales.internal.payload.request.RejectQuotationRe
 import com.aquasuite.ims.module.sales.internal.payload.request.SubmitApprovalRequest;
 import com.aquasuite.ims.module.sales.internal.payload.response.QuotationListItemResponse;
 import com.aquasuite.ims.module.sales.internal.payload.response.QuotationResponse;
+import com.aquasuite.ims.module.sales.internal.repository.OrderRepository;
 import com.aquasuite.ims.module.sales.internal.repository.QuotationItemRepository;
 import com.aquasuite.ims.module.sales.internal.repository.QuotationPaymentMilestoneRepository;
 import com.aquasuite.ims.module.sales.internal.repository.QuotationRepository;
@@ -50,6 +52,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
@@ -96,6 +99,7 @@ public class QuotationServiceImpl implements QuotationService {
     private final QuotationRepository quotationRepository;
     private final QuotationItemRepository quotationItemRepository;
     private final QuotationPaymentMilestoneRepository quotationPaymentMilestoneRepository;
+    private final OrderRepository orderRepository;
 
     // =========================================================================
     // NHÓM 2: SOẠN THẢO, TÍNH NHẨM & LƯU NHÁP (DRAFTING & CALCULATION)
@@ -164,6 +168,20 @@ public class QuotationServiceImpl implements QuotationService {
         }
         quotation.setStatus(QuotationStatus.DRAFT);
         quotation.setTotalAmount(totals.grandTotal());
+
+        // Tính cọc và công nợ nếu có
+        if (quotation.getDepositPercent() != null && quotation.getDepositPercent().compareTo(BigDecimal.ZERO) > 0) {
+            if (quotation.getDepositAmount() == null || quotation.getDepositAmount().compareTo(BigDecimal.ZERO) <= 0) {
+                quotation.setDepositAmount(totals.grandTotal().multiply(quotation.getDepositPercent())
+                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
+            }
+        }
+        if (quotation.getCreditTermDays() != null && quotation.getCreditTermDays() > 0) {
+            if (quotation.getRemainingDebtAmount() == null || quotation.getRemainingDebtAmount().compareTo(BigDecimal.ZERO) <= 0) {
+                BigDecimal dep = quotation.getDepositAmount() != null ? quotation.getDepositAmount() : BigDecimal.ZERO;
+                quotation.setRemainingDebtAmount(totals.grandTotal().subtract(dep).max(BigDecimal.ZERO));
+            }
+        }
 
         quotation = quotationRepository.save(quotation);
         if (!quotationItems.isEmpty()) {
@@ -310,6 +328,11 @@ public class QuotationServiceImpl implements QuotationService {
         if (request.getSentToEmail() != null) {
             quotation.setSentToEmail(request.getSentToEmail());
         }
+        quotation.setDepositPercent(request.getDepositPercent());
+        quotation.setDepositAmount(request.getDepositAmount());
+        quotation.setCreditTermDays(request.getCreditTermDays());
+        quotation.setRemainingDebtAmount(request.getRemainingDebtAmount());
+        quotation.setDebtCondition(request.getDebtCondition());
 
         // Nếu trước đó bị REJECTED mà Sales sửa lại -> chuyển về DRAFT
         if (quotation.getStatus() == QuotationStatus.REJECTED) {
@@ -336,6 +359,20 @@ public class QuotationServiceImpl implements QuotationService {
         DiscountCheckResult approvalResult = discountPolicyChecker.check(discountRates, DEFAULT_STAFF_DISCOUNT_LIMIT);
 
         quotation.setTotalAmount(totals.grandTotal());
+
+        if (quotation.getDepositPercent() != null && quotation.getDepositPercent().compareTo(BigDecimal.ZERO) > 0) {
+            if (quotation.getDepositAmount() == null || quotation.getDepositAmount().compareTo(BigDecimal.ZERO) <= 0) {
+                quotation.setDepositAmount(totals.grandTotal().multiply(quotation.getDepositPercent())
+                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
+            }
+        }
+        if (quotation.getCreditTermDays() != null && quotation.getCreditTermDays() > 0) {
+            if (quotation.getRemainingDebtAmount() == null || quotation.getRemainingDebtAmount().compareTo(BigDecimal.ZERO) <= 0) {
+                BigDecimal dep = quotation.getDepositAmount() != null ? quotation.getDepositAmount() : BigDecimal.ZERO;
+                quotation.setRemainingDebtAmount(totals.grandTotal().subtract(dep).max(BigDecimal.ZERO));
+            }
+        }
+
         quotation = quotationRepository.save(quotation);
         if (!newItems.isEmpty()) {
             quotationItemRepository.saveAll(newItems);
@@ -655,6 +692,11 @@ public class QuotationServiceImpl implements QuotationService {
                 .validUntil(LocalDate.now().plusDays(30))
                 .vatRate(sourceQuotation.getVatRate())
                 .shippingFee(sourceQuotation.getShippingFee())
+                .depositPercent(sourceQuotation.getDepositPercent())
+                .depositAmount(sourceQuotation.getDepositAmount())
+                .creditTermDays(sourceQuotation.getCreditTermDays())
+                .remainingDebtAmount(sourceQuotation.getRemainingDebtAmount())
+                .debtCondition(sourceQuotation.getDebtCondition())
                 .createdBy(iamApi.getCurrentUserId())
                 .build();
 
@@ -979,6 +1021,7 @@ public class QuotationServiceImpl implements QuotationService {
 
         List<UUID> quotationIds = pageResult.getContent().stream().map(Quotation::getQuotationId).toList();
         Map<UUID, Boolean> approvalMap = new HashMap<>();
+        Map<UUID, Order> ordersByQuotationId = new HashMap<>();
         if (!quotationIds.isEmpty()) {
             List<QuotationItem> pageItems = quotationItemRepository.findByQuotationIdIn(quotationIds);
             Map<UUID, List<BigDecimal>> discountsByQuotationId = pageItems.stream()
@@ -991,6 +1034,19 @@ public class QuotationServiceImpl implements QuotationService {
                 List<BigDecimal> rates = discountsByQuotationId.getOrDefault(qId, Collections.emptyList());
                 boolean requiresApproval = discountPolicyChecker.check(rates, DEFAULT_STAFF_DISCOUNT_LIMIT).requiresApproval();
                 approvalMap.put(qId, requiresApproval);
+            }
+
+            if (orderRepository != null) {
+                try {
+                    List<Order> orders = orderRepository.findByQuotationIdIn(quotationIds);
+                    for (Order ord : orders) {
+                        if (ord.getQuotationId() != null) {
+                            ordersByQuotationId.put(ord.getQuotationId(), ord);
+                        }
+                    }
+                } catch (Exception ex) {
+                    log.debug("Batch lookup orders for quotations ignored: {}", ex.getMessage());
+                }
             }
         }
 
@@ -1007,7 +1063,13 @@ public class QuotationServiceImpl implements QuotationService {
                 }
             });
             Boolean requiresApproval = approvalMap.getOrDefault(q.getQuotationId(), false);
-            return quotationMapper.toListItemResponse(q, customerName, createdByName, requiresApproval);
+            QuotationListItemResponse itemResp = quotationMapper.toListItemResponse(q, customerName, createdByName, requiresApproval);
+            Order linkedOrder = ordersByQuotationId.get(q.getQuotationId());
+            if (linkedOrder != null) {
+                itemResp.setOrderId(linkedOrder.getOrderId());
+                itemResp.setOrderCode(linkedOrder.getOrderCode());
+            }
+            return itemResp;
         }).toList();
 
         return PageResponse.of(
@@ -1049,7 +1111,7 @@ public class QuotationServiceImpl implements QuotationService {
         List<QuotationPaymentMilestone> milestones = quotationPaymentMilestoneRepository.findByQuotationIdOrderBySortOrderAsc(quotation.getQuotationId());
 
         boolean isOwner = isShopOwner();
-        return quotationMapper.toResponse(
+        QuotationResponse resp = quotationMapper.toResponse(
                 quotation,
                 items,
                 milestones,
@@ -1059,6 +1121,17 @@ public class QuotationServiceImpl implements QuotationService {
                 skuNames,
                 isOwner
         );
+        if (orderRepository != null && quotation.getQuotationId() != null) {
+            try {
+                orderRepository.findByQuotationId(quotation.getQuotationId()).ifPresent(ord -> {
+                    resp.setOrderId(ord.getOrderId());
+                    resp.setOrderCode(ord.getOrderCode());
+                });
+            } catch (Exception ex) {
+                log.debug("Lookup order for quotation {} ignored: {}", quotation.getQuotationId(), ex.getMessage());
+            }
+        }
+        return resp;
     }
 
     private Map<UUID, CatalogSkuSummaryDto> validateVariantsAndGetSkuMap(List<QuotationItemRequest> itemRequests) {

@@ -23,6 +23,8 @@ import com.aquasuite.ims.module.sales.internal.payload.request.CreateOrderItemRe
 import com.aquasuite.ims.module.sales.internal.payload.request.CreateSalesOrderRequest;
 import com.aquasuite.ims.module.sales.internal.repository.OrderItemRepository;
 import com.aquasuite.ims.module.sales.internal.repository.OrderRepository;
+import com.aquasuite.ims.module.sales.internal.repository.QuotationItemRepository;
+import com.aquasuite.ims.module.sales.internal.repository.QuotationRepository;
 import com.aquasuite.ims.module.sales.internal.service.SalesOrderService;
 import com.aquasuite.ims.module.sales.internal.service.helper.OrderCodeGenerator;
 import com.aquasuite.ims.module.sales.internal.service.impl.SalesOrderApiImpl;
@@ -104,12 +106,18 @@ public class SalesOrderPostmanSimulationTest {
 
         OrderRepository orderRepository = Mockito.mock(OrderRepository.class);
         OrderItemRepository orderItemRepository = Mockito.mock(OrderItemRepository.class);
+        var salesInvoiceRepository = Mockito.mock(com.aquasuite.ims.module.sales.internal.repository.SalesInvoiceRepository.class);
+        var salesInvoiceItemRepository = Mockito.mock(com.aquasuite.ims.module.sales.internal.repository.SalesInvoiceItemRepository.class);
+        CreditControlApi creditControlApi = Mockito.mock(CreditControlApi.class);
         CatalogApi catalogApi = Mockito.mock(CatalogApi.class);
         InventoryApi inventoryApi = Mockito.mock(InventoryApi.class);
         CrmApi crmApi = Mockito.mock(CrmApi.class);
-        CreditControlApi creditControlApi = Mockito.mock(CreditControlApi.class);
         IamApi iamApi = Mockito.mock(IamApi.class);
         OrderCodeGenerator orderCodeGenerator = Mockito.mock(OrderCodeGenerator.class);
+        QuotationRepository quotationRepository = Mockito.mock(QuotationRepository.class);
+        QuotationItemRepository quotationItemRepository = Mockito.mock(QuotationItemRepository.class);
+        var quotationPaymentMilestoneRepository = Mockito.mock(com.aquasuite.ims.module.sales.internal.repository.QuotationPaymentMilestoneRepository.class);
+        var orderPaymentMilestoneRepository = Mockito.mock(com.aquasuite.ims.module.sales.internal.repository.OrderPaymentMilestoneRepository.class);
         SalesOrderMapper salesOrderMapper = Mappers.getMapper(SalesOrderMapper.class);
 
         retailCustomerId = UUID.fromString("11111111-2222-3333-4444-555555555501");
@@ -221,7 +229,16 @@ public class SalesOrderPostmanSimulationTest {
             orderStore.put(o.getOrderId(), o);
             return o;
         });
+        when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> {
+            Order o = inv.getArgument(0);
+            orderStore.put(o.getOrderId(), o);
+            return o;
+        });
         when(orderRepository.findById(any(UUID.class))).thenAnswer(inv -> {
+            UUID id = inv.getArgument(0);
+            return Optional.ofNullable(orderStore.get(id));
+        });
+        org.mockito.Mockito.lenient().when(orderRepository.findForPaymentUpdate(any(UUID.class))).thenAnswer(inv -> {
             UUID id = inv.getArgument(0);
             return Optional.ofNullable(orderStore.get(id));
         });
@@ -230,10 +247,7 @@ public class SalesOrderPostmanSimulationTest {
             List<Order> list = new ArrayList<>(orderStore.values());
             return new PageImpl<>(list, pageable, list.size());
         });
-        when(orderRepository.hasOverdueUnpaidOrders(eq(retailCustomerId), any(LocalDate.class))).thenReturn(false);
-        when(orderRepository.hasOverdueUnpaidOrders(eq(overdueCustomerId), any(LocalDate.class))).thenReturn(true);
-
-        when(orderItemRepository.saveAll(anyList())).thenAnswer(inv -> {
+        when(orderItemRepository.saveAllAndFlush(anyList())).thenAnswer(inv -> {
             List<OrderItem> items = inv.getArgument(0);
             if (!items.isEmpty()) {
                 UUID ordId = items.get(0).getOrderId();
@@ -249,16 +263,22 @@ public class SalesOrderPostmanSimulationTest {
         SalesOrderService salesOrderService = new SalesOrderServiceImpl(
                 orderRepository,
                 orderItemRepository,
+                salesInvoiceRepository,
+                salesInvoiceItemRepository,
+                creditControlApi,
                 catalogApi,
                 inventoryApi,
                 crmApi,
-                creditControlApi,
                 iamApi,
                 salesOrderMapper,
-                orderCodeGenerator
+                orderCodeGenerator,
+                quotationRepository,
+                quotationItemRepository,
+                quotationPaymentMilestoneRepository,
+                orderPaymentMilestoneRepository
         );
 
-        salesOrderApi = new SalesOrderApiImpl(orderRepository);
+        salesOrderApi = new SalesOrderApiImpl(orderRepository, salesInvoiceRepository);
         SalesOrderController controller = new SalesOrderController(salesOrderService);
 
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
@@ -275,7 +295,7 @@ public class SalesOrderPostmanSimulationTest {
         CreateSalesOrderRequest request = CreateSalesOrderRequest.builder()
                 .customerId(retailCustomerId)
                 .orderType(OrderType.RETAIL)
-                .orderChannel(OrderChannel.IN_STORE)
+                .orderChannel(OrderChannel.COUNTER)
                 .fulfillmentMethod(FulfillmentMethod.IN_STORE_PICKUP)
                 .paymentMethod(PaymentMethod.CASH)
                 .discountAmount(BigDecimal.ZERO)
@@ -319,7 +339,7 @@ public class SalesOrderPostmanSimulationTest {
         CreateSalesOrderRequest request = CreateSalesOrderRequest.builder()
                 .customerId(retailCustomerId)
                 .orderType(OrderType.RETAIL)
-                .orderChannel(OrderChannel.IN_STORE)
+                .orderChannel(OrderChannel.COUNTER)
                 .fulfillmentMethod(FulfillmentMethod.SCHEDULED_DELIVERY)
                 .paymentMethod(PaymentMethod.BANK_TRANSFER)
                 .discountAmount(new BigDecimal("500000"))
@@ -357,7 +377,7 @@ public class SalesOrderPostmanSimulationTest {
         CreateSalesOrderRequest request = CreateSalesOrderRequest.builder()
                 .customerId(retailCustomerId)
                 .orderType(OrderType.RETAIL)
-                .orderChannel(OrderChannel.IN_STORE)
+                .orderChannel(OrderChannel.COUNTER)
                 .fulfillmentMethod(FulfillmentMethod.SCHEDULED_DELIVERY)
                 .paymentMethod(PaymentMethod.CREDIT)
                 .deliveryAddress("Khu đô thị Vinhomes Smart City, Hà Nội")
@@ -379,9 +399,10 @@ public class SalesOrderPostmanSimulationTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.orderCode").value("SO-20261103-0003"))
                 .andExpect(jsonPath("$.data.paymentStatus").value("UNPAID"))
+                .andExpect(jsonPath("$.data.dueDate").doesNotExist())
                 .andReturn();
 
-        printHttpResult("3. POST /api/v1/sales/orders (Mua công nợ CREDIT hợp lệ - Hạn trả +30 ngày)", reqJson, result);
+        printHttpResult("3. POST /api/v1/sales/orders (Mua công nợ CREDIT hợp lệ - Chưa tính hạn hóa đơn điện tử)", reqJson, result);
     }
 
     @Test

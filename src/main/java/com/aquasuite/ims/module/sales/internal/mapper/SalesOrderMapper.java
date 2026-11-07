@@ -2,8 +2,10 @@ package com.aquasuite.ims.module.sales.internal.mapper;
 
 import com.aquasuite.ims.module.sales.internal.entity.Order;
 import com.aquasuite.ims.module.sales.internal.entity.OrderItem;
+import com.aquasuite.ims.module.sales.internal.entity.OrderPaymentMilestone;
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderDetailResponse;
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderItemResponse;
+import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderMilestoneResponse;
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderSummaryResponse;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -24,6 +26,10 @@ public interface SalesOrderMapper {
     SalesOrderItemResponse toItemResponse(OrderItem item);
 
     List<SalesOrderItemResponse> toItemResponseList(List<OrderItem> items);
+
+    SalesOrderMilestoneResponse toMilestoneResponse(OrderPaymentMilestone milestone);
+
+    List<SalesOrderMilestoneResponse> toMilestoneResponseList(List<OrderPaymentMilestone> milestones);
 
     @Mapping(target = "itemCount", source = "itemCount")
     @Mapping(target = "customerName", source = "customerName")

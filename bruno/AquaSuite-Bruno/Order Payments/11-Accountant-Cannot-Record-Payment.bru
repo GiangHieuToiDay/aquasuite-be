@@ -1,0 +1,33 @@
+meta {
+  name: 11 - Accountant Cannot Record Payment
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/v1/finance/orders/{{paymentOrderId}}/payments
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accountantAccessToken}}
+}
+
+body:json {
+  {
+    "idempotencyKey": "{{paymentCashKey}}",
+    "amount": {{paymentCashAmount}},
+    "paymentMethod": "CASH"
+  }
+}
+
+tests {
+  test('Accountant cannot record payments', function () {
+    expect(res.getStatus()).to.equal(403);
+  });
+}

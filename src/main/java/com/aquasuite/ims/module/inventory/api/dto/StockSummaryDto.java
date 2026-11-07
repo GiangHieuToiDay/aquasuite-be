@@ -13,11 +13,12 @@ public record StockSummaryDto(
         BigDecimal reservedQty,
         BigDecimal availableQty,
         BigDecimal minimumQty,
+        BigDecimal maximumQty,
         boolean isLowStock
 ) {
     public StockSummaryDto(UUID variantId, String warehouseCode, BigDecimal onHandQty,
                           BigDecimal reservedQty, BigDecimal availableQty, BigDecimal minimumQty) {
-        this(null, variantId, warehouseCode, onHandQty, reservedQty, availableQty, minimumQty,
+        this(null, variantId, warehouseCode, onHandQty, reservedQty, availableQty, minimumQty, null,
                 availableQty != null && minimumQty != null && availableQty.compareTo(minimumQty) <= 0);
     }
 }

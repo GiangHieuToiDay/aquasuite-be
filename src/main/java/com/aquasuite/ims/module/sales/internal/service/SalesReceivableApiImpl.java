@@ -51,9 +51,23 @@ public class SalesReceivableApiImpl implements SalesReceivableApi {
     }
 
     private SalesInvoiceDebtDto toInvoiceDto(SalesInvoice invoice) {
-        return new SalesInvoiceDebtDto(invoice.getInvoiceId(), invoice.getOrderId(), invoice.getCustomerId(),
-                invoice.getInvoiceCode(), invoice.getInvoiceSymbol(), invoice.getIssueDate(), invoice.getSignedAt(),
-                invoice.getCreditTermDays(), invoice.getDueDate(), invoice.getStatus(), invoice.getSubtotal(), invoice.getDiscountAmount(), invoice.getTaxAmount(),
-                invoice.getTotalAmount(), invoice.getOriginalInvoiceId());
+        return new SalesInvoiceDebtDto(
+                invoice.getInvoiceId(),
+                invoice.getOrderId(),
+                invoice.getCustomerId(),
+                invoice.getInvoiceCode(),
+                invoice.getInvoiceSymbol(),
+                invoice.getIssueDate(),
+                invoice.getSignedAt(),
+                invoice.getCreditTermDays(),
+                invoice.getDueDate(),
+                invoice.getStatus(),
+                invoice.getSubtotal(),
+                invoice.getDiscountAmount(),
+                invoice.getTaxAmount(),
+                invoice.getTotalAmount(),
+                invoice.getOriginalInvoiceId(),
+                invoice.getInvoiceType()
+        );
     }
 }

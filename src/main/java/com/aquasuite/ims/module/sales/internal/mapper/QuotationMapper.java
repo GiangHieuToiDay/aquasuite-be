@@ -87,6 +87,11 @@ public interface QuotationMapper {
     @Mapping(target = "vatRate", source = "request.vatRate")
     @Mapping(target = "shippingFee", source = "request.shippingFee")
     @Mapping(target = "note", source = "request.note")
+    @Mapping(target = "depositPercent", source = "request.depositPercent")
+    @Mapping(target = "depositAmount", source = "request.depositAmount")
+    @Mapping(target = "creditTermDays", source = "request.creditTermDays")
+    @Mapping(target = "remainingDebtAmount", source = "request.remainingDebtAmount")
+    @Mapping(target = "debtCondition", source = "request.debtCondition")
     Quotation toEntity(QuotationUpsertRequest request);
 
     /**
@@ -275,6 +280,11 @@ public interface QuotationMapper {
                 .deliverySchedule(quotation.getDeliverySchedule())
                 .sentToEmail(quotation.getSentToEmail())
                 .note(quotation.getNote())
+                .depositPercent(quotation.getDepositPercent())
+                .depositAmount(quotation.getDepositAmount())
+                .creditTermDays(quotation.getCreditTermDays())
+                .remainingDebtAmount(quotation.getRemainingDebtAmount())
+                .debtCondition(quotation.getDebtCondition())
                 .items(rootItemResponses)
                 .milestones(milestoneResponses)
                 .summary(summary)

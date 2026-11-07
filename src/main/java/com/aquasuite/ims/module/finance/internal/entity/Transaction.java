@@ -42,6 +42,10 @@ public class Transaction {
     @Column(name = "transaction_id", nullable = false, updatable = false)
     private UUID transactionId;
 
+    /** Mã yêu cầu do client tạo; dùng để nhận biết lần gửi lại cùng khoản thanh toán. */
+    @Column(name = "idempotency_key")
+    private UUID idempotencyKey;
+
     @Column(name = "transaction_code", unique = true, nullable = false, length = 100)
     private String transactionCode;
 
@@ -66,6 +70,7 @@ public class Transaction {
     @Column(name = "goods_receipt_id")
     private UUID goodsReceiptId;
 
+    /** Mã hóa đơn liên kết; gắn hóa đơn cửa hàng không đồng nghĩa đã phân bổ vào hóa đơn điện tử. */
     @Column(name = "invoice_id")
     private UUID invoiceId;
 

@@ -2,6 +2,7 @@ package com.aquasuite.ims.module.inventory.internal.service.impl;
 
 import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.inventory.api.InventoryApi;
+import com.aquasuite.ims.module.inventory.api.dto.GoodsReceiptSummaryDto;
 import com.aquasuite.ims.module.inventory.api.dto.MovementType;
 import com.aquasuite.ims.module.inventory.api.dto.StockAdjustCommand;
 import com.aquasuite.ims.module.inventory.api.dto.StockSummaryDto;
@@ -10,9 +11,10 @@ import com.aquasuite.ims.module.inventory.api.event.LowStockAlertEvent;
 import com.aquasuite.ims.module.inventory.internal.entity.Inventory;
 import com.aquasuite.ims.module.inventory.internal.entity.StockMovement;
 import com.aquasuite.ims.module.inventory.internal.error.InventoryErrorCode;
+import com.aquasuite.ims.module.inventory.internal.repository.GoodsReceiptRepository;
 import com.aquasuite.ims.module.inventory.internal.repository.InventoryRepository;
-import com.aquasuite.ims.module.inventory.internal.repository.StockMovementRepository;
 import com.aquasuite.ims.module.inventory.internal.repository.StockCountItemRepository;
+import com.aquasuite.ims.module.inventory.internal.repository.StockMovementRepository;
 import com.aquasuite.ims.module.inventory.internal.service.InventoryService;
 import com.aquasuite.ims.share.exception.AppException;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +38,7 @@ public class InventoryServiceImpl implements InventoryApi, InventoryService {
     private final InventoryRepository inventoryRepository;
     private final StockMovementRepository stockMovementRepository;
     private final StockCountItemRepository stockCountItemRepository;
+    private final GoodsReceiptRepository goodsReceiptRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final IamApi iamApi;
 
@@ -202,6 +205,41 @@ public class InventoryServiceImpl implements InventoryApi, InventoryService {
         inventoryRepository.deleteByVariantId(variantId);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public boolean hasDraftGoodsReceipt(UUID purchaseOrderId) {
+        if (purchaseOrderId == null) return false;
+        return goodsReceiptRepository.existsByPurchaseOrderIdAndStatus(purchaseOrderId, "DRAFT");
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean hasConfirmedGoodsReceipt(UUID purchaseOrderId) {
+        if (purchaseOrderId == null) return false;
+        return goodsReceiptRepository.existsByPurchaseOrderIdAndStatus(purchaseOrderId, "CONFIRMED");
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<GoodsReceiptSummaryDto> getReceiptsByPurchaseOrderId(UUID purchaseOrderId) {
+        if (purchaseOrderId == null) return Collections.emptyList();
+        return goodsReceiptRepository.findByPurchaseOrderId(purchaseOrderId).stream()
+                .map(gr -> GoodsReceiptSummaryDto.builder()
+                        .goodsReceiptId(gr.getGoodsReceiptId())
+                        .receiptCode(gr.getReceiptCode())
+                        .purchaseOrderId(gr.getPurchaseOrderId())
+                        .status(gr.getStatus())
+                        .receiptDate(gr.getReceiptDate())
+                        .supplierInvoiceNo(gr.getSupplierInvoiceNo())
+                        .totalAmount(gr.getTotalAmount())
+                        .note(gr.getNote())
+                        .createdBy(gr.getCreatedBy())
+                        .confirmedBy(gr.getConfirmedBy())
+                        .confirmedAt(gr.getConfirmedAt())
+                        .build())
+                .toList();
+    }
+
     // =========================================================================
     // 2. NỘI BỘ MODULE INVENTORY (INVENTORY SERVICE)
     // =========================================================================
@@ -245,12 +283,15 @@ public class InventoryServiceImpl implements InventoryApi, InventoryService {
 
     private StockSummaryDto toDto(Inventory inv) {
         return StockSummaryDto.builder()
+                .inventoryId(inv.getInventoryId())
                 .variantId(inv.getVariantId())
                 .warehouseCode(inv.getWarehouseCode())
                 .onHandQty(inv.getOnHandQty())
                 .reservedQty(inv.getReservedQty())
                 .availableQty(inv.getAvailableQty())
                 .minimumQty(inv.getMinimumQty())
+                .maximumQty(inv.getMaximumQty())
+                .isLowStock(inv.isLowStock())
                 .build();
     }
 }

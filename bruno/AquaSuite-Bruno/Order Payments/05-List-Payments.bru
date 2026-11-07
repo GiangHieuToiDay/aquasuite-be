@@ -1,0 +1,26 @@
+meta {
+  name: 05 - List Payments
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/v1/finance/orders/{{paymentOrderId}}/payments
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('History contains the cash and bank transactions', function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(200);
+    expect(body.success).to.equal(true);
+    expect(body.data).to.be.an('array');
+    expect(body.data.some(p => p.transactionId === bru.getVar('paymentCashId') && p.status === 'VERIFIED')).to.equal(true);
+    expect(body.data.some(p => p.transactionId === bru.getVar('paymentBankId') && p.status === 'PENDING')).to.equal(true);
+  });
+}
