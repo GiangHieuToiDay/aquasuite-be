@@ -1,11 +1,14 @@
 package com.aquasuite.ims.module.sales.internal.service.impl;
 
 import com.aquasuite.ims.module.sales.api.SalesOrderApi;
+import com.aquasuite.ims.module.sales.api.dto.SalesOrderMilestoneDto;
 import com.aquasuite.ims.module.sales.api.dto.SalesOrderPaymentInfoDto;
 import com.aquasuite.ims.module.sales.internal.entity.Order;
+import com.aquasuite.ims.module.sales.internal.entity.OrderPaymentMilestone;
 import com.aquasuite.ims.module.sales.internal.enums.OrderStatus;
 import com.aquasuite.ims.module.sales.internal.enums.PaymentStatus;
 import com.aquasuite.ims.module.sales.internal.error.SalesErrorCode;
+import com.aquasuite.ims.module.sales.internal.repository.OrderPaymentMilestoneRepository;
 import com.aquasuite.ims.module.sales.internal.repository.OrderRepository;
 import com.aquasuite.ims.module.sales.internal.repository.SalesInvoiceRepository;
 import com.aquasuite.ims.share.exception.AppException;
@@ -15,6 +18,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -30,6 +35,8 @@ public class SalesOrderApiImpl implements SalesOrderApi {
     private final OrderRepository orderRepository;
     /** Tìm hóa đơn cửa hàng liên quan đến đơn. */
     private final SalesInvoiceRepository salesInvoiceRepository;
+    /** Đọc các mốc thanh toán theo thỏa thuận đã snapshot vào đơn. */
+    private final OrderPaymentMilestoneRepository orderPaymentMilestoneRepository;
 
     /** Lấy thông tin đơn và mã hóa đơn cửa hàng phục vụ hiển thị, tính thanh toán. */
     @Override
@@ -98,5 +105,38 @@ public class SalesOrderApiImpl implements SalesOrderApi {
 
         log.info("Updated paymentStatus of order {} ({}) to {}",
                 order.getOrderCode(), order.getOrderId(), resolvedStatus.name());
+    }
+
+    /**
+     * Trả snapshot các mốc thanh toán của đơn theo thứ tự ổn định cho UC-23.
+     *
+     * <p>Phương thức chỉ đọc, dùng {@code sortOrder} tăng dần làm thứ tự chính và
+     * {@code milestoneId} làm tiêu chí phụ khi trùng thứ tự để kết quả xác định
+     * (deterministic) giữa các lần đọc. Không tính tiền đã trả tại đây; Finance tính
+     * tiến độ từ các giao dịch đã xác minh.</p>
+     *
+     * @param orderId mã đơn cần lấy mốc; {@code null} trả về danh sách rỗng
+     * @return danh sách mốc đã sắp thứ tự, rỗng nếu đơn không có mốc
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<SalesOrderMilestoneDto> getOrderPaymentMilestones(UUID orderId) {
+        if (orderId == null) {
+            return List.of();
+        }
+        return orderPaymentMilestoneRepository.findByOrderIdOrderBySortOrderAsc(orderId).stream()
+                .sorted(Comparator
+                        .comparing((OrderPaymentMilestone m) ->
+                                m.getSortOrder() != null ? m.getSortOrder() : Integer.MAX_VALUE)
+                        .thenComparing(OrderPaymentMilestone::getMilestoneId))
+                .map(m -> SalesOrderMilestoneDto.builder()
+                        .milestoneId(m.getMilestoneId())
+                        .orderId(m.getOrderId())
+                        .stageName(m.getStageName())
+                        .percent(m.getPercent())
+                        .amount(m.getAmount())
+                        .sortOrder(m.getSortOrder())
+                        .build())
+                .toList();
     }
 }
