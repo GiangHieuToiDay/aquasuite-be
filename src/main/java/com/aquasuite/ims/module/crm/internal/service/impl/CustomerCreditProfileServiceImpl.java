@@ -22,6 +22,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class CustomerCreditProfileServiceImpl implements CustomerCreditProfileService {
+    private static final BigDecimal MAX_CREDIT_LIMIT = new BigDecimal("500000000.00");
     private final CustomerRepository customerRepository;
     private final CreditApprovalGrantApi creditApprovalGrantApi;
     private final ApplicationEventPublisher eventPublisher;
@@ -55,6 +56,9 @@ public class CustomerCreditProfileServiceImpl implements CustomerCreditProfileSe
         if (request.getCreditLimit() == null || request.getCreditLimit().compareTo(BigDecimal.ZERO) <= 0
                 || request.getCreditTermDays() == null || request.getCreditTermDays() < 1 || request.getCreditTermDays() > 30) {
             throw new AppException(CrmErrorCode.INVALID_CREDIT_PROFILE);
+        }
+        if (request.getCreditLimit().compareTo(MAX_CREDIT_LIMIT) > 0) {
+            throw new AppException(CrmErrorCode.CREDIT_LIMIT_EXCEEDS_MAXIMUM);
         }
     }
 }
