@@ -177,7 +177,7 @@ public class QuotationServiceImpl implements QuotationService {
             }
         }
         if (quotation.getCreditTermDays() != null && quotation.getCreditTermDays() > 0) {
-            if (quotation.getRemainingDebtAmount() == null || quotation.getRemainingDebtAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            if (quotation.getRemainingDebtAmount() == null) {
                 BigDecimal dep = quotation.getDepositAmount() != null ? quotation.getDepositAmount() : BigDecimal.ZERO;
                 quotation.setRemainingDebtAmount(totals.grandTotal().subtract(dep).max(BigDecimal.ZERO));
             }
@@ -367,7 +367,7 @@ public class QuotationServiceImpl implements QuotationService {
             }
         }
         if (quotation.getCreditTermDays() != null && quotation.getCreditTermDays() > 0) {
-            if (quotation.getRemainingDebtAmount() == null || quotation.getRemainingDebtAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            if (quotation.getRemainingDebtAmount() == null) {
                 BigDecimal dep = quotation.getDepositAmount() != null ? quotation.getDepositAmount() : BigDecimal.ZERO;
                 quotation.setRemainingDebtAmount(totals.grandTotal().subtract(dep).max(BigDecimal.ZERO));
             }
