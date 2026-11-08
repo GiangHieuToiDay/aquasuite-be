@@ -99,6 +99,15 @@ public class CatalogApiImpl implements CatalogApi {
 
     @Override
     @Transactional(readOnly = true)
+    public List<UUID> getVariantIdsByProductId(UUID productId) {
+        if (productId == null) return Collections.emptyList();
+        return productVariantRepository.findByProductId(productId).stream()
+                .map(ProductVariant::getVariantId)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<CatalogSkuSummaryDto> getAllActiveSkus() {
         return productVariantRepository.findByStatus(VariantStatus.ACTIVE).stream()
                 .map(this::toDto)

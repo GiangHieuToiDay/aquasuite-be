@@ -3,26 +3,50 @@ services:
     image: redis:7.2-alpine
     container_name: aquasuite-redis
 
-    command: redis-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD must be provided and non-empty}
+    command: redis-server --requirepass ${SPRING_DATA_REDIS_PASSWORD:?SPRING_DATA_REDIS_PASSWORD must be provided}
 
     environment:
-      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be provided and non-empty}
+      REDIS_PASSWORD: ${SPRING_DATA_REDIS_PASSWORD:?SPRING_DATA_REDIS_PASSWORD must be provided}
 
     ports:
       - "127.0.0.1:6379:6379"
 
-    networks:
-      - aquasuite-network
-
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:?REDIS_PASSWORD must be provided and non-empty}", "ping"]
+      test: [ "CMD-SHELL", "REDISCLI_AUTH=$$REDIS_PASSWORD redis-cli ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 5s
 
     restart: unless-stopped
 
-networks:
-  aquasuite-network:
-    driver: bridge
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    environment:
+      DB_URL: ${DB_URL:?DB_URL must be provided}
+      DB_USERNAME: ${DB_USERNAME:?DB_USERNAME must be provided}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be provided}
+
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_PASSWORD: ${SPRING_DATA_REDIS_PASSWORD:?SPRING_DATA_REDIS_PASSWORD must be provided}
+      SPRING_REDIS_SSL_ENABLED: "false"
+
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be provided}
+
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+
+      JPA_DDL_AUTO: validate
+      AQUASUITE_DEV_SEED_ENABLED: "false"
+
+    ports:
+      - "8080:8080"
+
+    depends_on:
+      redis:
+        condition: service_healthy
+
+    restart: unless-stopped
