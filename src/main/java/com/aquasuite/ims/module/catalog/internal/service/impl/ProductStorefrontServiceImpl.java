@@ -8,7 +8,6 @@ import com.aquasuite.ims.module.catalog.internal.payload.req.ProductSearchCriter
 import com.aquasuite.ims.module.catalog.internal.payload.res.*;
 import com.aquasuite.ims.module.catalog.internal.repository.*;
 import com.aquasuite.ims.module.catalog.internal.service.ProductStorefrontService;
-import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.inventory.api.InventoryApi;
 import com.aquasuite.ims.module.inventory.api.dto.StockSummaryDto;
 import com.aquasuite.ims.share.exception.AppException;
@@ -38,7 +37,6 @@ public class ProductStorefrontServiceImpl implements ProductStorefrontService {
     private final CategoryRepository categoryRepository;
     private final BrandRepository brandRepository;
     private final InventoryApi inventoryApi;
-    private final IamApi iamApi;
 
     @Override
     @Transactional(readOnly = true)
@@ -289,9 +287,6 @@ public class ProductStorefrontServiceImpl implements ProductStorefrontService {
 
         List<ProductImage> allImages = imageRepository.findByProductId(productId);
 
-        // Kiểm tra phân quyền: Caller là Sales Staff / Admin hay Khách hàng
-        boolean isSalesStaff = iamApi.isSalesStaffOrAdmin();
-
         // Lấy tồn kho thời gian thực từ Inventory
         List<UUID> variantIds = variants.stream().map(ProductVariant::getVariantId).toList();
         Map<UUID, StockSummaryDto> stockMap = inventoryApi.getStockSummaries(variantIds);
@@ -300,7 +295,7 @@ public class ProductStorefrontServiceImpl implements ProductStorefrontService {
                 .filter(img -> img.getVariantId() != null)
                 .collect(Collectors.groupingBy(ProductImage::getVariantId));
 
-        // Xây dựng Variant Selector items kèm real-time stock
+        // Xây dựng Variant Selector items kèm real-time stock cho Storefront
         List<StorefrontVariantDetailResponse> variantResponses = variants.stream().map(v -> {
             StockSummaryDto stock = stockMap.get(v.getVariantId());
             BigDecimal availableQty = stock != null && stock.availableQty() != null ? stock.availableQty() : BigDecimal.ZERO;
@@ -312,19 +307,6 @@ public class ProductStorefrontServiceImpl implements ProductStorefrontService {
             String stockBadge = inStock ? "In Stock" : "Temporarily Out of Stock - Contact Sales for Reservation";
             boolean canInstantBuy = inStock;
             boolean allowNotifyOrQuote = !inStock;
-
-            // Dành cho Sales Staff: Cung cấp chi tiết mức tồn kho theo kho
-            List<WarehouseStockItemResponse> warehouseBreakdown = null;
-            if (isSalesStaff && stock != null) {
-                warehouseBreakdown = List.of(WarehouseStockItemResponse.builder()
-                        .warehouseCode(stock.warehouseCode() != null ? stock.warehouseCode() : "MAIN_WH")
-                        .onHandQty(stock.onHandQty() != null ? stock.onHandQty() : BigDecimal.ZERO)
-                        .reservedQty(stock.reservedQty() != null ? stock.reservedQty() : BigDecimal.ZERO)
-                        .availableQty(stock.availableQty() != null ? stock.availableQty() : BigDecimal.ZERO)
-                        .minimumQty(stock.minimumQty() != null ? stock.minimumQty() : BigDecimal.ZERO)
-                        .isLowStock(stock.isLowStock())
-                        .build());
-            }
 
             List<ProductImageResponse> vImages = imagesByVariantId.getOrDefault(v.getVariantId(), Collections.emptyList()).stream()
                     .map(this::toImageResponse)
@@ -351,8 +333,8 @@ public class ProductStorefrontServiceImpl implements ProductStorefrontService {
                     .availableQuantity(availableQty)
                     .canInstantBuy(canInstantBuy)
                     .allowNotifyOrQuote(allowNotifyOrQuote)
-                    .isSalesStaff(isSalesStaff)
-                    .warehouseBreakdown(warehouseBreakdown)
+                    .isSalesStaff(false)
+                    .warehouseBreakdown(null)
                     .createdAt(v.getCreatedAt())
                     .updatedAt(v.getUpdatedAt())
                     .build();

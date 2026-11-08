@@ -90,9 +90,9 @@ Không log password/hash, OTP, Redis payload, JWT hoặc request chứa credenti
 
 | Method / path | Body | Success |
 |---|---|---|
-| POST `/api/v1/customer-registrations` | fullName, email, phone, password, passwordConfirmation, termsAccepted | 201 ApiResponse: id UUID, email, status=PENDING_ACTIVATION; không token |
-| POST `/api/v1/customer-registrations/verifications` | email, otp (string 6 số) | 200 ApiResponse<LoginResponse>: User ACTIVE, access_token/refresh_token/token_type/expires_in/user theo login hiện tại |
-| POST `/api/v1/customer-registrations/otp-resends` | email | 200 ApiResponse thông báo đã gửi OTP email |
+| POST `/api/v1/iam/register` | fullName, email, phone, password, passwordConfirmation, termsAccepted | 201 ApiResponse: id UUID, email, status=PENDING_ACTIVATION; không token |
+| POST `/api/v1/iam/register/verifications` | email, otp (string 6 số) | 200 ApiResponse<LoginResponse>: User ACTIVE, access_token/refresh_token/token_type/expires_in/user theo login hiện tại |
+| POST `/api/v1/iam/register/otp-resends` | email | 200 ApiResponse thông báo đã gửi OTP email |
 
 Chỉ ba POST này được thêm vào public allowlist. Không mở wildcard, không thay security của catalog/inventory/password. Header token responses `Cache-Control: no-store`. OTP được tìm bằng email -> User UUID trên server; không cần registrationToken. Contract cũ 0.2.0 về challenge token/201 verify đã superseded, chưa có source consumer triển khai.
 

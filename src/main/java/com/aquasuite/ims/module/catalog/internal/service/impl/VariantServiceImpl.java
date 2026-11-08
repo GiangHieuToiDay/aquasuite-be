@@ -147,13 +147,15 @@ public class VariantServiceImpl implements VariantService {
     @Transactional
     public void delete(UUID productId, UUID variantId, VariantDeleteRequest request) {
         if (!request.confirmed()) throw new AppException(CatalogVariantErrorCode.INVALID_DELETE_CONFIRMATION);
-        ProductVariant variant = requireVariant(productId, variantId);
+        ProductVariant variant = requireVariantForUpdate(productId, variantId);
         Map<String, Object> deletedSnapshot = snapshot(variant);
-        VariantDeletionEligibilityResponse usage = usage(variantId);
+        VariantDeletionEligibilityResponse usage = usage(variantId, true);
         if (!usage.eligible()) throw new VariantDeleteBlockedException(usage);
+        deletedSnapshot.put("deletionEligibility", deletionEligibilitySnapshot(usage));
         salesVariantUsageApi.removeVariantFromCarts(variantId);
         jdbcTemplate.update("DELETE FROM public.product_images WHERE variant_id = ?", variantId);
         jdbcTemplate.update("DELETE FROM public.bundle_items WHERE variant_id = ?", variantId);
+        removeInactiveBundleComponentReferences(variantId);
         inventoryApi.deleteEmptyVariantInventory(variantId);
         variantRepository.delete(variant);
         variantRepository.flush();
@@ -161,15 +163,49 @@ public class VariantServiceImpl implements VariantService {
     }
 
     private VariantDeletionEligibilityResponse usage(UUID variantId) {
-        VariantInventoryUsage inventory = inventoryApi.getVariantDeletionUsage(variantId);
+        return usage(variantId, false);
+    }
+
+    private VariantDeletionEligibilityResponse usage(UUID variantId, boolean lockInventory) {
+        VariantInventoryUsage inventory = lockInventory
+                ? inventoryApi.lockAndGetVariantDeletionUsage(variantId)
+                : inventoryApi.getVariantDeletionUsage(variantId);
         VariantDocumentUsage documents = salesVariantUsageApi.getVariantDocumentUsage(variantId);
-        Long activeBundles = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM public.bundle_items bi JOIN public.products p ON p.product_id = bi.bundle_product_id WHERE bi.variant_id = ? AND p.status = 'ACTIVE'", Long.class, variantId);
-        long bundleCount = activeBundles == null ? 0 : activeBundles;
-        boolean eligible = inventory.canDelete() && !documents.hasBlockingDocument() && bundleCount == 0;
+        long bundleCount = countActiveBundleItems(variantId);
+        long bundleOptionCount = countActiveBundleOptions(variantId);
+        boolean eligible = inventory.canDelete() && !documents.hasBlockingDocument()
+                && bundleCount == 0 && bundleOptionCount == 0;
         return new VariantDeletionEligibilityResponse(variantId, inventory.onHandQty(), inventory.reservedQty(),
                 documents.goodsReceiptCount(), inventory.stockMovementCount(), documents.dispatchCount(), documents.quotationCount(),
                 documents.orderCount(), documents.invoiceCount(), inventory.stockCountItemCount(), bundleCount,
-                documents.cartItemCount(), eligible);
+                bundleOptionCount, documents.purchaseOrderCount(), documents.deliveryItemCount(), documents.cartItemCount(), eligible);
+    }
+
+    private long countActiveBundleItems(UUID variantId) {
+        return count("SELECT COUNT(*) FROM public.bundle_items item JOIN public.products product "
+                + "ON product.product_id = item.bundle_product_id WHERE item.variant_id = ? AND product.status = 'ACTIVE'", variantId);
+    }
+
+    private long countActiveBundleOptions(UUID variantId) {
+        return count("SELECT COUNT(*) FROM public.bundle_component_groups component "
+                + "JOIN public.products product ON product.product_id = component.bundle_product_id "
+                + "WHERE product.status = 'ACTIVE' AND (component.default_variant_id = ? OR ? = ANY(component.allowed_variant_ids))",
+                variantId, variantId);
+    }
+
+    private long count(String sql, Object... parameters) {
+        Long result = jdbcTemplate.queryForObject(sql, Long.class, parameters);
+        return result == null ? 0 : result;
+    }
+
+    private void removeInactiveBundleComponentReferences(UUID variantId) {
+        jdbcTemplate.update("DELETE FROM public.bundle_component_groups component USING public.products product "
+                + "WHERE component.bundle_product_id = product.product_id AND product.status <> 'ACTIVE' "
+                + "AND component.default_variant_id = ?", variantId);
+        jdbcTemplate.update("UPDATE public.bundle_component_groups component SET allowed_variant_ids = array_remove(component.allowed_variant_ids, ?) "
+                + "FROM public.products product WHERE component.bundle_product_id = product.product_id "
+                + "AND product.status <> 'ACTIVE' AND component.default_variant_id <> ? "
+                + "AND ? = ANY(component.allowed_variant_ids)", variantId, variantId, variantId);
     }
 
     private void apply(VariantUpsertRequest request, ProductVariant target) {
@@ -222,6 +258,12 @@ public class VariantServiceImpl implements VariantService {
                 .orElseThrow(() -> new AppException(CatalogVariantErrorCode.VARIANT_NOT_FOUND));
     }
 
+    private ProductVariant requireVariantForUpdate(UUID productId, UUID variantId) {
+        requireProduct(productId);
+        return variantRepository.findByProductIdAndVariantIdForUpdate(productId, variantId)
+                .orElseThrow(() -> new AppException(CatalogVariantErrorCode.VARIANT_NOT_FOUND));
+    }
+
     private VariantResponse response(ProductVariant value) {
         return new VariantResponse(value.getVariantId(), value.getProductId(), value.getSku(), value.getVariantName(), value.getUnit(),
                 value.getConversionRate(), value.getColor(), value.getSize(), value.getWeight(), value.getTechnicalSpec(), value.getCostPrice(),
@@ -236,6 +278,25 @@ public class VariantServiceImpl implements VariantService {
         data.put("costPrice", value.getCostPrice());
         data.put("sellingPrice", value.getSellingPrice());
         data.put("productId", value.getProductId());
+        return data;
+    }
+
+    private Map<String, Object> deletionEligibilitySnapshot(VariantDeletionEligibilityResponse usage) {
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("onHandQty", usage.onHandQty());
+        data.put("reservedQty", usage.reservedQty());
+        data.put("goodsReceiptCount", usage.goodsReceiptCount());
+        data.put("stockMovementCount", usage.stockMovementCount());
+        data.put("dispatchCount", usage.dispatchCount());
+        data.put("quotationCount", usage.quotationCount());
+        data.put("orderCount", usage.orderCount());
+        data.put("invoiceCount", usage.invoiceCount());
+        data.put("stockCountItemCount", usage.stockCountItemCount());
+        data.put("activeBundleCount", usage.activeBundleCount());
+        data.put("activeBundleOptionCount", usage.activeBundleOptionCount());
+        data.put("purchaseOrderCount", usage.purchaseOrderCount());
+        data.put("deliveryItemCount", usage.deliveryItemCount());
+        data.put("cartItemCount", usage.cartItemCount());
         return data;
     }
 

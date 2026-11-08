@@ -1,6 +1,6 @@
 # AquaSuite Backend Documentation Index
 
-> Migration reconciliation (2026-10-21): the current new-database chain uses develop V1-V6 (with 2.1/3.1 for duplicate versions), followed by combo V7/V8, recovery V9 and registration phone preflight V10. Redundant legacy/UUID/customer creation is removed. See [current Flyway runbook](migrations/flyway.md). Historical migration numbers and test totals below do not describe this reconciled chain.
+> Migration baseline (updated 2026-10-27): disposable development history was squashed into `V1__create_aquasuite_baseline.sql`. It is for new, empty PostgreSQL databases only. See the [current Flyway runbook](migrations/flyway.md).
 
 ## Purpose and Document Hierarchy
 
@@ -36,19 +36,27 @@ Hệ thống tài liệu backend bao gồm các tài liệu chuyên đề sau:
   - Quy chuẩn đặt tên URI và phương thức HTTP cho các Feature Spec tương lai.
 
 ### 3. Specifications and Templates
+- [`specifications/WORK-019-uc70-pending-payment-verifications.md`](specifications/WORK-019-uc70-pending-payment-verifications.md): Dự thảo thiết kế BE UC-70 xác minh chuyển khoản đang chờ; các quyết định về quyền và contract còn mở, Design Review PENDING.
+- [`specifications/UC-13-product-combos.md`](specifications/UC-13-product-combos.md):
+  - Đặc tả mục tiêu UC-13: combo SKU cố định, endpoint/DTO, publication, giá/tồn, thành phần và kiểm chứng.
+  - Thay thế spec/code guide SCRUM14 cũ; Design Review PENDING, không chứng nhận implementation hiện tại.
 - [`templates/feature-spec.md`](templates/feature-spec.md):
   - Mẫu đặc tả gọn dành cho work item Risk L.
   - Chỉ yêu cầu các phần contract, dữ liệu, concurrency và failure safety thực sự áp dụng.
   - Risk S/M sử dụng trực tiếp Delivery Brief thay vì tạo thêm Feature Spec.
 
-### 4. Development Workflow
+### 4. Guides
+
+- [`guides/WORK-018-sales-payment-overview.md`](guides/WORK-018-sales-payment-overview.md): Tổng quan luồng đơn hàng, thanh toán và công nợ; gồm sơ đồ, ví dụ và API BE hiện tại. Tài liệu phân biệt phần đã viết với UC-63/UC-70 còn dự kiến.
+
+### 5. Development Workflow
 - [`workflow/feature-delivery.md`](workflow/feature-delivery.md):
   - AquaSuite Lean Workflow phân loại công việc theo Risk S/M/L.
   - Mỗi work item dùng một Delivery Brief làm nguồn trạng thái duy nhất; Risk L bổ sung Feature Spec và một Design Review.
   - Một review gate hợp nhất verification, code review và final gate; không khóa kế hoạch theo file hoặc SHA-256.
   - Quy tắc an toàn Git: Nghiêm cấm Agent tự ý commit, push, reset hoặc clean mã nguồn.
 
-### 5. Migrations
+### 6. Migrations
 - [`migrations/spring-boot-3.5.md`](migrations/spring-boot-3.5.md):
   - Ghi nhận chi tiết đợt di chuyển baseline công nghệ từ Spring Boot 4.1.1 sang Spring Boot 3.5.16 (`FEATURE-004`).
   - Danh mục dependency được BOM quản lý, các điều chỉnh tương thích và kết quả kiểm chứng baseline.

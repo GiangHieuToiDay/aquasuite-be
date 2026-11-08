@@ -1,10 +1,10 @@
 package com.aquasuite.ims.integration;
 
 import com.aquasuite.ims.AquasuiteBeApplication;
-import com.aquasuite.ims.module.catalog.internal.payload.req.BundleCoreCreateRequest;
 import com.aquasuite.ims.module.catalog.internal.payload.req.BundleItemRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.req.BundleVersionRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.req.BundleResponse;
+import com.aquasuite.ims.module.catalog.internal.payload.req.ChangePublicationStatusRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.CreateBundleRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.res.BundleResponse;
 import com.aquasuite.ims.module.catalog.internal.service.BundleAdminService;
 import com.aquasuite.ims.module.iam.internal.entity.User;
 import com.aquasuite.ims.module.iam.internal.entity.UserStatus;
@@ -71,8 +71,8 @@ class AuthenticationMergeIT extends AuthIntegrationTestSupport {
                 sku);
         var now = Instant.now();
         bundle =
-                bundles.create(
-                        new BundleCoreCreateRequest(
+                bundles.createBundle(
+                        new CreateBundleRequest(
                                 "MERGE",
                                 "Combo",
                                 category,
@@ -81,9 +81,13 @@ class AuthenticationMergeIT extends AuthIntegrationTestSupport {
                                 List.of(new BundleItemRequest(sku, 1)),
                                 new BigDecimal("95"),
                                 now.minusSeconds(60),
-                                now.plusSeconds(3600),
-                                List.of()));
-        bundle = bundles.publish(bundle.bundleId(), new BundleVersionRequest(bundle.version()));
+                                now.plusSeconds(3600)));
+        bundle =
+                bundles.changePublicationStatus(
+                        bundle.bundleId(),
+                        new ChangePublicationStatusRequest(
+                                ChangePublicationStatusRequest.Status.PUBLISHED,
+                                bundle.version()));
     }
 
     JsonNode login() throws Exception {
@@ -107,9 +111,9 @@ class AuthenticationMergeIT extends AuthIntegrationTestSupport {
     void allNonAuthApiFamiliesRequireJwt() throws Exception {
         for (String path :
                 List.of(
-                        "/api/v1/catalog/bundles",
-                        "/api/v1/catalog/admin/bundles",
-                        "/api/v1/catalog/admin/bundle-skus",
+                        "/api/v1/catalog/bundle",
+                        "/api/v1/catalog/bundle/admin",
+                        "/api/v1/catalog/bundle/admin/skus",
                         "/api/v1/inventory/" + sku)) {
             mvc.perform(get(path))
                     .andExpect(status().isUnauthorized())
@@ -121,24 +125,25 @@ class AuthenticationMergeIT extends AuthIntegrationTestSupport {
                                 .content("{}"))
                 .andExpect(status().isUnauthorized());
         mvc.perform(
-                        post("/api/v1/catalog/bundles/" + bundle.bundleId() + "/evaluations")
+                        post("/api/v1/catalog/bundle/" + bundle.bundleId() + "/evaluations")
                                 .contentType("application/json")
                                 .content("{\"quantity\":1}"))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
-    void loginAccessTokenReadsAndEvaluatesComboWithRealInventory() throws Exception {
+    void loginAccessTokenReadsPublicCatalogAndEvaluatesComboWithRealInventory() throws Exception {
         String access = login().get("access_token").asText();
-        mvc.perform(get("/api/v1/catalog/bundles").header("Authorization", "Bearer " + access))
+        mvc.perform(get("/api/v1/catalog/bundle").header("Authorization", "Bearer " + access))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.totalElements").value(1));
         mvc.perform(
-                        get("/api/v1/catalog/admin/bundles")
+                        get("/api/v1/catalog/bundle/admin")
                                 .header("Authorization", "Bearer " + access))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH_002"));
         mvc.perform(
-                        post("/api/v1/catalog/bundles/" + bundle.bundleId() + "/evaluations")
+                        post("/api/v1/catalog/bundle/" + bundle.bundleId() + "/evaluations")
                                 .header("Authorization", "Bearer " + access)
                                 .contentType("application/json")
                                 .content("{\"quantity\":2}"))
@@ -149,10 +154,10 @@ class AuthenticationMergeIT extends AuthIntegrationTestSupport {
 
     @Test
     void malformedAndRefreshTokensCannotAccessCatalog() throws Exception {
-        mvc.perform(get("/api/v1/catalog/bundles").header("Authorization", "Bearer malformed"))
+        mvc.perform(get("/api/v1/catalog/bundle").header("Authorization", "Bearer malformed"))
                 .andExpect(status().isUnauthorized());
         String refresh = login().get("refresh_token").asText();
-        mvc.perform(get("/api/v1/catalog/bundles").header("Authorization", "Bearer " + refresh))
+        mvc.perform(get("/api/v1/catalog/bundle").header("Authorization", "Bearer " + refresh))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -161,7 +166,7 @@ class AuthenticationMergeIT extends AuthIntegrationTestSupport {
         String access = login().get("access_token").asText();
         mvc.perform(post("/api/v1/auth/logout").header("Authorization", "Bearer " + access))
                 .andExpect(status().isOk());
-        mvc.perform(get("/api/v1/catalog/bundles").header("Authorization", "Bearer " + access))
+        mvc.perform(get("/api/v1/catalog/bundle").header("Authorization", "Bearer " + access))
                 .andExpect(status().isUnauthorized());
         mvc.perform(get("/api/v1/inventory/" + sku).header("Authorization", "Bearer " + access))
                 .andExpect(status().isUnauthorized());
@@ -206,17 +211,16 @@ class AuthenticationMergeIT extends AuthIntegrationTestSupport {
                                                         "confirmNewPassword",
                                                         next))))
                 .andExpect(status().isOk());
-        assertThat(passwords.matches(next, users.findById(userId).orElseThrow().getPasswordHash()))
-                .isTrue();
-        assertThat(jdbc.queryForObject("SELECT user_id FROM user_password_recovery", UUID.class))
-                .isEqualTo(userId);
+        var updated = users.findById(userId).orElseThrow();
+        assertThat(passwords.matches(next, updated.getPasswordHash())).isTrue();
+        assertThat(updated.getPasswordLastChangedAt()).isNotNull();
     }
 
     @Test
     void disabledUserCannotReusePreviouslyIssuedAccessToken() throws Exception {
         String access = login().get("access_token").asText();
         jdbc.update("UPDATE users SET status='INACTIVE' WHERE id=?", userId);
-        mvc.perform(get("/api/v1/catalog/bundles").header("Authorization", "Bearer " + access))
+        mvc.perform(get("/api/v1/catalog/bundle").header("Authorization", "Bearer " + access))
                 .andExpect(status().isForbidden());
     }
 }

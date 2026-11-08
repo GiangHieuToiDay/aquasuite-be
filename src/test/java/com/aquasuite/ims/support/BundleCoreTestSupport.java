@@ -2,11 +2,11 @@ package com.aquasuite.ims.support;
 
 import com.aquasuite.ims.module.catalog.internal.config.BundleClockConfig;
 import com.aquasuite.ims.module.catalog.internal.controller.*;
-import com.aquasuite.ims.module.catalog.internal.mapper.BundleCoreMapperImpl;
-import com.aquasuite.ims.module.catalog.internal.payload.req.BundleCoreCreateRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.req.BundleCoreUpdateRequest;
+import com.aquasuite.ims.module.catalog.internal.mapper.BundleMapperImpl;
 import com.aquasuite.ims.module.catalog.internal.payload.req.BundleItemRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.req.BundleResponse;
+import com.aquasuite.ims.module.catalog.internal.payload.req.CreateBundleRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateBundleRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.res.BundleResponse;
 import com.aquasuite.ims.module.catalog.internal.service.*;
 import com.aquasuite.ims.share.exception.GlobalExceptionHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -73,12 +73,15 @@ public abstract class BundleCoreTestSupport {
                 "com.aquasuite.ims.module.inventory.internal.repository"
             })
     @Import({
-        BundleAdminService.class,
-        BundleStorefrontService.class,
-        BundleStorefrontController.class,
+        com.aquasuite.ims.module.catalog.internal.service.impl.BundleAdminServiceImpl.class,
+        com.aquasuite.ims.module.catalog.internal.service.impl.BundleQueryServiceImpl.class,
+        com.aquasuite.ims.module.catalog.internal.repository.BundleRepository.class,
+        BundleInventoryReader.class,
+        BundleEvaluationService.class,
+        BundleController.class,
         com.aquasuite.ims.module.inventory.internal.service.impl.InventoryServiceImpl.class,
         BundlePricingService.class,
-        BundleCoreMapperImpl.class,
+        BundleMapperImpl.class,
         BundleDetailAssembler.class,
         BundleClockConfig.class,
         BundleAdminController.class,
@@ -113,6 +116,8 @@ public abstract class BundleCoreTestSupport {
 
     @Autowired protected JdbcTemplate jdbc;
     @Autowired protected BundleAdminService service;
+    @Autowired protected BundleQueryService query;
+    @Autowired protected BundleEvaluationService evaluation;
     @Autowired protected ObjectMapper json;
     @Autowired protected MockMvc mvc;
     @Autowired protected TransactionTemplate tx;
@@ -121,10 +126,11 @@ public abstract class BundleCoreTestSupport {
     public void fixture() {
         jdbc.execute(
                 "TRUNCATE"
-                        + " inventories,audit_logs,bundle_items,bundle_configurations,product_images,product_variants,products,categories,brands,users"
-                        + " RESTART IDENTITY CASCADE");
+                    + " inventories,audit_logs,bundle_items,bundle_configurations,product_images,product_variants,products,categories,brands,users"
+                    + " RESTART IDENTITY CASCADE");
         jdbc.update(
-                "INSERT INTO users(id,username,email,password_hash,status) VALUES(?, 'owner','owner@test.invalid','{disabled-test-account}','ACTIVE')",
+                "INSERT INTO users(id,username,email,password_hash,status) VALUES(?,"
+                        + " 'owner','owner@test.invalid','{disabled-test-account}','ACTIVE')",
                 OWNER);
         jdbc.update(
                 "INSERT INTO categories(category_id,category_code,category_name,status)"
@@ -134,16 +140,16 @@ public abstract class BundleCoreTestSupport {
                 "Category");
         jdbc.update(
                 "INSERT INTO"
-                        + " products(product_id,product_code,category_id,product_name,product_type,status,created_at,updated_at)"
-                        + " VALUES(?,?,?,?,'NORMAL','ACTIVE',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
+                    + " products(product_id,product_code,category_id,product_name,product_type,status,created_at,updated_at)"
+                    + " VALUES(?,?,?,?,'NORMAL','ACTIVE',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
                 NORMAL,
                 "NORMAL",
                 CATEGORY,
                 "Normal product");
         jdbc.update(
                 "INSERT INTO"
-                        + " product_variants(variant_id,product_id,sku,variant_name,unit,conversion_rate,weight,cost_price,selling_price,serial_tracking,status)"
-                        + " VALUES(?,?,?,?,?,1,0,0,110000000,false,'ACTIVE')",
+                    + " product_variants(variant_id,product_id,sku,variant_name,unit,conversion_rate,weight,cost_price,selling_price,serial_tracking,status)"
+                    + " VALUES(?,?,?,?,?,1,0,0,110000000,false,'ACTIVE')",
                 SKU,
                 NORMAL,
                 "SKU-1",
@@ -151,8 +157,8 @@ public abstract class BundleCoreTestSupport {
                 "piece");
     }
 
-    protected BundleCoreCreateRequest request(String code) {
-        return new BundleCoreCreateRequest(
+    protected CreateBundleRequest request(String code) {
+        return new CreateBundleRequest(
                 code,
                 "Combo",
                 CATEGORY,
@@ -163,11 +169,11 @@ public abstract class BundleCoreTestSupport {
     }
 
     protected BundleResponse create() {
-        return service.create(request("BUNDLE-1"));
+        return service.createBundle(request("BUNDLE-1"));
     }
 
-    protected BundleCoreUpdateRequest update(BundleResponse d) {
-        return new BundleCoreUpdateRequest(
+    protected UpdateBundleRequest update(BundleResponse d) {
+        return new UpdateBundleRequest(
                 d.productCode(),
                 "Updated combo",
                 CATEGORY,

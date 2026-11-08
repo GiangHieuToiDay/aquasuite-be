@@ -7,9 +7,6 @@ import lombok.*;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
-import java.util.List;
-import java.util.ArrayList;
-import org.hibernate.annotations.BatchSize;
 
 @Entity
 @Table(name = "bundle_configurations")
@@ -38,15 +35,6 @@ public class BundleConfiguration {
 
     @Column(name = "stock_policy", nullable = false, length = 40)
     private String stockPolicy = "CHECK_COMPONENT_STOCK";
-
-    // Nhóm option thuộc vòng đời cấu hình; tải theo lô để tránh N+1 khi lấy danh sách combo.
-    @BatchSize(size = 100)
-    @ElementCollection
-    @CollectionTable(
-            name = "bundle_component_groups",
-            joinColumns = @JoinColumn(name = "bundle_product_id"))
-    @OrderBy("groupId")
-    private List<BundleComponentGroup> componentGroups = new ArrayList<>();
 
     @Version private Long version;
 

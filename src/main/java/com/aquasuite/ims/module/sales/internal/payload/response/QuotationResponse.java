@@ -8,6 +8,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -38,11 +39,24 @@ public class QuotationResponse {
     private String customerName;
     private String projectName;
     private String deliveryAddress;
+    private String deliverySchedule;
+    private String sentToEmail;
     private String note;
 
     // Line items
     @Builder.Default
     private List<QuotationItemResponse> items = new ArrayList<>();
+
+    // Payment milestones
+    @Builder.Default
+    private List<QuotationPaymentMilestoneResponse> milestones = new ArrayList<>();
+
+    // Deposit & Debt terms
+    private BigDecimal depositPercent;
+    private BigDecimal depositAmount;
+    private Integer creditTermDays;
+    private BigDecimal remainingDebtAmount;
+    private String debtCondition;
 
     // Financial summary
     private QuotationSummaryResponse summary;
@@ -50,13 +64,17 @@ public class QuotationResponse {
     // Approval info
     private QuotationApprovalInfo approval;
 
-    // Milestones
+    // Milestones / Status lifecycle timestamps & files
     private OffsetDateTime sentAt;
     private String pdfUrl;
     private OffsetDateTime acceptedAt;
     private String signedFileUrl;
     private OffsetDateTime lostAt;
     private String lostReason;
+
+    // Linked Order (when converted to order - UC-28 / UC-073)
+    private UUID orderId;
+    private String orderCode;
 
     // Audit
     private UUID createdBy;

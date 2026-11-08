@@ -1,0 +1,36 @@
+meta {
+  name: 14 - List Quotations (Tìm kiếm & Phân trang)
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{baseUrl}}/api/v1/sales/quotations?page=0&size=10&search=Riviera&sortBy=createdAt&direction=DESC
+  body: none
+  auth: bearer
+}
+
+params:query {
+  page: 0
+  size: 10
+  search: Riviera
+  sortBy: createdAt
+  direction: DESC
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test("Lấy danh sách phân trang thành công (HTTP 200)", function () {
+    expect(res.getStatus()).to.equal(200);
+    const body = res.getBody();
+    expect(body.success).to.equal(true);
+    expect(body.data.content).to.be.an('array');
+    expect(body.data.page).to.equal(0);
+    expect(body.data.size).to.equal(10);
+    expect(body.data.totalElements).to.be.a('number');
+    expect(body.data.totalPages).to.be.a('number');
+  });
+}

@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 /** Guest-facing CUSTOMER account registration, email verification and resend operations. */
 @RestController
-@RequestMapping("/api/v1/customer-registrations")
+@RequestMapping("/api/v1/iam/register")
 @RequiredArgsConstructor
 public class RegisterController {
     private final RegisterService registrations;

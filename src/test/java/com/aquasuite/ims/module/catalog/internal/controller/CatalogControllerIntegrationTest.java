@@ -125,7 +125,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .status("ACTIVE")
                 .build();
 
-        MvcResult createRes = mockMvc.perform(post("/api/v1/categories")
+        MvcResult createRes = mockMvc.perform(post("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(createRoot)))
@@ -152,7 +152,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .parentId(UUID.fromString(rootId))
                 .build();
 
-        MvcResult createChildRes = mockMvc.perform(post("/api/v1/categories")
+        MvcResult createChildRes = mockMvc.perform(post("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(createChild)))
@@ -166,7 +166,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
         String childId = objectMapper.readTree(createChildRes.getResponse().getContentAsString()).path("data").path("id").asText();
 
         // 3. Get detail
-        mockMvc.perform(get("/api/v1/categories/{categoryId}", rootId)
+        mockMvc.perform(get("/api/v1/catalog/categories/{categoryId}", rootId)
                         .header("Authorization", "Bearer " + shopOwnerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id", is(rootId)))
@@ -179,7 +179,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .description("")
                 .build();
 
-        mockMvc.perform(put("/api/v1/categories/{categoryId}", rootId)
+        mockMvc.perform(put("/api/v1/catalog/categories/{categoryId}", rootId)
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(updateReq)))
@@ -189,7 +189,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .andExpect(jsonPath("$.data.description", nullValue())); // empty normalized to null
 
         // 5. Paginated list with search, status filter, sort, and ID tie-breaker
-        mockMvc.perform(get("/api/v1/categories")
+        mockMvc.perform(get("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .param("page", "0")
                         .param("size", "10")
@@ -201,23 +201,48 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .andExpect(jsonPath("$.data.items", hasSize(2)));
 
         // 6. Delete root blocked because it has child
-        mockMvc.perform(delete("/api/v1/categories/{categoryId}", rootId)
+        mockMvc.perform(delete("/api/v1/catalog/categories/{categoryId}", rootId)
                         .header("Authorization", "Bearer " + shopOwnerToken))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code", is("CAT_013")));
 
-        // 7. Delete child succeeds
-        mockMvc.perform(delete("/api/v1/categories/{categoryId}", childId)
+        // 7. Delete child succeeds by changing its status to INACTIVE
+        mockMvc.perform(delete("/api/v1/catalog/categories/{categoryId}", childId)
                         .header("Authorization", "Bearer " + shopOwnerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success", is(true)))
                 .andExpect(jsonPath("$.data").doesNotExist()); // null data omitted
 
-        // 8. Now delete root succeeds
-        mockMvc.perform(delete("/api/v1/categories/{categoryId}", rootId)
+        mockMvc.perform(get("/api/v1/catalog/categories/{categoryId}", childId)
                         .header("Authorization", "Bearer " + shopOwnerToken))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status", is("INACTIVE")));
+
+        // 8. Delete child a second time when already INACTIVE is idempotent and leaves it INACTIVE
+        mockMvc.perform(delete("/api/v1/catalog/categories/{categoryId}", childId)
+                        .header("Authorization", "Bearer " + shopOwnerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success", is(true)))
                 .andExpect(jsonPath("$.data").doesNotExist());
+
+        mockMvc.perform(get("/api/v1/catalog/categories/{categoryId}", childId)
+                        .header("Authorization", "Bearer " + shopOwnerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status", is("INACTIVE")));
+
+        // 9. The child still exists, so deleting the root remains blocked
+        mockMvc.perform(delete("/api/v1/catalog/categories/{categoryId}", rootId)
+                        .header("Authorization", "Bearer " + shopOwnerToken))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code", is("CAT_013")));
+
+        // 10. Delete non-existent category returns 404 NOT_FOUND (CAT_001)
+        UUID nonExistentCategoryId = UUID.randomUUID();
+        mockMvc.perform(delete("/api/v1/catalog/categories/{categoryId}", nonExistentCategoryId)
+                        .header("Authorization", "Bearer " + shopOwnerToken))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success", is(false)))
+                .andExpect(jsonPath("$.code", is("CAT_001")));
     }
 
     @Test
@@ -228,7 +253,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .code("CAT 109")
                 .name("Cat Name")
                 .build();
-        mockMvc.perform(post("/api/v1/categories")
+        mockMvc.perform(post("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidCode1)))
@@ -240,7 +265,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .code("CAT-109")
                 .name("Cat Name")
                 .build();
-        mockMvc.perform(post("/api/v1/categories")
+        mockMvc.perform(post("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidCode2)))
@@ -252,7 +277,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .code("_CAT_109")
                 .name("Cat Name")
                 .build();
-        mockMvc.perform(post("/api/v1/categories")
+        mockMvc.perform(post("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidCode3)))
@@ -265,7 +290,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .name("Cat Name")
                 .description("a".repeat(5001))
                 .build();
-        mockMvc.perform(post("/api/v1/categories")
+        mockMvc.perform(post("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(tooLongDesc)))
@@ -278,7 +303,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .name("Cat Name")
                 .status("PENDING")
                 .build();
-        mockMvc.perform(post("/api/v1/categories")
+        mockMvc.perform(post("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidStatus)))
@@ -290,7 +315,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .code("CAT_UNIQUE")
                 .name("Root Category Name")
                 .build();
-        mockMvc.perform(post("/api/v1/categories")
+        mockMvc.perform(post("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validRoot)))
@@ -301,7 +326,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .code("cat_unique")
                 .name("Other Name")
                 .build();
-        mockMvc.perform(post("/api/v1/categories")
+        mockMvc.perform(post("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dupCode)))
@@ -313,7 +338,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .code("CAT_OTHER")
                 .name("root category name")
                 .build();
-        mockMvc.perform(post("/api/v1/categories")
+        mockMvc.perform(post("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dupName)))
@@ -321,35 +346,35 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .andExpect(jsonPath("$.code", is("CAT_007")));
 
         // Invalid query params in GET: page < 0 -> SYS_002
-        mockMvc.perform(get("/api/v1/categories")
+        mockMvc.perform(get("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .param("page", "-1"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code", is("SYS_002")));
 
         // Invalid query params: size > 100 -> SYS_002
-        mockMvc.perform(get("/api/v1/categories")
+        mockMvc.perform(get("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .param("size", "101"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code", is("SYS_002")));
 
         // Invalid query params: sortBy -> SYS_002
-        mockMvc.perform(get("/api/v1/categories")
+        mockMvc.perform(get("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .param("sortBy", "invalidField"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code", is("SYS_002")));
 
         // Invalid query params: direction -> SYS_002
-        mockMvc.perform(get("/api/v1/categories")
+        mockMvc.perform(get("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .param("direction", "upwards"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code", is("SYS_002")));
 
         // Invalid query params: status -> SYS_002
-        mockMvc.perform(get("/api/v1/categories")
+        mockMvc.perform(get("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .param("status", "ARCHIVED"))
                 .andExpect(status().isBadRequest())
@@ -367,7 +392,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .status("ACTIVE")
                 .build();
 
-        MvcResult createRes = mockMvc.perform(post("/api/v1/brands")
+        MvcResult createRes = mockMvc.perform(post("/api/v1/catalog/brands")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(createReq)))
@@ -388,7 +413,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .code("TOTO")
                 .name("Other Name")
                 .build();
-        mockMvc.perform(post("/api/v1/brands")
+        mockMvc.perform(post("/api/v1/catalog/brands")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dupCode)))
@@ -400,7 +425,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .code("BRAND_X")
                 .name("toto sanitary")
                 .build();
-        mockMvc.perform(post("/api/v1/brands")
+        mockMvc.perform(post("/api/v1/catalog/brands")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(dupName)))
@@ -408,7 +433,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .andExpect(jsonPath("$.code", is("CAT_008")));
 
         // 4. Get brand detail
-        mockMvc.perform(get("/api/v1/brands/{brandId}", brandId)
+        mockMvc.perform(get("/api/v1/catalog/brands/{brandId}", brandId)
                         .header("Authorization", "Bearer " + shopOwnerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.code", is("TOTO")));
@@ -419,7 +444,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .status("INACTIVE")
                 .description("Updated description")
                 .build();
-        mockMvc.perform(put("/api/v1/brands/{brandId}", brandId)
+        mockMvc.perform(put("/api/v1/catalog/brands/{brandId}", brandId)
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(updateReq)))
@@ -428,7 +453,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .andExpect(jsonPath("$.data.status", is("INACTIVE")));
 
         // 6. List brands
-        mockMvc.perform(get("/api/v1/brands")
+        mockMvc.perform(get("/api/v1/catalog/brands")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .param("search", "toto")
                         .param("status", "INACTIVE"))
@@ -436,16 +461,25 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .andExpect(jsonPath("$.data.totalElements", is(1)))
                 .andExpect(jsonPath("$.data.items[0].code", is("TOTO")));
 
-        // 7. Delete brand
-        mockMvc.perform(delete("/api/v1/brands/{brandId}", brandId)
+        // 7. Delete brand by changing its status to INACTIVE
+        mockMvc.perform(delete("/api/v1/catalog/brands/{brandId}", brandId)
                         .header("Authorization", "Bearer " + shopOwnerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").doesNotExist());
 
-        // 8. Get deleted brand -> 404 CAT_002
-        mockMvc.perform(get("/api/v1/brands/{brandId}", brandId)
+        // 8. The brand remains available to admin/history queries as INACTIVE
+        mockMvc.perform(get("/api/v1/catalog/brands/{brandId}", brandId)
+                        .header("Authorization", "Bearer " + shopOwnerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id", is(brandId.toString())))
+                .andExpect(jsonPath("$.data.status", is("INACTIVE")));
+
+        // 9. Delete non-existent brand returns 404 NOT_FOUND (CAT_002)
+        UUID nonExistentBrandId = UUID.randomUUID();
+        mockMvc.perform(delete("/api/v1/catalog/brands/{brandId}", nonExistentBrandId)
                         .header("Authorization", "Bearer " + shopOwnerToken))
                 .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success", is(false)))
                 .andExpect(jsonPath("$.code", is("CAT_002")));
     }
 
@@ -453,7 +487,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
     @DisplayName("Validation: Request body Bean Validation errors produce SYS_003 with structured field errors")
     void testCategoryAndBrandBeanValidationFieldErrors() throws Exception {
         // 1. Category create with null/blank code and name
-        mockMvc.perform(post("/api/v1/categories")
+        mockMvc.perform(post("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"code\":\"\", \"name\":\"\"}"))
@@ -466,7 +500,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .code("CAT_VALID")
                 .name("a".repeat(101))
                 .build();
-        mockMvc.perform(post("/api/v1/categories")
+        mockMvc.perform(post("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(catNameTooLong)))
@@ -480,7 +514,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .name("Valid Name")
                 .description("d".repeat(5001))
                 .build();
-        mockMvc.perform(post("/api/v1/categories")
+        mockMvc.perform(post("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(catDescTooLong)))
@@ -489,7 +523,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
 
         // 4. Category update with blank name
         UUID sampleId = UUID.randomUUID();
-        mockMvc.perform(put("/api/v1/categories/{id}", sampleId)
+        mockMvc.perform(put("/api/v1/catalog/categories/{id}", sampleId)
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"   \"}"))
@@ -497,7 +531,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .andExpect(jsonPath("$.code", is("SYS_003")));
 
         // 5. Brand create with null/blank code and name
-        mockMvc.perform(post("/api/v1/brands")
+        mockMvc.perform(post("/api/v1/catalog/brands")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"code\":\"\", \"name\":\"\"}"))
@@ -509,7 +543,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .code("BRAND_VALID")
                 .name("b".repeat(101))
                 .build();
-        mockMvc.perform(post("/api/v1/brands")
+        mockMvc.perform(post("/api/v1/catalog/brands")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(brandNameTooLong)))
@@ -522,7 +556,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .name("Valid Name")
                 .description("d".repeat(5001))
                 .build();
-        mockMvc.perform(post("/api/v1/brands")
+        mockMvc.perform(post("/api/v1/catalog/brands")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(brandDescTooLong)))
@@ -530,7 +564,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .andExpect(jsonPath("$.code", is("SYS_003")));
 
         // 8. Brand update with blank name
-        mockMvc.perform(put("/api/v1/brands/{id}", sampleId)
+        mockMvc.perform(put("/api/v1/catalog/brands/{id}", sampleId)
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"\"}"))
@@ -546,7 +580,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .code("CÁT_109")
                 .name("Unicode Category")
                 .build();
-        mockMvc.perform(post("/api/v1/categories")
+        mockMvc.perform(post("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(unicodeCat)))
@@ -557,7 +591,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .code("BRÁND_109")
                 .name("Unicode Brand")
                 .build();
-        mockMvc.perform(post("/api/v1/brands")
+        mockMvc.perform(post("/api/v1/catalog/brands")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(unicodeBrand)))
@@ -569,7 +603,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .code("A")
                 .name("Category A")
                 .build();
-        mockMvc.perform(post("/api/v1/categories")
+        mockMvc.perform(post("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(len1Cat)))
@@ -580,7 +614,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .code("1")
                 .name("Brand 1")
                 .build();
-        mockMvc.perform(post("/api/v1/brands")
+        mockMvc.perform(post("/api/v1/catalog/brands")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(len1Brand)))
@@ -593,7 +627,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .code(" " + code50.toLowerCase() + " ")
                 .name("Category Len 50")
                 .build();
-        mockMvc.perform(post("/api/v1/categories")
+        mockMvc.perform(post("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(len50Cat)))
@@ -605,7 +639,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .code(" " + brandCode50.toLowerCase() + " ")
                 .name("Brand Len 50")
                 .build();
-        mockMvc.perform(post("/api/v1/brands")
+        mockMvc.perform(post("/api/v1/catalog/brands")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(len50Brand)))
@@ -618,7 +652,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .code(code51)
                 .name("Category Len 51")
                 .build();
-        mockMvc.perform(post("/api/v1/categories")
+        mockMvc.perform(post("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(len51Cat)))
@@ -630,7 +664,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .code(brandCode51)
                 .name("Brand Len 51")
                 .build();
-        mockMvc.perform(post("/api/v1/brands")
+        mockMvc.perform(post("/api/v1/catalog/brands")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(len51Brand)))
@@ -643,7 +677,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .code("CAT_NAME_100")
                 .name(name100)
                 .build();
-        mockMvc.perform(post("/api/v1/categories")
+        mockMvc.perform(post("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(name100Cat)))
@@ -654,7 +688,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .code("BRAND_NAME_100")
                 .name(name100)
                 .build();
-        mockMvc.perform(post("/api/v1/brands")
+        mockMvc.perform(post("/api/v1/catalog/brands")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(name100Brand)))
@@ -668,7 +702,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .name("Category Desc 5000")
                 .description(desc5000)
                 .build();
-        mockMvc.perform(post("/api/v1/categories")
+        mockMvc.perform(post("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(desc5000Cat)))
@@ -680,7 +714,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .name("Brand Desc 5000")
                 .description(desc5000)
                 .build();
-        mockMvc.perform(post("/api/v1/brands")
+        mockMvc.perform(post("/api/v1/catalog/brands")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(desc5000Brand)))
@@ -698,7 +732,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 "\"unknownField\": \"extraValue\", " +
                 "\"anotherUnknownNumber\": 12345" +
                 "}";
-        MvcResult catRes = mockMvc.perform(post("/api/v1/categories")
+        MvcResult catRes = mockMvc.perform(post("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(createCatJson))
@@ -716,7 +750,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 "\"status\": \"ACTIVE\", " +
                 "\"unknownFlag\": true" +
                 "}";
-        mockMvc.perform(put("/api/v1/categories/{id}", catId)
+        mockMvc.perform(put("/api/v1/catalog/categories/{id}", catId)
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(updateCatJson))
@@ -725,7 +759,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .andExpect(jsonPath("$.data.name", is("Updated Name")));
 
         // Verify with GET detail
-        mockMvc.perform(get("/api/v1/categories/{id}", catId)
+        mockMvc.perform(get("/api/v1/catalog/categories/{id}", catId)
                         .header("Authorization", "Bearer " + shopOwnerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.code", is("CAT_IMMUTABLE")))
@@ -737,7 +771,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 "\"name\": \"Initial Brand Name\", " +
                 "\"extraCustomAttribute\": false" +
                 "}";
-        MvcResult brandRes = mockMvc.perform(post("/api/v1/brands")
+        MvcResult brandRes = mockMvc.perform(post("/api/v1/catalog/brands")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(createBrandJson))
@@ -754,7 +788,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 "\"status\": \"ACTIVE\", " +
                 "\"randomMetadata\": {\"subKey\": 999}" +
                 "}";
-        mockMvc.perform(put("/api/v1/brands/{id}", brandId)
+        mockMvc.perform(put("/api/v1/catalog/brands/{id}", brandId)
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(updateBrandJson))
@@ -763,7 +797,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                 .andExpect(jsonPath("$.data.name", is("Updated Brand Name")));
 
         // Verify with GET detail
-        mockMvc.perform(get("/api/v1/brands/{id}", brandId)
+        mockMvc.perform(get("/api/v1/catalog/brands/{id}", brandId)
                         .header("Authorization", "Bearer " + shopOwnerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.code", is("BRAND_IMMUTABLE")))
@@ -773,7 +807,7 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
     @Test
     @DisplayName("Brand list query: Invalid status filter returns 400 SYS_002")
     void testInvalidStatusFilterOnBrandList() throws Exception {
-        mockMvc.perform(get("/api/v1/brands")
+        mockMvc.perform(get("/api/v1/catalog/brands")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .param("status", "INVALID_STATUS"))
                 .andExpect(status().isBadRequest())

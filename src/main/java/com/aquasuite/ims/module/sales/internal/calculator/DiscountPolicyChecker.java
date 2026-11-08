@@ -3,6 +3,7 @@ package com.aquasuite.ims.module.sales.internal.calculator;
 import java.math.BigDecimal;
 import java.util.List;
 
+@org.springframework.stereotype.Component
 public class DiscountPolicyChecker {
 
     public record DiscountCheckResult(

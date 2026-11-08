@@ -1,0 +1,1280 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>AquaSuite - Hồ Sơ Nghiệp Vụ Bán Hàng &amp; Các Màn Hình Hệ Thống POS Cửa Hàng (Thuận Thành, Bắc Ninh)</title>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 5mm 7mm;
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', -apple-system, Arial, sans-serif;
+        }
+        body {
+            background-color: #ffffff;
+            color: #1e293b;
+            font-size: 8.5pt;
+            line-height: 1.32;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        .page {
+            width: 100%;
+            height: 287mm;
+            max-height: 287mm;
+            overflow: hidden;
+            padding: 2px 4px;
+            page-break-after: always;
+            break-after: page;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .page:last-child {
+            page-break-after: avoid;
+            break-after: avoid;
+        }
+
+        /* Header dùng chung cho từng trang */
+        .doc-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2.5px solid #0284c7;
+            padding-bottom: 5px;
+            margin-bottom: 6px;
+        }
+        .brand-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .brand-logo {
+            background: linear-gradient(135deg, #0284c7, #0369a1);
+            color: #ffffff !important;
+            font-weight: 900;
+            font-size: 13pt;
+            padding: 4px 10px;
+            border-radius: 6px;
+            letter-spacing: 0.5px;
+        }
+        .brand-title h1 {
+            font-size: 11pt;
+            font-weight: 800;
+            color: #0f172a;
+            text-transform: uppercase;
+        }
+        .brand-title p {
+            font-size: 7.8pt;
+            color: #64748b;
+        }
+        .doc-meta {
+            text-align: right;
+            font-size: 7.5pt;
+            color: #475569;
+            background: #f1f5f9;
+            padding: 3px 8px;
+            border-radius: 4px;
+            border: 1px solid #cbd5e1;
+            line-height: 1.3;
+        }
+
+        /* Section Headings - Đổi sang màu xanh sáng, chữ trắng rõ ràng, dễ nhìn */
+        .section-title {
+            background: #0284c7;
+            color: #ffffff !important;
+            font-size: 9pt;
+            font-weight: 800;
+            padding: 5px 10px;
+            border-radius: 4px;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            text-transform: uppercase;
+        }
+        .section-title * {
+            color: #ffffff !important;
+        }
+        .section-title span.sub {
+            font-size: 7.5pt;
+            font-weight: 600;
+            color: #e0f2fe !important;
+            text-transform: none;
+        }
+
+        /* SƠ ĐỒ TRANG 1 */
+        .flow-container {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-bottom: 6px;
+        }
+        .flow-row-3 {
+            display: flex;
+            gap: 6px;
+        }
+        .flow-card {
+            flex: 1;
+            background: #f0f9ff;
+            border: 1.5px solid #0284c7;
+            border-radius: 5px;
+            padding: 5px 7px;
+        }
+        .flow-card h3 {
+            font-size: 8.5pt;
+            font-weight: 800;
+            color: #0369a1;
+            margin-bottom: 2px;
+            border-bottom: 1px dashed #bae6fd;
+            padding-bottom: 2px;
+        }
+        .flow-card ul {
+            list-style: none;
+            font-size: 7.6pt;
+            color: #334155;
+            line-height: 1.3;
+        }
+        .flow-card li {
+            margin-bottom: 2px;
+        }
+
+        .decision-banner {
+            background: #0284c7;
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 9pt;
+            text-align: center;
+            padding: 4px;
+            border-radius: 20px;
+            margin: 1px auto;
+            width: 78%;
+            text-transform: uppercase;
+            box-shadow: 0 2px 5px rgba(2, 132, 199, 0.2);
+        }
+        .decision-banner span {
+            display: block;
+            font-size: 7pt;
+            font-weight: 400;
+            color: #e0f2fe;
+            text-transform: none;
+        }
+
+        .branches-row {
+            display: flex;
+            gap: 6px;
+        }
+        .branch-block {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .branch-head {
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 8.5pt;
+            text-align: center;
+            padding: 3px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+        .branch-head.green { background: #059669; }
+        .branch-head.amber { background: #d97706; }
+
+        .branch-item {
+            border-radius: 4px;
+            padding: 5px 7px;
+            border: 1.5px solid;
+            font-size: 7.5pt;
+            line-height: 1.3;
+        }
+        .branch-item.green { background: #ecfdf5; border-color: #10b981; }
+        .branch-item.amber { background: #fffbeb; border-color: #f59e0b; }
+        .branch-item.purple { background: #faf5ff; border-color: #8b5cf6; }
+        .branch-item h4 {
+            font-size: 8.2pt;
+            font-weight: 800;
+            margin-bottom: 2px;
+        }
+        .branch-item.green h4 { color: #047857; }
+        .branch-item.amber h4 { color: #b45309; }
+        .branch-item.purple h4 { color: #6d28d9; }
+
+        .branch-status-box {
+            padding: 4px 6px;
+            border-radius: 4px;
+            color: #ffffff;
+            font-size: 7.8pt;
+            line-height: 1.25;
+        }
+        .branch-status-box.green { background: #047857; }
+        .branch-status-box.amber { background: #b45309; }
+        .branch-status-box h5 {
+            font-size: 8.5pt;
+            font-weight: 800;
+            margin-bottom: 1px;
+        }
+
+        .post-changes {
+            background: #f8fafc;
+            border: 1.5px dashed #94a3b8;
+            border-radius: 4px;
+            padding: 4px 6px;
+        }
+        .post-changes h4 {
+            text-align: center;
+            font-size: 8.2pt;
+            font-weight: 800;
+            color: #0f172a;
+            margin-bottom: 3px;
+            text-transform: uppercase;
+        }
+        .changes-grid {
+            display: flex;
+            gap: 6px;
+        }
+        .change-box {
+            flex: 1;
+            padding: 4px 6px;
+            border-radius: 4px;
+            border: 1px solid;
+            font-size: 7.3pt;
+            line-height: 1.25;
+        }
+        .change-box.blue { background: #f0f9ff; border-color: #0284c7; }
+        .change-box.rose { background: #fff1f2; border-color: #f43f5e; }
+        .change-box h5 {
+            font-size: 7.8pt;
+            font-weight: 800;
+            margin-bottom: 1px;
+        }
+        .change-box.blue h5 { color: #0369a1; }
+        .change-box.rose h5 { color: #be123c; }
+
+        .safety-box {
+            background: #fffbeb;
+            border: 1.5px solid #f59e0b;
+            border-radius: 4px;
+            padding: 4px 7px;
+            font-size: 7.3pt;
+            line-height: 1.25;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .safety-box strong { color: #be123c; }
+
+        .rules-grid-page1 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+            margin-top: 4px;
+        }
+        .rule-card-p1 {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 4px 7px;
+            font-size: 7.4pt;
+            line-height: 1.25;
+        }
+        .rule-card-p1.accent {
+            border-color: #0284c7;
+            background: #f0f9ff;
+        }
+        .rule-card-p1 h5 {
+            font-size: 8pt;
+            font-weight: 800;
+            color: #0f172a;
+            margin-bottom: 2px;
+        }
+
+        /* STYLE CHUNG CHO MÀN HÌNH MÔ PHỎNG */
+        .window-container {
+            background: #ffffff;
+            border: 1.5px solid #0284c7;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 6px;
+        }
+        .window-topbar {
+            background: #0369a1;
+            color: #ffffff;
+            padding: 5px 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 7.6pt;
+            font-weight: 700;
+        }
+        .window-topbar > span, .window-topbar > div, .window-topbar > b {
+            color: #ffffff;
+        }
+        .window-tag {
+            background: #ffffff;
+            color: #0369a1 !important;
+            padding: 1px 6px;
+            border-radius: 3px;
+            font-weight: 800;
+            font-size: 6.8pt;
+        }
+        .window-body {
+            background: #f1f5f9;
+            padding: 6px;
+        }
+
+        /* THÀNH PHẦN FORM & BẢNG */
+        .ui-card {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 5px 7px;
+            margin-bottom: 4px;
+        }
+        .ui-card:last-child {
+            margin-bottom: 0;
+        }
+        .ui-card-header {
+            font-size: 8pt;
+            font-weight: 800;
+            color: #0369a1;
+            margin-bottom: 3px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1.5px solid #f1f5f9;
+            padding-bottom: 2px;
+        }
+        .ui-grid-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 5px;
+        }
+        .ui-grid-4 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            gap: 5px;
+        }
+        .ui-field-label {
+            font-size: 6.8pt;
+            font-weight: 700;
+            color: #475569;
+            margin-bottom: 1px;
+            display: block;
+        }
+        .ui-field-val {
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 3px;
+            padding: 2.5px 5px;
+            font-size: 7.4pt;
+            font-weight: 600;
+            color: #0f172a;
+        }
+        .ui-field-val.success { background: #ecfdf5; border-color: #10b981; color: #047857; }
+        .ui-field-val.active { background: #eff6ff; border-color: #3b82f6; color: #1d4ed8; }
+
+        .ui-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 7.2pt;
+        }
+        .ui-table th {
+            background: #f8fafc;
+            color: #475569;
+            text-align: left;
+            padding: 2.5px 4px;
+            border-bottom: 1.5px solid #cbd5e1;
+            font-weight: 700;
+        }
+        .ui-table td {
+            padding: 2.5px 4px;
+            border-bottom: 1px solid #e2e8f0;
+            vertical-align: top;
+        }
+
+        .status-pill {
+            display: inline-block;
+            padding: 2px 7px;
+            border-radius: 4px;
+            font-size: 6.8pt;
+            font-weight: 800;
+            line-height: 1.25;
+        }
+        .status-pill.green { background: #dcfce7; color: #14532d !important; border: 1px solid #86efac; }
+        .status-pill.amber { background: #fef3c7; color: #78350f !important; border: 1px solid #f59e0b; }
+        .status-pill.blue { background: #e0f2fe; color: #075985 !important; border: 1px solid #38bdf8; }
+        .status-pill.red { background: #fee2e2; color: #991b1b !important; border: 1px solid #f87171; }
+
+        .window-topbar .status-pill {
+            box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+            font-weight: 800;
+        }
+        .window-topbar .status-pill.amber {
+            background: #fffbeb !important;
+            color: #92400e !important;
+            border: 1.5px solid #f59e0b !important;
+        }
+        .window-topbar .status-pill.blue {
+            background: #f0f9ff !important;
+            color: #0369a1 !important;
+            border: 1.5px solid #38bdf8 !important;
+        }
+        .window-topbar .status-pill.green {
+            background: #f0fdf4 !important;
+            color: #166534 !important;
+            border: 1.5px solid #4ade80 !important;
+        }
+
+        .btn-ui {
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 3px;
+            padding: 2px 6px;
+            font-size: 7pt;
+            font-weight: 700;
+            color: #334155;
+            display: inline-block;
+        }
+        .btn-ui.primary { background: #0284c7; color: white !important; border-color: #0369a1; }
+        .btn-ui.success { background: #059669; color: white !important; border-color: #047857; }
+        .btn-ui.danger { background: #dc2626; color: white !important; border-color: #b91c1c; }
+
+        .footer-note {
+            text-align: center;
+            font-size: 6.8pt;
+            color: #94a3b8;
+            padding-top: 3px;
+            border-top: 1px solid #f1f5f9;
+        }
+    </style>
+</head>
+<body>
+
+<!-- ================================= TRANG 1 ================================= -->
+<div class="page">
+    <div>
+        <div class="doc-header">
+            <div class="brand-box">
+                <div class="brand-logo">AQUASUITE IMS</div>
+                <div class="brand-title">
+                    <h1>HỒ SƠ KHẢO SÁT THỰC TẾ CỬA HÀNG</h1>
+                    <p>Phần 1: Toàn cảnh sơ đồ dòng chảy nghiệp vụ Bán lẻ &amp; Quản lý kho Showroom (100% Tiếng Việt)</p>
+                </div>
+            </div>
+            <div class="doc-meta">
+                <b>Mã hồ sơ:</b> POS-SHOWROOM-2026<br>
+                <b>Thời gian:</b> 01/11/2026<br>
+                <b>Trang 1 / 4</b>
+            </div>
+        </div>
+
+        <div class="section-title">
+            <span>I. SƠ ĐỒ DÒNG CHẢY NGHIỆP VỤ BÁN LẺ &amp; KHO TẠI SHOWROOM</span>
+            <span class="sub">Chuẩn quy trình vận hành thực tế tại cửa hàng</span>
+        </div>
+
+        <!-- Sơ đồ trang 1 -->
+        <div class="flow-container">
+            <!-- Hàng 1 -->
+            <div class="flow-row-3">
+                <div class="flow-card">
+                    <h3>1. Người lập &amp; Khách hàng</h3>
+                    <ul>
+                        <li>• <b>Thu ngân / Bán hàng:</b> Nhân viên trực mở máy lên đơn.</li>
+                        <li>• <b>Khách quen / Thợ / Nhà thầu:</b> Tìm nhanh bằng SĐT để theo dõi công nợ, địa chỉ &amp; giá quen.</li>
+                        <li>• <b>Khách lẻ vãng lai:</b> Tự động xếp vào <i>Khách lẻ tại quầy</i>, lên đơn ngay, không hỏi rườm rà.</li>
+                    </ul>
+                </div>
+                <div class="flow-card">
+                    <h3>2. Chọn hàng lẻ hoặc Bộ Combo</h3>
+                    <ul>
+                        <li>• <b>Hàng bán lẻ:</b> Bồn cầu, sen vòi, ống nước, bình nước nóng... theo bảng giá niêm yết.</li>
+                        <li>• <b>Bộ Combo trọn gói:</b> Trọn bộ phòng tắm, Combo máy lọc nước...</li>
+                        <li>👉 <b>Tự động kiểm tra kho:</b> Tự bóc tách từng phụ kiện nhỏ trong Combo; đủ hàng kho mới cho bán.</li>
+                    </ul>
+                </div>
+                <div class="flow-card">
+                    <h3>3. Giảm giá &amp; Bớt tiền</h3>
+                    <ul>
+                        <li>• <b>Khuyến mãi cửa hàng:</b> Áp dụng các đợt ưu đãi giảm giá hiện hành của cửa hàng.</li>
+                        <li>• <b>Bớt tiền trực tiếp:</b> Linh hoạt bớt giá trên từng món hoặc giảm trực tiếp một khoản trên tổng đơn.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Hàng 2 -->
+            <div class="decision-banner">
+                KHÁCH CHỌN CÁCH NHẬN HÀNG NÀO?
+                <span>(Quyết định việc trừ kho hay giữ chỗ, và cách thức thu tiền của cửa hàng)</span>
+            </div>
+
+            <!-- Hàng 3 -->
+            <div class="branches-row">
+                <!-- Nhánh 1 -->
+                <div class="branch-block">
+                    <div class="branch-head green">NHÁNH 1: KHÁCH LẤY HÀNG TỰ CHỞ VỀ NGAY</div>
+                    <div class="branch-item green">
+                        <h4>📦 KHO HÀNG: TRỪ KHO THỰC TẾ NGAY LẬP TỨC</h4>
+                        • <b>Trừ kho thực tế:</b> Giảm trực tiếp lượng hàng tồn trong kho Showroom ngay khi trao hàng cho khách.<br>
+                        • <b>Sổ nhật ký:</b> Tự động ghi <i>"Xuất bán lẻ quầy mang về ngay"</i>.<br>
+                        • <b>Đơn hàng:</b> Đánh dấu trạng thái <b>ĐÃ HOÀN THÀNH XONG</b>.
+                    </div>
+                    <div class="branch-item purple">
+                        <h4>🧾 HÓA ĐƠN &amp; THU ĐỦ 100% TIỀN HÀNG</h4>
+                        • <b>Hóa đơn bán lẻ:</b> Khóa cố định giá bán và tiền bớt ngay thời điểm xuất đơn làm căn cứ minh bạch.<br>
+                        • <b>Thu tiền đủ 100%:</b> Tiền mặt, Quẹt thẻ POS hoặc Chuyển khoản QR ngân hàng.<br>
+                        • <b>Trạng thái Hóa đơn:</b> Đánh dấu <b>ĐÃ THANH TOÁN ĐỦ</b>.
+                    </div>
+                    <div class="branch-status-box green">
+                        <h5>✅ KẾT THÚC: GIAO DỊCH HOÀN TẤT TRỌN VẸN</h5>
+                        In Hóa đơn bán lẻ giao cho khách cầm về cùng sản phẩm. Kết thúc bán hàng thành công.
+                    </div>
+                </div>
+
+                <!-- Nhánh 2 -->
+                <div class="branch-block">
+                    <div class="branch-head amber">NHÁNH 2: CỬA HÀNG GIAO TẬN NƠI THEO HẸN</div>
+                    <div class="branch-item amber">
+                        <h4>🔒 KHO HÀNG: KHÓA SỐ LƯỢNG GIỮ CHỖ AN TOÀN</h4>
+                        • <b>Khóa giữ chỗ:</b> Hàng vẫn ở kho Showroom nhưng dành riêng cho đơn này; không nhân viên nào bán đè được.<br>
+                        • <b>Sổ nhật ký:</b> Tự động ghi <i>"Đặt giữ hàng chờ giao xe"</i>.<br>
+                        • <b>Đơn hàng:</b> Trạng thái <b>ĐANG XỬ LÝ - CHỜ GIAO XE</b>, lưu Địa chỉ giao &amp; Ngày giờ hẹn.
+                    </div>
+                    <div class="branch-item purple">
+                        <h4>🧾 HÓA ĐƠN &amp; THU CỌC / GHI SỔ NỢ</h4>
+                        • <b>Hóa đơn bán lẻ:</b> Làm chứng từ pháp lý giao nhận &amp; đối soát số tiền còn thiếu.<br>
+                        • <b>Thu tiền cọc:</b> Nhận cọc 30% - 50%, ghi rõ số tiền còn nợ để tài xế thu nốt khi giao.<br>
+                        • <b>Cho nợ (Thợ quen):</b> Ghi nợ 30 ngày. 🛡️ <i>Tự chặn nếu có nợ cũ quá hạn &gt; 60 ngày chưa trả.</i>
+                    </div>
+                    <div class="branch-status-box amber">
+                        <h5>🚚 TRẠNG THÁI: CHUYỂN KHO BỐC XẾP LÊN XE</h5>
+                        Chuyển phiếu cho thủ kho bốc xếp hàng lên xe ba gác / xe tải theo đúng lịch hẹn.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hàng 4 -->
+            <div class="post-changes">
+                <h4>⚙️ XỬ LÝ 2 TÌNH HUỐNG PHÁT SINH KHI ĐƠN HÀNG ĐANG CHỜ GIAO XE</h4>
+                <div class="changes-grid">
+                    <div class="change-box blue">
+                        <h5>Tình huống 1: Khách đổi địa chỉ hoặc hẹn lại giờ giao xe</h5>
+                        Nhân viên vào đơn đang chờ giao để sửa lại địa chỉ công trình hoặc ghi chú giờ giao mới, đảm bảo tài xế giao đúng nhà, đúng giờ, không lạc đường.
+                    </div>
+                    <div class="change-box rose">
+                        <h5>Tình huống 2: Khách đổi ý không mua nữa (Hủy đơn hàng)</h5>
+                        Bắt buộc nhân viên nhập rõ <b>Lý do hủy</b>. Đơn và Hóa đơn chuyển sang <b>ĐÃ HỦY</b>. 🎯 <b>Hệ thống tự động nhả hàng giữ chỗ về kho ngay lập tức</b> để bán cho khách khác, không lo bị om hàng.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hàng 5 -->
+            <div class="safety-box">
+                <span style="font-size: 13pt;">🛡️</span>
+                <div>
+                    <b>QUY TẮC AN TOÀN CHO CỬA HÀNG (CHẶN GIAN LẬN &amp; THẤT THOÁT TIỀN/HÀNG):</b> Khi đơn hàng đã ở trạng thái <b>ĐÃ HOÀN THÀNH XONG</b> (khách đã chở hàng về) hoặc hàng hóa đã bốc lên xe xuất kho đi giao, hệ thống <b>KHÓA CHẶT TUYỆT ĐỐI</b>. Không nhân viên nào được tự ý sửa tiền hàng hay hủy đơn để bảo vệ an toàn kho và doanh thu của Showroom.
+                </div>
+            </div>
+        </div>
+
+        <!-- 6 Quy tắc tự động -->
+        <div class="section-title" style="background: #0369a1; margin-top: 4px;">
+            <span>II. 6 QUY TẮC TỰ ĐỘNG BẢO VỆ DOANH THU &amp; KHO BÃI CHO SHOWROOM</span>
+            <span class="sub" style="color: #ffffff;">Xử lý tự động ngầm dưới máy tính để bảo vệ cửa hàng</span>
+        </div>
+        <div class="rules-grid-page1">
+            <div class="rule-card-p1">
+                <h5>⚡ 1. Khách lẻ vãng lai lên đơn siêu nhanh</h5>
+                Không cần hỏi SĐT hay tạo hồ sơ, tự động gán vào nhóm <b>Khách lẻ tại quầy</b>, xuất hóa đơn trong 30 giây để khách không phải chờ đợi lúc đông.
+            </div>
+            <div class="rule-card-p1 accent">
+                <h5>📦 2. Kiểm tra kho tự động cho gói Combo</h5>
+                Tự bóc tách kiểm tra kho từng phụ kiện con (bồn cầu, lavabo, sen vòi, gioăng xiphong); đủ tất cả linh kiện mới cho bán, không bao giờ lo thiếu đồ.
+            </div>
+            <div class="rule-card-p1 accent">
+                <h5>🔒 3. Cơ chế Khóa giữ chỗ hàng giao tận nơi</h5>
+                Hàng giao sau vẫn ở kho nhưng máy đã <b>khóa số lượng giữ chỗ</b>. Nhân viên khác không thể bán đè, dứt điểm nỗi lo nhận đơn xong đến lúc chở đi mới biết hết hàng.
+            </div>
+            <div class="rule-card-p1">
+                <h5>🛡️ 4. Tự động chặn nợ xấu quá hạn</h5>
+                Khi cho thợ quen nợ tiền hàng, phần mềm tự kiểm tra sổ nợ. Nếu khách đang có nợ cũ <b>quá hạn trên 60 ngày chưa trả</b>, máy sẽ chặn ngay để bảo vệ dòng tiền.
+            </div>
+            <div class="rule-card-p1">
+                <h5>🎯 5. Tự động nhả kho ngay khi khách hủy đơn</h5>
+                Khách đổi ý hủy đơn thì <b>toàn bộ hàng giữ chỗ được tự động trả về kho tự do ngay lập tức</b> để bán tiếp cho khách khác, không lo bị om hàng hay quên nhả kho.
+            </div>
+            <div class="rule-card-p1" style="border-color: #f43f5e; background: #fff1f2;">
+                <h5 style="color: #be123c;">🚫 6. Khóa cứng chống gian lận &amp; thất thoát</h5>
+                Khi khách đã chở hàng về hoặc xe đã xuất kho, hệ thống <b>khóa cứng tuyệt đối</b>. Không nhân viên nào được tự ý sửa tiền hay hủy đơn sau lưng chủ cửa hàng.
+            </div>
+        </div>
+    </div>
+
+    <div class="footer-note">
+        AquaSuite IMS - Hồ sơ khảo sát thực tế Showroom thiết bị vệ sinh &amp; nước - Trang 1/4
+    </div>
+</div>
+
+<!-- ================================= TRANG 2 ================================= -->
+<div class="page">
+    <div>
+        <div class="doc-header">
+            <div class="brand-box">
+                <div class="brand-logo">AQUASUITE IMS</div>
+                <div class="brand-title">
+                    <h1>HỒ SƠ KHẢO SÁT THỰC TẾ CỬA HÀNG</h1>
+                    <p>Phần 2: Màn hình 1 - Nhập liệu Lên đơn Bán hàng tại quầy POS (Giao diện chính của Thu ngân)</p>
+                </div>
+            </div>
+            <div class="doc-meta">
+                <b>Mã hồ sơ:</b> POS-SHOWROOM-2026<br>
+                <b>Thời gian:</b> 01/11/2026<br>
+                <b>Trang 2 / 4</b>
+            </div>
+        </div>
+
+        <div class="section-title">
+            <span>MÀN HÌNH 1: GIAO DIỆN LÊN ĐƠN BÁN HÀNG TẠI QUẦY (POS ORDER ENTRY)</span>
+            <span class="sub">Nhân viên thao tác: Tìm khách, Bóc tách combo, Kiểm tra kho, Chọn cách nhận hàng &amp; Thu tiền</span>
+        </div>
+
+        <!-- MÀN HÌNH 1 CHI TIẾT TOÀN DIỆN -->
+        <div class="window-container">
+            <div class="window-topbar">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="window-tag">QUẦY POS SỐ 1</span>
+                    <b>CỬA HÀNG THIẾT BỊ NƯỚC &amp; VỆ SINH</b>
+                    <span style="color: #94a3b8; font-size: 7pt;">(Địa chỉ: Thuận Thành, Bắc Ninh - Bán lẻ tại quầy)</span>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center; font-size: 7.2pt;">
+                    <span>Thu ngân: <b>Nguyễn Văn A (NV-08)</b></span>
+                    <span>|</span>
+                    <span>Mã đơn: <b>ORD-20261101-0021</b></span>
+                    <span>|</span>
+                    <span>Hóa đơn: <b>INV-20261101-0018</b></span>
+                </div>
+            </div>
+
+            <div class="window-body" style="display: flex; gap: 6px;">
+                <!-- Cột trái: Khách hàng + Giỏ hàng mặt hàng chi tiết -->
+                <div style="flex: 2.15; display: flex; flex-direction: column; gap: 5px;">
+                    <!-- Khối thông tin khách hàng -->
+                    <div class="ui-card">
+                        <div class="ui-card-header">
+                            <span>1. THÔNG TIN KHÁCH HÀNG &amp; PHÂN LOẠI ĐƠN HÀNG</span>
+                            <span class="btn-ui">Chọn nhanh: Khách lẻ tại quầy (Không lưu SĐT)</span>
+                        </div>
+                        <div class="ui-grid-3">
+                            <div>
+                                <span class="ui-field-label">Tìm số điện thoại khách hàng:</span>
+                                <div class="ui-field-val active">0988 123 456 🔍 (Đã tìm thấy)</div>
+                            </div>
+                            <div>
+                                <span class="ui-field-label">Họ tên &amp; Nhóm khách hàng:</span>
+                                <div class="ui-field-val success">Nguyễn Văn A (Thợ điện nước quen)</div>
+                            </div>
+                            <div>
+                                <span class="ui-field-label">Sổ nợ hiện tại:</span>
+                                <div class="ui-field-val">0đ (Hạn mức cho phép: 30 triệu)</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 3px; font-size: 7.2pt; color: #475569;">
+                            <b>Phân loại đơn:</b> &nbsp; ● Bán lẻ tại quầy (RETAIL) &nbsp;&nbsp;&nbsp;&nbsp; ○ Đơn công trình / Dự án lớn (PROJECT)
+                        </div>
+                    </div>
+
+                    <!-- Khối giỏ hàng sản phẩm cực chi tiết -->
+                    <div class="ui-card">
+                        <div class="ui-card-header">
+                            <span>2. DANH MỤC HÀNG HÓA &amp; BỘ COMBO CHỌN BÁN</span>
+                            <span class="status-pill green">KHO KHẢ DỤNG: ĐÃ KIỂM TRA ĐỦ 100%</span>
+                        </div>
+
+                        <!-- Thanh tìm kiếm sản phẩm -->
+                        <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 3px; padding: 2.5px 5px; font-size: 7pt; color: #64748b; margin-bottom: 3px;">
+                            🔍 <i>Gõ tên sản phẩm, mã hàng hoặc quét mã vạch (Bồn cầu, sen vòi, ống nước, combo phòng tắm...)...</i>
+                        </div>
+
+                        <!-- Bảng mặt hàng -->
+                        <table class="ui-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 44%;">Tên mặt hàng &amp; Chi tiết linh kiện Combo</th>
+                                    <th style="width: 10%; text-align: center;">Số lượng</th>
+                                    <th style="width: 15%; text-align: right;">Đơn giá bán</th>
+                                    <th style="width: 13%; text-align: right;">Bớt tiền</th>
+                                    <th style="width: 18%; text-align: right;">Thành tiền</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        <b>Sen cây tắm đứng nóng lạnh INAX cao cấp</b><br>
+                                        <span style="color: #64748b; font-size: 6.6pt;">Mã hàng: INAX-SEN-01 | Tồn kho thực tế: <b>15 cái</b> [ĐỦ HÀNG]</span>
+                                    </td>
+                                    <td style="text-align: center;"><b>2</b> cái</td>
+                                    <td style="text-align: right;">2.500.000đ</td>
+                                    <td style="text-align: right; color: #dc2626;">- 100.000đ</td>
+                                    <td style="text-align: right; font-weight: 800;">4.800.000đ</td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <span class="status-pill amber">GÓI COMBO</span><b>Bộ thiết bị vệ sinh phòng tắm trọn gói (5 món)</b><br>
+                                        <!-- Danh sách bóc tách phụ kiện -->
+                                        <div style="background: #fffbeb; border-left: 2.5px solid #f59e0b; padding: 2px 5px; margin-top: 2px; border-radius: 0 3px 3px 0; font-size: 6.6pt; color: #78350f; line-height: 1.25;">
+                                            👉 <b>Tự động bóc tách linh kiện con &amp; kiểm tra tồn kho:</b><br>
+                                            • Bồn cầu 1 khối INAX (Mã: INAX-504): SL 1 cái | Tồn kho thực tế: <b>8 cái</b> [ĐỦ]<br>
+                                            • Chậu lavabo treo tường (Mã: L-288V): SL 1 cái | Tồn kho thực tế: <b>12 cái</b> [ĐỦ]<br>
+                                            • Vòi chậu gật gù nóng lạnh (Mã: LFV-1102S): SL 1 cái | Tồn kho: <b>20 cái</b> [ĐỦ]<br>
+                                            • Bộ xiphong xả chậu &amp; ống ruột gà: SL 1 bộ | Tồn kho: <b>35 bộ</b> [ĐỦ]<br>
+                                            • Vòi xịt vệ sinh tăng áp inox 304: SL 1 cái | Tồn kho: <b>40 cái</b> [ĐỦ]
+                                        </div>
+                                    </td>
+                                    <td style="text-align: center;"><b>1</b> bộ</td>
+                                    <td style="text-align: right;">8.500.000đ</td>
+                                    <td style="text-align: right; color: #dc2626;">- 500.000đ</td>
+                                    <td style="text-align: right; font-weight: 800;">8.000.000đ</td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <b>Ống nhựa chịu nhiệt PPR D25 Tiền Phong (Cây 4m)</b><br>
+                                        <span style="color: #64748b; font-size: 6.6pt;">Mã hàng: PPR-D25-TP | Tồn kho thực tế: <b>120 cây</b> [ĐỦ HÀNG]</span>
+                                    </td>
+                                    <td style="text-align: center;"><b>10</b> cây</td>
+                                    <td style="text-align: right;">120.000đ</td>
+                                    <td style="text-align: right;">0đ</td>
+                                    <td style="text-align: right; font-weight: 800;">1.200.000đ</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Cột phải: Phương thức nhận hàng + Tính tiền & Thu cọc/nợ -->
+                <div style="flex: 1.35; display: flex; flex-direction: column; gap: 5px;">
+                    <!-- Khối nhận hàng -->
+                    <div class="ui-card">
+                        <div class="ui-card-header">
+                            <span>3. HÌNH THỨC NHẬN HÀNG CỦA KHÁCH</span>
+                        </div>
+                        <div style="font-size: 7.3pt; margin-bottom: 3px;">
+                            <label><input type="radio" name="p_nhanhang"> Khách lấy mang về ngay (Trừ kho tức thì)</label><br>
+                            <label><input type="radio" name="p_nhanhang" checked> <b>Cửa hàng giao tận nơi (Khóa giữ chỗ an toàn)</b></label>
+                        </div>
+                        <div style="margin-bottom: 2px;">
+                            <span class="ui-field-label">Địa chỉ công trình giao hàng:</span>
+                            <div class="ui-field-val">Số 12 Phố Hồ, Thị xã Thuận Thành, Bắc Ninh</div>
+                        </div>
+                        <div>
+                            <span class="ui-field-label">Hẹn ngày giờ giao &amp; Ghi chú tài xế:</span>
+                            <div class="ui-field-val">14h00 ngày 02/11/2026 (Gọi trước 30 phút)</div>
+                        </div>
+                    </div>
+
+                    <!-- Khối tính tiền & Thu tiền -->
+                    <div class="ui-card">
+                        <div class="ui-card-header">
+                            <span>4. TÍNH TIỀN &amp; THU TIỀN ĐƠN HÀNG</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 7.8pt; margin-bottom: 2px;">
+                            <span>Tổng tiền hàng (3 mặt hàng):</span>
+                            <b>14.000.000đ</b>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 7.8pt; color: #dc2626; margin-bottom: 2px;">
+                            <span>Giảm giá theo khuyến mãi Showroom:</span>
+                            <b>- 500.000đ</b>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 9.8pt; font-weight: 900; color: #dc2626; border-top: 1.5px dashed #cbd5e1; padding-top: 3px; margin-top: 3px;">
+                            <span>TỔNG KHÁCH TRẢ:</span>
+                            <span>13.500.000đ</span>
+                        </div>
+
+                        <!-- Chọn cách thanh toán -->
+                        <div style="margin-top: 4px;">
+                            <span class="ui-field-label">Phương thức thanh toán:</span>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3px; margin: 4px 0;">
+                                <div class="btn-ui" style="text-align: center;">Tiền mặt</div>
+                                <div class="btn-ui primary" style="text-align: center;">Chuyển khoản QR</div>
+                                <div class="btn-ui" style="text-align: center;">Quẹt thẻ POS</div>
+                                <div class="btn-ui" style="text-align: center;">Bán cho nợ</div>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; justify-content: space-between; font-size: 7.8pt; margin-top: 3px;">
+                            <span>Khách đặt cọc trước tại quầy:</span>
+                            <b style="color: #0284c7; font-size: 8.5pt;">5.000.000đ</b>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; background: #fff1f2; border: 1px solid #fecdd3; padding: 2px 4px; border-radius: 3px; margin-top: 2px;">
+                            <span style="font-weight: 800; color: #be123c;">CÒN THIẾU TÀI XẾ THU NỐT:</span>
+                            <span style="font-weight: 900; color: #be123c; font-size: 9pt;">8.500.000đ</span>
+                        </div>
+
+                        <button class="btn-ui success" style="width: 100%; padding: 7px; margin-top: 4px; font-size: 8.8pt; text-transform: uppercase;">
+                            💾 LƯU ĐƠN &amp; IN HÓA ĐƠN BÁN LẺ
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer-note">
+        AquaSuite IMS - Hồ sơ khảo sát thực tế Showroom thiết bị vệ sinh &amp; nước - Trang 2/4
+    </div>
+</div>
+
+<!-- ================================= TRANG 3 ================================= -->
+<div class="page">
+    <div>
+        <div class="doc-header">
+            <div class="brand-box">
+                <div class="brand-logo">AQUASUITE IMS</div>
+                <div class="brand-title">
+                    <h1>HỒ SƠ KHẢO SÁT THỰC TẾ CỬA HÀNG</h1>
+                    <p>Phần 3: Màn hình 2 &amp; 3 - Quản lý Danh sách đơn hàng &amp; Xem Chi tiết Đơn hàng / Hóa đơn</p>
+                </div>
+            </div>
+            <div class="doc-meta">
+                <b>Mã hồ sơ:</b> POS-SHOWROOM-2026<br>
+                <b>Thời gian:</b> 01/11/2026<br>
+                <b>Trang 3 / 4</b>
+            </div>
+        </div>
+
+        <div class="section-title">
+            <span>MÀN HÌNH 2: QUẢN LÝ DANH SÁCH ĐƠN HÀNG &amp; BỘ LỌC TÌM KIẾM (ORDER MANAGEMENT)</span>
+            <span class="sub">Quản lý và theo dõi toàn bộ đơn hàng trong ngày, tuần, tháng theo từng trạng thái</span>
+        </div>
+
+        <!-- MÀN HÌNH 2: DANH SÁCH ĐƠN HÀNG -->
+        <div class="window-container">
+            <div class="window-topbar">
+                <span>📋 DANH SÁCH TẤT CẢ ĐƠN HÀNG SHOWROOM</span>
+                <span>Bộ lọc nhanh: <b class="btn-ui primary">Tất cả đơn (128)</b> &nbsp; <b class="btn-ui">Chờ giao xe (8)</b> &nbsp; <b class="btn-ui">Đã hoàn thành (115)</b> &nbsp; <b class="btn-ui">Đã hủy (5)</b></span>
+            </div>
+            <div class="window-body">
+                <!-- Thanh công cụ tìm kiếm -->
+                <div class="ui-card" style="margin-bottom: 4px;">
+                    <div class="ui-grid-4">
+                        <div>
+                            <span class="ui-field-label">Tìm theo mã đơn / Tên khách / SĐT:</span>
+                            <div class="ui-field-val">ORD-20261101... 🔍</div>
+                        </div>
+                        <div>
+                            <span class="ui-field-label">Trạng thái đơn hàng:</span>
+                            <div class="ui-field-val">Đang xử lý (Chờ giao) ▼</div>
+                        </div>
+                        <div>
+                            <span class="ui-field-label">Trạng thái thu tiền:</span>
+                            <div class="ui-field-val">Đã cọc một phần ▼</div>
+                        </div>
+                        <div>
+                            <span class="ui-field-label">Thời gian xem đơn:</span>
+                            <div class="ui-field-val">Hôm nay (01/11/2026) ▼</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bảng danh sách đơn hàng -->
+                <table class="ui-table" style="background: white; border-radius: 4px;">
+                    <thead>
+                        <tr>
+                            <th>Mã đơn hàng</th>
+                            <th>Khách hàng &amp; SĐT</th>
+                            <th>Ngày giờ tạo</th>
+                            <th>Hình thức nhận</th>
+                            <th style="text-align: right;">Tổng tiền</th>
+                            <th style="text-align: center;">Trạng thái đơn</th>
+                            <th style="text-align: center;">Trạng thái tiền</th>
+                            <th style="text-align: center;">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="background: #fffbeb;">
+                            <td><b>ORD-20261101-0021</b><br><span style="color: #64748b; font-size: 6.8pt;">HĐ: INV-20261101-0018</span></td>
+                            <td>Nguyễn Văn A<br><span style="color: #64748b; font-size: 6.8pt;">0988 123 456 (Thợ quen)</span></td>
+                            <td>01/11/2026 10:15</td>
+                            <td>Giao tận nơi (Thuận Thành, Bắc Ninh)</td>
+                            <td style="text-align: right; font-weight: 800;">13.500.000đ</td>
+                            <td style="text-align: center;"><span class="status-pill amber">ĐANG XỬ LÝ (CHỜ GIAO)</span></td>
+                            <td style="text-align: center;"><span class="status-pill blue">ĐÃ CỌC (THIẾU 8.5TR)</span></td>
+                            <td style="text-align: center;"><span class="btn-ui primary">Xem chi tiết</span></td>
+                        </tr>
+                        <tr>
+                            <td><b>ORD-20261101-0020</b></td>
+                            <td>Khách lẻ tại quầy<br><span style="color: #64748b; font-size: 6.8pt;">(Khách vãng lai mua nhanh)</span></td>
+                            <td>01/11/2026 09:40</td>
+                            <td>Lấy ngay tại quầy</td>
+                            <td style="text-align: right; font-weight: 800;">850.000đ</td>
+                            <td style="text-align: center;"><span class="status-pill green">HOÀN THÀNH XONG</span></td>
+                            <td style="text-align: center;"><span class="status-pill green">ĐÃ THU ĐỦ 100%</span></td>
+                            <td style="text-align: center;"><span class="btn-ui">Xem</span></td>
+                        </tr>
+                        <tr>
+                            <td><b>ORD-20261101-0019</b></td>
+                            <td>Nhà thầu Hưng Phát<br><span style="color: #64748b; font-size: 6.8pt;">0912 888 999 (Công trình KĐT)</span></td>
+                            <td>01/11/2026 08:30</td>
+                            <td>Giao tận nơi (Gia Bình, Bắc Ninh)</td>
+                            <td style="text-align: right; font-weight: 800;">45.200.000đ</td>
+                            <td style="text-align: center;"><span class="status-pill amber">ĐANG XỬ LÝ (CHỜ GIAO)</span></td>
+                            <td style="text-align: center;"><span class="status-pill amber">CHO NỢ 30 NGÀY</span></td>
+                            <td style="text-align: center;"><span class="btn-ui">Xem</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="section-title" style="margin-top: 5px;">
+            <span>MÀN HÌNH 3: XEM CHI TIẾT ĐƠN HÀNG &amp; HÓA ĐƠN LIÊN KẾT (ORDER DETAIL)</span>
+            <span class="sub">Xem lại đầy đủ danh sách hàng mua, linh kiện combo, snapshot giá &amp; lịch sử thu tiền</span>
+        </div>
+
+        <!-- MÀN HÌNH 3: CHI TIẾT ĐƠN HÀNG -->
+        <div class="window-container">
+            <div class="window-topbar">
+                <span>🔍 CHI TIẾT ĐƠN HÀNG: <b>ORD-20261101-0021</b> (Hóa đơn: <b>INV-20261101-0018</b>)</span>
+                <div style="display: flex; gap: 6px; align-items: center;">
+                    <span class="status-pill amber">ĐANG XỬ LÝ (CHỜ GIAO XE)</span>
+                    <span class="status-pill blue">ĐÃ ĐẶT CỌC 5.000.000đ</span>
+                </div>
+            </div>
+            <div class="window-body">
+                <!-- Thông tin khách hàng & Giao nhận -->
+                <div class="ui-card" style="margin-bottom: 3px;">
+                    <div class="ui-grid-3">
+                        <div>
+                            <span class="ui-field-label">Khách hàng &amp; Số điện thoại:</span>
+                            <div class="ui-field-val"><b>Nguyễn Văn A</b> - 0988 123 456 (Thợ quen)</div>
+                        </div>
+                        <div>
+                            <span class="ui-field-label">Địa chỉ công trình &amp; Giờ hẹn:</span>
+                            <div class="ui-field-val">Số 12 Phố Hồ, TX. Thuận Thành, Bắc Ninh (Hẹn: 14h00 ngày 02/11/2026)</div>
+                        </div>
+                        <div>
+                            <span class="ui-field-label">Thu ngân lập đơn &amp; Ngày tạo:</span>
+                            <div class="ui-field-val">Nguyễn Văn A (NV-08) - 01/11/2026 10:15</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BẢNG CHI TIẾT CÁC SẢN PHẨM ĐÃ MUA TRONG ĐƠN -->
+                <div class="ui-card" style="margin-bottom: 3px; padding: 4px;">
+                    <div class="ui-card-header" style="margin-bottom: 2px;">
+                        <span>📦 DANH SÁCH SẢN PHẨM &amp; BỘ COMBO KHÁCH ĐÃ MUA TRONG ĐƠN HÀNG NÀY</span>
+                        <span style="font-size: 6.8pt; color: #64748b; font-weight: 600;">(Đã kiểm tra tồn kho &amp; giữ chỗ an toàn trước khi xuất xe)</span>
+                    </div>
+                    <table class="ui-table" style="background: white;">
+                        <thead>
+                            <tr style="background: #f1f5f9;">
+                                <th style="width: 25px; text-align: center;">STT</th>
+                                <th>Mã hàng / Tên sản phẩm &amp; Cấu phần Combo</th>
+                                <th style="text-align: center; width: 45px;">ĐVT</th>
+                                <th style="text-align: center; width: 35px;">SL</th>
+                                <th style="text-align: right; width: 75px;">Đơn giá</th>
+                                <th style="text-align: right; width: 70px;">Bớt tiền</th>
+                                <th style="text-align: right; width: 85px;">Thành tiền</th>
+                                <th style="text-align: center; width: 85px;">Trạng thái kho</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="text-align: center;">1</td>
+                                <td>
+                                    <b>Sen cây tắm đứng nóng lạnh INAX cao cấp</b><br>
+                                    <span style="color: #64748b; font-size: 6.6pt;">Mã: INAX-SEN-01 | Chất liệu: Đồng thau mạ Crom sáng bóng</span>
+                                </td>
+                                <td style="text-align: center;">Bộ</td>
+                                <td style="text-align: center; font-weight: 800;">2</td>
+                                <td style="text-align: right;">2.500.000đ</td>
+                                <td style="text-align: right; color: #dc2626;">- 100.000đ</td>
+                                <td style="text-align: right; font-weight: 800; color: #0284c7;">4.800.000đ</td>
+                                <td style="text-align: center;"><span class="status-pill green">Đã giữ 2 cái</span></td>
+                            </tr>
+                            <tr style="background: #f8fafc;">
+                                <td style="text-align: center;">2</td>
+                                <td>
+                                    <b>Bộ Combo thiết bị vệ sinh phòng tắm (5 món trọn gói)</b><br>
+                                    <div style="margin-top: 1px; padding: 2px 4px; background: #ffffff; border: 1px dashed #cbd5e1; border-radius: 3px; font-size: 6.5pt; color: #334155;">
+                                        <b>Cấu phần bóc tách kho:</b> 1 Bồn cầu 1K + 1 Chậu Lavabo + 1 Vòi nóng lạnh + 1 Xiphong ruột gà + 1 Vòi xịt áp lực
+                                    </div>
+                                </td>
+                                <td style="text-align: center;">Bộ</td>
+                                <td style="text-align: center; font-weight: 800;">1</td>
+                                <td style="text-align: right;">8.500.000đ</td>
+                                <td style="text-align: right; color: #dc2626;">- 500.000đ</td>
+                                <td style="text-align: right; font-weight: 800; color: #0284c7;">8.000.000đ</td>
+                                <td style="text-align: center;"><span class="status-pill green">Đã giữ đủ 5 món</span></td>
+                            </tr>
+                            <tr>
+                                <td style="text-align: center;">3</td>
+                                <td>
+                                    <b>Ống nhựa chịu nhiệt PPR D25 Tiền Phong</b><br>
+                                    <span style="color: #64748b; font-size: 6.6pt;">Mã: PPR-TP-25 | Chiều dài: Cây 4m tiêu chuẩn</span>
+                                </td>
+                                <td style="text-align: center;">Cây</td>
+                                <td style="text-align: center; font-weight: 800;">10</td>
+                                <td style="text-align: right;">120.000đ</td>
+                                <td style="text-align: right;">0đ</td>
+                                <td style="text-align: right; font-weight: 800; color: #0284c7;">1.200.000đ</td>
+                                <td style="text-align: center;"><span class="status-pill green">Đã giữ 10 cây</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- KHUNG TÀI CHÍNH, HÓA ĐƠN & LỊCH SỬ THU TIỀN -->
+                <div style="display: grid; grid-template-columns: 1.15fr 1fr; gap: 5px;">
+                    <!-- Lịch sử giao dịch thu tiền -->
+                    <div class="ui-card" style="padding: 4px 6px;">
+                        <div class="ui-card-header" style="margin-bottom: 2px;">
+                            <span>💳 LỊCH SỬ THANH TOÁN &amp; HÓA ĐƠN ĐIỆN TỬ</span>
+                            <span style="font-size: 6.8pt; color: #0284c7; font-weight: 700;">HĐ: INV-20261101-0018</span>
+                        </div>
+                        <div style="font-size: 7pt; line-height: 1.35;">
+                            • <b>Đợt 1 (Đặt cọc):</b> 5.000.000đ - <i>Chuyển khoản QR ngân hàng (10:15)</i><br>
+                            • <b>Đợt 2 (Còn nợ):</b> <b style="color: #be123c;">8.500.000đ</b> - <i>Tài xế thu tiền mặt khi giao hàng tận nơi</i><br>
+                            • <b>Hóa đơn bán lẻ snapshot:</b> Đã phát hành tự động, chống sửa đổi gian lận.
+                        </div>
+                        <div style="margin-top: 3px; display: flex; gap: 4px;">
+                            <span class="btn-ui primary" style="font-size: 6.8pt; padding: 2px 6px;">🖨️ In Lại Hóa Đơn Này</span>
+                            <span class="btn-ui" style="font-size: 6.8pt; padding: 2px 6px;">📦 In Phiếu Bốc Hàng Kho</span>
+                        </div>
+                    </div>
+
+                    <!-- Bảng tính tiền tổng kết -->
+                    <div class="ui-card" style="padding: 4px 6px; background: #f8fafc;">
+                        <div style="font-size: 7.2pt; line-height: 1.35;">
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Tổng tiền hàng (3 mặt hàng):</span>
+                                <b>14.000.000đ</b>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; color: #dc2626;">
+                                <span>Giảm giá chiết khấu cửa hàng:</span>
+                                <b>- 500.000đ</b>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-weight: 800; font-size: 8pt; color: #0284c7; border-top: 1px solid #cbd5e1; padding-top: 1px; margin-top: 1px;">
+                                <span>TỔNG CỘNG ĐƠN HÀNG:</span>
+                                <span>13.500.000đ</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; color: #047857; font-weight: 700;">
+                                <span>Khách đã cọc (Chuyển khoản):</span>
+                                <span>- 5.000.000đ</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-weight: 900; font-size: 8.5pt; color: #be123c; background: #fff1f2; padding: 1px 4px; border-radius: 3px; margin-top: 2px;">
+                                <span>TÀI XẾ THU NỐT KHI GIAO XE:</span>
+                                <span>8.500.000đ</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer-note">
+        AquaSuite IMS - Hồ sơ khảo sát thực tế Showroom thiết bị vệ sinh &amp; nước - Trang 3/4
+    </div>
+</div>
+
+<!-- ================================= TRANG 4 ================================= -->
+<div class="page">
+    <div>
+        <div class="doc-header">
+            <div class="brand-box">
+                <div class="brand-logo">AQUASUITE IMS</div>
+                <div class="brand-title">
+                    <h1>HỒ SƠ KHẢO SÁT THỰC TẾ CỬA HÀNG</h1>
+                    <p>Phần 4: Màn hình 4, 5, 6 - Xử lý phát sinh (Đổi địa chỉ, Hủy đơn nhả kho) &amp; Tờ Hóa đơn in ra</p>
+                </div>
+            </div>
+            <div class="doc-meta">
+                <b>Mã hồ sơ:</b> POS-SHOWROOM-2026<br>
+                <b>Thời gian:</b> 01/11/2026<br>
+                <b>Trang 4 / 4</b>
+            </div>
+        </div>
+
+        <div class="section-title">
+            <span>MÀN HÌNH 4 &amp; 5: THAO TÁC XỬ LÝ 2 TÌNH HUỐNG PHÁT SINH TRƯỚC KHI XUẤT KHO</span>
+            <span class="sub">Chỉ cho phép khi đơn ở trạng thái Đang xử lý (chưa bốc xe đi giao)</span>
+        </div>
+
+        <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+            <!-- Màn hình 4: Đổi địa chỉ -->
+            <div class="window-container" style="flex: 1;">
+                <div class="window-topbar" style="background: #0369a1;">
+                    <span>MÀN HÌNH 4: KHÁCH ĐỔI ĐỊA CHỈ HOẶC GIỜ GIAO XE</span>
+                    <span class="window-tag">ĐƠN ĐANG CHỜ GIAO</span>
+                </div>
+                <div class="window-body">
+                    <div class="ui-card">
+                        <span class="ui-field-label">Địa chỉ công trình mới:</span>
+                        <div class="ui-field-val active" style="margin-bottom: 4px;">Số 45 Phố Khám, Phường Gia Đông, Thị xã Thuận Thành, Bắc Ninh</div>
+                        <span class="ui-field-label">Ghi chú giờ hẹn giao mới cho tài xế:</span>
+                        <div class="ui-field-val" style="margin-bottom: 5px;">Dời sang 09h00 ngày 03/11/2026 (Gọi trước 30 phút)</div>
+                        <button class="btn-ui primary" style="width: 100%; padding: 4px;">LƯU THAY ĐỔI LỘ TRÌNH XE GIAO</button>
+                    </div>
+                    <div style="font-size: 6.8pt; color: #64748b; margin-top: 3px;">
+                        👉 <i>Tài xế nhận ngay lộ trình mới trên phiếu xuất kho, không bao giờ bị giao nhầm nhà.</i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Màn hình 5: Hủy đơn nhả kho -->
+            <div class="window-container" style="flex: 1; border-color: #be123c;">
+                <div class="window-topbar" style="background: #be123c;">
+                    <span>MÀN HÌNH 5: KHÁCH ĐỔI Ý HỦY ĐƠN HÀNG</span>
+                    <span class="window-tag" style="background: #881337;">BẮT BUỘC NHẬP LÝ DO</span>
+                </div>
+                <div class="window-body">
+                    <div class="ui-card" style="border-color: #fecdd3; background: #fff1f2;">
+                        <span class="ui-field-label" style="color: #be123c;">Lý do khách hủy đơn (Bắt buộc để chủ shop kiểm soát):</span>
+                        <div class="ui-field-val" style="border-color: #fca5a5; margin-bottom: 5px;">Chủ nhà đổi thiết kế không lắp sen cây nữa</div>
+                        <button class="btn-ui danger" style="width: 100%; padding: 4px;">XÁC NHẬN HỦY ĐƠN &amp; NHẢ HÀNG VỀ KHO</button>
+                    </div>
+                    <div style="font-size: 6.8pt; color: #047857; margin-top: 3px; font-weight: 700;">
+                        🎯 <b>Hành động tự động của kho:</b> Toàn bộ 2 cái sen cây, 1 bộ combo (5 phụ kiện con), 10 cây ống PPR lập tức được trả về kho tự do để bán tiếp ngay.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-title" style="background: #0284c7; margin-bottom: 4px;">
+            <span>MÀN HÌNH 6: TỜ HÓA ĐƠN BÁN LẺ &amp; PHIẾU GIAO HÀNG IN RA CHO KHÁCH</span>
+            <span class="sub" style="color: #ffffff;">Mẫu phiếu in trao tận tay khách hàng &amp; giao tài xế chở hàng đi giao</span>
+        </div>
+
+        <!-- MÀN HÌNH 6: TỜ HÓA ĐƠN IN RA -->
+        <div class="window-container" style="border: 2px dashed #64748b;">
+            <div class="window-body" style="background: #ffffff; padding: 8px 12px;">
+                <div style="text-align: center; border-bottom: 1.5px solid #0f172a; padding-bottom: 4px; margin-bottom: 6px;">
+                    <b style="font-size: 11pt; color: #0f172a;">CỬA HÀNG THIẾT BỊ NƯỚC &amp; VỆ SINH</b><br>
+                    <span style="font-size: 7.2pt; color: #64748b;">Địa chỉ: Thuận Thành, Bắc Ninh - Hotline: 0909 123 456</span><br>
+                    <b style="font-size: 10pt; color: #0284c7; letter-spacing: 0.5px;">HÓA ĐƠN BÁN LẺ &amp; PHIẾU XUẤT KHO GIAO HÀNG</b>
+                </div>
+
+                <div class="ui-grid-3" style="font-size: 7.2pt; margin-bottom: 4px;">
+                    <div>Số HĐ: <b>INV-20261101-0018</b><br>Mã đơn: <b>ORD-20261101-0021</b></div>
+                    <div>Khách hàng: <b>Nguyễn Văn A</b><br>Số điện thoại: <b>0988 123 456</b></div>
+                    <div>Ngày xuất: <b>01/11/2026 10:15</b><br>Thu ngân: <b>Nguyễn Văn A</b></div>
+                </div>
+                <div style="font-size: 7.2pt; margin-bottom: 4px; background: #f8fafc; padding: 2px 4px; border-radius: 3px;">
+                    Nơi giao hàng: <b>Số 12 Phố Hồ, Thị xã Thuận Thành, Bắc Ninh</b> | Giờ hẹn: <b>14h00 ngày 02/11/2026</b>
+                </div>
+
+                <!-- Bảng chi tiết hóa đơn in ra -->
+                <table class="ui-table" style="margin-bottom: 4px; font-size: 7pt;">
+                    <thead>
+                        <tr style="border-bottom: 1.5px solid #0f172a;">
+                            <th>STT</th>
+                            <th>Tên mặt hàng / Quy cách</th>
+                            <th style="text-align: center;">ĐVT</th>
+                            <th style="text-align: center;">SL</th>
+                            <th style="text-align: right;">Đơn giá</th>
+                            <th style="text-align: right;">Bớt tiền</th>
+                            <th style="text-align: right;">Thành tiền</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>1</td>
+                            <td><b>Sen cây tắm đứng nóng lạnh INAX cao cấp</b> (INAX-SEN-01)</td>
+                            <td style="text-align: center;">Cái</td>
+                            <td style="text-align: center;"><b>2</b></td>
+                            <td style="text-align: right;">2.500.000</td>
+                            <td style="text-align: right;">- 100.000</td>
+                            <td style="text-align: right; font-weight: 700;">4.800.000</td>
+                        </tr>
+                        <tr>
+                            <td>2</td>
+                            <td>
+                                <b>Bộ Combo thiết bị vệ sinh phòng tắm (5 món trọn gói)</b><br>
+                                <span style="font-size: 6.5pt; color: #475569;">Gồm: Bồn cầu 1K (1 cái) + Chậu lavabo (1 cái) + Vòi nóng lạnh (1 cái) + Xiphong (1 bộ) + Vòi xịt (1 cái)</span>
+                            </td>
+                            <td style="text-align: center;">Bộ</td>
+                            <td style="text-align: center;"><b>1</b></td>
+                            <td style="text-align: right;">8.500.000</td>
+                            <td style="text-align: right;">- 500.000</td>
+                            <td style="text-align: right; font-weight: 700;">8.000.000</td>
+                        </tr>
+                        <tr>
+                            <td>3</td>
+                            <td><b>Ống nhựa chịu nhiệt PPR D25 Tiền Phong</b> (Cây 4m)</td>
+                            <td style="text-align: center;">Cây</td>
+                            <td style="text-align: center;"><b>10</b></td>
+                            <td style="text-align: right;">120.000</td>
+                            <td style="text-align: right;">0</td>
+                            <td style="text-align: right; font-weight: 700;">1.200.000</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Tổng tiền & Thu cọc -->
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1.5px solid #0f172a; padding-top: 4px;">
+                    <div style="font-size: 7pt; color: #475569;">
+                        • Hàng chính hãng 100%, bảo hành theo tiêu chuẩn nhà sản xuất.<br>
+                        • Quý khách vui lòng kiểm tra đủ số lượng và quy cách trước khi nhận hàng.
+                    </div>
+                    <div style="width: 250px; font-size: 7.5pt;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>Tổng tiền hàng:</span>
+                            <b>14.000.000đ</b>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; color: #dc2626;">
+                            <span>Giảm giá khuyến mãi Showroom:</span>
+                            <b>- 500.000đ</b>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-weight: 900; font-size: 8.5pt; color: #0284c7;">
+                            <span>TỔNG CỘNG THANH TOÁN:</span>
+                            <span>13.500.000đ</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; color: #047857;">
+                            <span>Đã đặt cọc (Chuyển khoản QR):</span>
+                            <b>- 5.000.000đ</b>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-weight: 900; font-size: 9pt; color: #be123c; background: #fff1f2; padding: 2px 4px; border-radius: 3px; margin-top: 2px;">
+                            <span>TÀI XẾ THU NỐT KHI GIAO:</span>
+                            <span>8.500.000đ</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chữ ký người nhận & người lập -->
+                <div style="display: flex; justify-content: space-between; margin-top: 6px; font-size: 7.2pt; text-align: center;">
+                    <div style="width: 30%;">
+                        <b>NGƯỜI LẬP PHIẾU</b><br><span style="font-size: 6.5pt; color: #64748b;">(Ký, họ tên)</span>
+                        <div style="height: 25px;"></div>
+                        <b>Nguyễn Văn A</b>
+                    </div>
+                    <div style="width: 30%;">
+                        <b>THỦ KHO XUẤT HÀNG</b><br><span style="font-size: 6.5pt; color: #64748b;">(Ký xác nhận đã bốc hàng)</span>
+                        <div style="height: 25px;"></div>
+                        <b>..............................</b>
+                    </div>
+                    <div style="width: 30%;">
+                        <b>KHÁCH HÀNG / NGƯỜI NHẬN</b><br><span style="font-size: 6.5pt; color: #64748b;">(Ký xác nhận đã nhận đủ hàng)</span>
+                        <div style="height: 25px;"></div>
+                        <b>..............................</b>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer-note">
+        AquaSuite IMS - Hồ sơ khảo sát thực tế Showroom thiết bị vệ sinh &amp; nước - Trang 4/4
+    </div>
+</div>
+
+</body>
+</html>

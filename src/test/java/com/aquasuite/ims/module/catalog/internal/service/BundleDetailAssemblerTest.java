@@ -6,7 +6,7 @@ import com.aquasuite.ims.module.catalog.internal.entity.*;
 import com.aquasuite.ims.module.catalog.internal.enums.ProductStatus;
 import com.aquasuite.ims.module.catalog.internal.enums.ProductType;
 import com.aquasuite.ims.module.catalog.internal.enums.VariantStatus;
-import com.aquasuite.ims.module.catalog.internal.mapper.BundleCoreMapper;
+import com.aquasuite.ims.module.catalog.internal.mapper.BundleMapper;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,7 +21,7 @@ import java.util.Map;
 import java.util.UUID;
 
 class BundleDetailAssemblerTest {
-    private final BundleCoreMapper mapper = Mappers.getMapper(BundleCoreMapper.class);
+    private final BundleMapper mapper = Mappers.getMapper(BundleMapper.class);
     private final BundleDetailAssembler assembler =
             new BundleDetailAssembler(new BundlePricingService(), mapper);
     private Product bundle;
@@ -176,7 +176,7 @@ class BundleDetailAssemblerTest {
 
     @Test
     void generatedLookupUsesSkuContract() {
-        var sku = mapper.sku(variant, parent);
+        var sku = mapper.toSkuResponse(variant, parent);
         assertThat(sku.variantId()).isEqualTo(variant.getVariantId());
         assertThat(sku.productId()).isEqualTo(parent.getProductId());
         assertThat(sku.productName()).isEqualTo("Normal product");

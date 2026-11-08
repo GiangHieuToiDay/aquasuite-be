@@ -1,18 +1,20 @@
 package com.aquasuite.ims.module.inventory.api;
 
+import com.aquasuite.ims.module.inventory.api.dto.GoodsReceiptSummaryDto;
 import com.aquasuite.ims.module.inventory.api.dto.StockAdjustCommand;
 import com.aquasuite.ims.module.inventory.api.dto.StockSummaryDto;
 import com.aquasuite.ims.module.inventory.api.dto.VariantInventoryUsage;
 
 import java.math.BigDecimal;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 /**
  * Public Interface của Module Inventory.
- * Các module khác (Sales, Fulfillment, Finance, ...) giao tiếp đồng bộ với Inventory qua Interface này.
+ * Các module khác (Sales, Fulfillment, Finance, Purchasing, ...) giao tiếp đồng bộ với Inventory qua Interface này.
  */
 public interface InventoryApi {
 
@@ -35,5 +37,15 @@ public interface InventoryApi {
     void adjustPhysicalStock(StockAdjustCommand command);
     void initializeMainWarehouseInventory(UUID variantId);
     VariantInventoryUsage getVariantDeletionUsage(UUID variantId);
+    VariantInventoryUsage lockAndGetVariantDeletionUsage(UUID variantId);
     void deleteEmptyVariantInventory(UUID variantId);
+
+    /** Kiểm tra xem đơn mua hàng (PO) có phiếu nhập kho nháp (DRAFT) hay không */
+    boolean hasDraftGoodsReceipt(UUID purchaseOrderId);
+
+    /** Kiểm tra xem đơn mua hàng (PO) đã có phiếu nhập kho được xác nhận (CONFIRMED) hay chưa */
+    boolean hasConfirmedGoodsReceipt(UUID purchaseOrderId);
+
+    /** Lấy danh sách phiếu nhập kho theo purchaseOrderId */
+    List<GoodsReceiptSummaryDto> getReceiptsByPurchaseOrderId(UUID purchaseOrderId);
 }

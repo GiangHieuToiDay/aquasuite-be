@@ -3,7 +3,7 @@ package com.aquasuite.ims.module.catalog.internal.payload.res;
 import lombok.Builder;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
@@ -24,5 +24,5 @@ public record StorefrontProductCardResponse(
         BigDecimal totalAvailableStock,
         int totalVariants,
         Map<String, Object> specificationsSummary,
-        LocalDateTime createdAt
+        Instant createdAt
 ) {}

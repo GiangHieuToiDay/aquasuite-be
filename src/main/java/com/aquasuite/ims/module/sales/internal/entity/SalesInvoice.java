@@ -13,6 +13,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -77,6 +78,28 @@ public class SalesInvoice {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
+
+    @Column(name = "invoice_symbol", length = 20)
+    private String invoiceSymbol;
+
+    @Column(name = "signed_at")
+    private OffsetDateTime signedAt;
+
+    /** Snapshot set by the invoice-issuing use case; never recalculated from a later customer profile change. */
+    @Column(name = "credit_term_days")
+    private Integer creditTermDays;
+
+    @Column(name = "due_date")
+    private LocalDate dueDate;
+
+    @Column(name = "provider_code", length = 50)
+    private String providerCode;
+
+    @Column(name = "provider_invoice_id", length = 100)
+    private String providerInvoiceId;
+
+    @Column(name = "original_invoice_id")
+    private UUID originalInvoiceId;
 
     @PrePersist
     public void prePersist() {

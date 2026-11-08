@@ -1,9 +1,9 @@
 package com.aquasuite.ims.module.catalog.internal.entity;
 
 import jakarta.persistence.*;
-
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+
 import lombok.*;
 
 import java.time.Instant;

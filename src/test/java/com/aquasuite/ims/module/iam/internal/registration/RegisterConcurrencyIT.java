@@ -1,6 +1,7 @@
 package com.aquasuite.ims.module.iam.internal.registration;
 
 import com.aquasuite.ims.module.iam.internal.payload.request.RegisterRequest;
+import com.aquasuite.ims.module.iam.internal.service.RegisterService;
 import com.aquasuite.ims.module.iam.internal.payload.request.ResendRegistrationOtpRequest;
 import com.aquasuite.ims.module.iam.internal.payload.request.VerifyRegistrationRequest;
 import com.aquasuite.ims.share.exception.AppException;
@@ -51,14 +52,16 @@ class RegisterConcurrencyIT extends RegisterTestSupport {
                 race(
                         () -> outcome(() -> registrations.verify(req)),
                         () -> outcome(() -> registrations.verify(req)));
-        assertThat(results).containsExactlyInAnyOrder("SUCCESS", "REG_006");
+        assertThat(results).contains("SUCCESS");
+        assertThat(results.stream().filter("SUCCESS"::equals).count()).isEqualTo(1);
+        assertThat(results).allMatch(r -> List.of("SUCCESS", "REG_006", "REG_003").contains(r));
         assertThat(redis.keys("auth:v2:session:*")).hasSize(1);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM customers", Integer.class))
                 .isEqualTo(1);
     }
 
     @Test
-    void twoRegistrationsWithSameCredentialsCreateOneAccount(
+    void twoRegistrationsWithSameCredentialsCreateOnePendingRegistration(
             org.springframework.boot.test.system.CapturedOutput output) throws Exception {
         var req = new RegisterRequest("Nguyen An", EMAIL, "0901234567", PASSWORD, PASSWORD, true);
         var results =
@@ -66,7 +69,8 @@ class RegisterConcurrencyIT extends RegisterTestSupport {
                         () -> outcome(() -> registrations.register(req)),
                         () -> outcome(() -> registrations.register(req)));
         assertThat(results).containsExactlyInAnyOrder("SUCCESS", "REG_001");
-        assertThat(users.count()).isEqualTo(1);
+        assertThat(users.count()).isZero();
+        assertThat(redis.keys(RegisterService.OTP_PREFIX + "*")).hasSize(1);
         assertThat(output.getAll())
                 .doesNotContain("Batch entry 0 insert into public.users", "$2a$12$");
     }
@@ -76,7 +80,7 @@ class RegisterConcurrencyIT extends RegisterTestSupport {
         var user = registered();
         String old = otp();
         redis.opsForHash()
-                .put(key(user), "sentAt", Long.toString(System.currentTimeMillis() - 60_001));
+                .put(key(user), "sentAt", Long.toString(redisNow() - 60_001));
         var results =
                 race(
                         () ->
@@ -93,7 +97,25 @@ class RegisterConcurrencyIT extends RegisterTestSupport {
         // Either verification locks first, or resend invalidates the old code before verification.
         assertThat(
                         results.equals(List.of("REG_006", "SUCCESS"))
-                                || results.equals(List.of("SUCCESS", "REG_002")))
+                                || results.equals(List.of("SUCCESS", "REG_002"))
+                                || results.equals(List.of("SUCCESS", "REG_003")))
                 .isTrue();
     }
+    @Test
+    void differentPendingEmailsWithSamePhoneCreateOnlyOneAccount() throws Exception {
+        registered();
+        String firstCode = otp();
+        String otherEmail = "other@example.test";
+        var secondForm = form();
+        secondForm.put("email", otherEmail);
+        postJson(ROOT, secondForm, 201);
+        String secondCode = otp();
+        var results = race(
+                () -> outcome(() -> registrations.verify(new VerifyRegistrationRequest(EMAIL, firstCode))),
+                () -> outcome(() -> registrations.verify(new VerifyRegistrationRequest(otherEmail, secondCode))));
+        assertThat(results).containsExactlyInAnyOrder("SUCCESS", "REG_001");
+        assertThat(users.count()).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM customers", Integer.class)).isEqualTo(1);
+    }
+
 }

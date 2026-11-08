@@ -1,0 +1,55 @@
+meta {
+  name: 04 - Update Draft Quotation (Cập nhật bản nháp)
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/api/v1/sales/quotations/{{quotationId}}
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "customerId": "{{customerId}}",
+    "projectName": "Công trình Biệt thự Riviera Quận 2 (Điều chỉnh số lượng)",
+    "deliveryAddress": "Số 12 Đường Giang Văn Minh, Phường An Phú, TP. Thủ Đức",
+    "deliverySchedule": "Giao 1 đợt duy nhất vào ngày 15/11",
+    "validUntil": "2026-12-15",
+    "vatRate": 10,
+    "shippingFee": 150000,
+    "note": "Đã thương lượng lại cước vận chuyển ưu đãi",
+    "items": [
+      {
+        "variantId": "{{variantId1}}",
+        "quantity": 3,
+        "discountRate": 5
+      },
+      {
+        "variantId": "{{variantId2}}",
+        "quantity": 12,
+        "discountRate": 18
+      }
+    ]
+  }
+}
+
+tests {
+  test("Cập nhật báo giá nháp thành công (HTTP 200)", function () {
+    expect(res.getStatus()).to.equal(200);
+    const body = res.getBody();
+    expect(body.success).to.equal(true);
+    expect(body.data.projectName).to.include("Điều chỉnh số lượng");
+    expect(body.data.deliverySchedule).to.include("Giao 1 đợt duy nhất");
+    expect(body.data.approval.maxDiscountRate).to.equal(18);
+  });
+}

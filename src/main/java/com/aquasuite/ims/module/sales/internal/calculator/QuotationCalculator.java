@@ -9,6 +9,7 @@ import static com.aquasuite.ims.module.sales.internal.calculator.QuotationConsta
 import static com.aquasuite.ims.module.sales.internal.calculator.QuotationConstants.PERCENT_SCALE;
 import static com.aquasuite.ims.module.sales.internal.calculator.QuotationConstants.ROUNDING_MODE;
 
+@org.springframework.stereotype.Component
 public class QuotationCalculator {
 
     private static final BigDecimal ONE_HUNDRED = BigDecimal.valueOf(100);
@@ -37,7 +38,8 @@ public class QuotationCalculator {
             BigDecimal shippingFee,
             BigDecimal grandTotal,
             BigDecimal grossProfit,
-            BigDecimal marginPercent
+            BigDecimal marginPercent,
+            BigDecimal totalCost
     ) {}
 
     public QuotationTotals calculate(
@@ -59,7 +61,8 @@ public class QuotationCalculator {
                     safeShippingFee,
                     safeShippingFee,
                     BigDecimal.ZERO.setScale(MONEY_SCALE, ROUNDING_MODE),
-                    BigDecimal.ZERO.setScale(PERCENT_SCALE, ROUNDING_MODE)
+                    BigDecimal.ZERO.setScale(PERCENT_SCALE, ROUNDING_MODE),
+                    BigDecimal.ZERO.setScale(MONEY_SCALE, ROUNDING_MODE)
             );
         }
 
@@ -119,7 +122,8 @@ public class QuotationCalculator {
                 safeShippingFee,
                 grandTotal,
                 grossProfit,
-                marginPercent
+                marginPercent,
+                sumCost
         );
     }
 }

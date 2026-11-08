@@ -1,0 +1,54 @@
+meta {
+  name: 07 - Edit After Rejection (Sửa lại sau từ chối)
+  type: http
+  seq: 7
+}
+
+put {
+  url: {{baseUrl}}/api/v1/sales/quotations/{{quotationId}}
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "customerId": "{{customerId}}",
+    "projectName": "Công trình Biệt thự Riviera Quận 2 (Giảm chiết khấu theo ý sếp)",
+    "deliveryAddress": "Số 12 Đường Giang Văn Minh, Phường An Phú, TP. Thủ Đức",
+    "deliverySchedule": "Giao 1 đợt duy nhất vào ngày 15/11",
+    "validUntil": "2026-12-15",
+    "vatRate": 10,
+    "shippingFee": 150000,
+    "note": "Đã điều chỉnh chiết khấu tối đa 14% theo chỉ đạo",
+    "items": [
+      {
+        "variantId": "{{variantId1}}",
+        "quantity": 3,
+        "discountRate": 5
+      },
+      {
+        "variantId": "{{variantId2}}",
+        "quantity": 12,
+        "discountRate": 14
+      }
+    ]
+  }
+}
+
+tests {
+  test("Tự động chuyển từ REJECTED về DRAFT sau khi sửa (HTTP 200)", function () {
+    expect(res.getStatus()).to.equal(200);
+    const body = res.getBody();
+    expect(body.success).to.equal(true);
+    expect(body.data.status).to.equal("DRAFT");
+    expect(body.data.approval.maxDiscountRate).to.equal(14);
+  });
+}

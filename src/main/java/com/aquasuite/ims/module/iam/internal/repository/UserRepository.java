@@ -68,8 +68,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     long countByStatus(UserStatus status);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select distinct u.id from User u join u.roles r where u.status = 'ACTIVE' and upper(r.roleName) in ('STORE_OWNER', 'ROLE_STORE_OWNER')")
-    List<UUID> lockActiveStoreOwnerIds();
+    @Query("select distinct u.id from User u join u.roles r where u.status = 'ACTIVE' and upper(r.roleName) in ('SHOP_OWNER', 'ROLE_SHOP_OWNER')")
+    List<UUID> lockActiveShopOwnerIds();
 
     @Modifying(flushAutomatically = true)
     @Query(value = "update public.user_roles set assigned_by = :actorId where user_id = :userId", nativeQuery = true)

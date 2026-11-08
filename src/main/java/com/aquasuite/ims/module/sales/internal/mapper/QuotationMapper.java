@@ -5,6 +5,7 @@ import com.aquasuite.ims.module.sales.internal.calculator.QuotationCalculator.Li
 import com.aquasuite.ims.module.sales.internal.calculator.QuotationCalculator.QuotationTotals;
 import com.aquasuite.ims.module.sales.internal.entity.Quotation;
 import com.aquasuite.ims.module.sales.internal.entity.QuotationItem;
+import com.aquasuite.ims.module.sales.internal.entity.QuotationPaymentMilestone;
 import com.aquasuite.ims.module.sales.internal.payload.request.QuotationUpsertRequest;
 import com.aquasuite.ims.module.sales.internal.payload.response.QuotationApprovalInfo;
 import com.aquasuite.ims.module.sales.internal.payload.response.QuotationComponentResponse;
@@ -12,6 +13,7 @@ import com.aquasuite.ims.module.sales.internal.payload.response.QuotationItemCos
 import com.aquasuite.ims.module.sales.internal.payload.response.QuotationItemResponse;
 import com.aquasuite.ims.module.sales.internal.payload.response.QuotationListItemResponse;
 import com.aquasuite.ims.module.sales.internal.payload.response.QuotationOwnerData;
+import com.aquasuite.ims.module.sales.internal.payload.response.QuotationPaymentMilestoneResponse;
 import com.aquasuite.ims.module.sales.internal.payload.response.QuotationResponse;
 import com.aquasuite.ims.module.sales.internal.payload.response.QuotationSummaryResponse;
 import org.mapstruct.Mapper;
@@ -45,7 +47,17 @@ public interface QuotationMapper {
     @Mapping(target = "customerName", source = "customerName")
     @Mapping(target = "projectName", source = "quotation.projectName")
     @Mapping(target = "createdByName", source = "createdByName")
-    QuotationListItemResponse toListItemResponse(Quotation quotation, String customerName, String createdByName);
+    @Mapping(target = "requiresApproval", source = "requiresApproval")
+    QuotationListItemResponse toListItemResponse(
+            Quotation quotation,
+            String customerName,
+            String createdByName,
+            Boolean requiresApproval
+    );
+
+    default QuotationListItemResponse toListItemResponse(Quotation quotation, String customerName, String createdByName) {
+        return toListItemResponse(quotation, customerName, createdByName, false);
+    }
 
     // 2. Ánh xạ phẳng cho dòng thành phần combo (MapStruct tự sinh)
     @Mapping(target = "sku", source = "item.sku")
@@ -60,14 +72,26 @@ public interface QuotationMapper {
     // 3. Ánh xạ phẳng cho summary 7 con số (MapStruct tự sinh)
     QuotationSummaryResponse toSummaryResponse(QuotationTotals totals);
 
-    // 4. Ánh xạ request sang entity (MapStruct tự sinh)
+    // 4. Ánh xạ phẳng cho payment milestone
+    QuotationPaymentMilestoneResponse toMilestoneResponse(QuotationPaymentMilestone milestone);
+
+    List<QuotationPaymentMilestoneResponse> toMilestoneResponses(List<QuotationPaymentMilestone> milestones);
+
+    // 5. Ánh xạ request sang entity (MapStruct tự sinh)
     @Mapping(target = "customerId", source = "request.customerId")
     @Mapping(target = "projectName", source = "request.projectName")
     @Mapping(target = "deliveryAddress", source = "request.deliveryAddress")
+    @Mapping(target = "deliverySchedule", source = "request.deliverySchedule")
+    @Mapping(target = "sentToEmail", source = "request.sentToEmail")
     @Mapping(target = "validUntil", source = "request.validUntil")
     @Mapping(target = "vatRate", source = "request.vatRate")
     @Mapping(target = "shippingFee", source = "request.shippingFee")
     @Mapping(target = "note", source = "request.note")
+    @Mapping(target = "depositPercent", source = "request.depositPercent")
+    @Mapping(target = "depositAmount", source = "request.depositAmount")
+    @Mapping(target = "creditTermDays", source = "request.creditTermDays")
+    @Mapping(target = "remainingDebtAmount", source = "request.remainingDebtAmount")
+    @Mapping(target = "debtCondition", source = "request.debtCondition")
     Quotation toEntity(QuotationUpsertRequest request);
 
     /**
@@ -104,12 +128,34 @@ public interface QuotationMapper {
         return quotation;
     }
 
+    default QuotationResponse toResponse(
+            Quotation quotation,
+            List<QuotationItem> items,
+            QuotationTotals totals,
+            DiscountPolicyChecker.DiscountCheckResult approvalResult,
+            String customerName,
+            Map<UUID, String> skuNames,
+            boolean includeOwnerData
+    ) {
+        return toResponse(
+                quotation,
+                items,
+                Collections.emptyList(),
+                totals,
+                approvalResult,
+                customerName,
+                skuNames,
+                includeOwnerData
+        );
+    }
+
     /**
-     * Phương thức điều phối chính dựng cây cha - con components và phân nhánh dữ liệu nội bộ ownerData.
+     * Phương thức điều phối chính dựng cây cha - con components, payment milestones và phân nhánh dữ liệu nội bộ ownerData.
      */
     default QuotationResponse toResponse(
             Quotation quotation,
             List<QuotationItem> items,
+            List<QuotationPaymentMilestone> milestones,
             QuotationTotals totals,
             DiscountPolicyChecker.DiscountCheckResult approvalResult,
             String customerName,
@@ -206,6 +252,7 @@ public interface QuotationMapper {
         QuotationOwnerData ownerData = null;
         if (includeOwnerData && totals != null) {
             ownerData = QuotationOwnerData.builder()
+                    .totalCost(totals.totalCost())
                     .grossProfit(totals.grossProfit())
                     .marginPercent(totals.marginPercent())
                     .marginPercentAtApproval(quotation.getMarginPercentAtApproval())
@@ -213,6 +260,11 @@ public interface QuotationMapper {
                     .itemCosts(itemCostResponses)
                     .build();
         }
+
+        // 5. Payment milestones
+        List<QuotationPaymentMilestoneResponse> milestoneResponses = (milestones != null)
+                ? toMilestoneResponses(milestones)
+                : Collections.emptyList();
 
         return QuotationResponse.builder()
                 .quotationId(quotation.getQuotationId())
@@ -226,8 +278,16 @@ public interface QuotationMapper {
                 .customerName(customerName)
                 .projectName(quotation.getProjectName())
                 .deliveryAddress(quotation.getDeliveryAddress())
+                .deliverySchedule(quotation.getDeliverySchedule())
+                .sentToEmail(quotation.getSentToEmail())
                 .note(quotation.getNote())
+                .depositPercent(quotation.getDepositPercent())
+                .depositAmount(quotation.getDepositAmount())
+                .creditTermDays(quotation.getCreditTermDays())
+                .remainingDebtAmount(quotation.getRemainingDebtAmount())
+                .debtCondition(quotation.getDebtCondition())
                 .items(rootItemResponses)
+                .milestones(milestoneResponses)
                 .summary(summary)
                 .approval(approval)
                 .sentAt(quotation.getSentAt())

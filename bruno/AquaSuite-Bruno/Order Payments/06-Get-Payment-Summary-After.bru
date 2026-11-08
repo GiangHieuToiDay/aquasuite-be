@@ -1,0 +1,37 @@
+meta {
+  name: 06 - Get Payment Summary After
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/v1/finance/orders/{{paymentOrderId}}/payment-summary
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('Summary is consistent with verified payments', function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(200);
+    expect(body.success).to.equal(true);
+    expect(body.data.orderId).to.equal(bru.getEnvVar('paymentOrderId'));
+    const total = Number(body.data.totalAmount);
+    const verified = Number(body.data.verifiedPaid);
+    expect(Number(body.data.pendingAmount)).to.be.at.least(0);
+    expect(Number(body.data.remaining)).to.equal(Math.max(total - verified, 0));
+    expect(body.data.paymentStatus).to.be.oneOf(['UNPAID', 'PARTIALLY_PAID', 'PAID']);
+  });
+  test('Pending transfer is shown separately', function () {
+    const data = res.getBody().data;
+    const cash = Number(bru.getEnvVar('paymentCashAmount'));
+    const bank = Number(bru.getEnvVar('paymentBankAmount'));
+    expect(Number(data.verifiedPaid)).to.equal(Number(bru.getVar('paymentInitialVerified')) + cash);
+    expect(Number(data.pendingAmount)).to.equal(Number(bru.getVar('paymentInitialPending')) + bank);
+    expect(Number(data.remaining)).to.equal(Number(bru.getVar('paymentInitialRemaining')) - cash);
+  });
+}

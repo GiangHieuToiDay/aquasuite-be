@@ -19,6 +19,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.mock.web.MockMultipartFile;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -32,6 +33,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -50,6 +52,9 @@ class CatalogSecurityAndAuthorityIntegrationTest extends AuthIntegrationTestSupp
 
     @Autowired
     private StringRedisTemplate redisTemplate;
+
+    @org.springframework.boot.test.mock.mockito.SpyBean(name = "redisTemplate")
+    private org.springframework.data.redis.core.RedisTemplate<String, Object> jobRedisTemplate;
 
     @Autowired
     private DataSource dataSource;
@@ -140,7 +145,7 @@ class CatalogSecurityAndAuthorityIntegrationTest extends AuthIntegrationTestSupp
     @DisplayName("Security: SHOP_OWNER has all 8 catalog permissions across all 10 endpoints")
     void testShopOwnerHasAllCatalogPermissions() throws Exception {
         // 1. Can read categories list
-        mockMvc.perform(get("/api/v1/categories")
+        mockMvc.perform(get("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + shopOwnerToken))
                 .andExpect(status().isOk());
 
@@ -149,7 +154,7 @@ class CatalogSecurityAndAuthorityIntegrationTest extends AuthIntegrationTestSupp
                 .code("CAT_SEC_1")
                 .name("Sec Category")
                 .build();
-        MvcResult res = mockMvc.perform(post("/api/v1/categories")
+        MvcResult res = mockMvc.perform(post("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(catReq)))
@@ -159,7 +164,7 @@ class CatalogSecurityAndAuthorityIntegrationTest extends AuthIntegrationTestSupp
         String catId = objectMapper.readTree(res.getResponse().getContentAsString()).path("data").path("id").asText();
 
         // 3. Can get category detail
-        mockMvc.perform(get("/api/v1/categories/{id}", catId)
+        mockMvc.perform(get("/api/v1/catalog/categories/{id}", catId)
                         .header("Authorization", "Bearer " + shopOwnerToken))
                 .andExpect(status().isOk());
 
@@ -168,19 +173,19 @@ class CatalogSecurityAndAuthorityIntegrationTest extends AuthIntegrationTestSupp
                 .name("Sec Category Updated")
                 .status("ACTIVE")
                 .build();
-        mockMvc.perform(put("/api/v1/categories/{id}", catId)
+        mockMvc.perform(put("/api/v1/catalog/categories/{id}", catId)
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(catUpdate)))
                 .andExpect(status().isOk());
 
         // 5. Can delete category
-        mockMvc.perform(delete("/api/v1/categories/{id}", catId)
+        mockMvc.perform(delete("/api/v1/catalog/categories/{id}", catId)
                         .header("Authorization", "Bearer " + shopOwnerToken))
                 .andExpect(status().isOk());
 
         // 6. Can read brands list
-        mockMvc.perform(get("/api/v1/brands")
+        mockMvc.perform(get("/api/v1/catalog/brands")
                         .header("Authorization", "Bearer " + shopOwnerToken))
                 .andExpect(status().isOk());
 
@@ -189,7 +194,7 @@ class CatalogSecurityAndAuthorityIntegrationTest extends AuthIntegrationTestSupp
                 .code("BRAND_SEC_1")
                 .name("Sec Brand")
                 .build();
-        MvcResult brandRes = mockMvc.perform(post("/api/v1/brands")
+        MvcResult brandRes = mockMvc.perform(post("/api/v1/catalog/brands")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(brandReq)))
@@ -199,7 +204,7 @@ class CatalogSecurityAndAuthorityIntegrationTest extends AuthIntegrationTestSupp
         String brandId = objectMapper.readTree(brandRes.getResponse().getContentAsString()).path("data").path("id").asText();
 
         // 8. Can get brand detail
-        mockMvc.perform(get("/api/v1/brands/{id}", brandId)
+        mockMvc.perform(get("/api/v1/catalog/brands/{id}", brandId)
                         .header("Authorization", "Bearer " + shopOwnerToken))
                 .andExpect(status().isOk());
 
@@ -208,14 +213,14 @@ class CatalogSecurityAndAuthorityIntegrationTest extends AuthIntegrationTestSupp
                 .name("Sec Brand Updated")
                 .status("ACTIVE")
                 .build();
-        mockMvc.perform(put("/api/v1/brands/{id}", brandId)
+        mockMvc.perform(put("/api/v1/catalog/brands/{id}", brandId)
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(brandUpdate)))
                 .andExpect(status().isOk());
 
         // 10. Can delete brand
-        mockMvc.perform(delete("/api/v1/brands/{id}", brandId)
+        mockMvc.perform(delete("/api/v1/catalog/brands/{id}", brandId)
                         .header("Authorization", "Bearer " + shopOwnerToken))
                 .andExpect(status().isOk());
     }
@@ -224,17 +229,17 @@ class CatalogSecurityAndAuthorityIntegrationTest extends AuthIntegrationTestSupp
     @DisplayName("Security: Unauthenticated request receives 401 Unauthorized across endpoints")
     void testUnauthenticatedRequestReceives401() throws Exception {
         UUID sampleId = UUID.randomUUID();
-        mockMvc.perform(get("/api/v1/categories")).andExpect(status().isUnauthorized());
-        mockMvc.perform(get("/api/v1/categories/{id}", sampleId)).andExpect(status().isUnauthorized());
-        mockMvc.perform(post("/api/v1/categories")).andExpect(status().isUnauthorized());
-        mockMvc.perform(put("/api/v1/categories/{id}", sampleId)).andExpect(status().isUnauthorized());
-        mockMvc.perform(delete("/api/v1/categories/{id}", sampleId)).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/catalog/categories")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/catalog/categories/{id}", sampleId)).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/v1/catalog/categories")).andExpect(status().isUnauthorized());
+        mockMvc.perform(put("/api/v1/catalog/categories/{id}", sampleId)).andExpect(status().isUnauthorized());
+        mockMvc.perform(delete("/api/v1/catalog/categories/{id}", sampleId)).andExpect(status().isUnauthorized());
 
-        mockMvc.perform(get("/api/v1/brands")).andExpect(status().isUnauthorized());
-        mockMvc.perform(get("/api/v1/brands/{id}", sampleId)).andExpect(status().isUnauthorized());
-        mockMvc.perform(post("/api/v1/brands")).andExpect(status().isUnauthorized());
-        mockMvc.perform(put("/api/v1/brands/{id}", sampleId)).andExpect(status().isUnauthorized());
-        mockMvc.perform(delete("/api/v1/brands/{id}", sampleId)).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/catalog/brands")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/catalog/brands/{id}", sampleId)).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/v1/catalog/brands")).andExpect(status().isUnauthorized());
+        mockMvc.perform(put("/api/v1/catalog/brands/{id}", sampleId)).andExpect(status().isUnauthorized());
+        mockMvc.perform(delete("/api/v1/catalog/brands/{id}", sampleId)).andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -242,7 +247,7 @@ class CatalogSecurityAndAuthorityIntegrationTest extends AuthIntegrationTestSupp
     void testEightIndividualAuthoritiesAllowAndDeny() throws Exception {
         // Pre-create 1 category and 1 brand using SHOP_OWNER
         CreateCategoryRequest catReq = CreateCategoryRequest.builder().code("CAT_PERM_1").name("Perm Category").build();
-        MvcResult catRes = mockMvc.perform(post("/api/v1/categories")
+        MvcResult catRes = mockMvc.perform(post("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(catReq)))
@@ -250,7 +255,7 @@ class CatalogSecurityAndAuthorityIntegrationTest extends AuthIntegrationTestSupp
         String catId = objectMapper.readTree(catRes.getResponse().getContentAsString()).path("data").path("id").asText();
 
         CreateBrandRequest brandReq = CreateBrandRequest.builder().code("BRAND_PERM_1").name("Perm Brand").build();
-        MvcResult brRes = mockMvc.perform(post("/api/v1/brands")
+        MvcResult brRes = mockMvc.perform(post("/api/v1/catalog/brands")
                         .header("Authorization", "Bearer " + shopOwnerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(brandReq)))
@@ -258,21 +263,21 @@ class CatalogSecurityAndAuthorityIntegrationTest extends AuthIntegrationTestSupp
         String brandId = objectMapper.readTree(brRes.getResponse().getContentAsString()).path("data").path("id").asText();
 
         // Initially restricted user has NO permissions -> All endpoints return 403 Forbidden
-        mockMvc.perform(get("/api/v1/categories").header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isForbidden());
-        mockMvc.perform(get("/api/v1/categories/{id}", catId).header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isForbidden());
-        mockMvc.perform(post("/api/v1/categories").header("Authorization", "Bearer " + restrictedToken)
+        mockMvc.perform(get("/api/v1/catalog/categories").header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/catalog/categories/{id}", catId).header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/v1/catalog/categories").header("Authorization", "Bearer " + restrictedToken)
                 .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(catReq))).andExpect(status().isForbidden());
-        mockMvc.perform(put("/api/v1/categories/{id}", catId).header("Authorization", "Bearer " + restrictedToken)
+        mockMvc.perform(put("/api/v1/catalog/categories/{id}", catId).header("Authorization", "Bearer " + restrictedToken)
                 .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(UpdateCategoryRequest.builder().name("Up").build()))).andExpect(status().isForbidden());
-        mockMvc.perform(delete("/api/v1/categories/{id}", catId).header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isForbidden());
+        mockMvc.perform(delete("/api/v1/catalog/categories/{id}", catId).header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isForbidden());
 
-        mockMvc.perform(get("/api/v1/brands").header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isForbidden());
-        mockMvc.perform(get("/api/v1/brands/{id}", brandId).header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isForbidden());
-        mockMvc.perform(post("/api/v1/brands").header("Authorization", "Bearer " + restrictedToken)
+        mockMvc.perform(get("/api/v1/catalog/brands").header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/catalog/brands/{id}", brandId).header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/v1/catalog/brands").header("Authorization", "Bearer " + restrictedToken)
                 .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(brandReq))).andExpect(status().isForbidden());
-        mockMvc.perform(put("/api/v1/brands/{id}", brandId).header("Authorization", "Bearer " + restrictedToken)
+        mockMvc.perform(put("/api/v1/catalog/brands/{id}", brandId).header("Authorization", "Bearer " + restrictedToken)
                 .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(UpdateBrandRequest.builder().name("Up").build()))).andExpect(status().isForbidden());
-        mockMvc.perform(delete("/api/v1/brands/{id}", brandId).header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isForbidden());
+        mockMvc.perform(delete("/api/v1/catalog/brands/{id}", brandId).header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isForbidden());
 
         // Now test each of the 8 permissions individually:
         UUID permCatRead = UUID.fromString("20000000-0000-4000-8000-000000000001");
@@ -286,53 +291,84 @@ class CatalogSecurityAndAuthorityIntegrationTest extends AuthIntegrationTestSupp
 
         // 1. Grant CATALOG_CATEGORY_READ only
         grantPermission(permCatRead);
-        mockMvc.perform(get("/api/v1/categories").header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isOk());
-        mockMvc.perform(get("/api/v1/categories/{id}", catId).header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/catalog/categories").header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/catalog/categories/{id}", catId).header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isOk());
         revokePermission(permCatRead);
 
         // 2. Grant CATALOG_CATEGORY_CREATE only
         grantPermission(permCatCreate);
         CreateCategoryRequest newCat = CreateCategoryRequest.builder().code("CAT_NEW_CREATE").name("New Cat").build();
-        mockMvc.perform(post("/api/v1/categories").header("Authorization", "Bearer " + restrictedToken)
+        mockMvc.perform(post("/api/v1/catalog/categories").header("Authorization", "Bearer " + restrictedToken)
                 .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(newCat))).andExpect(status().isCreated());
         revokePermission(permCatCreate);
 
         // 3. Grant CATALOG_CATEGORY_UPDATE only
         grantPermission(permCatUpdate);
-        mockMvc.perform(put("/api/v1/categories/{id}", catId).header("Authorization", "Bearer " + restrictedToken)
+        mockMvc.perform(put("/api/v1/catalog/categories/{id}", catId).header("Authorization", "Bearer " + restrictedToken)
                 .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(UpdateCategoryRequest.builder().name("Up Name").status("ACTIVE").build())))
                 .andExpect(status().isOk());
         revokePermission(permCatUpdate);
 
         // 4. Grant CATALOG_CATEGORY_DELETE only
         grantPermission(permCatDelete);
-        mockMvc.perform(delete("/api/v1/categories/{id}", catId).header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isOk());
+        mockMvc.perform(delete("/api/v1/catalog/categories/{id}", catId).header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isOk());
         revokePermission(permCatDelete);
 
         // 5. Grant CATALOG_BRAND_READ only
         grantPermission(permBrandRead);
-        mockMvc.perform(get("/api/v1/brands").header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isOk());
-        mockMvc.perform(get("/api/v1/brands/{id}", brandId).header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/catalog/brands").header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/catalog/brands/{id}", brandId).header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isOk());
         revokePermission(permBrandRead);
 
         // 6. Grant CATALOG_BRAND_CREATE only
         grantPermission(permBrandCreate);
         CreateBrandRequest newBrand = CreateBrandRequest.builder().code("BRAND_NEW_CREATE").name("New Brand").build();
-        mockMvc.perform(post("/api/v1/brands").header("Authorization", "Bearer " + restrictedToken)
+        mockMvc.perform(post("/api/v1/catalog/brands").header("Authorization", "Bearer " + restrictedToken)
                 .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(newBrand))).andExpect(status().isCreated());
         revokePermission(permBrandCreate);
 
         // 7. Grant CATALOG_BRAND_UPDATE only
         grantPermission(permBrandUpdate);
-        mockMvc.perform(put("/api/v1/brands/{id}", brandId).header("Authorization", "Bearer " + restrictedToken)
+        mockMvc.perform(put("/api/v1/catalog/brands/{id}", brandId).header("Authorization", "Bearer " + restrictedToken)
                 .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(UpdateBrandRequest.builder().name("Up Brand").status("ACTIVE").build())))
                 .andExpect(status().isOk());
         revokePermission(permBrandUpdate);
 
         // 8. Grant CATALOG_BRAND_DELETE only
         grantPermission(permBrandDelete);
-        mockMvc.perform(delete("/api/v1/brands/{id}", brandId).header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isOk());
+        mockMvc.perform(delete("/api/v1/catalog/brands/{id}", brandId).header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isOk());
         revokePermission(permBrandDelete);
+    }
+
+    @Test
+    void brandImportChecksPermissionAndOwnerOnEveryRequest() throws Exception {
+        UUID jobId = UUID.randomUUID();
+        mockMvc.perform(get("/api/v1/brands/import-template")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/brands/import-template")
+                .header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/brands/import-jobs/{id}", jobId)
+                .header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isForbidden());
+
+        UUID createPermission = UUID.fromString("20000000-0000-4000-8000-000000000006");
+        grantPermission(createPermission);
+        mockMvc.perform(get("/api/v1/brands/import-template")
+                .header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isOk());
+
+        MockMultipartFile file = new MockMultipartFile("file", "bad.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", new byte[]{1, 2, 3});
+        MvcResult submitted = mockMvc.perform(multipart("/api/v1/brands/import-jobs")
+                .file(file).header("Authorization", "Bearer " + shopOwnerToken))
+                .andExpect(status().isAccepted()).andReturn();
+        String ownedJobId = objectMapper.readTree(submitted.getResponse().getContentAsString()).path("data").path("jobId").asText();
+        mockMvc.perform(get("/api/v1/brands/import-jobs/{id}", ownedJobId)
+                .header("Authorization", "Bearer " + shopOwnerToken)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/brands/import-jobs/{id}", ownedJobId)
+                .header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/v1/brands/import-jobs/{id}/error-report", ownedJobId)
+                .header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isNotFound());
+        revokePermission(createPermission);
+        mockMvc.perform(get("/api/v1/brands/import-jobs/{id}", ownedJobId)
+                .header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isForbidden());
     }
 
     private void grantPermission(UUID permissionId) throws Exception {
@@ -341,6 +377,53 @@ class CatalogSecurityAndAuthorityIntegrationTest extends AuthIntegrationTestSupp
             stmt.executeUpdate("INSERT INTO public.role_permissions (role_id, permission_id) VALUES ('" +
                     testRoleId + "', '" + permissionId + "')");
         }
+    }
+
+    @Test
+    void categoryImportHttpEnforcesPermissionOwnershipAndExpiration() throws Exception {
+        String base = "/api/v1/catalog/categories";
+        UUID unknown = UUID.randomUUID();
+        MockMultipartFile file = new MockMultipartFile("file", "categories.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", new byte[]{1, 2, 3});
+        mockMvc.perform(get(base + "/import-template")).andExpect(status().isUnauthorized());
+        mockMvc.perform(multipart(base + "/import-jobs").file(file)).andExpect(status().isUnauthorized());
+        mockMvc.perform(get(base + "/import-jobs/{id}", unknown)).andExpect(status().isUnauthorized());
+        mockMvc.perform(get(base + "/import-jobs/{id}/error-report", unknown)).andExpect(status().isUnauthorized());
+        mockMvc.perform(get(base + "/import-template").header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isForbidden());
+        mockMvc.perform(multipart(base + "/import-jobs").file(file).header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isForbidden());
+        mockMvc.perform(get(base + "/import-jobs/{id}", unknown).header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isForbidden());
+        mockMvc.perform(get(base + "/import-jobs/{id}/error-report", unknown).header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isForbidden());
+
+        MvcResult submitted = mockMvc.perform(multipart(base + "/import-jobs").file(file)
+                .header("Authorization", "Bearer " + shopOwnerToken)).andExpect(status().isAccepted()).andReturn();
+        String id = objectMapper.readTree(submitted.getResponse().getContentAsString()).path("data").path("jobId").asText();
+        grantPermission(catCreatePermId);
+        mockMvc.perform(get(base + "/import-jobs/{id}", id).header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isNotFound());
+        mockMvc.perform(get(base + "/import-jobs/{id}/error-report", id).header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isNotFound());
+        mockMvc.perform(get(base + "/import-jobs/{id}", id).header("Authorization", "Bearer " + shopOwnerToken)).andExpect(status().isOk());
+        boolean terminal = false;
+        for (int i = 0; i < 100; i++) {
+            MvcResult progress = mockMvc.perform(get(base + "/import-jobs/{id}", id)
+                    .header("Authorization", "Bearer " + shopOwnerToken)).andExpect(status().isOk()).andReturn();
+            String jobStatus = objectMapper.readTree(progress.getResponse().getContentAsString()).path("data").path("status").asText();
+            if ("FAILED".equals(jobStatus)) { terminal = true; break; }
+            Thread.sleep(50);
+        }
+        org.junit.jupiter.api.Assertions.assertTrue(terminal, "invalid workbook job must finish");
+        mockMvc.perform(get(base + "/import-jobs/{id}/error-report", id)
+                .header("Authorization", "Bearer " + shopOwnerToken)).andExpect(status().isOk());
+        redisTemplate.delete("aquasuite:category:import:" + id);
+        mockMvc.perform(get(base + "/import-jobs/{id}", id).header("Authorization", "Bearer " + shopOwnerToken)).andExpect(status().isNotFound());
+        mockMvc.perform(get(base + "/import-jobs/{id}/error-report", id).header("Authorization", "Bearer " + shopOwnerToken)).andExpect(status().isNotFound());
+        @SuppressWarnings("unchecked")
+        org.springframework.data.redis.core.ValueOperations<String, Object> unavailable = org.mockito.Mockito.mock(org.springframework.data.redis.core.ValueOperations.class);
+        org.mockito.Mockito.when(unavailable.get(org.mockito.ArgumentMatchers.anyString()))
+                .thenThrow(new org.springframework.dao.DataAccessResourceFailureException("Redis unavailable"));
+        org.mockito.Mockito.doReturn(unavailable).when(jobRedisTemplate).opsForValue();
+        mockMvc.perform(get(base + "/import-jobs/{id}", id).header("Authorization", "Bearer " + shopOwnerToken)).andExpect(status().isServiceUnavailable());
+        mockMvc.perform(get(base + "/import-jobs/{id}/error-report", id).header("Authorization", "Bearer " + shopOwnerToken)).andExpect(status().isServiceUnavailable());
+        org.mockito.Mockito.reset(jobRedisTemplate);
+        revokePermission(catCreatePermId);
     }
 
     private void revokePermission(UUID permissionId) throws Exception {
@@ -355,7 +438,7 @@ class CatalogSecurityAndAuthorityIntegrationTest extends AuthIntegrationTestSupp
     @DisplayName("Security: Dynamic authority reload from DB applies on next request with SAME token without reissue")
     void testDynamicAuthorityReloadFromDatabase() throws Exception {
         // Initially, restricted user has NO permissions -> 403 Forbidden
-        mockMvc.perform(get("/api/v1/categories")
+        mockMvc.perform(get("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + restrictedToken))
                 .andExpect(status().isForbidden());
 
@@ -363,7 +446,7 @@ class CatalogSecurityAndAuthorityIntegrationTest extends AuthIntegrationTestSupp
         grantPermission(catReadPermId);
 
         // Next request with the SAME token succeeds (200 OK)!
-        mockMvc.perform(get("/api/v1/categories")
+        mockMvc.perform(get("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + restrictedToken))
                 .andExpect(status().isOk());
 
@@ -372,7 +455,7 @@ class CatalogSecurityAndAuthorityIntegrationTest extends AuthIntegrationTestSupp
                 .code("CAT_UNAUTH")
                 .name("Unauth Category")
                 .build();
-        mockMvc.perform(post("/api/v1/categories")
+        mockMvc.perform(post("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + restrictedToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(catReq)))
@@ -382,7 +465,7 @@ class CatalogSecurityAndAuthorityIntegrationTest extends AuthIntegrationTestSupp
         grantPermission(catCreatePermId);
 
         // Next request with the SAME token can create category (201 Created)!
-        mockMvc.perform(post("/api/v1/categories")
+        mockMvc.perform(post("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + restrictedToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(catReq)))
@@ -392,7 +475,7 @@ class CatalogSecurityAndAuthorityIntegrationTest extends AuthIntegrationTestSupp
         revokePermission(catReadPermId);
 
         // Next request with the SAME token is 403 Forbidden again!
-        mockMvc.perform(get("/api/v1/categories")
+        mockMvc.perform(get("/api/v1/catalog/categories")
                         .header("Authorization", "Bearer " + restrictedToken))
                 .andExpect(status().isForbidden());
     }

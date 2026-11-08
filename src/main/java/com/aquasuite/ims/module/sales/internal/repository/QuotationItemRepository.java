@@ -12,5 +12,7 @@ public interface QuotationItemRepository extends JpaRepository<QuotationItem, UU
 
     List<QuotationItem> findByQuotationIdOrderBySortOrderAsc(UUID quotationId);
 
+    List<QuotationItem> findByQuotationIdIn(List<UUID> quotationIds);
+
     void deleteByQuotationId(UUID quotationId);
 }

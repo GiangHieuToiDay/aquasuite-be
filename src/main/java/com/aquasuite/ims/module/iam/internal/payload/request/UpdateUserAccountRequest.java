@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -21,6 +22,6 @@ public class UpdateUserAccountRequest {
     @NotBlank String username;
     @NotBlank @Email String email;
     @NotBlank @Pattern(regexp = "^0\\d{9}$", message = "Phone must be a 10-digit local number starting with 0") String phone;
-    @NotEmpty Set<UUID> roleIds;
+    @NotEmpty Set<@NotNull UUID> roleIds;
     String avatarUrl;
 }

@@ -14,12 +14,16 @@ class BundleCoreBoundaryTest {
                 java.util.Set.of(
                         "BundleAdminService",
                         "BundlePricingService",
-                        "BundleCoreMapper",
+                        "BundleMapper",
                         "BundleAdminController",
                         "BundleDetailAssembler",
-                        "BundleStorefrontService",
-                        "BundleStorefrontController",
-                        "BundleCoreMapperImpl");
+                        "BundleQueryServiceImpl",
+                        "BundleAdminServiceImpl",
+                        "BundleEvaluationService",
+                        "BundleInventoryReader",
+                        "BundleRepository",
+                        "BundleController",
+                        "BundleMapperImpl");
         for (var c : classes)
             if (names.contains(c.getSimpleName()))
                 for (var dep : c.getDirectDependenciesFromSelf()) {

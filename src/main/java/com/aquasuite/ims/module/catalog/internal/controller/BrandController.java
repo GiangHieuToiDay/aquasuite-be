@@ -2,6 +2,7 @@ package com.aquasuite.ims.module.catalog.internal.controller;
 
 import com.aquasuite.ims.module.catalog.internal.payload.req.CreateBrandRequest;
 import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateBrandRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.res.BrandBriefResponse;
 import com.aquasuite.ims.module.catalog.internal.payload.res.BrandResponse;
 import com.aquasuite.ims.module.catalog.internal.service.BrandService;
 import com.aquasuite.ims.share.dto.ApiResponse;
@@ -23,15 +24,24 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/brands")
+@RequestMapping("/api/v1/catalog/brands")
 @RequiredArgsConstructor
 public class BrandController {
 
     private final BrandService brandService;
 
+    /** Trả về danh sách thương hiệu hoạt động dùng cho bộ lọc và dropdown. */
+    @GetMapping("/options")
+    @PreAuthorize("hasAuthority('CATALOG_BRAND_READ')")
+    public ApiResponse<List<BrandBriefResponse>> getActiveBrandOptions() {
+        return ApiResponse.ok(brandService.getActiveBrandOptions());
+    }
+
+    /** Tìm kiếm và phân trang thương hiệu theo trạng thái. */
     @GetMapping
     @PreAuthorize("hasAuthority('CATALOG_BRAND_READ')")
     public ApiResponse<PageResponse<BrandResponse>> listBrands(
@@ -42,12 +52,14 @@ public class BrandController {
         return ApiResponse.ok(brandService.listBrands(pageQuery, search, status));
     }
 
+    /** Trả về chi tiết một thương hiệu theo ID. */
     @GetMapping("/{brandId}")
     @PreAuthorize("hasAuthority('CATALOG_BRAND_READ')")
     public ApiResponse<BrandResponse> getBrandDetail(@PathVariable UUID brandId) {
         return ApiResponse.ok(brandService.getBrandDetail(brandId));
     }
 
+    /** Tạo thương hiệu mới khi người dùng có quyền tương ứng. */
     @PostMapping
     @PreAuthorize("hasAuthority('CATALOG_BRAND_CREATE')")
     public ResponseEntity<ApiResponse<BrandResponse>> createBrand(
@@ -57,6 +69,7 @@ public class BrandController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(created));
     }
 
+    /** Thay đổi thông tin thương hiệu hiện có. */
     @PutMapping("/{brandId}")
     @PreAuthorize("hasAuthority('CATALOG_BRAND_UPDATE')")
     public ApiResponse<BrandResponse> updateBrand(
@@ -66,6 +79,7 @@ public class BrandController {
         return ApiResponse.ok(brandService.updateBrand(brandId, request));
     }
 
+    /** Xóa mềm thương hiệu nếu không còn sản phẩm tham chiếu. */
     @DeleteMapping("/{brandId}")
     @PreAuthorize("hasAuthority('CATALOG_BRAND_DELETE')")
     public ApiResponse<Void> deleteBrand(@PathVariable UUID brandId) {

@@ -20,7 +20,8 @@ public class SalesVariantUsageService implements SalesVariantUsageApi {
         return new VariantDocumentUsage(variantId,
                 count("goods_receipt_items", variantId), count("stock_dispatch_items", variantId),
                 count("quotation_items", variantId), count("order_items", variantId),
-                count("sales_invoice_items", variantId), count("cart_items", variantId));
+                count("sales_invoice_items", variantId), count("purchase_order_items", variantId),
+                count("delivery_items", variantId), count("cart_items", variantId));
     }
 
     @Override

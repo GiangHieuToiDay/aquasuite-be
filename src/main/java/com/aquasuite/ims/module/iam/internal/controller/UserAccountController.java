@@ -24,7 +24,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/iam/users")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('STORE_OWNER')")
+@PreAuthorize("hasRole('SHOP_OWNER')")
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class UserAccountController {
 

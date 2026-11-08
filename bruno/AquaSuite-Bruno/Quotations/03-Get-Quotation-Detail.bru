@@ -1,0 +1,28 @@
+meta {
+  name: 03 - Get Quotation Detail (Xem chi tiết)
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/sales/quotations/{{quotationId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test("Lấy chi tiết báo giá thành công (HTTP 200)", function () {
+    expect(res.getStatus()).to.equal(200);
+    const body = res.getBody();
+    expect(body.success).to.equal(true);
+    expect(body.data.quotationId).to.equal(bru.getVar('quotationId'));
+    expect(body.data.quotationCode).to.equal(bru.getVar('quotationCode'));
+    expect(body.data.items).to.be.an('array');
+    expect(body.data.items.length).to.be.greaterThan(0);
+    expect(body.data.summary).to.be.an('object');
+  });
+}

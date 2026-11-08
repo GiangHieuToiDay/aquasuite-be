@@ -16,7 +16,6 @@ import com.aquasuite.ims.module.iam.internal.payload.request.CreateUserAccountRe
 import com.aquasuite.ims.module.iam.internal.payload.request.UpdateUserAccountRequest;
 import com.aquasuite.ims.module.iam.internal.payload.response.AccountPageResponse;
 import com.aquasuite.ims.module.iam.internal.payload.response.AccountStatsResponse;
-import com.aquasuite.ims.module.iam.internal.payload.response.RoleOptionResponse;
 import com.aquasuite.ims.module.iam.internal.payload.response.UserAccountResponse;
 import com.aquasuite.ims.module.iam.internal.repository.RoleRepository;
 import com.aquasuite.ims.module.iam.internal.repository.UserRepository;
@@ -110,13 +109,6 @@ public class UserAccountServiceImpl implements UserAccountService {
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public List<RoleOptionResponse> assignableRoles() {
-        return roleRepository.findAll().stream().filter(Role::isActive)
-                .map(userAccountMapper::toRoleOption).toList();
-    }
-
-    @Override
     @Transactional
     public UserAccountResponse create(CreateUserAccountRequest request, UUID actorId) {
         User user = userAccountMapper.toNewUser(request);
@@ -167,9 +159,9 @@ public class UserAccountServiceImpl implements UserAccountService {
         if (user.getStatus() == targetStatus) {
             throw new AppException(UserAccountErrorCode.INVALID_STATUS_TRANSITION);
         }
-        if (user.getStatus() == UserStatus.ACTIVE && targetStatus != UserStatus.ACTIVE && isStoreOwner(user)
-                && activeStoreOwnerIdsLocked().size() <= 1) {
-            throw new AppException(UserAccountErrorCode.LAST_STORE_OWNER_PROTECTED);
+        if (user.getStatus() == UserStatus.ACTIVE && targetStatus != UserStatus.ACTIVE && isShopOwner(user)
+                && activeShopOwnerIdsLocked().size() <= 1) {
+            throw new AppException(UserAccountErrorCode.LAST_SHOP_OWNER_PROTECTED);
         }
         UserStatus old = user.getStatus();
         user.setStatus(targetStatus);
@@ -187,11 +179,14 @@ public class UserAccountServiceImpl implements UserAccountService {
     }
 
     private Set<Role> resolveRoles(Set<UUID> roleIds) {
-        List<Role> roles = roleRepository.findAllById(roleIds);
+        if (roleIds == null || roleIds.isEmpty()) {
+            throw new AppException(UserAccountErrorCode.ROLE_NOT_FOUND);
+        }
+        Set<Role> roles = new HashSet<>(roleRepository.findAllById(roleIds));
         if (roles.size() != roleIds.size() || roles.stream().anyMatch(role -> !role.isActive())) {
             throw new AppException(UserAccountErrorCode.ROLE_NOT_FOUND);
         }
-        return new HashSet<>(roles);
+        return roles;
     }
 
     private void assertCreateUnique(String username, String email, String phone) {
@@ -205,19 +200,19 @@ public class UserAccountServiceImpl implements UserAccountService {
                 || userRepository.existsByPhoneAndIdNot(phone, id)) throw new AppException(UserAccountErrorCode.DUPLICATE_ACCOUNT);
     }
 
-    private void assertRoleChangeAllowed(User user, Set<Role> replacementRoles) {
-        if (user.getStatus() == UserStatus.ACTIVE && isStoreOwner(user) && !isStoreOwner(replacementRoles)
-                && activeStoreOwnerIdsLocked().size() <= 1) {
-            throw new AppException(UserAccountErrorCode.LAST_STORE_OWNER_PROTECTED);
+    private void assertRoleChangeAllowed(User user, Collection<Role> replacementRoles) {
+        if (user.getStatus() == UserStatus.ACTIVE && isShopOwner(user) && !isShopOwner(replacementRoles)
+                && activeShopOwnerIdsLocked().size() <= 1) {
+            throw new AppException(UserAccountErrorCode.LAST_SHOP_OWNER_PROTECTED);
         }
     }
 
-    private boolean isStoreOwner(User user) { return isStoreOwner(user.getRoles()); }
-    private List<UUID> activeStoreOwnerIdsLocked() { return userRepository.lockActiveStoreOwnerIds(); }
-    private boolean isStoreOwner(Collection<Role> roles) {
+    private boolean isShopOwner(User user) { return isShopOwner(user.getRoles()); }
+    private List<UUID> activeShopOwnerIdsLocked() { return userRepository.lockActiveShopOwnerIds(); }
+    private boolean isShopOwner(Collection<Role> roles) {
         return roles.stream().map(Role::getRoleName).filter(Objects::nonNull)
                 .map(name -> name.trim().toUpperCase(Locale.ROOT))
-                .anyMatch(name -> name.equals("STORE_OWNER") || name.equals("ROLE_STORE_OWNER"));
+                .anyMatch(name -> name.equals("SHOP_OWNER") || name.equals("ROLE_SHOP_OWNER"));
     }
 
     private void persist(User user) {

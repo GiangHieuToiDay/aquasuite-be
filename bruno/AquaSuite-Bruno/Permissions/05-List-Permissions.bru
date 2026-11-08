@@ -5,7 +5,7 @@ meta {
 }
 
 get {
-  url: {{baseUrl}}/api/v1/iam/permissions?page=0&size=20&search={{permissionCode}}&sortBy=code&direction=asc
+  url: {{baseUrl}}/api/v1/iam/permissions?page=0&size=20&sortBy=code&direction=asc
   body: none
   auth: bearer
 }
@@ -13,7 +13,6 @@ get {
 params:query {
   page: 0
   size: 20
-  search: {{permissionCode}}
   sortBy: code
   direction: asc
 }
@@ -34,7 +33,7 @@ tests {
     expect(body.data.totalElements).to.be.at.least(1);
     expect(body.data.totalPages).to.be.at.least(1);
   });
-
+  
   test('Found created permission in items', function () {
     const body = res.getBody();
     const match = body.data.items.find(p => p.code === bru.getVar('permissionCode'));

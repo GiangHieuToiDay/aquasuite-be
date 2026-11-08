@@ -26,7 +26,7 @@ import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/products/{productId}/variants")
+@RequestMapping("/api/v1/catalog/products/{productId}/variants")
 public class VariantController {
     private final VariantService service;
 
@@ -41,37 +41,37 @@ public class VariantController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('STORE_OWNER')")
+@PreAuthorize("hasRole('SHOP_OWNER')")
     public ApiResponse<VariantResponse> create(@PathVariable UUID productId, @Valid @RequestBody VariantUpsertRequest request) {
         return ApiResponse.ok(service.create(productId, request), "SKU and variant pricing saved successfully.");
     }
 
     @PostMapping("/matrix")
-    @PreAuthorize("hasRole('STORE_OWNER')")
+    @PreAuthorize("hasRole('SHOP_OWNER')")
     public ApiResponse<List<VariantResponse>> matrix(@PathVariable UUID productId, @Valid @RequestBody VariantMatrixRequest request) {
         return ApiResponse.ok(service.createMatrix(productId, request), "Generated " + request.variants().size() + " variants successfully.");
     }
 
     @PutMapping("/{variantId}")
-    @PreAuthorize("hasRole('STORE_OWNER')")
+    @PreAuthorize("hasRole('SHOP_OWNER')")
     public ApiResponse<VariantResponse> update(@PathVariable UUID productId, @PathVariable UUID variantId, @Valid @RequestBody VariantUpsertRequest request) {
         return ApiResponse.ok(service.update(productId, variantId, request));
     }
 
     @PatchMapping("/{variantId}/status")
-    @PreAuthorize("hasRole('STORE_OWNER')")
+    @PreAuthorize("hasRole('SHOP_OWNER')")
     public ApiResponse<VariantResponse> status(@PathVariable UUID productId, @PathVariable UUID variantId, @Valid @RequestBody VariantStatusRequest request) {
         return ApiResponse.ok(service.changeStatus(productId, variantId, request));
     }
 
     @GetMapping("/{variantId}/deletion-eligibility")
-    @PreAuthorize("hasRole('STORE_OWNER')")
+    @PreAuthorize("hasRole('SHOP_OWNER')")
     public ApiResponse<VariantDeletionEligibilityResponse> eligibility(@PathVariable UUID productId, @PathVariable UUID variantId) {
         return ApiResponse.ok(service.deletionEligibility(productId, variantId));
     }
 
     @DeleteMapping("/{variantId}")
-    @PreAuthorize("hasRole('STORE_OWNER')")
+    @PreAuthorize("hasRole('SHOP_OWNER')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID productId, @PathVariable UUID variantId, @RequestBody VariantDeleteRequest request) {
         service.delete(productId, variantId, request);
         return ResponseEntity.ok(ApiResponse.ok(null));

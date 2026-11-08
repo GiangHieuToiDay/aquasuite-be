@@ -29,6 +29,7 @@ import java.util.UUID;
                 @Index(name = "idx_orders_sales_staff_id", columnList = "sales_staff_id"),
                 @Index(name = "idx_orders_order_status", columnList = "order_status"),
                 @Index(name = "idx_orders_payment_status", columnList = "payment_status"),
+                @Index(name = "idx_orders_order_type", columnList = "order_type"),
                 @Index(name = "idx_orders_order_date", columnList = "order_date")
         }
 )
@@ -61,6 +62,10 @@ public class Order {
     @Column(name = "promotion_id")
     private UUID promotionId;
 
+    @Column(name = "order_type", nullable = false, length = 32)
+    @Builder.Default
+    private String orderType = "RETAIL";
+
     @Column(name = "order_channel", nullable = false, length = 32)
     private String orderChannel;
 
@@ -90,6 +95,36 @@ public class Order {
 
     @Column(name = "delivery_address", columnDefinition = "TEXT")
     private String deliveryAddress;
+
+    @Column(name = "quotation_code", length = 100)
+    private String quotationCode;
+
+    @Column(name = "project_name", length = 255)
+    private String projectName;
+
+    @Column(name = "delivery_schedule", columnDefinition = "TEXT")
+    private String deliverySchedule;
+
+    @Column(name = "vat_rate", precision = 5, scale = 2)
+    private BigDecimal vatRate;
+
+    @Column(name = "shipping_fee", precision = 15, scale = 2)
+    private BigDecimal shippingFee;
+
+    @Column(name = "deposit_percent", precision = 5, scale = 2)
+    private BigDecimal depositPercent;
+
+    @Column(name = "deposit_amount", precision = 15, scale = 2)
+    private BigDecimal depositAmount;
+
+    @Column(name = "credit_term_days")
+    private Integer creditTermDays;
+
+    @Column(name = "remaining_debt_amount", precision = 15, scale = 2)
+    private BigDecimal remainingDebtAmount;
+
+    @Column(name = "debt_condition", columnDefinition = "TEXT")
+    private String debtCondition;
 
     @Column(name = "note", columnDefinition = "TEXT")
     private String note;
@@ -122,6 +157,9 @@ public class Order {
         }
         if (this.totalAmount == null) {
             this.totalAmount = BigDecimal.ZERO;
+        }
+        if (this.orderType == null || this.orderType.isBlank()) {
+            this.orderType = "RETAIL";
         }
     }
 

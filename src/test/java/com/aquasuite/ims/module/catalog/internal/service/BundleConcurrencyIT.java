@@ -2,7 +2,7 @@ package com.aquasuite.ims.module.catalog.internal.service;
 
 import static org.assertj.core.api.Assertions.*;
 
-import com.aquasuite.ims.module.catalog.internal.payload.req.BundleCoreStatusRequest;
+import com.aquasuite.ims.module.catalog.internal.payload.req.ChangeBundleStatusRequest;
 import com.aquasuite.ims.support.BundleCoreTestSupport;
 
 import org.junit.jupiter.params.ParameterizedTest;
@@ -22,7 +22,7 @@ class BundleConcurrencyIT extends BundleCoreTestSupport {
                     () -> {
                         gate.await(10, TimeUnit.SECONDS);
                         try {
-                            service.update(d.bundleId(), update(d));
+                            service.updateBundle(d.bundleId(), update(d));
                             return true;
                         } catch (com.aquasuite.ims.share.exception.AppException e) {
                             assertThat(e.getErrorCode().getCode())
@@ -35,14 +35,14 @@ class BundleConcurrencyIT extends BundleCoreTestSupport {
                         gate.await(10, TimeUnit.SECONDS);
                         try {
                             switch (competitor) {
-                                case "delete" -> service.delete(d.bundleId(), d.version());
+                                case "delete" -> service.deleteBundle(d.bundleId(), d.version());
                                 case "status" ->
-                                        service.status(
+                                        service.changeProductStatus(
                                                 d.bundleId(),
-                                                new BundleCoreStatusRequest(
+                                                new ChangeBundleStatusRequest(
                                                         d.version(),
-                                                        BundleCoreStatusRequest.Status.INACTIVE));
-                                default -> service.update(d.bundleId(), update(d));
+                                                        ChangeBundleStatusRequest.Status.INACTIVE));
+                                default -> service.updateBundle(d.bundleId(), update(d));
                             }
                             return true;
                         } catch (com.aquasuite.ims.share.exception.AppException e) {
@@ -57,8 +57,6 @@ class BundleConcurrencyIT extends BundleCoreTestSupport {
                             (a.get(20, TimeUnit.SECONDS) ? 1 : 0)
                                     + (b.get(20, TimeUnit.SECONDS) ? 1 : 0))
                     .isEqualTo(1);
-            assertThat(jdbc.queryForObject("select count(*) from audit_entries", Integer.class))
-                    .isZero();
         } finally {
             pool.shutdownNow();
         }

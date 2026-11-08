@@ -11,7 +11,7 @@ public enum RegistrationErrorCode implements BaseErrorCode {
     INVALID_OTP("REG_002", "Invalid OTP code. Please check and try again.", HttpStatus.BAD_REQUEST),
     EXPIRED_OTP(
             "REG_003",
-            "The verification code has expired. Please request a new code.",
+            "Registration has expired. Please submit the registration form again.",
             HttpStatus.GONE),
     OTP_LIMIT(
             "REG_004",
@@ -19,7 +19,7 @@ public enum RegistrationErrorCode implements BaseErrorCode {
             HttpStatus.TOO_MANY_REQUESTS),
     NOT_PENDING(
             "REG_006",
-            "Account is not pending activation. Please log in if it is already active.",
+            "Registration is being processed or the account already exists. Please wait or log in.",
             HttpStatus.CONFLICT),
     MAIL_UNAVAILABLE(
             "REG_007",

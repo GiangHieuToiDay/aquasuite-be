@@ -21,7 +21,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
@@ -68,7 +68,7 @@ class ProductStorefrontControllerTest {
                 .stockBadge("In Stock")
                 .totalAvailableStock(new BigDecimal("10"))
                 .totalVariants(1)
-                .createdAt(LocalDateTime.now())
+                .createdAt(Instant.now())
                 .build();
 
         StorefrontSearchResultResponse resultResponse = StorefrontSearchResultResponse.builder()
@@ -130,7 +130,7 @@ class ProductStorefrontControllerTest {
                 .images(Collections.emptyList())
                 .variants(Collections.emptyList())
                 .warrantyTerms("10-year ceramic warranty")
-                .createdAt(LocalDateTime.now())
+                .createdAt(Instant.now())
                 .build();
 
         when(storefrontService.getProductDetail(sampleProductId)).thenReturn(detail);

@@ -81,7 +81,7 @@ class BundleImportGuardIT extends BundleCoreTestSupport {
                                                 errors));
         assertThat(n).isZero();
         assertThat(errors).hasSize(1);
-        assertThat(service.get(d.bundleId()).name()).isEqualTo(d.name());
+        assertThat(query.getBundleDetails(d.bundleId()).name()).isEqualTo(d.name());
         assertThat(jdbc.queryForObject("select count(*) from product_variants", Integer.class))
                 .isEqualTo(1);
     }

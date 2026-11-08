@@ -66,9 +66,9 @@ class AuthProductionSecurityTest extends AuthIntegrationTestSupport {
     void shouldEnforceExactPublicMethodPathMatchers() throws Exception {
         for (String path :
                 java.util.List.of(
-                        "/api/v1/customer-registrations",
-                        "/api/v1/customer-registrations/verifications",
-                        "/api/v1/customer-registrations/otp-resends")) {
+                        "/api/v1/iam/register",
+                        "/api/v1/iam/register/verifications",
+                        "/api/v1/iam/register/otp-resends")) {
             mockMvc.perform(
                             post(path)
                                     .contentType(

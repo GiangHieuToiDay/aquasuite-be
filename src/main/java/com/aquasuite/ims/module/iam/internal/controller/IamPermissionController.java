@@ -33,6 +33,7 @@ public class IamPermissionController {
 
     private final IamPermissionService iamPermissionService;
 
+    /** Tìm kiếm và phân trang danh sách quyền IAM. */
     @GetMapping
     public ApiResponse<PageResponse<PermissionResponse>> listPermissions(
             @ModelAttribute PageQuery pageQuery,
@@ -41,11 +42,13 @@ public class IamPermissionController {
         return ApiResponse.ok(iamPermissionService.listPermissions(pageQuery, search));
     }
 
+    /** Trả về chi tiết một quyền theo ID. */
     @GetMapping("/{permissionId}")
     public ApiResponse<PermissionResponse> getPermissionDetail(@PathVariable UUID permissionId) {
         return ApiResponse.ok(iamPermissionService.getPermissionDetail(permissionId));
     }
 
+    /** Tạo quyền mới sau khi kiểm tra mã quyền hợp lệ và duy nhất. */
     @PostMapping
     public ResponseEntity<ApiResponse<PermissionResponse>> createPermission(
             @Valid @RequestBody CreatePermissionRequest request
@@ -54,6 +57,7 @@ public class IamPermissionController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(created));
     }
 
+    /** Cập nhật các trường được gửi của một quyền hiện có. */
     @PatchMapping("/{permissionId}")
     public ApiResponse<PermissionResponse> updatePermission(
             @PathVariable UUID permissionId,
@@ -62,6 +66,7 @@ public class IamPermissionController {
         return ApiResponse.ok(iamPermissionService.updatePermission(permissionId, request));
     }
 
+    /** Xóa quyền khi quyền đó chưa được vai trò nào tham chiếu. */
     @DeleteMapping("/{permissionId}")
     public ApiResponse<Void> deletePermission(@PathVariable UUID permissionId) {
         iamPermissionService.deletePermission(permissionId);
