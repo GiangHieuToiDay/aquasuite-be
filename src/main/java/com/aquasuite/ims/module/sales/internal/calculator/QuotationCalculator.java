@@ -38,7 +38,8 @@ public class QuotationCalculator {
             BigDecimal shippingFee,
             BigDecimal grandTotal,
             BigDecimal grossProfit,
-            BigDecimal marginPercent
+            BigDecimal marginPercent,
+            BigDecimal totalCost
     ) {}
 
     public QuotationTotals calculate(
@@ -60,7 +61,8 @@ public class QuotationCalculator {
                     safeShippingFee,
                     safeShippingFee,
                     BigDecimal.ZERO.setScale(MONEY_SCALE, ROUNDING_MODE),
-                    BigDecimal.ZERO.setScale(PERCENT_SCALE, ROUNDING_MODE)
+                    BigDecimal.ZERO.setScale(PERCENT_SCALE, ROUNDING_MODE),
+                    BigDecimal.ZERO.setScale(MONEY_SCALE, ROUNDING_MODE)
             );
         }
 
@@ -120,7 +122,8 @@ public class QuotationCalculator {
                 safeShippingFee,
                 grandTotal,
                 grossProfit,
-                marginPercent
+                marginPercent,
+                sumCost
         );
     }
 }

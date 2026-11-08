@@ -19,6 +19,7 @@ import java.util.List;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class QuotationOwnerData {
 
+    private BigDecimal totalCost;
     private BigDecimal grossProfit;
     private BigDecimal marginPercent;
     private BigDecimal marginPercentAtApproval;

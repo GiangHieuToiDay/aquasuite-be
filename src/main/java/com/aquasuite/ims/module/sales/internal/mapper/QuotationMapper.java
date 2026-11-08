@@ -252,6 +252,7 @@ public interface QuotationMapper {
         QuotationOwnerData ownerData = null;
         if (includeOwnerData && totals != null) {
             ownerData = QuotationOwnerData.builder()
+                    .totalCost(totals.totalCost())
                     .grossProfit(totals.grossProfit())
                     .marginPercent(totals.marginPercent())
                     .marginPercentAtApproval(quotation.getMarginPercentAtApproval())
