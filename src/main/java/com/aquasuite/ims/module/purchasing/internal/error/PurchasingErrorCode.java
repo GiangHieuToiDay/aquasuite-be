@@ -27,7 +27,8 @@ public enum PurchasingErrorCode implements BaseErrorCode {
     CLOSE_REASON_REQUIRED("PO_016", "Bắt buộc phải nhập lý do đóng PO", HttpStatus.BAD_REQUEST),
     INVALID_QUANTITY("PO_017", "Số lượng đặt cho SKU {0} phải lớn hơn 0 và đúng quy cách đơn vị", HttpStatus.BAD_REQUEST),
     INVALID_UNIT_COST("PO_018", "Đơn giá nhập cho SKU {0} phải lớn hơn hoặc bằng 0", HttpStatus.BAD_REQUEST),
-    DUPLICATE_SKU_IN_PO("PO_019", "SKU {0} đã xuất hiện trong đơn mua hàng", HttpStatus.BAD_REQUEST);
+    DUPLICATE_SKU_IN_PO("PO_019", "SKU {0} đã xuất hiện trong đơn mua hàng", HttpStatus.BAD_REQUEST),
+    PO_RECEIPT_EXCEEDS_REMAINING("PO_020", "Số lượng nhận của SKU {0} vượt quá số còn phải nhận của đơn mua hàng", HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String message;

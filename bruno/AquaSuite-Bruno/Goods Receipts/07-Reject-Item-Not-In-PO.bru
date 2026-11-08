@@ -1,0 +1,44 @@
+meta {
+  name: 07 - Reject Item Not In PO
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/v1/inventory/goods-receipts
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "purchaseOrderId": "{{grPurchaseOrderId}}",
+    "note": "Bruno UC-32 - dòng không thuộc PO",
+    "items": [
+      {
+        "purchaseOrderItemId": "00000000-0000-0000-0000-000000000000",
+        "quantity": 1
+      }
+    ]
+  }
+}
+
+tests {
+  test('Item not in PO is rejected', function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(400);
+    expect(body.success).to.equal(false);
+  });
+}
+
+docs {
+  purchaseOrderItemId không thuộc PO -> backend từ chối (INV_014).
+}

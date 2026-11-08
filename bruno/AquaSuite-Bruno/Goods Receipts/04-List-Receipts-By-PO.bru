@@ -1,0 +1,25 @@
+meta {
+  name: 04 - List Receipts By PO
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/v1/inventory/goods-receipts/by-purchase-order/{{grPurchaseOrderId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('History contains the created receipt', function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(200);
+    expect(body.success).to.equal(true);
+    expect(body.data).to.be.an('array');
+    expect(body.data.some(r => r.goodsReceiptId === bru.getVar('grReceiptId'))).to.equal(true);
+  });
+}

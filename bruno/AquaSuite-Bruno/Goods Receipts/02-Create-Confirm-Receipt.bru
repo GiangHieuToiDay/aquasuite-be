@@ -1,0 +1,57 @@
+meta {
+  name: 02 - Create & Confirm Receipt
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/inventory/goods-receipts
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "purchaseOrderId": "{{grPurchaseOrderId}}",
+    "supplierInvoiceNo": "HD-BRUNO-001",
+    "note": "Bruno UC-32 - nhập một phần",
+    "items": [
+      {
+        "purchaseOrderItemId": "{{grPoItemId}}",
+        "quantity": {{grReceiveQty}}
+      }
+    ]
+  }
+}
+
+script:post-response {
+  const body = res.getBody();
+  if ((res.getStatus() === 200 || res.getStatus() === 201) && body && body.data) {
+    bru.setVar('grReceiptId', body.data.goodsReceiptId);
+  }
+}
+
+tests {
+  test('Receipt is created and confirmed', function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(201);
+    expect(body.success).to.equal(true);
+    expect(body.data.status).to.equal('CONFIRMED');
+    expect(body.data.goodsReceiptId).to.be.a('string').and.not.empty;
+    expect(body.data.items).to.be.an('array').and.not.empty;
+    expect(Number(body.data.items[0].quantity)).to.equal(Number(bru.getEnvVar('grReceiveQty')));
+  });
+}
+
+docs {
+  Hướng B: tạo = xác nhận. Phiếu trả về luôn ở CONFIRMED và tồn đã được cộng.
+  grReceiveQty phải > 0 và <= grRemaining (mặc định 1).
+}

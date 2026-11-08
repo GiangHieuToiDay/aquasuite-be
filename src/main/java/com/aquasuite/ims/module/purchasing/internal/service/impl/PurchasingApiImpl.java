@@ -1,6 +1,8 @@
 package com.aquasuite.ims.module.purchasing.internal.service.impl;
 
 import com.aquasuite.ims.module.purchasing.api.PurchasingApi;
+import com.aquasuite.ims.module.purchasing.api.dto.ReceivableItemView;
+import com.aquasuite.ims.module.purchasing.api.dto.ReceivablePurchaseOrderView;
 import com.aquasuite.ims.module.purchasing.internal.entity.PurchaseOrder;
 import com.aquasuite.ims.module.purchasing.internal.entity.PurchaseOrderItem;
 import com.aquasuite.ims.module.purchasing.internal.enums.PurchaseOrderStatus;
@@ -57,6 +59,40 @@ public class PurchasingApiImpl implements PurchasingApi {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Optional<ReceivablePurchaseOrderView> getReceivablePurchaseOrder(UUID purchaseOrderId) {
+        if (purchaseOrderId == null) return Optional.empty();
+
+        return purchaseOrderRepository.findById(purchaseOrderId).map(po -> {
+            boolean receivable = OPEN_STATUSES.contains(po.getStatus());
+
+            List<ReceivableItemView> items = po.getItems().stream()
+                    .map(item -> new ReceivableItemView(
+                            item.getPurchaseOrderItemId(),
+                            item.getVariantId(),
+                            item.getSku(),
+                            item.getProductName(),
+                            item.getUnit(),
+                            item.getUnitCost(),
+                            item.getQuantityOrdered(),
+                            item.getQuantityReceived() != null ? item.getQuantityReceived() : BigDecimal.ZERO,
+                            item.getRemainingQty()
+                    ))
+                    .toList();
+
+            return new ReceivablePurchaseOrderView(
+                    po.getPurchaseOrderId(),
+                    po.getPoCode(),
+                    po.getStatus().name(),
+                    receivable,
+                    po.getWarehouseCode(),
+                    po.getSupplierId(),
+                    items
+            );
+        });
+    }
+
+    @Override
     @Transactional
     public void onGoodsReceiptConfirmed(UUID purchaseOrderId, Map<UUID, BigDecimal> receivedItems) {
         if (purchaseOrderId == null || receivedItems == null || receivedItems.isEmpty()) return;
@@ -73,7 +109,15 @@ public class PurchasingApiImpl implements PurchasingApi {
             BigDecimal qtyReceivedNow = receivedItems.get(item.getVariantId());
             if (qtyReceivedNow != null && qtyReceivedNow.compareTo(BigDecimal.ZERO) > 0) {
                 BigDecimal currentReceived = item.getQuantityReceived() != null ? item.getQuantityReceived() : BigDecimal.ZERO;
-                item.setQuantityReceived(currentReceived.add(qtyReceivedNow));
+                BigDecimal newReceived = currentReceived.add(qtyReceivedNow);
+
+                // Chốt chặn giao dịch: không cho nhận vượt số đã đặt. Kết hợp với @Version của PO,
+                // điều này ngăn cả nhận vượt trong một lần lẫn cộng trùng khi nhiều phiếu chạy đồng thời.
+                if (newReceived.compareTo(item.getQuantityOrdered()) > 0) {
+                    throw new AppException(PurchasingErrorCode.PO_RECEIPT_EXCEEDS_REMAINING, item.getSku());
+                }
+
+                item.setQuantityReceived(newReceived);
             }
         }
 

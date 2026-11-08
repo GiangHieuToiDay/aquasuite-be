@@ -1,0 +1,31 @@
+meta {
+  name: 05 - List Receipts Paged
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/v1/inventory/goods-receipts?page=0&size=20&sort=createdAt,desc
+  body: none
+  auth: bearer
+}
+
+params:query {
+  page: 0
+  size: 20
+  sort: createdAt,desc
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('Returns a Spring page', function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(200);
+    expect(body.success).to.equal(true);
+    expect(body.data.content).to.be.an('array');
+    expect(body.data).to.have.property('totalElements');
+  });
+}

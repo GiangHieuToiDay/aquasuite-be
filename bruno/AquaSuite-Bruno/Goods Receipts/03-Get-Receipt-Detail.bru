@@ -1,0 +1,27 @@
+meta {
+  name: 03 - Get Receipt Detail
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/inventory/goods-receipts/{{grReceiptId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test('Returns receipt detail with items', function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(200);
+    expect(body.success).to.equal(true);
+    expect(body.data.goodsReceiptId).to.equal(bru.getVar('grReceiptId'));
+    expect(body.data.status).to.equal('CONFIRMED');
+    expect(body.data.items).to.be.an('array').and.not.empty;
+    expect(body.data.items[0].variantId).to.be.a('string');
+  });
+}
