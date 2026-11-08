@@ -15,9 +15,10 @@ import java.util.UUID;
  * @param status trạng thái giao dịch
  * @param referenceNo mã tham chiếu nếu có
  * @param description ghi chú nếu có
+ * @param rejectReason lý do từ chối (chỉ có khi trạng thái REJECTED, do UC-70 ghi)
  * @param transactionDate thời điểm giao dịch
  * @param createdBy mã nhân viên ghi nhận
  */
 public record OrderPaymentResponse(UUID transactionId, String transactionCode, UUID orderId, UUID invoiceId,
         BigDecimal amount, String paymentMethod, String status, String referenceNo,
-        String description, OffsetDateTime transactionDate, UUID createdBy) {}
+        String description, String rejectReason, OffsetDateTime transactionDate, UUID createdBy) {}

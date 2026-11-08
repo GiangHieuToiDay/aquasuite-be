@@ -279,7 +279,7 @@ public class SalesOrderPostmanSimulationTest {
                 orderPaymentMilestoneRepository
         );
 
-        salesOrderApi = new SalesOrderApiImpl(orderRepository, salesInvoiceRepository);
+        salesOrderApi = new SalesOrderApiImpl(orderRepository, salesInvoiceRepository, orderPaymentMilestoneRepository);
         SalesOrderController controller = new SalesOrderController(salesOrderService);
 
         mockMvc = MockMvcBuilders.standaloneSetup(controller)

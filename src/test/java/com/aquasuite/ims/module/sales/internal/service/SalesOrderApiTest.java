@@ -1,7 +1,9 @@
 package com.aquasuite.ims.module.sales.internal.service;
 
+import com.aquasuite.ims.module.sales.api.dto.SalesOrderMilestoneDto;
 import com.aquasuite.ims.module.sales.api.dto.SalesOrderPaymentInfoDto;
 import com.aquasuite.ims.module.sales.internal.entity.Order;
+import com.aquasuite.ims.module.sales.internal.entity.OrderPaymentMilestone;
 import com.aquasuite.ims.module.sales.internal.enums.OrderChannel;
 import com.aquasuite.ims.module.sales.internal.enums.OrderStatus;
 import com.aquasuite.ims.module.sales.internal.enums.OrderType;
@@ -37,6 +39,8 @@ class SalesOrderApiTest {
     private OrderRepository orderRepository;
 
     @Mock private SalesInvoiceRepository salesInvoiceRepository;
+
+    @Mock private com.aquasuite.ims.module.sales.internal.repository.OrderPaymentMilestoneRepository orderPaymentMilestoneRepository;
 
     @InjectMocks
     private SalesOrderApiImpl salesOrderApi;
@@ -123,5 +127,32 @@ class SalesOrderApiTest {
         assertThatThrownBy(() -> salesOrderApi.updatePaymentStatus(orderId, "PAID"))
                 .isInstanceOf(AppException.class)
                 .hasFieldOrPropertyWithValue("errorCode", SalesErrorCode.ORDER_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("Contract UC-23: Projection mốc trả theo thứ tự ổn định, tie-break theo milestoneId")
+    void getOrderPaymentMilestones_ReturnsStableOrder() {
+        UUID id1 = new UUID(0, 1);
+        UUID id2 = new UUID(0, 2);
+        OrderPaymentMilestone m2 = OrderPaymentMilestone.builder().milestoneId(id2).orderId(orderId)
+                .stageName("Đợt 1").percent(new BigDecimal("40")).amount(new BigDecimal("40000000")).sortOrder(1).build();
+        OrderPaymentMilestone m1 = OrderPaymentMilestone.builder().milestoneId(id1).orderId(orderId)
+                .stageName("Cọc").percent(new BigDecimal("30")).amount(new BigDecimal("30000000")).sortOrder(1).build();
+        // Repository trả theo sortOrder; cùng sortOrder=1 nên impl phải tie-break theo milestoneId.
+        when(orderPaymentMilestoneRepository.findByOrderIdOrderBySortOrderAsc(orderId))
+                .thenReturn(java.util.List.of(m2, m1));
+
+        var result = salesOrderApi.getOrderPaymentMilestones(orderId);
+
+        assertThat(result).extracting(SalesOrderMilestoneDto::milestoneId).containsExactly(id1, id2);
+        assertThat(result.get(0).amount()).isEqualByComparingTo("30000000");
+    }
+
+    @Test
+    @DisplayName("Contract UC-23: Đơn không có mốc trả danh sách rỗng, orderId null cũng rỗng")
+    void getOrderPaymentMilestones_EmptyWhenNoMilestonesOrNullId() {
+        when(orderPaymentMilestoneRepository.findByOrderIdOrderBySortOrderAsc(orderId)).thenReturn(java.util.List.of());
+        assertThat(salesOrderApi.getOrderPaymentMilestones(orderId)).isEmpty();
+        assertThat(salesOrderApi.getOrderPaymentMilestones(null)).isEmpty();
     }
 }
