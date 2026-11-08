@@ -7,6 +7,8 @@ import com.aquasuite.ims.module.crm.api.dto.CustomerSummaryDto;
 import com.aquasuite.ims.module.crm.internal.entity.Customer;
 import com.aquasuite.ims.module.crm.internal.entity.DeliveryAddressItem;
 import com.aquasuite.ims.module.crm.internal.repository.CustomerRepository;
+import com.aquasuite.ims.share.exception.AppException;
+import com.aquasuite.ims.share.exception.CommonErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -94,20 +96,31 @@ public class CrmApiImpl implements CrmApi {
 
     @Override
     @Transactional
+    public CustomerSummaryDto getOrCreateCounterCustomer(String phone, String name) {
+        String canonicalPhone = phone == null ? "" : phone.trim();
+        if (!canonicalPhone.matches("0[35789][0-9]{8}")) {
+            throw new AppException(
+                    CommonErrorCode.VALIDATION_ERROR);
+        }
+        String customerName = name == null || name.isBlank() ? "Customer " + canonicalPhone : name.trim();
+        if (customerName.length() > 150) {
+            throw new AppException(
+                    CommonErrorCode.VALIDATION_ERROR);
+        }
+        UUID id = UUID.randomUUID();
+        customerRepository.insertUnlinkedCustomer(id, "CUS-" + id, customerName, canonicalPhone, null);
+        return customerRepository.findByPhone(canonicalPhone).map(this::toSummaryDto)
+                .orElseThrow(() -> new AppException(
+                        CommonErrorCode.DATA_INTEGRITY_VIOLATION));
+    }
+
+    @Override
+    @Transactional
     public CustomerSummaryDto getOrCreateWalkInCustomer() {
-        return customerRepository.findByPhone("0000000000")
-                .map(this::toSummaryDto)
-                .orElseGet(() -> {
-                    Customer walkIn = Customer.builder()
-                            .customerId(UUID.randomUUID())
-                            .customerCode("CUS-WALKIN")
-                            .customerName("Walk-in Retail Customer")
-                            .phone("0000000000")
-                            .customerType(com.aquasuite.ims.module.crm.internal.enums.CustomerType.RETAIL)
-                            .status("ACTIVE")
-                            .build();
-                    return toSummaryDto(customerRepository.save(walkIn));
-                });
+        customerRepository.insertUnlinkedCustomer(UUID.randomUUID(), "CUS-WALKIN",
+                "Walk-in Retail Customer", "0000000000", null);
+        return customerRepository.findByPhone("0000000000").map(this::toSummaryDto)
+                .orElseThrow(() -> new AppException(CommonErrorCode.DATA_INTEGRITY_VIOLATION));
     }
 
     @Override

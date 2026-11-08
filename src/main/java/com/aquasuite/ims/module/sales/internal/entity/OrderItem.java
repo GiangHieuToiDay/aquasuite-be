@@ -66,6 +66,18 @@ public class OrderItem {
     @Column(name = "combo_id")
     private UUID comboId;
 
+    @Column(name = "combo_group_id")
+    private UUID comboGroupId;
+
+    @Column(name = "combo_quantity", precision = 12, scale = 2)
+    private BigDecimal comboQuantity;
+
+    @Column(name = "combo_sku", length = 100)
+    private String comboSku;
+
+    @Column(name = "combo_unit_price", precision = 15, scale = 2)
+    private BigDecimal comboUnitPrice;
+
     @PrePersist
     public void prePersist() {
         if (this.orderItemId == null) {

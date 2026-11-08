@@ -11,14 +11,14 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Body tạo combo: mã, tên, danh mục, thành phần và giá gói. Luồng: Jackson đọc JSON theo cấu hình
- * chung → Bean Validation → BundleAdminService.createBundle. Không nhận expectedVersion hoặc trạng
- * thái do client đặt; server tạo ACTIVE/DRAFT.
+ * Combo write request. Classification is server-owned: legacy categoryId/brandId
+ * inputs remain optional for compatibility and are ignored. Creation assigns COMBO
+ * and null brand; updates preserve stored classification. Other validation is unchanged.
  */
 public record CreateBundleRequest(
         @NotBlank @Size(max = 100) String productCode,
         @NotBlank @Size(max = 255) String name,
-        @NotNull UUID categoryId,
+        UUID categoryId,
         UUID brandId,
         @Size(max = 10000) String description,
         @NotNull @Size(min = 1, max = 100) List<@NotNull @Valid BundleItemRequest> items,

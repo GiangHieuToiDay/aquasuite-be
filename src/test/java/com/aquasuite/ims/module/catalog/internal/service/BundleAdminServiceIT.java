@@ -96,13 +96,10 @@ class BundleAdminServiceIT extends BundleCoreTestSupport {
                 "inactiveSku",
                 "inactiveProduct",
                 "deletedProduct",
-                "nestedBundle",
-                "missingCategory",
-                "inactiveCategory"
+                "nestedBundle"
             })
     void invalidReferencesDoNotCreatePartialBundle(String scenario) {
         UUID variant = SKU;
-        UUID category = CATEGORY;
         switch (scenario) {
             case "missingSku" -> variant = UUID.randomUUID();
             case "inactiveSku" ->
@@ -116,18 +113,13 @@ class BundleAdminServiceIT extends BundleCoreTestSupport {
             case "nestedBundle" ->
                     jdbc.update(
                             "update products set product_type='BUNDLE' where product_id=?", NORMAL);
-            case "missingCategory" -> category = UUID.randomUUID();
-            case "inactiveCategory" ->
-                    jdbc.update(
-                            "update categories set status='INACTIVE' where category_id=?",
-                            CATEGORY);
             default -> throw new AssertionError(scenario);
         }
         var request =
                 new CreateBundleRequest(
                         "INVALID-REFERENCE",
                         "Invalid",
-                        category,
+                        CATEGORY,
                         null,
                         null,
                         List.of(new BundleItemRequest(variant, 1)),
@@ -138,9 +130,7 @@ class BundleAdminServiceIT extends BundleCoreTestSupport {
                         ex ->
                                 assertThat(ex.getErrorCode().getCode())
                                         .isEqualTo(
-                                                scenario.endsWith("Category")
-                                                        ? "CATALOG_BUNDLE_002"
-                                                        : "CATALOG_BUNDLE_001"));
+                                                "CATALOG_BUNDLE_001"));
         assertThat(
                         jdbc.queryForObject(
                                 "select count(*) from products where"

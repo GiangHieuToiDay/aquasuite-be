@@ -17,6 +17,9 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class SalesOrderFilterRequest {
 
+    /** Management list: all orders with a required deposit, including insufficient/unverified deposits. */
+    private boolean depositReservationOnly;
+
     /** Từ khóa tìm kiếm theo mã đơn hàng hoặc SĐT khách hàng */
     private String keyword;
 

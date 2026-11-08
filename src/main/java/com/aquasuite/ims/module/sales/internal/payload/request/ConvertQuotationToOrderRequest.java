@@ -24,5 +24,8 @@ public class ConvertQuotationToOrderRequest {
 
     /** Hạn thanh toán / ngày giao hàng dự kiến (nếu để trống sẽ lấy theo hạn hiệu lực của báo giá hoặc +30 ngày) */
     private LocalDate dueDate;
+
+    /** Optional opt-in; a positive quotation depositPercent automatically defers holds and selects WH_MAIN. */
+    private boolean reserveStockAfterDeposit;
 }
 

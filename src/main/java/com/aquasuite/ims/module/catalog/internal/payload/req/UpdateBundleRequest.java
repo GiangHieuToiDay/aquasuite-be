@@ -11,14 +11,14 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Body thay toàn bộ nội dung combo qua PUT, kèm expectedVersion để chống ghi đè. Luồng: validate
- * như create → service khóa combo/kiểm version → thay definition/items. Mã combo phải giữ nguyên;
- * omit/null brandId hoặc description sẽ xóa giá trị cũ.
+ * Combo write request. Classification is server-owned: legacy categoryId/brandId
+ * inputs remain optional for compatibility and are ignored. Creation assigns COMBO
+ * and null brand; updates preserve stored classification. Other validation is unchanged.
  */
 public record UpdateBundleRequest(
         @NotBlank @Size(max = 100) String productCode,
         @NotBlank @Size(max = 255) String name,
-        @NotNull UUID categoryId,
+        UUID categoryId,
         UUID brandId,
         @Size(max = 10000) String description,
         @NotNull @Size(min = 1, max = 100) List<@NotNull @Valid BundleItemRequest> items,

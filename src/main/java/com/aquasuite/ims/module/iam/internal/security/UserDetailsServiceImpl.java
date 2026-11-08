@@ -40,15 +40,10 @@ public class UserDetailsServiceImpl implements UserDetailsService {
             throw new UsernameNotFoundException("User repository is unavailable");
         }
 
-        User user =
-                userRepository
-                        .findWithRolesAndPermissionsByEmailIgnoreCase(email.trim())
-                        .orElseThrow(
-                                () ->
-                                        new UsernameNotFoundException(
-                                                "User not found with email: " + email));
+        User user = userRepository.findWithRolesAndPermissionsByEmailIgnoreCase(email.trim())
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
-        boolean enabled = (user.getStatus() == UserStatus.ACTIVE);
+        boolean enabled = user.getStatus() == UserStatus.ACTIVE;
         Collection<GrantedAuthority> authorities =
                 currentAuthoritiesService.resolveAuthorities(user.getRoles());
 

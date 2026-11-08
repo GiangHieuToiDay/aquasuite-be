@@ -1,5 +1,7 @@
 package com.aquasuite.ims.module.finance.internal.service;
 
+import com.aquasuite.ims.module.finance.internal.service.impl.CreditControlApiImpl;
+
 import com.aquasuite.ims.module.finance.api.dto.CreditAuthorizationCommand;
 import com.aquasuite.ims.module.finance.internal.payload.request.CreditCheckRequest;
 import com.aquasuite.ims.module.finance.internal.payload.response.CreditCheckResponse;
@@ -40,6 +42,10 @@ class CreditControlApiPostgresLockIT {
             AtomicInteger checks = new AtomicInteger();
 
             CustomerDebtService debtService = new CustomerDebtService() {
+                @Override
+                public void requireCustomerOrderAllowed(UUID customerId) {
+                    throw new UnsupportedOperationException("This fixture tests authorize only");
+                }
                 @Override
                 public CreditCheckResponse checkCredit(UUID customerId, CreditCheckRequest request) {
                     if (checks.incrementAndGet() == 1) {

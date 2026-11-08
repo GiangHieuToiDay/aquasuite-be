@@ -23,7 +23,7 @@ flowchart TD
     P -->|UC-70 từ chối| R[transactions RECEIPT / REJECTED + reject_reason]
     V -->|đọc VERIFIED theo khách| D[UC-24 công nợ]
     V -->|phân bổ vào hóa đơn điện tử| A[UC-63 allocation - CHƯA làm]
-    V -->|getOrderReceivable: depositSatisfied| H[UC-29 giữ hàng theo cọc - CHƯA làm]
+    V -->|Sales payment callback + durable allocation| H[UC-29 tự giữ hàng khi Finance xác nhận đủ cọc]
 ```
 
 **Tóm tắt:** Báo giá (hoặc POS) tạo **đơn** + **các mốc thanh toán** + **hóa đơn cửa hàng STORE**. UC-23 ghi khoản thu vào bảng `transactions`. UC-70 lật PENDING → VERIFIED/REJECTED. UC-24 và UC-63 **đọc sổ `transactions`** làm nguồn sự thật, **không** tự tạo khoản thu.
@@ -146,6 +146,10 @@ transactionRepository.findByCustomerIdInAndStatusIgnoreCase(customerIds, "VERIFI
 
 UC-29 giữ hàng khi khách **đã cọc đủ**. "Đã cọc" = có khoản thu **VERIFIED** đủ mức cọc — dữ liệu này do UC-23/UC-70 tạo. Finance cung cấp hợp đồng công khai để UC-29 đọc, không cần import `finance.internal`.
 
+**Quyết định mới nhất của người dùng:** UC29 dùng nguyên `OrderReceivableApi.getOrderReceivable(orderId)` và `depositSatisfied`; không tự tính 20% selection hoặc cộng khoản thu riêng. Xem [hợp đồng UC29](../contracts/uc29-basic.md) với response `payment` dùng DTO Finance có sẵn.
+
+Theo quyết định triển khai mới, đủ cọc VERIFIED thì Sales tự giữ phần hàng đã chốt sau khi giao dịch tiền commit; GET trạng thái và retry xem [hợp đồng UC29](../contracts/uc29-basic.md). API UC70 giữ nguyên, không bổ sung xác minh cọc riêng. Queue phân bổ lưu DB để phục hồi sau restart; lỗi kho không đảo kết quả xác minh tiền. Đơn mới đi theo luồng này cần `reserveStockAfterDeposit=true` khi tạo/chuyển báo giá để chưa giữ tồn legacy trước cọc.
+
 ### Hợp đồng
 ```java
 // com.aquasuite.ims.module.finance.api
@@ -157,15 +161,15 @@ Optional<OrderReceivableView> getOrderReceivable(UUID orderId);
 - **`depositSatisfied`** = `true` khi `verifiedPaid ≥ depositRequired` (và `depositRequired > 0`).
 - Khoản **PENDING KHÔNG** làm thỏa cọc (tiền chưa chắc về) → chỉ giữ hàng khi đã VERIFIED.
 
-### Cách UC-29 dùng
+### Ví dụ dùng thông tin cọc thỏa thuận toàn đơn
 ```java
 orderReceivableApi.getOrderReceivable(orderId)
     .filter(OrderReceivableView::depositSatisfied)
-    .ifPresent(v -> reserveStock(orderId)); // chỉ giữ hàng khi đã cọc đủ
+    .ifPresent(v -> showAgreedDepositSatisfied(orderId)); // UC29 dùng chính kết quả này để cho phép giữ hàng
 ```
 
 ### Ràng buộc UC-29 phải lưu ý
-- Nếu `depositRequired == 0` (đơn không đặt cọc, không mốc) → `depositSatisfied=false`; UC-29 tự chọn ngưỡng khác từ `verifiedPaid` nếu cần.
+- Nếu `depositRequired == 0` (đơn không đặt cọc, không mốc) → `depositSatisfied=false`; UC-29 không giữ hàng và không tự chọn ngưỡng khác.
 - Sau khi giữ hàng, nếu khoản cọc bị **UC-70 từ chối** hoặc **đơn bị hủy (UC-26)** → UC-29 phải có cơ chế **nhả hàng (release)**. API này chỉ cho biết tình trạng hiện tại, không tự nhả hàng.
 - API chỉ đọc, không tạo/sửa giao dịch; gọi lúc nào cũng phản ánh ảnh chụp nhất quán của sổ giao dịch.
 

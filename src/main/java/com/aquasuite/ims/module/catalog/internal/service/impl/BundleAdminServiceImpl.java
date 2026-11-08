@@ -42,7 +42,6 @@ public class BundleAdminServiceImpl implements BundleAdminService {
     private final BundleConfigurationRepository configs;
     private final BundleItemRepository items;
     private final CategoryRepository categories;
-    private final BrandRepository brands;
     private final BundlePricingService pricing;
     private final BundleRepository repository;
     private final BundleQueryService query;
@@ -62,8 +61,7 @@ public class BundleAdminServiceImpl implements BundleAdminService {
     @Transactional
     public BundleResponse createBundle(CreateBundleRequest payload) {
         validateRequest(payload);
-        validateDefinition(
-                payload.categoryId(), payload.brandId(), payload.items(), payload.packagePrice());
+        validateDefinition(payload.items(), payload.packagePrice());
         validatePublicationDefinition(payload.validFrom(), payload.validUntil());
         if (products.findByProductCode(payload.productCode()).isPresent())
             throw new AppException(CommonErrorCode.DATA_INTEGRITY_VIOLATION);
@@ -71,8 +69,8 @@ public class BundleAdminServiceImpl implements BundleAdminService {
                 Product.builder()
                         .productCode(payload.productCode())
                         .productName(payload.name())
-                        .categoryId(payload.categoryId())
-                        .brandId(payload.brandId())
+                        .categoryId(resolveComboCategoryId())
+                        .brandId(null)
                         .description(payload.description())
                         .productType(ProductType.BUNDLE)
                         .status(ProductStatus.ACTIVE)
@@ -104,12 +102,10 @@ public class BundleAdminServiceImpl implements BundleAdminService {
             throw new AppException(BundleErrorCode.INVALID_STATE);
         if (!product.getProductCode().equals(payload.productCode()))
             throw new AppException(BundleErrorCode.INVALID_DEFINITION);
-        validateDefinition(
-                payload.categoryId(), payload.brandId(), payload.items(), payload.packagePrice());
+        validateDefinition(payload.items(), payload.packagePrice());
         validatePublicationDefinition(payload.validFrom(), payload.validUntil());
         product.setProductName(payload.name());
-        product.setCategoryId(payload.categoryId());
-        product.setBrandId(payload.brandId());
+        // Classification is server-owned; retain existing links when editing.
         product.setDescription(payload.description());
         product.setUpdatedAt(clock.instant());
         products.save(product);
@@ -171,8 +167,7 @@ public class BundleAdminServiceImpl implements BundleAdminService {
                 detail.items().stream()
                         .map(i -> new BundleItemRequest(i.variantId(), i.quantity()))
                         .toList();
-        validateDefinition(
-                product.getCategoryId(), product.getBrandId(), requested, config.getPackagePrice());
+        validateDefinition(requested, config.getPackagePrice());
         validatePublicationDefinition(config.getValidFrom(), config.getValidUntil());
         if (config.getValidFrom() == null || !clock.instant().isBefore(config.getValidUntil()))
             throw new AppException(BundleErrorCode.INVALID_DEFINITION);
@@ -239,18 +234,17 @@ public class BundleAdminServiceImpl implements BundleAdminService {
         configs.saveAndFlush(c);
     }
 
-    /** Kiểm danh mục/brand ACTIVE, SKU distinct NORMAL ACTIVE và giá gói trước khi ghi. */
-    private void validateDefinition(
-            UUID category, UUID brand, List<BundleItemRequest> requested, BigDecimal price) {
-        if (categories
-                        .findById(category)
-                        .filter(c -> c.getStatus() == CategoryStatus.ACTIVE)
-                        .isEmpty()
-                || (brand != null
-                        && brands.findById(brand)
-                                .filter(b -> b.getStatus() == BrandStatus.ACTIVE)
-                                .isEmpty()))
+    /** Category creation belongs to CatalogDataInitializer. */
+    private UUID resolveComboCategoryId() {
+        var value = categories.findByCategoryCodeIgnoreCase("COMBO")
+                .orElseThrow(() -> new AppException(BundleErrorCode.INVALID_DEFINITION));
+        if (value.getStatus() != CategoryStatus.ACTIVE)
             throw new AppException(BundleErrorCode.INVALID_DEFINITION);
+        return value.getCategoryId();
+    }
+
+    /** Validate distinct active NORMAL SKUs and price; classification is server-owned. */
+    private void validateDefinition(List<BundleItemRequest> requested, BigDecimal price) {
         Set<UUID> ids =
                 requested.stream().map(BundleItemRequest::variantId).collect(Collectors.toSet());
         if (ids.size() != requested.size())

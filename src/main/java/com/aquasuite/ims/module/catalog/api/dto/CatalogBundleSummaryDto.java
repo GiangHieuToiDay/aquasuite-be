@@ -9,6 +9,7 @@ import java.util.UUID;
 @Builder
 public record CatalogBundleSummaryDto(
         UUID bundleId,
+        String bundleCode,
         String bundleName,
         BigDecimal packagePrice,
         String status,

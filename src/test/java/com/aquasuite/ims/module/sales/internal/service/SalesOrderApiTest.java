@@ -39,6 +39,7 @@ class SalesOrderApiTest {
     private OrderRepository orderRepository;
 
     @Mock private SalesInvoiceRepository salesInvoiceRepository;
+    @Mock private org.springframework.context.ApplicationEventPublisher events;
 
     @Mock private com.aquasuite.ims.module.sales.internal.repository.OrderPaymentMilestoneRepository orderPaymentMilestoneRepository;
 

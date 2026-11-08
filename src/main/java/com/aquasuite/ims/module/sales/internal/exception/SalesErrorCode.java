@@ -26,7 +26,8 @@ public enum SalesErrorCode implements BaseErrorCode {
     QUOTATION_ITEMS_EMPTY("QUOTATION_016", "Báo giá phải có ít nhất một dòng sản phẩm trước khi thực hiện thao tác này", HttpStatus.BAD_REQUEST),
     FORBIDDEN_QUOTATION_ACCESS("QUOTATION_017", "Bạn không có quyền chỉnh sửa báo giá của người khác", HttpStatus.FORBIDDEN),
     QUOTATION_NOT_SENT("QUOTATION_018", "Thao tác chỉ áp dụng cho báo giá đã gửi (SENT), đã duyệt (APPROVED) hoặc mất dự án (LOST), trạng thái hiện tại: {0}", HttpStatus.BAD_REQUEST),
-    DISCOUNT_LIMIT_EXCEEDED("QUOTATION_019", "Báo giá có chiết khấu ({0}%) vượt quá hạn mức của nhân viên ({1}%), bắt buộc phải trình phê duyệt trước khi phát hành", HttpStatus.BAD_REQUEST);
+    DISCOUNT_LIMIT_EXCEEDED("QUOTATION_019", "Báo giá có chiết khấu ({0}%) vượt quá hạn mức của nhân viên ({1}%), bắt buộc phải trình phê duyệt trước khi phát hành", HttpStatus.BAD_REQUEST),
+    INVALID_COMBO("QUOTATION_020", "Combo không hợp lệ hoặc không còn kinh doanh: {0}", HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String message;

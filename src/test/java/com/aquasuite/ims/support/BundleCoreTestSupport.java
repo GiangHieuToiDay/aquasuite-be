@@ -139,6 +139,10 @@ public abstract class BundleCoreTestSupport {
                 "CAT",
                 "Category");
         jdbc.update(
+                "INSERT INTO categories(category_id,category_code,category_name,status)"
+                        + " VALUES(?,'COMBO','Combo','ACTIVE')",
+                UUID.randomUUID());
+        jdbc.update(
                 "INSERT INTO"
                     + " products(product_id,product_code,category_id,product_name,product_type,status,created_at,updated_at)"
                     + " VALUES(?,?,?,?,'NORMAL','ACTIVE',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",

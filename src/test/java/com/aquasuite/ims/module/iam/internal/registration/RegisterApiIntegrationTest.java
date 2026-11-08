@@ -20,8 +20,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
+import com.aquasuite.ims.module.iam.internal.service.otp.RegistrationEmailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -46,7 +45,7 @@ abstract class RegisterTestSupport extends AuthIntegrationTestSupport {
     @SpyBean StringRedisTemplate redis;
     @Autowired RegisterService registrations;
     @SpyBean AuthService auth;
-    @MockBean JavaMailSender mail;
+    @MockBean RegistrationEmailSender mail;
     @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     @SpyBean com.aquasuite.ims.module.crm.api.CustomerRegistrationApi customerProfiles;
 
@@ -76,7 +75,7 @@ abstract class RegisterTestSupport extends AuthIntegrationTestSupport {
             customer.setActive(true);
             roles.save(customer);
         }
-        for (String prefix : List.of(RegisterService.OTP_PREFIX + "*", "auth:*")) {
+        for (String prefix : List.of("iam:registration:*", "auth:*")) {
             var keys = redis.keys(prefix);
             if (keys != null && !keys.isEmpty()) redis.delete(keys);
         }
@@ -117,13 +116,9 @@ abstract class RegisterTestSupport extends AuthIntegrationTestSupport {
     }
 
     String otp() {
-        var capture = ArgumentCaptor.forClass(SimpleMailMessage.class);
-        verify(mail, atLeastOnce()).send(capture.capture());
-        var messages = capture.getAllValues();
-        var matcher = Pattern.compile("code is: ([0-9]{6})").matcher(messages.getLast().getText());
-        assertThat(matcher.find()).isTrue();
-        assertThat(messages.getLast().getText()).contains("5 minutes");
-        return matcher.group(1);
+        var code = ArgumentCaptor.forClass(String.class);
+        verify(mail, atLeastOnce()).sendRegistrationOtp(eq(EMAIL), code.capture());
+        return code.getValue();
     }
 
     String key(User user) {

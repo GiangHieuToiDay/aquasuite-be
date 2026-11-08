@@ -19,6 +19,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class QuotationItemRequest {
 
+    /** Catalog selection ID: a real variant ID, or bundle Product ID for a combo. */
     @NotNull(message = "variantId is required")
     private UUID variantId;
 

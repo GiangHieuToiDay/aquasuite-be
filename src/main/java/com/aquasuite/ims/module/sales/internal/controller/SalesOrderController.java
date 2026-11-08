@@ -5,6 +5,7 @@ import com.aquasuite.ims.module.sales.internal.payload.request.CreateSalesOrderR
 import com.aquasuite.ims.module.sales.internal.payload.request.SalesOrderFilterRequest;
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderDetailResponse;
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderSummaryResponse;
+import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderPageResponse;
 import com.aquasuite.ims.module.sales.internal.service.SalesOrderService;
 import com.aquasuite.ims.share.dto.ApiResponse;
 import jakarta.validation.Valid;
@@ -74,12 +75,12 @@ public class SalesOrderController {
      */
     @GetMapping
     @PreAuthorize("hasAnyRole('SALES_STAFF', 'SHOP_OWNER', 'ACCOUNTANT')")
-    public ResponseEntity<ApiResponse<Page<SalesOrderSummaryResponse>>> listOrders(
+    public ResponseEntity<ApiResponse<SalesOrderPageResponse>> listOrders(
             SalesOrderFilterRequest filter,
             @PageableDefault(sort = "orderDate", direction = Sort.Direction.DESC) Pageable pageable
     ) {
         Page<SalesOrderSummaryResponse> page = salesOrderService.getSalesOrders(filter, pageable);
-        return ResponseEntity.ok(ApiResponse.ok(page));
+        return ResponseEntity.ok(ApiResponse.ok(SalesOrderPageResponse.from(page)));
     }
 
     /**

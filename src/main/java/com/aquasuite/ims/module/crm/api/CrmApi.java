@@ -26,6 +26,10 @@ public interface CrmApi {
 
     Optional<CustomerAddressDto> getDefaultDeliveryAddress(UUID customerId);
 
+    /** Reuse by canonical Vietnamese mobile phone, or create an unlinked RETAIL customer.
+     * Joins the sales transaction; no IAM user is created. Existing CRM fields are preserved. */
+    CustomerSummaryDto getOrCreateCounterCustomer(String phone, String name);
+
     CustomerSummaryDto getOrCreateWalkInCustomer();
 
     List<CustomerDebtProfileDto> findAllDebtProfiles();

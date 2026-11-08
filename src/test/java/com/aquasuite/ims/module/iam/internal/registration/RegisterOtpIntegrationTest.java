@@ -5,8 +5,6 @@ import com.aquasuite.ims.module.iam.internal.payload.request.*;
 import com.aquasuite.ims.module.iam.internal.payload.response.*;
 import com.aquasuite.ims.module.iam.internal.entity.UserStatus;
 import org.junit.jupiter.api.Test;
-import org.springframework.mail.MailSendException;
-import org.springframework.mail.SimpleMailMessage;
 import java.time.Duration;
 import java.util.Map;
 import static org.assertj.core.api.Assertions.*;
@@ -44,6 +42,7 @@ class RegisterOtpIntegrationTest extends RegisterTestSupport {
         postJson(ROOT + "/otp-resends", Map.of("email", EMAIL), 200);
         assertThat(redis.opsForHash().get(key(user), "attempts")).isEqualTo("1");
         String fresh = otp();
+        assertThat(encoder.matches(fresh, redis.opsForHash().get(key(user), "otpHash").toString())).isTrue();
         wrong = fresh.equals("000000") ? "000001" : "000000";
         for (int i = 0; i < 3; i++)
             postJson(ROOT + "/verifications", Map.of("email", EMAIL, "otp", wrong), 400);
@@ -55,17 +54,12 @@ class RegisterOtpIntegrationTest extends RegisterTestSupport {
     }
 
     @Test
-    void resendInvalidatesOldOtpAndSupportsLeadingZero() throws Exception {
+    void resendSendsFreshEmailCode() throws Exception {
         var user = registered();
-        String old = otp();
-        redis.opsForHash()
-                .put(key(user), "sentAt", Long.toString(redisNow() - 60_001));
+        redis.opsForHash().put(key(user), "sentAt", Long.toString(redisNow() - 60_001));
         postJson(ROOT + "/otp-resends", Map.of("email", EMAIL), 200);
-        // Force a deterministic leading-zero OTP using the same existing BCrypt verifier.
-        redis.opsForHash().put(key(user), "hash", encoder.encode("012345"));
-        if (!old.equals("012345"))
-            postJson(ROOT + "/verifications", Map.of("email", EMAIL, "otp", old), 400);
-        postJson(ROOT + "/verifications", Map.of("email", EMAIL, "otp", "012345"), 200);
+        verify(mail, times(2)).sendRegistrationOtp(eq(EMAIL), anyString());
+        postJson(ROOT + "/verifications", Map.of("email", EMAIL, "otp", otp()), 200);
     }
 
     @Test
@@ -73,6 +67,9 @@ class RegisterOtpIntegrationTest extends RegisterTestSupport {
         var user = registered();
         String code = otp();
         redis.expire(key(user), Duration.ofMillis(1));
+        for (String phoneLock : redis.keys("iam:registration:phone:v4:*")) {
+            redis.expire(phoneLock, Duration.ofMillis(1));
+        }
         org.awaitility.Awaitility.await()
                 .until(() -> !Boolean.TRUE.equals(redis.hasKey(key(user))));
         postJson(ROOT + "/verifications", Map.of("email", EMAIL, "otp", code), 410);
@@ -83,9 +80,8 @@ class RegisterOtpIntegrationTest extends RegisterTestSupport {
 
     @Test
     void mailFailureKeepsOnlyRedisPendingStateAndAllowsLaterResend() throws Exception {
-        doThrow(new MailSendException("synthetic failure"))
-                .when(mail)
-                .send(any(SimpleMailMessage.class));
+        doThrow(new com.aquasuite.ims.share.exception.AppException(
+                com.aquasuite.ims.module.iam.internal.error.RegistrationErrorCode.MAIL_UNAVAILABLE)).when(mail).sendRegistrationOtp(anyString(), anyString());
         postJson(ROOT, form(), 503);
         assertThat(users.count()).isZero();
         var user = new com.aquasuite.ims.module.iam.internal.entity.User();
@@ -127,13 +123,45 @@ class RegisterOtpIntegrationTest extends RegisterTestSupport {
         assertThat(redis.hasKey(key(user))).isTrue();
         assertThat(redis.opsForHash().hasKey(key(user), "claim")).isFalse();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM customers", Integer.class)).isZero();
+        assertThat(redis.opsForHash().get(key(user), "approvedHash")).isNotEqualTo(code);
+        // Retries must accept only the saved hash of the approved code.
+        postJson(ROOT + "/verifications", Map.of("email", EMAIL, "otp", "000000"), 400);
         postJson(ROOT + "/verifications", Map.of("email", EMAIL, "otp", code), 200);
+        verify(mail, times(1)).sendRegistrationOtp(eq(EMAIL), anyString());
+    }
+
+    @Test
+    void emailSendQuotaSurvivesResendAndPendingStateDoesNotExtend() throws Exception {
+        var user = registered();
+        var expiryScript = new org.springframework.data.redis.core.script.DefaultRedisScript<>(
+                "return redis.call('PEXPIRETIME', KEYS[1])", Long.class);
+        Long expiresAt = redis.execute(expiryScript, java.util.List.of(key(user)));
+        assertThat(expiresAt).isPositive();
+        for (int i = 0; i < 2; i++) {
+            redis.opsForHash().put(key(user), "sentAt", Long.toString(redisNow() - 60_001));
+            postJson(ROOT + "/otp-resends", Map.of("email", EMAIL), 200);
+        }
+        redis.opsForHash().put(key(user), "sentAt", Long.toString(redisNow() - 60_001));
+        postJson(ROOT + "/otp-resends", Map.of("email", EMAIL), 429);
+        assertThat(redis.execute(expiryScript, java.util.List.of(key(user)))).isEqualTo(expiresAt);
+        assertThat(redis.getExpire(key(user), java.util.concurrent.TimeUnit.MILLISECONDS)).isPositive();
+        verify(mail, times(3)).sendRegistrationOtp(eq(EMAIL), anyString());
+    }
+
+    @Test
+    void anotherEmailCannotReusePendingPhoneVerification() throws Exception {
+        registered();
+        var another = form();
+        another.put("email", "another@example.test");
+        postJson(ROOT, another, 409);
+        verify(mail, times(1)).sendRegistrationOtp(eq(EMAIL), anyString());
+        assertThat(users.count()).isZero();
     }
     @Test
     void claimedOtpCannotBeVerifiedOrRotatedUntilReleased() throws Exception {
         var pending = registered();
         String code = otp();
-        var store = new com.aquasuite.ims.module.iam.internal.service.RegistrationOtpStore(redis, encoder);
+        var store = new com.aquasuite.ims.module.iam.internal.service.RegistrationOtpStore(redis, encoder, mail);
         var claim = store.verifyAndClaim(EMAIL, code);
         redis.opsForHash().put(key(pending), "sentAt", Long.toString(redisNow() - 60_001));
         postJson(ROOT + "/verifications", Map.of("email", EMAIL, "otp", code), 409);

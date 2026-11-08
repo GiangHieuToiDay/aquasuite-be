@@ -76,6 +76,7 @@ public class CatalogApiImpl implements CatalogApi {
 
             return Optional.of(CatalogBundleSummaryDto.builder()
                     .bundleId(bundle.bundleId())
+                    .bundleCode(bundle.productCode())
                     .bundleName(bundle.name())
                     .packagePrice(bundle.packagePrice())
                     .status(bundle.productStatus())

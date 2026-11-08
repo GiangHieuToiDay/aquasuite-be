@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.env.Environment;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -25,6 +26,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 @Component
+@Order(1)
 @Slf4j(topic = "DATA INITIALIZER")
 public class DevelopmentDataInitializer implements ApplicationRunner {
 
@@ -41,6 +43,7 @@ public class DevelopmentDataInitializer implements ApplicationRunner {
 
     public static final String OWNER_EMAIL = "owner@aquasuite.local";
     public static final String OWNER_USERNAME = "owner_test";
+    public static final String CUSTOMER_EMAIL = "customer@aquasuite.com";
 
     public static class SeedConflictException extends IllegalStateException {
         public SeedConflictException(String message) {
@@ -99,6 +102,7 @@ public class DevelopmentDataInitializer implements ApplicationRunner {
                 status -> {
                     Map<String, Role> managedRoles = createRoles();
                     createOwner(password, managedRoles.get("SHOP_OWNER"));
+                    createCustomer(password, managedRoles.get("CUSTOMER"));
                 });
         log.info("Development data seeding completed successfully.");
         return true;
@@ -172,6 +176,27 @@ public class DevelopmentDataInitializer implements ApplicationRunner {
         }
 
         return roleMap;
+    }
+
+    private void createCustomer(String password, Role customerRole) {
+        if (userRepository.findByEmailIgnoreCase(CUSTOMER_EMAIL).isPresent()) {
+            return;
+        }
+        String username = "customer_test";
+        if (userRepository.existsByUsernameIgnoreCase(username)) {
+            throw new SeedConflictException("Development customer username is already taken: " + username);
+        }
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setEmail(CUSTOMER_EMAIL);
+        user.setUsername(username);
+        user.setFullName("Khách hàng mẫu");
+        user.setStatus(UserStatus.ACTIVE);
+        user.setVerified(true);
+        user.setPasswordHash(passwordEncoder.encode(password));
+        user.setRoles(new HashSet<>(Set.of(customerRole)));
+        userRepository.save(user);
+        log.info("Created development customer user: {}", CUSTOMER_EMAIL);
     }
 
     private void createOwner(String password, Role shopOwnerRole) {
