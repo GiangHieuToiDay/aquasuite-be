@@ -28,6 +28,11 @@ public interface CrmApi {
 
     CustomerSummaryDto getOrCreateWalkInCustomer();
 
+    /**
+     * Lấy hoặc tạo mới hồ sơ khách lẻ vãng lai tại quầy theo SĐT và tên nhập tay.
+     */
+    CustomerSummaryDto getOrCreateWalkInCustomer(String customerName, String phone);
+
     List<CustomerDebtProfileDto> findAllDebtProfiles();
 
     Optional<CustomerDebtProfileDto> getDebtProfile(UUID customerId);

@@ -316,11 +316,18 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         List<SalesOrderItemResponse> itemResponses = salesOrderMapper.toItemResponseList(savedItems);
         String staffName = getStaffName(salesStaffId);
 
+        String cName = customer != null ? customer.customerName() : null;
+        String finalCustomerName = (cName != null && !cName.isBlank() && !"Walk-in Retail Customer".equalsIgnoreCase(cName.trim()))
+                ? cName.trim() : "Khách lẻ tại quầy";
+        String cPhone = customer != null ? customer.phone() : null;
+        String finalCustomerPhone = (cPhone != null && !cPhone.isBlank() && !"0000000000".equals(cPhone.trim()))
+                ? cPhone.trim() : null;
+
         SalesOrderDetailResponse response = salesOrderMapper.toDetailResponse(
                 savedOrder,
                 itemResponses,
-                customer.customerName(),
-                customer.phone(),
+                finalCustomerName,
+                finalCustomerPhone,
                 staffName);
         response.setStoreInvoiceId(storeInvoiceId);
         return response;
@@ -335,7 +342,6 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         if (quotationId == null) {
             throw new AppException(SalesErrorCode.QUOTATION_NOT_FOUND, "null");
         }
-
         // 1. Kiểm tra tồn tại của báo giá
         Quotation quotation = quotationRepository.findById(quotationId)
                 .orElseThrow(() -> new AppException(SalesErrorCode.QUOTATION_NOT_FOUND, quotationId));
@@ -608,13 +614,17 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
         return orderPage.map(order -> {
             int itemCount = orderItemRepository.findByOrderId(order.getOrderId()).size();
-            String customerName = "Khách hàng";
-            String customerPhone = "";
+            String customerName = "Khách lẻ tại quầy";
+            String customerPhone = null;
             try {
                 var cusOpt = crmApi.getCustomerById(order.getCustomerId());
                 if (cusOpt.isPresent()) {
-                    customerName = cusOpt.get().customerName();
-                    customerPhone = cusOpt.get().phone();
+                    String cName = cusOpt.get().customerName();
+                    customerName = (cName != null && !cName.isBlank() && !"Walk-in Retail Customer".equalsIgnoreCase(cName.trim()))
+                            ? cName.trim() : "Khách lẻ tại quầy";
+                    String cPhone = cusOpt.get().phone();
+                    customerPhone = (cPhone != null && !cPhone.isBlank() && !"0000000000".equals(cPhone.trim()))
+                            ? cPhone.trim() : null;
                 }
             } catch (Exception e) {
                 log.debug("Customer {} lookup ignored", order.getCustomerId());
@@ -647,13 +657,17 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
         List<SalesOrderItemResponse> itemResponses = salesOrderMapper.toItemResponseList(items);
 
-        String customerName = "Khách hàng";
-        String customerPhone = "";
+        String customerName = "Khách lẻ tại quầy";
+        String customerPhone = null;
         try {
             var cusOpt = crmApi.getCustomerById(order.getCustomerId());
             if (cusOpt.isPresent()) {
-                customerName = cusOpt.get().customerName();
-                customerPhone = cusOpt.get().phone();
+                String cName = cusOpt.get().customerName();
+                customerName = (cName != null && !cName.isBlank() && !"Walk-in Retail Customer".equalsIgnoreCase(cName.trim()))
+                        ? cName.trim() : "Khách lẻ tại quầy";
+                String cPhone = cusOpt.get().phone();
+                customerPhone = (cPhone != null && !cPhone.isBlank() && !"0000000000".equals(cPhone.trim()))
+                        ? cPhone.trim() : null;
             }
         } catch (Exception e) {
             log.debug("Customer {} lookup ignored", order.getCustomerId());
@@ -686,9 +700,18 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                     .orElseThrow(() -> new AppException(SalesErrorCode.CUSTOMER_NOT_FOUND));
         }
 
-        if (request.getCustomerPhone() != null && !request.getCustomerPhone().isBlank()) {
-            return crmApi.getCustomerByPhone(request.getCustomerPhone().trim())
-                    .orElseGet(() -> crmApi.getOrCreateWalkInCustomer());
+        String phone = (request.getCustomerPhone() != null && !request.getCustomerPhone().isBlank() && !"0000000000".equals(request.getCustomerPhone().trim()))
+                ? request.getCustomerPhone().trim() : null;
+        String name = (request.getCustomerName() != null && !request.getCustomerName().isBlank())
+                ? request.getCustomerName().trim() : null;
+
+        if (phone != null) {
+            return crmApi.getCustomerByPhone(phone)
+                    .orElseGet(() -> crmApi.getOrCreateWalkInCustomer(name, phone));
+        }
+
+        if (name != null) {
+            return crmApi.getOrCreateWalkInCustomer(name, null);
         }
 
         return crmApi.getOrCreateWalkInCustomer();

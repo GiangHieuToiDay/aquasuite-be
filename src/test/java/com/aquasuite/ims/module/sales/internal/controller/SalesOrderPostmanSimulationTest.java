@@ -147,6 +147,7 @@ public class SalesOrderPostmanSimulationTest {
         when(crmApi.getCustomerById(retailCustomerId)).thenReturn(Optional.of(retailCustomer));
         when(crmApi.getCustomerById(overdueCustomerId)).thenReturn(Optional.of(overdueCustomer));
         when(crmApi.getOrCreateWalkInCustomer()).thenReturn(retailCustomer);
+        when(crmApi.getOrCreateWalkInCustomer(any(), any())).thenReturn(retailCustomer);
         when(creditControlApi.authorize(any())).thenAnswer(invocation -> {
             var command = invocation.getArgument(0, com.aquasuite.ims.module.finance.api.dto.CreditAuthorizationCommand.class);
             boolean approved = !overdueCustomerId.equals(command.customerId());
