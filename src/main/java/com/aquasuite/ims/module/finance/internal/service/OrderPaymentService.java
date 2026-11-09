@@ -1,6 +1,7 @@
 package com.aquasuite.ims.module.finance.internal.service;
 
 import com.aquasuite.ims.module.finance.internal.payload.request.RecordOrderPaymentRequest;
+import com.aquasuite.ims.module.finance.internal.payload.response.OrderMilestoneProgressResponse;
 import com.aquasuite.ims.module.finance.internal.payload.response.OrderPaymentResponse;
 import com.aquasuite.ims.module.finance.internal.payload.response.OrderPaymentSummary;
 import java.util.List;
@@ -29,4 +30,17 @@ public interface OrderPaymentService {
      * @return danh sách giao dịch thu tiền
      */
     List<OrderPaymentResponse> history(UUID orderId);
+
+    /**
+     * Tính tiến độ thanh toán theo từng mốc của đơn từ các khoản thu đã xác minh.
+     *
+     * <p>Chỉ khoản {@code RECEIPT}/{@code VERIFIED} của đúng đơn được phân bổ lần lượt
+     * vào các mốc theo thứ tự thỏa thuận; phần dư của mốc trước chảy sang mốc sau cùng
+     * đơn. Khoản {@code PENDING} được hiển thị riêng, không tính vào mốc. Không tạo thêm
+     * giao dịch và không đếm trùng số tiền.</p>
+     *
+     * @param orderId mã đơn cần tính tiến độ
+     * @return tổng quan toàn đơn kèm tiến độ từng mốc
+     */
+    OrderMilestoneProgressResponse milestoneProgress(UUID orderId);
 }

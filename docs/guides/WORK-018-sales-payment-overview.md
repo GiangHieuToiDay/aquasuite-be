@@ -74,6 +74,8 @@ Còn phải trả = max(Tổng tiền đơn - Đã trả, 0)
 
 Với tổng đơn dương: chưa có khoản xác minh là `UNPAID`; đã xác minh một phần là `PARTIALLY_PAID`; đã xác minh đủ là `PAID`. `PENDING` không làm giảm số còn phải trả. Mỗi lần khách thanh toán được lưu thành một transaction riêng.
 
+Sau merge, đơn tạo từ báo giá đã có thể lưu các mốc thanh toán của đơn. **Chưa triển khai trong UC-23:** theo quyết định mới, tiến độ mốc sẽ được tính từ tiền `VERIFIED`, theo thứ tự mốc còn thiếu; phần dư tiếp tục tính cho mốc sau cùng đơn, còn `PENDING` chưa tính. Đây là dự thảo cần review tại [WORK-018 Feature Spec](../specifications/WORK-018-uc23-order-payments.md), không phải phân bổ tiền vào hóa đơn điện tử UC-63 do thành viên khác phụ trách.
+
 Ví dụ đơn 10 triệu: khách đã đưa 3 triệu tiền mặt, sau đó khai báo chuyển khoản 7 triệu. Hệ thống ghi 3 triệu `VERIFIED`, 7 triệu `PENDING`: đã trả 3 triệu, còn phải trả 7 triệu, trạng thái `PARTIALLY_PAID`. Khi UC-70 được triển khai và xác minh thành công khoản chuyển khoản, hệ thống mới tính khoản 7 triệu là đã thu.
 
 ## Store Invoice and Electronic Invoices

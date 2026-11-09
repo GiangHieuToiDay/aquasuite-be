@@ -1,4 +1,4 @@
-﻿-- Redis Lua script: rotate-refresh.lua (V2)
+-- Redis Lua script: rotate-refresh.lua (V2)
 -- KEYS[1]: auth:v2:session:{sid}
 -- KEYS[2]: auth:v2:session-revoked:{sid}
 -- KEYS[3]: auth:v2:refresh-used:{sid}:{oldJti}

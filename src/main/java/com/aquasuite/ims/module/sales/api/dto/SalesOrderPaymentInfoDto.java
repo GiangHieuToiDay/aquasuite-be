@@ -17,6 +17,7 @@ import java.util.UUID;
  * @param orderStatus trạng thái xử lý đơn
  * @param paymentStatus trạng thái thanh toán đang lưu tại Sales
  * @param totalAmount tổng tiền phải trả của đơn
+ * @param depositAmount số tiền cọc theo thỏa thuận của đơn; có thể null nếu đơn không đặt cọc
  * @param validForPayment đơn có hợp lệ để tiếp nhận thanh toán hay không
  */
 @Builder
@@ -30,6 +31,7 @@ public record SalesOrderPaymentInfoDto(
         String orderStatus,
         String paymentStatus,
         BigDecimal totalAmount,
+        BigDecimal depositAmount,
         boolean validForPayment
 ) {
 }
