@@ -26,18 +26,6 @@ public interface PurchaseOrderService {
 
     PurchaseOrderResponse confirmPurchaseOrder(UUID purchaseOrderId);
 
-    PurchaseOrderResponse reopenToQuoted(UUID purchaseOrderId, com.aquasuite.ims.module.purchasing.internal.payload.request.ReopenPoRequest request);
-
-    PurchaseOrderResponse settleStage(UUID purchaseOrderId, UUID stageId, com.aquasuite.ims.module.purchasing.internal.payload.request.SettleStageRequest request);
-
-    com.aquasuite.ims.module.purchasing.internal.payload.response.StageRollbackRequestResponse requestStageRollback(UUID purchaseOrderId, UUID stageId, com.aquasuite.ims.module.purchasing.internal.payload.request.StageRollbackRequest request);
-
-    PurchaseOrderResponse reviewStageRollback(UUID purchaseOrderId, UUID rollbackId, com.aquasuite.ims.module.purchasing.internal.payload.request.ReviewRollbackRequest request);
-
-    PurchaseOrderResponse directRollbackStage(UUID purchaseOrderId, UUID stageId, com.aquasuite.ims.module.purchasing.internal.payload.request.StageRollbackRequest request);
-
-    PurchaseOrderResponse closeShortPurchaseOrder(UUID purchaseOrderId, com.aquasuite.ims.module.purchasing.internal.payload.request.CloseShortPoRequest request);
-
     PurchaseOrderResponse cancelPurchaseOrder(UUID purchaseOrderId, CancelPurchaseOrderRequest request);
 
     PurchaseOrderResponse closePurchaseOrder(UUID purchaseOrderId, ClosePurchaseOrderRequest request);

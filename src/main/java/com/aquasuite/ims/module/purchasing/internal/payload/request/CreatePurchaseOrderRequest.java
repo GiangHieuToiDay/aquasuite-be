@@ -31,11 +31,6 @@ public class CreatePurchaseOrderRequest {
 
     private String note;
 
-    private String deliveryPlanType;
-
-    @Valid
-    private List<CreatePurchaseOrderStageRequest> stages;
-
     @NotEmpty(message = "Đơn mua hàng phải có ít nhất một dòng sản phẩm")
     @Valid
     private List<CreatePurchaseOrderItemRequest> items;

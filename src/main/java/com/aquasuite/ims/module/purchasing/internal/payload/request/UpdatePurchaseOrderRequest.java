@@ -24,11 +24,6 @@ public class UpdatePurchaseOrderRequest {
 
     private String note;
 
-    private String deliveryPlanType;
-
-    @Valid
-    private List<CreatePurchaseOrderStageRequest> stages;
-
     @NotNull(message = "Version không được để trống để kiểm tra xung đột dữ liệu")
     private Integer version;
 
