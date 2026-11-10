@@ -35,7 +35,7 @@ public class PurchaseOrderController {
      * 1. Tạo đơn mua hàng nháp (Create DRAFT PO - không nhập đơn giá, total_amount = 0)
      */
     @PostMapping
-    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'SALES_STAFF')")
+    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'ACCOUNTANT', 'SALES_STAFF')")
     public ResponseEntity<ApiResponse<PurchaseOrderResponse>> createDraft(
             @Valid @RequestBody CreatePurchaseOrderRequest request) {
         log.info("API: Create draft purchase order for supplier {}", request.getSupplierId());
@@ -58,7 +58,7 @@ public class PurchaseOrderController {
      * 3. Sửa đơn mua hàng nháp (nhập đơn giá, ngày giao dự kiến, chia đợt)
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'SALES_STAFF')")
+    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'ACCOUNTANT', 'SALES_STAFF')")
     public ResponseEntity<ApiResponse<PurchaseOrderResponse>> updateDraft(
             @PathVariable UUID id,
             @Valid @RequestBody UpdatePurchaseOrderRequest request) {
@@ -83,7 +83,7 @@ public class PurchaseOrderController {
      * 5. Xác nhận đơn mua hàng (QUOTED/DRAFT -> CONFIRMED, khóa danh sách hàng, yêu cầu đủ đơn giá & ngày giao các đợt)
      */
     @PostMapping("/{id}/confirm")
-    @PreAuthorize("hasRole('SHOP_OWNER')")
+    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<PurchaseOrderResponse>> confirmPurchaseOrder(@PathVariable UUID id) {
         log.info("API: Confirm purchase order: {}", id);
         PurchaseOrderResponse response = purchaseOrderService.confirmPurchaseOrder(id);
@@ -94,7 +94,7 @@ public class PurchaseOrderController {
      * 6. Mở lại đơn mua hàng để sửa (CONFIRMED -> QUOTED, chỉ khi chưa có đợt nào SETTLED)
      */
     @PostMapping("/{id}/reopen")
-    @PreAuthorize("hasRole('SHOP_OWNER')")
+    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<PurchaseOrderResponse>> reopenToQuoted(
             @PathVariable UUID id,
             @Valid @RequestBody ReopenPoRequest request) {
@@ -163,7 +163,7 @@ public class PurchaseOrderController {
      * 11. Đóng PO nhận thiếu (khi đã có ít nhất 1 đợt SETTLED, NCC không giao tiếp)
      */
     @PostMapping("/{id}/close-short")
-    @PreAuthorize("hasRole('SHOP_OWNER')")
+    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<PurchaseOrderResponse>> closeShortPurchaseOrder(
             @PathVariable UUID id,
             @Valid @RequestBody CloseShortPoRequest request) {
@@ -176,7 +176,7 @@ public class PurchaseOrderController {
      * 12. Hủy đơn mua hàng (chỉ khi chưa có đợt nào SETTLED)
      */
     @PostMapping("/{id}/cancel")
-    @PreAuthorize("hasRole('SHOP_OWNER')")
+    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<PurchaseOrderResponse>> cancelPurchaseOrder(
             @PathVariable UUID id,
             @Valid @RequestBody CancelPurchaseOrderRequest request) {
@@ -189,7 +189,7 @@ public class PurchaseOrderController {
      * 13. Đóng đơn mua hàng (cho quy trình nhập kho truyền thống nếu có)
      */
     @PostMapping("/{id}/close")
-    @PreAuthorize("hasRole('SHOP_OWNER')")
+    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<PurchaseOrderResponse>> closePurchaseOrder(
             @PathVariable UUID id,
             @Valid @RequestBody ClosePurchaseOrderRequest request) {
@@ -219,7 +219,7 @@ public class PurchaseOrderController {
      * 15. Gợi ý hàng sắp hết cho nhà cung cấp (nút Auto-Fill)
      */
     @GetMapping("/low-stock-suggestions")
-    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'SALES_STAFF')")
+    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'ACCOUNTANT', 'SALES_STAFF')")
     public ResponseEntity<ApiResponse<List<LowStockSuggestionResponse>>> getLowStockSuggestions(
             @RequestParam UUID supplierId) {
         log.info("API: Get low stock suggestions for supplier: {}", supplierId);
@@ -231,7 +231,7 @@ public class PurchaseOrderController {
      * 16. Danh sách SKU của nhà cung cấp hoặc toàn bộ để thêm dòng hàng
      */
     @GetMapping("/supplier-items")
-    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'SALES_STAFF')")
+    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'ACCOUNTANT', 'SALES_STAFF')")
     public ResponseEntity<ApiResponse<List<SupplierItemOptionResponse>>> getSupplierItems(
             @RequestParam UUID supplierId,
             @RequestParam(defaultValue = "false") boolean all) {
