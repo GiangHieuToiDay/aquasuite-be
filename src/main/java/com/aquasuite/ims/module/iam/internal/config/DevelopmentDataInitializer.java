@@ -221,8 +221,8 @@ public class DevelopmentDataInitializer implements ApplicationRunner {
 
             Set<Role> roles = user.getRoles();
             if (roles == null
-                    || roles.size() != 1
-                    || !roles.stream().allMatch(r -> "SHOP_OWNER".equals(r.getRoleName()))) {
+                    || roles.isEmpty()
+                    || roles.stream().noneMatch(r -> "SHOP_OWNER".equals(r.getRoleName()))) {
                 String roleNames =
                         roles == null
                                 ? "[]"

@@ -1,5 +1,6 @@
 package com.aquasuite.ims.module.crm.internal.payload.request;
 
+import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -12,7 +13,7 @@ import java.math.BigDecimal;
 
 @Data
 public class UpdateCustomerCreditProfileRequest {
-    @NotNull @DecimalMin(value = "0.01")
+    @NotNull @DecimalMin(value = "0.01") @DecimalMax(value = "500000000.00")
     private BigDecimal creditLimit;
 
     @NotNull @Min(1) @Max(30)

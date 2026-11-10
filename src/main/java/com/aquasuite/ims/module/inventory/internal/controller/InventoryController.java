@@ -44,7 +44,6 @@ public class InventoryController {
         Page<StockMovement> movements = inventoryService.getMovementsByVariantId(variantId, pageable);
         return ResponseEntity.ok(ApiResponse.ok(movements));
     }
-
     /**
      * Điều chỉnh tồn kho thủ công có lý do (Manual adjustment)
      */

@@ -15,21 +15,19 @@ import com.aquasuite.ims.module.inventory.internal.repository.SupplierRepository
 import com.aquasuite.ims.module.purchasing.api.PurchasingApi;
 import com.aquasuite.ims.module.purchasing.internal.entity.PurchaseOrder;
 import com.aquasuite.ims.module.purchasing.internal.entity.PurchaseOrderItem;
+import com.aquasuite.ims.module.purchasing.internal.entity.PurchaseOrderStage;
+import com.aquasuite.ims.module.purchasing.internal.entity.PurchaseOrderStageRollbackRequest;
+import com.aquasuite.ims.module.purchasing.internal.enums.PurchaseOrderDeliveryType;
+import com.aquasuite.ims.module.purchasing.internal.enums.PurchaseOrderStageStatus;
 import com.aquasuite.ims.module.purchasing.internal.enums.PurchaseOrderStatus;
+import com.aquasuite.ims.module.purchasing.internal.enums.RollbackRequestStatus;
 import com.aquasuite.ims.module.purchasing.internal.error.PurchasingErrorCode;
-import com.aquasuite.ims.module.purchasing.internal.payload.request.CancelPurchaseOrderRequest;
-import com.aquasuite.ims.module.purchasing.internal.payload.request.ClosePurchaseOrderRequest;
-import com.aquasuite.ims.module.purchasing.internal.payload.request.CreatePurchaseOrderRequest;
-import com.aquasuite.ims.module.purchasing.internal.payload.request.PurchaseOrderFilterRequest;
-import com.aquasuite.ims.module.purchasing.internal.payload.request.UpdatePurchaseOrderRequest;
-import com.aquasuite.ims.module.purchasing.internal.payload.response.LowStockSuggestionResponse;
-import com.aquasuite.ims.module.purchasing.internal.payload.response.PurchaseOrderItemResponse;
-import com.aquasuite.ims.module.purchasing.internal.payload.response.PurchaseOrderListItemResponse;
-import com.aquasuite.ims.module.purchasing.internal.payload.response.PurchaseOrderReceiptItemResponse;
-import com.aquasuite.ims.module.purchasing.internal.payload.response.PurchaseOrderResponse;
-import com.aquasuite.ims.module.purchasing.internal.payload.response.SupplierItemOptionResponse;
+import com.aquasuite.ims.module.purchasing.internal.payload.request.*;
+import com.aquasuite.ims.module.purchasing.internal.payload.response.*;
 import com.aquasuite.ims.module.purchasing.internal.repository.PurchaseOrderItemRepository;
 import com.aquasuite.ims.module.purchasing.internal.repository.PurchaseOrderRepository;
+import com.aquasuite.ims.module.purchasing.internal.repository.PurchaseOrderStageRepository;
+import com.aquasuite.ims.module.purchasing.internal.repository.PurchaseOrderStageRollbackRequestRepository;
 import com.aquasuite.ims.module.purchasing.internal.service.PoCodeGenerator;
 import com.aquasuite.ims.module.purchasing.internal.service.PurchaseOrderCalculator;
 import com.aquasuite.ims.module.purchasing.internal.service.PurchaseOrderPdfService;
@@ -61,6 +59,8 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final PurchaseOrderItemRepository purchaseOrderItemRepository;
+    private final PurchaseOrderStageRepository stageRepository;
+    private final PurchaseOrderStageRollbackRequestRepository rollbackRequestRepository;
     private final SupplierRepository supplierRepository;
     private final SupplierProductRepository supplierProductRepository;
     private final CatalogApi catalogApi;
@@ -100,16 +100,29 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                 .toList();
         Map<UUID, CatalogSkuSummaryDto> skuMap = catalogApi.getSkuSummaries(variantIds);
 
+        PurchaseOrderDeliveryType deliveryType = PurchaseOrderDeliveryType.SINGLE;
+        if (request.getDeliveryPlanType() != null && !request.getDeliveryPlanType().isBlank()) {
+            try {
+                deliveryType = PurchaseOrderDeliveryType.valueOf(request.getDeliveryPlanType().trim().toUpperCase());
+            } catch (Exception ignored) {
+            }
+        }
+
         PurchaseOrder po = PurchaseOrder.builder()
                 .poCode(poCodeGenerator.generatePoCode())
                 .supplierId(supplier.getSupplierId())
                 .warehouseId(request.getWarehouseId())
-                .warehouseCode(request.getWarehouseCode() != null && !request.getWarehouseCode().isBlank() ? request.getWarehouseCode().trim() : "WH_MAIN")
+                .warehouseCode(request.getWarehouseCode() != null && !request.getWarehouseCode().isBlank()
+                        ? request.getWarehouseCode().trim()
+                        : "WH_MAIN")
                 .status(PurchaseOrderStatus.DRAFT)
                 .orderDate(LocalDate.now())
                 .expectedDate(request.getExpectedDate())
                 .note(request.getNote())
                 .totalAmount(BigDecimal.ZERO)
+                .paidAmount(BigDecimal.ZERO)
+                .isShortClosed(false)
+                .deliveryPlanType(deliveryType)
                 .createdBy(iamApi.getCurrentUserId())
                 .version(0)
                 .build();
@@ -142,6 +155,24 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             po.addItem(item);
         }
 
+        if (request.getStages() != null && !request.getStages().isEmpty()) {
+            int stageSort = 0;
+            for (CreatePurchaseOrderStageRequest stReq : request.getStages()) {
+                PurchaseOrderStage st = PurchaseOrderStage.builder()
+                        .stageId(stReq.getStageId() != null ? stReq.getStageId() : UUID.randomUUID())
+                        .stageName(stReq.getStageName() != null ? stReq.getStageName() : "Đợt " + (stageSort + 1))
+                        .description(stReq.getDescription())
+                        .expectedDeliveryDate(stReq.getExpectedDeliveryDate() != null ? stReq.getExpectedDeliveryDate()
+                                : request.getExpectedDate())
+                        .percent(stReq.getPercent() != null ? stReq.getPercent() : new BigDecimal("100.00"))
+                        .amount(stReq.getAmount() != null ? stReq.getAmount() : BigDecimal.ZERO)
+                        .status(PurchaseOrderStageStatus.PENDING)
+                        .sortOrder(stReq.getSortOrder() != null ? stReq.getSortOrder() : stageSort++)
+                        .build();
+                po.addStage(st);
+            }
+        }
+
         PurchaseOrder savedPo = purchaseOrderRepository.save(po);
         log.info("PO Draft created successfully: {}", savedPo.getPoCode());
         return mapToDetailResponse(savedPo, supplier);
@@ -164,8 +195,12 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         PurchaseOrder po = purchaseOrderRepository.findById(purchaseOrderId)
                 .orElseThrow(() -> new AppException(PurchasingErrorCode.PO_NOT_FOUND));
 
-        if (po.getStatus() != PurchaseOrderStatus.DRAFT) {
-            throw new AppException(PurchasingErrorCode.PO_CANNOT_EDIT);
+        if (po.getStatus() == PurchaseOrderStatus.CONFIRMED || po.getStatus() == PurchaseOrderStatus.COMPLETED
+                || po.getStatus() == PurchaseOrderStatus.CANCELLED) {
+            throw new AppException(PurchasingErrorCode.PO_LOCKED_ITEMS_CANNOT_EDIT);
+        }
+        if (po.getStatus() != PurchaseOrderStatus.DRAFT && po.getStatus() != PurchaseOrderStatus.QUOTED) {
+            throw new AppException(PurchasingErrorCode.PO_LOCKED_ITEMS_CANNOT_EDIT);
         }
 
         if (!Objects.equals(po.getVersion(), request.getVersion())) {
@@ -174,6 +209,16 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
         if (request.getItems() == null || request.getItems().isEmpty()) {
             throw new AppException(PurchasingErrorCode.PO_ITEMS_EMPTY);
+        }
+
+        boolean hasAnyPrice = request.getItems().stream()
+                .anyMatch(it -> it.getUnitCost() != null && it.getUnitCost().compareTo(BigDecimal.ZERO) > 0);
+        if (hasAnyPrice && request.getExpectedDate() == null) {
+            throw new AppException(PurchasingErrorCode.EXPECTED_DATE_REQUIRED);
+        }
+
+        if (hasAnyPrice && po.getStatus() == PurchaseOrderStatus.DRAFT) {
+            po.setStatus(PurchaseOrderStatus.QUOTED);
         }
 
         // Duplicate SKU check
@@ -256,6 +301,77 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         po.setExpectedDate(request.getExpectedDate());
         po.setNote(request.getNote());
 
+        if (request.getDeliveryPlanType() != null && !request.getDeliveryPlanType().isBlank()) {
+            try {
+                po.setDeliveryPlanType(
+                        PurchaseOrderDeliveryType.valueOf(request.getDeliveryPlanType().trim().toUpperCase()));
+            } catch (Exception ignored) {
+            }
+        }
+
+        // Staging update
+        if (request.getStages() != null && !request.getStages().isEmpty()) {
+            for (CreatePurchaseOrderStageRequest st : request.getStages()) {
+                if (st.getExpectedDeliveryDate() == null) {
+                    throw new AppException(PurchasingErrorCode.STAGE_MISSING_EXPECTED_DATE);
+                }
+            }
+
+            List<CreatePurchaseOrderStageRequest> stageReqs = new ArrayList<>(request.getStages());
+            if (po.getDeliveryPlanType() == PurchaseOrderDeliveryType.SINGLE && stageReqs.size() == 1) {
+                stageReqs.get(0).setAmount(totalAmount);
+                stageReqs.get(0).setPercent(new BigDecimal("100.00"));
+            } else if (stageReqs.size() > 1 && totalAmount.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal sumPrevious = BigDecimal.ZERO;
+                for (int i = 0; i < stageReqs.size() - 1; i++) {
+                    sumPrevious = sumPrevious
+                            .add(stageReqs.get(i).getAmount() != null ? stageReqs.get(i).getAmount() : BigDecimal.ZERO);
+                }
+                BigDecimal lastAmount = totalAmount.subtract(sumPrevious);
+                if (lastAmount.compareTo(BigDecimal.ZERO) < 0) {
+                    throw new AppException(PurchasingErrorCode.STAGE_SUM_NOT_MATCH_PO_TOTAL);
+                }
+                stageReqs.get(stageReqs.size() - 1).setAmount(lastAmount);
+            }
+
+            if (totalAmount.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal stageSum = stageReqs.stream()
+                        .map(s -> s.getAmount() != null ? s.getAmount() : BigDecimal.ZERO)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                if (stageSum.compareTo(totalAmount) != 0) {
+                    throw new AppException(PurchasingErrorCode.STAGE_SUM_NOT_MATCH_PO_TOTAL);
+                }
+            }
+
+            po.clearStages();
+            int stageSort = 0;
+            for (CreatePurchaseOrderStageRequest stReq : stageReqs) {
+                PurchaseOrderStage st = PurchaseOrderStage.builder()
+                        .stageId(stReq.getStageId() != null ? stReq.getStageId() : UUID.randomUUID())
+                        .stageName(stReq.getStageName() != null ? stReq.getStageName() : "Đợt " + (stageSort + 1))
+                        .description(stReq.getDescription())
+                        .expectedDeliveryDate(stReq.getExpectedDeliveryDate())
+                        .percent(stReq.getPercent() != null ? stReq.getPercent() : BigDecimal.ZERO)
+                        .amount(stReq.getAmount() != null ? stReq.getAmount() : BigDecimal.ZERO)
+                        .status(PurchaseOrderStageStatus.PENDING)
+                        .sortOrder(stReq.getSortOrder() != null ? stReq.getSortOrder() : stageSort++)
+                        .build();
+                po.addStage(st);
+            }
+        } else if (po.getDeliveryPlanType() == PurchaseOrderDeliveryType.SINGLE && request.getExpectedDate() != null) {
+            po.clearStages();
+            po.addStage(PurchaseOrderStage.builder()
+                    .stageId(UUID.randomUUID())
+                    .stageName("Đợt 1 (Toàn bộ)")
+                    .description("Giao một lần toàn bộ đơn hàng")
+                    .expectedDeliveryDate(request.getExpectedDate())
+                    .percent(new BigDecimal("100.00"))
+                    .amount(totalAmount)
+                    .status(PurchaseOrderStageStatus.PENDING)
+                    .sortOrder(0)
+                    .build());
+        }
+
         PurchaseOrder updatedPo = purchaseOrderRepository.save(po);
         Supplier supplier = supplierRepository.findById(po.getSupplierId()).orElse(null);
         return mapToDetailResponse(updatedPo, supplier);
@@ -271,8 +387,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                 String pattern = "%" + filter.getSearch().trim().toLowerCase() + "%";
                 predicates.add(cb.or(
                         cb.like(cb.lower(root.get("poCode")), pattern),
-                        cb.like(cb.lower(root.get("note")), pattern)
-                ));
+                        cb.like(cb.lower(root.get("note")), pattern)));
             }
             if (filter.getSupplierId() != null) {
                 predicates.add(cb.equal(root.get("supplierId"), filter.getSupplierId()));
@@ -291,7 +406,8 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         };
 
         String sortBy = filter.getSortBy() != null && !filter.getSortBy().isBlank() ? filter.getSortBy() : "createdAt";
-        Sort.Direction direction = "ASC".equalsIgnoreCase(filter.getSortDirection()) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Sort.Direction direction = "ASC".equalsIgnoreCase(filter.getSortDirection()) ? Sort.Direction.ASC
+                : Sort.Direction.DESC;
         Pageable pageable = PageRequest.of(filter.getPage(), filter.getSize(), Sort.by(direction, sortBy));
 
         Page<PurchaseOrder> page = purchaseOrderRepository.findAll(spec, pageable);
@@ -314,6 +430,11 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
         return PageResponse.from(page, po -> {
             Supplier supp = supplierMap.get(po.getSupplierId());
+            int totalStg = po.getStages() != null ? po.getStages().size() : 0;
+            int settledStg = po.getStages() != null
+                    ? (int) po.getStages().stream().filter(s -> s.getStatus() == PurchaseOrderStageStatus.SETTLED)
+                            .count()
+                    : 0;
             return PurchaseOrderListItemResponse.builder()
                     .purchaseOrderId(po.getPurchaseOrderId())
                     .poCode(po.getPoCode())
@@ -325,6 +446,12 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                     .orderDate(po.getOrderDate())
                     .expectedDate(po.getExpectedDate())
                     .totalAmount(po.getTotalAmount())
+                    .paidAmount(po.getPaidAmount() != null ? po.getPaidAmount() : BigDecimal.ZERO)
+                    .deliveryPlanType(po.getDeliveryPlanType() != null ? po.getDeliveryPlanType().name()
+                            : PurchaseOrderDeliveryType.SINGLE.name())
+                    .isShortClosed(Boolean.TRUE.equals(po.getIsShortClosed()))
+                    .totalStages(totalStg)
+                    .settledStages(settledStg)
                     .totalItems(po.getItems() != null ? po.getItems().size() : 0)
                     .createdByName(userNameMap.get(po.getCreatedBy()))
                     .createdAt(po.getCreatedAt())
@@ -340,7 +467,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         PurchaseOrder po = purchaseOrderRepository.findById(purchaseOrderId)
                 .orElseThrow(() -> new AppException(PurchasingErrorCode.PO_NOT_FOUND));
 
-        if (po.getStatus() != PurchaseOrderStatus.DRAFT) {
+        if (po.getStatus() != PurchaseOrderStatus.QUOTED && po.getStatus() != PurchaseOrderStatus.DRAFT) {
             throw new AppException(PurchasingErrorCode.PO_CANNOT_CONFIRM_STATUS);
         }
 
@@ -355,12 +482,16 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             throw new AppException(PurchasingErrorCode.PO_ITEMS_EMPTY);
         }
 
+        if (po.getExpectedDate() == null) {
+            throw new AppException(PurchasingErrorCode.PO_CONFIRM_MISSING_EXPECTED_DATE);
+        }
+
         List<UUID> variantIds = po.getItems().stream().map(PurchaseOrderItem::getVariantId).toList();
         Map<UUID, CatalogSkuSummaryDto> skuMap = catalogApi.getSkuSummaries(variantIds);
 
         BigDecimal totalAmount = BigDecimal.ZERO;
         for (PurchaseOrderItem item : po.getItems()) {
-            if (item.getUnitCost() == null || item.getUnitCost().compareTo(BigDecimal.ZERO) < 0) {
+            if (item.getUnitCost() == null || item.getUnitCost().compareTo(BigDecimal.ZERO) <= 0) {
                 throw new AppException(PurchasingErrorCode.PO_CONFIRM_MISSING_PRICE, item.getSku());
             }
             CatalogSkuSummaryDto skuDto = skuMap.get(item.getVariantId());
@@ -375,8 +506,40 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             item.setLineTotal(lineTotal);
             totalAmount = totalAmount.add(lineTotal);
         }
-
         po.setTotalAmount(totalAmount);
+
+        // Ensure stages exist
+        if (po.getStages() == null || po.getStages().isEmpty()) {
+            if (po.getDeliveryPlanType() == PurchaseOrderDeliveryType.SINGLE) {
+                po.addStage(PurchaseOrderStage.builder()
+                        .stageId(UUID.randomUUID())
+                        .stageName("Đợt 1 (Toàn bộ)")
+                        .description("Giao một lần toàn bộ đơn hàng")
+                        .expectedDeliveryDate(po.getExpectedDate())
+                        .percent(new BigDecimal("100.00"))
+                        .amount(totalAmount)
+                        .status(PurchaseOrderStageStatus.PENDING)
+                        .sortOrder(0)
+                        .build());
+            } else {
+                throw new AppException(PurchasingErrorCode.STAGE_MISSING_EXPECTED_DATE);
+            }
+        }
+
+        // Validate stages
+        for (PurchaseOrderStage st : po.getStages()) {
+            if (st.getExpectedDeliveryDate() == null) {
+                throw new AppException(PurchasingErrorCode.STAGE_MISSING_EXPECTED_DATE);
+            }
+        }
+
+        BigDecimal stageSum = po.getStages().stream()
+                .map(PurchaseOrderStage::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (stageSum.compareTo(totalAmount) != 0) {
+            throw new AppException(PurchasingErrorCode.STAGE_SUM_NOT_MATCH_PO_TOTAL);
+        }
+
         po.setStatus(PurchaseOrderStatus.CONFIRMED);
         po.setConfirmedBy(iamApi.getCurrentUserId());
         po.setConfirmedAt(OffsetDateTime.now());
@@ -384,6 +547,307 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         PurchaseOrder confirmedPo = purchaseOrderRepository.save(po);
         log.info("PO confirmed successfully: {}", confirmedPo.getPoCode());
         return mapToDetailResponse(confirmedPo, supplier);
+    }
+
+    @Override
+    @Transactional
+    public PurchaseOrderResponse reopenToQuoted(UUID purchaseOrderId, ReopenPoRequest request) {
+        log.info("Reopening PO: {}", purchaseOrderId);
+
+        if (request == null || request.getReopenReason() == null || request.getReopenReason().isBlank()) {
+            throw new AppException(PurchasingErrorCode.REOPEN_REASON_REQUIRED);
+        }
+
+        PurchaseOrder po = purchaseOrderRepository.findById(purchaseOrderId)
+                .orElseThrow(() -> new AppException(PurchasingErrorCode.PO_NOT_FOUND));
+
+        if (po.getStatus() != PurchaseOrderStatus.CONFIRMED) {
+            throw new AppException(PurchasingErrorCode.PO_CANNOT_EDIT);
+        }
+
+        boolean hasSettledStage = po.getStages() != null && po.getStages().stream()
+                .anyMatch(st -> st.getStatus() == PurchaseOrderStageStatus.SETTLED);
+        if (hasSettledStage) {
+            throw new AppException(PurchasingErrorCode.PO_CANNOT_REOPEN_WITH_SETTLED_STAGES);
+        }
+
+        po.setStatus(PurchaseOrderStatus.QUOTED);
+        po.setReopenedBy(iamApi.getCurrentUserId());
+        po.setReopenedAt(OffsetDateTime.now());
+        po.setReopenReason(request.getReopenReason().trim());
+
+        PurchaseOrder savedPo = purchaseOrderRepository.save(po);
+        Supplier supplier = supplierRepository.findById(po.getSupplierId()).orElse(null);
+        return mapToDetailResponse(savedPo, supplier);
+    }
+
+    @Override
+    @Transactional
+    public PurchaseOrderResponse settleStage(UUID purchaseOrderId, UUID stageId, SettleStageRequest request) {
+        log.info("Settling stage {} of PO: {}", stageId, purchaseOrderId);
+
+        PurchaseOrder po = purchaseOrderRepository.findById(purchaseOrderId)
+                .orElseThrow(() -> new AppException(PurchasingErrorCode.PO_NOT_FOUND));
+
+        if (po.getStatus() != PurchaseOrderStatus.CONFIRMED) {
+            throw new AppException(PurchasingErrorCode.PO_CANNOT_CONFIRM_STATUS);
+        }
+
+        PurchaseOrderStage stage = stageRepository
+                .findByStageIdAndPurchaseOrder_PurchaseOrderId(stageId, purchaseOrderId)
+                .orElseThrow(() -> new AppException(PurchasingErrorCode.STAGE_NOT_FOUND));
+
+        if (stage.getStatus() == PurchaseOrderStageStatus.SETTLED
+                || stage.getStatus() == PurchaseOrderStageStatus.CANCELLED) {
+            throw new AppException(PurchasingErrorCode.STAGE_ALREADY_SETTLED);
+        }
+
+        BigDecimal actualAmount = request.getActualAmount() != null ? request.getActualAmount() : stage.getAmount();
+        if (actualAmount.compareTo(stage.getAmount()) != 0) {
+            if (request.getNote() == null || request.getNote().isBlank()) {
+                throw new AppException(PurchasingErrorCode.STAGE_SETTLEMENT_REASON_REQUIRED);
+            }
+        }
+
+        stage.setStatus(PurchaseOrderStageStatus.SETTLED);
+        stage.setActualAmount(actualAmount);
+        stage.setPaidAt(request.getPaidAt() != null ? request.getPaidAt() : OffsetDateTime.now());
+        stage.setPaidBy(iamApi.getCurrentUserId());
+        stage.setPaymentMethod(request.getPaymentMethod());
+        stage.setPaymentReference(request.getPaymentReference());
+        stage.setSettlementNote(request.getNote());
+        stageRepository.save(stage);
+
+        BigDecimal currentPaid = po.getPaidAmount() != null ? po.getPaidAmount() : BigDecimal.ZERO;
+        po.setPaidAmount(currentPaid.add(actualAmount));
+
+        // If all active stages are settled, auto COMPLETED
+        boolean allSettled = po.getStages().stream()
+                .filter(s -> s.getStatus() != PurchaseOrderStageStatus.CANCELLED)
+                .allMatch(s -> s.getStatus() == PurchaseOrderStageStatus.SETTLED);
+        if (allSettled) {
+            po.setStatus(PurchaseOrderStatus.COMPLETED);
+        }
+
+        PurchaseOrder savedPo = purchaseOrderRepository.save(po);
+        Supplier supplier = supplierRepository.findById(po.getSupplierId()).orElse(null);
+        return mapToDetailResponse(savedPo, supplier);
+    }
+
+    @Override
+    @Transactional
+    public StageRollbackRequestResponse requestStageRollback(UUID purchaseOrderId, UUID stageId,
+            StageRollbackRequest request) {
+        log.info("Requesting rollback for stage {} of PO: {}", stageId, purchaseOrderId);
+
+        if (request == null || request.getRequestReason() == null || request.getRequestReason().isBlank()) {
+            throw new AppException(PurchasingErrorCode.ROLLBACK_REASON_REQUIRED);
+        }
+
+        PurchaseOrderStage stage = stageRepository
+                .findByStageIdAndPurchaseOrder_PurchaseOrderId(stageId, purchaseOrderId)
+                .orElseThrow(() -> new AppException(PurchasingErrorCode.STAGE_NOT_FOUND));
+
+        if (stage.getStatus() != PurchaseOrderStageStatus.SETTLED) {
+            throw new AppException(PurchasingErrorCode.STAGE_NOT_SETTLED);
+        }
+
+        PurchaseOrder po = stage.getPurchaseOrder();
+        if (Boolean.TRUE.equals(po.getIsShortClosed())) {
+            throw new AppException(PurchasingErrorCode.PO_CANNOT_EDIT);
+        }
+
+        boolean exists = rollbackRequestRepository.existsByStage_StageIdAndStatus(stageId,
+                RollbackRequestStatus.PENDING);
+        if (exists) {
+            throw new AppException(PurchasingErrorCode.ROLLBACK_REQUEST_ALREADY_PENDING);
+        }
+
+        PurchaseOrderStageRollbackRequest rr = PurchaseOrderStageRollbackRequest.builder()
+                .rollbackId(UUID.randomUUID())
+                .stage(stage)
+                .purchaseOrderId(purchaseOrderId)
+                .requestedBy(iamApi.getCurrentUserId())
+                .requestedAt(OffsetDateTime.now())
+                .requestReason(request.getRequestReason().trim())
+                .status(RollbackRequestStatus.PENDING)
+                .build();
+        PurchaseOrderStageRollbackRequest saved = rollbackRequestRepository.save(rr);
+
+        return StageRollbackRequestResponse.builder()
+                .rollbackId(saved.getRollbackId())
+                .stageId(stageId)
+                .purchaseOrderId(purchaseOrderId)
+                .requestedBy(saved.getRequestedBy())
+                .requestedByName(getUserNameSafely(saved.getRequestedBy()))
+                .requestedAt(saved.getRequestedAt())
+                .requestReason(saved.getRequestReason())
+                .status(saved.getStatus())
+                .createdAt(saved.getCreatedAt())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public PurchaseOrderResponse reviewStageRollback(UUID purchaseOrderId, UUID rollbackId,
+            ReviewRollbackRequest request) {
+        log.info("Reviewing rollback {} for PO: {}", rollbackId, purchaseOrderId);
+
+        PurchaseOrderStageRollbackRequest rr = rollbackRequestRepository.findById(rollbackId)
+                .orElseThrow(() -> new AppException(PurchasingErrorCode.ROLLBACK_REQUEST_NOT_FOUND));
+
+        if (rr.getStatus() != RollbackRequestStatus.PENDING) {
+            throw new AppException(PurchasingErrorCode.ROLLBACK_REQUEST_NOT_PENDING);
+        }
+
+        PurchaseOrderStage stage = rr.getStage();
+        PurchaseOrder po = purchaseOrderRepository.findById(purchaseOrderId)
+                .orElseThrow(() -> new AppException(PurchasingErrorCode.PO_NOT_FOUND));
+
+        if (Boolean.TRUE.equals(po.getIsShortClosed())) {
+            throw new AppException(PurchasingErrorCode.PO_CANNOT_EDIT);
+        }
+
+        rr.setReviewedBy(iamApi.getCurrentUserId());
+        rr.setReviewedAt(OffsetDateTime.now());
+        rr.setReviewNote(request.getReviewNote());
+
+        if (Boolean.TRUE.equals(request.getApproved())) {
+            rr.setStatus(RollbackRequestStatus.APPROVED);
+
+            BigDecimal actualAmount = stage.getActualAmount() != null ? stage.getActualAmount() : BigDecimal.ZERO;
+            stage.setStatus(PurchaseOrderStageStatus.PENDING);
+            stage.setActualAmount(null);
+            stage.setPaidAt(null);
+            stage.setPaidBy(null);
+            stage.setPaymentMethod(null);
+            stage.setPaymentReference(null);
+            stage.setSettlementNote(null);
+            stageRepository.save(stage);
+
+            BigDecimal currentPaid = po.getPaidAmount() != null ? po.getPaidAmount() : BigDecimal.ZERO;
+            BigDecimal newPaid = currentPaid.subtract(actualAmount);
+            if (newPaid.compareTo(BigDecimal.ZERO) < 0)
+                newPaid = BigDecimal.ZERO;
+            po.setPaidAmount(newPaid);
+
+            if (po.getStatus() == PurchaseOrderStatus.COMPLETED && !Boolean.TRUE.equals(po.getIsShortClosed())) {
+                po.setStatus(PurchaseOrderStatus.CONFIRMED);
+            }
+            purchaseOrderRepository.save(po);
+        } else {
+            rr.setStatus(RollbackRequestStatus.REJECTED);
+        }
+
+        rollbackRequestRepository.save(rr);
+        Supplier supplier = supplierRepository.findById(po.getSupplierId()).orElse(null);
+        return mapToDetailResponse(po, supplier);
+    }
+
+    @Override
+    @Transactional
+    public PurchaseOrderResponse directRollbackStage(UUID purchaseOrderId, UUID stageId, StageRollbackRequest request) {
+        log.info("Direct rollback stage {} for PO: {}", stageId, purchaseOrderId);
+
+        if (request == null || request.getRequestReason() == null || request.getRequestReason().isBlank()) {
+            throw new AppException(PurchasingErrorCode.ROLLBACK_REASON_REQUIRED);
+        }
+
+        PurchaseOrder po = purchaseOrderRepository.findById(purchaseOrderId)
+                .orElseThrow(() -> new AppException(PurchasingErrorCode.PO_NOT_FOUND));
+
+        if (Boolean.TRUE.equals(po.getIsShortClosed())) {
+            throw new AppException(PurchasingErrorCode.PO_CANNOT_EDIT);
+        }
+
+        PurchaseOrderStage stage = stageRepository
+                .findByStageIdAndPurchaseOrder_PurchaseOrderId(stageId, purchaseOrderId)
+                .orElseThrow(() -> new AppException(PurchasingErrorCode.STAGE_NOT_FOUND));
+
+        if (stage.getStatus() != PurchaseOrderStageStatus.SETTLED) {
+            throw new AppException(PurchasingErrorCode.STAGE_NOT_SETTLED);
+        }
+
+        PurchaseOrderStageRollbackRequest rr = PurchaseOrderStageRollbackRequest.builder()
+                .rollbackId(UUID.randomUUID())
+                .stage(stage)
+                .purchaseOrderId(purchaseOrderId)
+                .requestedBy(iamApi.getCurrentUserId())
+                .requestedAt(OffsetDateTime.now())
+                .requestReason(request.getRequestReason().trim())
+                .status(RollbackRequestStatus.APPROVED)
+                .reviewedBy(iamApi.getCurrentUserId())
+                .reviewedAt(OffsetDateTime.now())
+                .reviewNote("Chủ cửa hàng hoàn tác trực tiếp")
+                .build();
+        rollbackRequestRepository.save(rr);
+
+        BigDecimal actualAmount = stage.getActualAmount() != null ? stage.getActualAmount() : BigDecimal.ZERO;
+        stage.setStatus(PurchaseOrderStageStatus.PENDING);
+        stage.setActualAmount(null);
+        stage.setPaidAt(null);
+        stage.setPaidBy(null);
+        stage.setPaymentMethod(null);
+        stage.setPaymentReference(null);
+        stage.setSettlementNote(null);
+        stageRepository.save(stage);
+
+        BigDecimal currentPaid = po.getPaidAmount() != null ? po.getPaidAmount() : BigDecimal.ZERO;
+        BigDecimal newPaid = currentPaid.subtract(actualAmount);
+        if (newPaid.compareTo(BigDecimal.ZERO) < 0)
+            newPaid = BigDecimal.ZERO;
+        po.setPaidAmount(newPaid);
+
+        if (po.getStatus() == PurchaseOrderStatus.COMPLETED && !Boolean.TRUE.equals(po.getIsShortClosed())) {
+            po.setStatus(PurchaseOrderStatus.CONFIRMED);
+        }
+
+        PurchaseOrder savedPo = purchaseOrderRepository.save(po);
+        Supplier supplier = supplierRepository.findById(po.getSupplierId()).orElse(null);
+        return mapToDetailResponse(savedPo, supplier);
+    }
+
+    @Override
+    @Transactional
+    public PurchaseOrderResponse closeShortPurchaseOrder(UUID purchaseOrderId, CloseShortPoRequest request) {
+        log.info("Closing short PO: {}", purchaseOrderId);
+
+        if (request == null || request.getCloseReason() == null || request.getCloseReason().isBlank()) {
+            throw new AppException(PurchasingErrorCode.CLOSE_REASON_REQUIRED);
+        }
+
+        PurchaseOrder po = purchaseOrderRepository.findById(purchaseOrderId)
+                .orElseThrow(() -> new AppException(PurchasingErrorCode.PO_NOT_FOUND));
+
+        if (po.getStatus() != PurchaseOrderStatus.CONFIRMED) {
+            throw new AppException(PurchasingErrorCode.PO_CANNOT_CLOSE_STATUS);
+        }
+
+        boolean hasSettledStage = po.getStages() != null && po.getStages().stream()
+                .anyMatch(st -> st.getStatus() == PurchaseOrderStageStatus.SETTLED);
+        if (!hasSettledStage) {
+            throw new AppException(PurchasingErrorCode.PO_CLOSE_SHORT_REQUIRES_SETTLED_STAGE);
+        }
+
+        // Cancel remaining pending stages
+        if (po.getStages() != null) {
+            for (PurchaseOrderStage st : po.getStages()) {
+                if (st.getStatus() == PurchaseOrderStageStatus.PENDING) {
+                    st.setStatus(PurchaseOrderStageStatus.CANCELLED);
+                    stageRepository.save(st);
+                }
+            }
+        }
+
+        po.setStatus(PurchaseOrderStatus.COMPLETED);
+        po.setIsShortClosed(true);
+        po.setClosedBy(iamApi.getCurrentUserId());
+        po.setClosedAt(OffsetDateTime.now());
+        po.setCloseReason(request.getCloseReason().trim());
+
+        PurchaseOrder savedPo = purchaseOrderRepository.save(po);
+        Supplier supplier = supplierRepository.findById(po.getSupplierId()).orElse(null);
+        return mapToDetailResponse(savedPo, supplier);
     }
 
     @Override
@@ -398,12 +862,20 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         PurchaseOrder po = purchaseOrderRepository.findById(purchaseOrderId)
                 .orElseThrow(() -> new AppException(PurchasingErrorCode.PO_NOT_FOUND));
 
-        if (po.getStatus() != PurchaseOrderStatus.DRAFT && po.getStatus() != PurchaseOrderStatus.CONFIRMED) {
+        if (po.getStatus() != PurchaseOrderStatus.DRAFT && po.getStatus() != PurchaseOrderStatus.QUOTED
+                && po.getStatus() != PurchaseOrderStatus.CONFIRMED) {
             throw new AppException(PurchasingErrorCode.PO_CANNOT_CANCEL_STATUS);
         }
 
+        boolean hasSettledStage = po.getStages() != null && po.getStages().stream()
+                .anyMatch(st -> st.getStatus() == PurchaseOrderStageStatus.SETTLED);
+        if (hasSettledStage) {
+            throw new AppException(PurchasingErrorCode.PO_CANNOT_CANCEL_WITH_SETTLED_STAGES);
+        }
+
         if (po.getStatus() == PurchaseOrderStatus.CONFIRMED) {
-            if (inventoryApi.hasConfirmedGoodsReceipt(purchaseOrderId) || inventoryApi.hasDraftGoodsReceipt(purchaseOrderId)) {
+            if (inventoryApi.hasConfirmedGoodsReceipt(purchaseOrderId)
+                    || inventoryApi.hasDraftGoodsReceipt(purchaseOrderId)) {
                 throw new AppException(PurchasingErrorCode.PO_CANNOT_CANCEL_RECEIPT_EXISTS);
             }
         }
@@ -468,7 +940,8 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
         Map<UUID, BigDecimal> lastSupplyPricesByProductId = supplierProducts.stream()
                 .filter(sp -> sp.getLastSupplyPrice() != null)
-                .collect(Collectors.toMap(sp -> sp.getId().getProductId(), SupplierProduct::getLastSupplyPrice, (a, b) -> a));
+                .collect(Collectors.toMap(sp -> sp.getId().getProductId(), SupplierProduct::getLastSupplyPrice,
+                        (a, b) -> a));
 
         List<UUID> productIds = supplierProducts.stream()
                 .map(sp -> sp.getId().getProductId())
@@ -486,13 +959,13 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         List<LowStockSuggestionResponse> results = new ArrayList<>();
         for (CatalogSkuSummaryDto sku : skus) {
             StockSummaryDto stock = stockMap.get(sku.variantId());
-            if (stock == null) continue;
+            if (stock == null)
+                continue;
 
             BigDecimal availableQty = stock.availableQty() != null ? stock.availableQty() : BigDecimal.ZERO;
             BigDecimal minimumQty = stock.minimumQty() != null ? stock.minimumQty() : BigDecimal.ZERO;
             BigDecimal maximumQty = stock.maximumQty();
 
-            // Low stock condition: minimumQty > 0 and availableQty <= minimumQty
             if (minimumQty.compareTo(BigDecimal.ZERO) > 0 && availableQty.compareTo(minimumQty) <= 0) {
                 BigDecimal incoming = incomingMap.getOrDefault(sku.variantId(), BigDecimal.ZERO);
                 BigDecimal proposedQty = null;
@@ -500,7 +973,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                 if (maximumQty != null && maximumQty.compareTo(BigDecimal.ZERO) > 0) {
                     proposedQty = maximumQty.subtract(availableQty).subtract(incoming);
                     if (proposedQty.compareTo(BigDecimal.ZERO) <= 0) {
-                        continue; // Exclude when proposedQty <= 0
+                        continue;
                     }
                 }
 
@@ -532,7 +1005,8 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         List<SupplierProduct> supplierProducts = supplierProductRepository.findByIdSupplierId(supplierId);
         Map<UUID, BigDecimal> lastPriceMap = supplierProducts.stream()
                 .filter(sp -> sp.getLastSupplyPrice() != null)
-                .collect(Collectors.toMap(sp -> sp.getId().getProductId(), SupplierProduct::getLastSupplyPrice, (a, b) -> a));
+                .collect(Collectors.toMap(sp -> sp.getId().getProductId(), SupplierProduct::getLastSupplyPrice,
+                        (a, b) -> a));
 
         Set<UUID> suppliedProductIds = supplierProducts.stream()
                 .map(sp -> sp.getId().getProductId())
@@ -568,12 +1042,12 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         }
     }
 
-        @Override
+    @Override
     @Transactional(readOnly = true)
-    public List<com.aquasuite.ims.module.purchasing.internal.payload.response.SupplierOptionResponse> getActiveSuppliers() {
+    public List<SupplierOptionResponse> getActiveSuppliers() {
         return supplierRepository.findAll().stream()
                 .filter(s -> s.getStatus() == SupplierStatus.ACTIVE)
-                .map(s -> com.aquasuite.ims.module.purchasing.internal.payload.response.SupplierOptionResponse.builder()
+                .map(s -> SupplierOptionResponse.builder()
                         .supplierId(s.getSupplierId())
                         .supplierCode(s.getSupplierCode())
                         .supplierName(s.getSupplierName())
@@ -589,12 +1063,14 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         List<UUID> variantIds = po.getItems() != null
                 ? po.getItems().stream().map(PurchaseOrderItem::getVariantId).toList()
                 : Collections.emptyList();
-        Map<UUID, CatalogSkuSummaryDto> skuMap = variantIds.isEmpty() ? Collections.emptyMap() : catalogApi.getSkuSummaries(variantIds);
+        Map<UUID, CatalogSkuSummaryDto> skuMap = variantIds.isEmpty() ? Collections.emptyMap()
+                : catalogApi.getSkuSummaries(variantIds);
 
         List<SupplierProduct> supplierProducts = supplierProductRepository.findByIdSupplierId(po.getSupplierId());
         Map<UUID, BigDecimal> lastPriceMap = supplierProducts.stream()
                 .filter(sp -> sp.getLastSupplyPrice() != null)
-                .collect(Collectors.toMap(sp -> sp.getId().getProductId(), SupplierProduct::getLastSupplyPrice, (a, b) -> a));
+                .collect(Collectors.toMap(sp -> sp.getId().getProductId(), SupplierProduct::getLastSupplyPrice,
+                        (a, b) -> a));
 
         List<PurchaseOrderItemResponse> itemResponses = new ArrayList<>();
         if (po.getItems() != null) {
@@ -635,6 +1111,64 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             }
         }
 
+        List<PurchaseOrderStageResponse> stageResponses = new ArrayList<>();
+        int settledStagesCount = 0;
+        if (po.getStages() != null) {
+            for (PurchaseOrderStage st : po.getStages()) {
+                if (st.getStatus() == PurchaseOrderStageStatus.SETTLED) {
+                    settledStagesCount++;
+                }
+
+                boolean hasPendingRollback = rollbackRequestRepository.existsByStage_StageIdAndStatus(
+                        st.getStageId(), RollbackRequestStatus.PENDING);
+
+                Optional<PurchaseOrderStageRollbackRequest> latestRollback = rollbackRequestRepository
+                        .findFirstByStage_StageIdAndStatus(st.getStageId(), RollbackRequestStatus.PENDING);
+
+                StageRollbackRequestResponse latestRollbackDto = null;
+                if (latestRollback.isPresent()) {
+                    PurchaseOrderStageRollbackRequest rr = latestRollback.get();
+                    latestRollbackDto = StageRollbackRequestResponse.builder()
+                            .rollbackId(rr.getRollbackId())
+                            .stageId(st.getStageId())
+                            .purchaseOrderId(po.getPurchaseOrderId())
+                            .requestedBy(rr.getRequestedBy())
+                            .requestedByName(getUserNameSafely(rr.getRequestedBy()))
+                            .requestedAt(rr.getRequestedAt())
+                            .requestReason(rr.getRequestReason())
+                            .status(rr.getStatus())
+                            .reviewedBy(rr.getReviewedBy())
+                            .reviewedByName(getUserNameSafely(rr.getReviewedBy()))
+                            .reviewedAt(rr.getReviewedAt())
+                            .reviewNote(rr.getReviewNote())
+                            .createdAt(rr.getCreatedAt())
+                            .build();
+                }
+
+                stageResponses.add(PurchaseOrderStageResponse.builder()
+                        .stageId(st.getStageId())
+                        .purchaseOrderId(po.getPurchaseOrderId())
+                        .stageName(st.getStageName())
+                        .description(st.getDescription())
+                        .expectedDeliveryDate(st.getExpectedDeliveryDate())
+                        .percent(st.getPercent())
+                        .amount(st.getAmount())
+                        .status(st.getStatus())
+                        .actualAmount(st.getActualAmount())
+                        .paidAt(st.getPaidAt())
+                        .paidBy(st.getPaidBy())
+                        .paidByName(getUserNameSafely(st.getPaidBy()))
+                        .paymentMethod(st.getPaymentMethod())
+                        .paymentReference(st.getPaymentReference())
+                        .settlementNote(st.getSettlementNote())
+                        .sortOrder(st.getSortOrder())
+                        .version(st.getVersion())
+                        .hasPendingRollback(hasPendingRollback)
+                        .latestRollbackRequest(latestRollbackDto)
+                        .build());
+            }
+        }
+
         return PurchaseOrderResponse.builder()
                 .purchaseOrderId(po.getPurchaseOrderId())
                 .poCode(po.getPoCode())
@@ -648,6 +1182,16 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                 .orderDate(po.getOrderDate())
                 .expectedDate(po.getExpectedDate())
                 .totalAmount(po.getTotalAmount())
+                .paidAmount(po.getPaidAmount() != null ? po.getPaidAmount() : BigDecimal.ZERO)
+                .deliveryPlanType(po.getDeliveryPlanType() != null ? po.getDeliveryPlanType().name()
+                        : PurchaseOrderDeliveryType.SINGLE.name())
+                .isShortClosed(Boolean.TRUE.equals(po.getIsShortClosed()))
+                .reopenedBy(po.getReopenedBy())
+                .reopenedByName(getUserNameSafely(po.getReopenedBy()))
+                .reopenedAt(po.getReopenedAt())
+                .reopenReason(po.getReopenReason())
+                .totalStages(po.getStages() != null ? po.getStages().size() : 0)
+                .settledStages(settledStagesCount)
                 .note(po.getNote())
                 .createdBy(po.getCreatedBy())
                 .createdByName(getUserNameSafely(po.getCreatedBy()))
@@ -667,11 +1211,13 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
                 .updatedAt(po.getUpdatedAt())
                 .items(itemResponses)
                 .receipts(receiptResponses)
+                .stages(stageResponses)
                 .build();
     }
 
     private String getUserNameSafely(UUID userId) {
-        if (userId == null) return null;
+        if (userId == null)
+            return null;
         try {
             UserSummaryDto user = iamApi.getUserById(userId);
             return user != null ? user.fullName() : null;

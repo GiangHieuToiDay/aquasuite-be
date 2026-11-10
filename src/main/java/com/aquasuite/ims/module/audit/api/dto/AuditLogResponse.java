@@ -21,6 +21,7 @@ import java.util.UUID;
 public class AuditLogResponse {
     UUID id;
     UUID actorId;
+    String actorName;
     String entityType;
     UUID entityId;
     String action;

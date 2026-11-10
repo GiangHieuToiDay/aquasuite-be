@@ -516,8 +516,44 @@ class DevelopmentDataInitializerTest {
         }
 
         @Test
-        @DisplayName("Existing owner with wrong or extra roles throws SeedConflictException")
+        @DisplayName("Existing owner missing SHOP_OWNER role throws SeedConflictException")
         void shouldThrowOnRoleSetMismatch() {
+            setDevEnvironment();
+
+            Role ownerRole =
+                    new Role(UUID.randomUUID(), "SHOP_OWNER", "Chủ cửa hàng", true, null, Set.of());
+            Role salesRole =
+                    new Role(
+                            UUID.randomUUID(),
+                            "SALES_STAFF",
+                            "Nhân viên bán hàng",
+                            true,
+                            null,
+                            Set.of());
+            when(roleRepository.findByRoleNameIgnoreCase("SHOP_OWNER"))
+                    .thenReturn(Optional.of(ownerRole));
+
+            User existingOwner = new User();
+            existingOwner.setId(UUID.randomUUID());
+            existingOwner.setEmail("owner@aquasuite.local");
+            existingOwner.setUsername("owner_test");
+            existingOwner.setStatus(UserStatus.ACTIVE);
+            existingOwner.setPasswordHash(passwordEncoder.encode("StrongDevPassword123!"));
+            existingOwner.setRoles(new HashSet<>(Set.of(salesRole)));
+
+            when(userRepository.findByEmailIgnoreCase("owner@aquasuite.local"))
+                    .thenReturn(Optional.of(existingOwner));
+            when(userRepository.findByUsernameIgnoreCase("owner_test"))
+                    .thenReturn(Optional.of(existingOwner));
+
+            assertThatThrownBy(() -> initializer.initialize())
+                    .isInstanceOf(DevelopmentDataInitializer.SeedConflictException.class)
+                    .hasMessageContaining("role set mismatch");
+        }
+
+        @Test
+        @DisplayName("Existing owner with SHOP_OWNER and additional roles succeeds")
+        void shouldSucceedWhenOwnerHasAdditionalRoles() {
             setDevEnvironment();
 
             Role ownerRole =
@@ -546,9 +582,10 @@ class DevelopmentDataInitializerTest {
             when(userRepository.findByUsernameIgnoreCase("owner_test"))
                     .thenReturn(Optional.of(existingOwner));
 
-            assertThatThrownBy(() -> initializer.initialize())
-                    .isInstanceOf(DevelopmentDataInitializer.SeedConflictException.class)
-                    .hasMessageContaining("role set mismatch");
+            boolean result = initializer.initialize();
+
+            assertThat(result).isTrue();
+            verify(userRepository, never()).save(any());
         }
 
         @Test

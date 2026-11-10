@@ -44,8 +44,18 @@ public class PurchaseOrderResponse {
     private OffsetDateTime closedAt;
     private String closeReason;
     private Integer version;
+    private String deliveryPlanType;
+    private BigDecimal paidAmount;
+    private Boolean isShortClosed;
+    private UUID reopenedBy;
+    private String reopenedByName;
+    private OffsetDateTime reopenedAt;
+    private String reopenReason;
+    private Integer totalStages;
+    private Integer settledStages;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
     private List<PurchaseOrderItemResponse> items;
     private List<PurchaseOrderReceiptItemResponse> receipts;
+    private List<PurchaseOrderStageResponse> stages;
 }

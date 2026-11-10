@@ -316,11 +316,18 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         List<SalesOrderItemResponse> itemResponses = salesOrderMapper.toItemResponseList(savedItems);
         String staffName = getStaffName(salesStaffId);
 
+        String cName = customer != null ? customer.customerName() : null;
+        String finalCustomerName = (cName != null && !cName.isBlank() && !"Walk-in Retail Customer".equalsIgnoreCase(cName.trim()))
+                ? cName.trim() : "Khách lẻ tại quầy";
+        String cPhone = customer != null ? customer.phone() : null;
+        String finalCustomerPhone = (cPhone != null && !cPhone.isBlank() && !"0000000000".equals(cPhone.trim()))
+                ? cPhone.trim() : null;
+
         SalesOrderDetailResponse response = salesOrderMapper.toDetailResponse(
                 savedOrder,
                 itemResponses,
-                customer.customerName(),
-                customer.phone(),
+                finalCustomerName,
+                finalCustomerPhone,
                 staffName);
         response.setStoreInvoiceId(storeInvoiceId);
         return response;
@@ -335,7 +342,6 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         if (quotationId == null) {
             throw new AppException(SalesErrorCode.QUOTATION_NOT_FOUND, "null");
         }
-
         // 1. Kiểm tra tồn tại của báo giá
         Quotation quotation = quotationRepository.findById(quotationId)
                 .orElseThrow(() -> new AppException(SalesErrorCode.QUOTATION_NOT_FOUND, quotationId));
@@ -500,6 +506,78 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             remainingDebtAmount = finalTotal.subtract(depositAmount).max(BigDecimal.ZERO);
         }
 
+        // 9.1. Kiểm tra công nợ và quyết định trạng thái Order (DRAFT vs PROCESSING)
+        boolean hasDebtTerms = quotation.getCreditTermDays() != null 
+                && quotation.getCreditTermDays() > 0 
+                && remainingDebtAmount != null 
+                && remainingDebtAmount.compareTo(BigDecimal.ZERO) > 0;
+
+        OrderStatus initialOrderStatus = OrderStatus.PROCESSING;
+        UUID creditRequestId = null;
+
+        if (hasDebtTerms) {
+            // Kiểm tra khách hàng không bị khóa giao dịch
+            creditControlApi.requireCustomerOrderAllowed(quotation.getCustomerId());
+
+            // Kiểm tra khả dụng công nợ cho đơn hàng dự án
+            CreditAuthorizationDecision decision = creditControlApi.authorize(new CreditAuthorizationCommand(
+                    quotation.getCustomerId(),
+                    orderId,
+                    OrderChannel.DIRECT_SALES.name(),
+                    remainingDebtAmount
+            ));
+
+            boolean creditApproved = decision != null && decision.approved();
+
+            if (!creditApproved) {
+                // Khách hàng không đủ hạn mức hoặc chưa có hồ sơ công nợ
+                if (request != null && Boolean.TRUE.equals(request.getRequestCreditIncrease())) {
+                    // Tạo yêu cầu cấp/tăng hạn mức công nợ trình Chủ cửa hàng duyệt (UC-24)
+                    String reason = request.getCreditIncreaseReason();
+                    if (reason == null || reason.isBlank()) {
+                        reason = String.format("Đề xuất cấp hạn mức cho Đơn hàng dự án %s (Báo giá %s)", 
+                                orderCode, quotation.getQuotationCode());
+                    }
+
+                    var debtProfile = crmApi.getDebtProfile(quotation.getCustomerId()).orElse(null);
+                    BigDecimal currentLimit = debtProfile != null && debtProfile.creditLimit() != null 
+                            ? debtProfile.creditLimit() : BigDecimal.ZERO;
+                    BigDecimal currentAvailable = decision != null && decision.availableCredit() != null 
+                            ? decision.availableCredit() : BigDecimal.ZERO;
+                    BigDecimal currentOutstanding = currentLimit.subtract(currentAvailable).max(BigDecimal.ZERO);
+
+                    BigDecimal proposedLimit = currentOutstanding.add(remainingDebtAmount);
+                    if (proposedLimit.compareTo(new BigDecimal("500000000.00")) > 0) {
+                        proposedLimit = new BigDecimal("500000000.00");
+                    }
+                    if (proposedLimit.compareTo(BigDecimal.ZERO) <= 0) {
+                        proposedLimit = remainingDebtAmount;
+                    }
+
+                    creditRequestId = crmApi.submitCreditProfileRequestFromQuotation(
+                            quotation.getCustomerId(),
+                            proposedLimit,
+                            quotation.getCreditTermDays(),
+                            reason,
+                            currentStaffId
+                    );
+
+                    initialOrderStatus = OrderStatus.DRAFT;
+                    combinedNote += " [Chờ Chủ duyệt tăng hạn mức công nợ]";
+                    log.info("Quotation {} converted to DRAFT Order {} waiting for credit approval (requestId={})",
+                            quotation.getQuotationCode(), orderCode, creditRequestId);
+                } else {
+                    // Không yêu cầu tăng hạn mức -> Báo lỗi hạn mức không đủ
+                    log.warn("Credit order rejected for customer {}: reason={}", 
+                            quotation.getCustomerId(), decision != null ? decision.reasonCode() : "LIMIT_EXCEEDED");
+                    throw new AppException(SalesErrorCode.CREDIT_LIMIT_EXCEEDED);
+                }
+            }
+        } else {
+            // Đơn không nợ: Kiểm tra khách không bị khóa
+            creditControlApi.requireCustomerOrderAllowed(quotation.getCustomerId());
+        }
+
         // 10. Khởi tạo và lưu Order kèm toàn bộ thông tin snapshot từ Báo giá
         Order order = Order.builder()
                 .orderId(orderId)
@@ -519,8 +597,9 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .salesStaffId(currentStaffId)
                 .orderType(OrderType.PROJECT.name())
                 .orderChannel(OrderChannel.DIRECT_SALES.name())
-                .orderStatus(OrderStatus.PROCESSING.name())
+                .orderStatus(initialOrderStatus.name())
                 .paymentStatus(PaymentStatus.UNPAID.name())
+                .creditRequestId(creditRequestId)
                 .orderDate(now)
                 .dueDate(dueDate)
                 .subtotal(calculatedSubtotal)
@@ -548,7 +627,6 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 BigDecimal milestoneAmount = finalTotal.multiply(pct)
                         .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
                 milestonesToSave.add(OrderPaymentMilestone.builder()
-                        .milestoneId(UUID.randomUUID())
                         .orderId(orderId)
                         .stageName(qm.getStageName())
                         .percent(pct)
@@ -608,13 +686,17 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
         return orderPage.map(order -> {
             int itemCount = orderItemRepository.findByOrderId(order.getOrderId()).size();
-            String customerName = "Khách hàng";
-            String customerPhone = "";
+            String customerName = "Khách lẻ tại quầy";
+            String customerPhone = null;
             try {
                 var cusOpt = crmApi.getCustomerById(order.getCustomerId());
                 if (cusOpt.isPresent()) {
-                    customerName = cusOpt.get().customerName();
-                    customerPhone = cusOpt.get().phone();
+                    String cName = cusOpt.get().customerName();
+                    customerName = (cName != null && !cName.isBlank() && !"Walk-in Retail Customer".equalsIgnoreCase(cName.trim()))
+                            ? cName.trim() : "Khách lẻ tại quầy";
+                    String cPhone = cusOpt.get().phone();
+                    customerPhone = (cPhone != null && !cPhone.isBlank() && !"0000000000".equals(cPhone.trim()))
+                            ? cPhone.trim() : null;
                 }
             } catch (Exception e) {
                 log.debug("Customer {} lookup ignored", order.getCustomerId());
@@ -647,13 +729,17 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
         List<SalesOrderItemResponse> itemResponses = salesOrderMapper.toItemResponseList(items);
 
-        String customerName = "Khách hàng";
-        String customerPhone = "";
+        String customerName = "Khách lẻ tại quầy";
+        String customerPhone = null;
         try {
             var cusOpt = crmApi.getCustomerById(order.getCustomerId());
             if (cusOpt.isPresent()) {
-                customerName = cusOpt.get().customerName();
-                customerPhone = cusOpt.get().phone();
+                String cName = cusOpt.get().customerName();
+                customerName = (cName != null && !cName.isBlank() && !"Walk-in Retail Customer".equalsIgnoreCase(cName.trim()))
+                        ? cName.trim() : "Khách lẻ tại quầy";
+                String cPhone = cusOpt.get().phone();
+                customerPhone = (cPhone != null && !cPhone.isBlank() && !"0000000000".equals(cPhone.trim()))
+                        ? cPhone.trim() : null;
             }
         } catch (Exception e) {
             log.debug("Customer {} lookup ignored", order.getCustomerId());
@@ -686,9 +772,18 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                     .orElseThrow(() -> new AppException(SalesErrorCode.CUSTOMER_NOT_FOUND));
         }
 
-        if (request.getCustomerPhone() != null && !request.getCustomerPhone().isBlank()) {
-            return crmApi.getCustomerByPhone(request.getCustomerPhone().trim())
-                    .orElseGet(() -> crmApi.getOrCreateWalkInCustomer());
+        String phone = (request.getCustomerPhone() != null && !request.getCustomerPhone().isBlank() && !"0000000000".equals(request.getCustomerPhone().trim()))
+                ? request.getCustomerPhone().trim() : null;
+        String name = (request.getCustomerName() != null && !request.getCustomerName().isBlank())
+                ? request.getCustomerName().trim() : null;
+
+        if (phone != null) {
+            return crmApi.getCustomerByPhone(phone)
+                    .orElseGet(() -> crmApi.getOrCreateWalkInCustomer(name, phone));
+        }
+
+        if (name != null) {
+            return crmApi.getOrCreateWalkInCustomer(name, null);
         }
 
         return crmApi.getOrCreateWalkInCustomer();
