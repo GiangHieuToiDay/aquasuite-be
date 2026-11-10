@@ -1,5 +1,6 @@
 package com.aquasuite.ims.module.purchasing.internal.entity;
 
+import com.aquasuite.ims.module.purchasing.internal.enums.PurchaseOrderDeliveryType;
 import com.aquasuite.ims.module.purchasing.internal.enums.PurchaseOrderStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -90,6 +91,28 @@ public class PurchaseOrder {
     @Column(name = "close_reason", columnDefinition = "TEXT")
     private String closeReason;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "delivery_plan_type", nullable = false, length = 32)
+    @Builder.Default
+    private PurchaseOrderDeliveryType deliveryPlanType = PurchaseOrderDeliveryType.SINGLE;
+
+    @Column(name = "paid_amount", nullable = false, precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal paidAmount = BigDecimal.ZERO;
+
+    @Column(name = "is_short_closed", nullable = false)
+    @Builder.Default
+    private Boolean isShortClosed = false;
+
+    @Column(name = "reopened_by")
+    private UUID reopenedBy;
+
+    @Column(name = "reopened_at")
+    private OffsetDateTime reopenedAt;
+
+    @Column(name = "reopen_reason", columnDefinition = "TEXT")
+    private String reopenReason;
+
     @Version
     @Column(name = "version", nullable = false)
     @Builder.Default
@@ -105,6 +128,35 @@ public class PurchaseOrder {
     @OrderBy("sortOrder ASC")
     @Builder.Default
     private List<PurchaseOrderItem> items = new ArrayList<>();
+
+    @OneToMany(mappedBy = "purchaseOrder", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("sortOrder ASC")
+    @Builder.Default
+    private List<PurchaseOrderStage> stages = new ArrayList<>();
+
+    public void addStage(PurchaseOrderStage stage) {
+        if (this.stages == null) {
+            this.stages = new ArrayList<>();
+        }
+        stage.setPurchaseOrder(this);
+        this.stages.add(stage);
+    }
+
+    public void removeStage(PurchaseOrderStage stage) {
+        if (this.stages != null) {
+            this.stages.remove(stage);
+            stage.setPurchaseOrder(null);
+        }
+    }
+
+    public void clearStages() {
+        if (this.stages != null) {
+            for (PurchaseOrderStage stage : this.stages) {
+                stage.setPurchaseOrder(null);
+            }
+            this.stages.clear();
+        }
+    }
 
     public void addItem(PurchaseOrderItem item) {
         if (this.items == null) {
@@ -146,6 +198,15 @@ public class PurchaseOrder {
         }
         if (this.warehouseCode == null) {
             this.warehouseCode = "WH_MAIN";
+        }
+        if (this.deliveryPlanType == null) {
+            this.deliveryPlanType = PurchaseOrderDeliveryType.SINGLE;
+        }
+        if (this.paidAmount == null) {
+            this.paidAmount = BigDecimal.ZERO;
+        }
+        if (this.isShortClosed == null) {
+            this.isShortClosed = false;
         }
         if (this.version == null) {
             this.version = 0;

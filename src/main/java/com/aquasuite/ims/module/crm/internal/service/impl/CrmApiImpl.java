@@ -8,10 +8,13 @@ import com.aquasuite.ims.module.crm.internal.entity.Customer;
 import com.aquasuite.ims.module.crm.internal.entity.DeliveryAddressItem;
 import com.aquasuite.ims.module.crm.internal.enums.CustomerType;
 import com.aquasuite.ims.module.crm.internal.repository.CustomerRepository;
+import com.aquasuite.ims.module.crm.internal.payload.request.SubmitCustomerCreditProfileRequest;
+import com.aquasuite.ims.module.crm.internal.service.CustomerCreditProfileRequestService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -24,6 +27,7 @@ import java.util.UUID;
 public class CrmApiImpl implements CrmApi {
 
     private final CustomerRepository customerRepository;
+    private final CustomerCreditProfileRequestService creditProfileRequestService;
 
     @Override
     @Transactional(readOnly = true)
@@ -249,5 +253,21 @@ public class CrmApiImpl implements CrmApi {
                 customer.getCustomerType() == null ? null : customer.getCustomerType().name(),
                 customer.getTaxCode(), customer.getCompanyName(), addresses, projects,
                 customer.getCreditLimit(), customer.getCreditTermDays(), customer.getStatus());
+    }
+
+    @Override
+    @Transactional
+    public UUID submitCreditProfileRequestFromQuotation(
+            UUID customerId,
+            BigDecimal requestedLimit,
+            Integer creditTermDays,
+            String reason,
+            UUID requesterId) {
+        SubmitCustomerCreditProfileRequest req = new SubmitCustomerCreditProfileRequest();
+        req.setCreditLimit(requestedLimit);
+        req.setCreditTermDays(creditTermDays != null ? creditTermDays : 30);
+        req.setReason(reason != null && !reason.isBlank() ? reason.trim() : "Yêu cầu cấp/tăng hạn mức cho đơn hàng dự án.");
+        var response = creditProfileRequestService.submit(customerId, req);
+        return response.requestId();
     }
 }

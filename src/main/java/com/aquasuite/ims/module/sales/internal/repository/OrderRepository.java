@@ -54,6 +54,10 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
 
     List<Order> findByCustomerIdIn(Collection<UUID> customerIds);
 
+    long countByCustomerIdAndOrderStatusAndPaymentStatus(UUID customerId, String orderStatus, String paymentStatus);
+
+    List<Order> findByCreditRequestId(UUID creditRequestId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select order from Order order where order.orderId = :orderId")
     java.util.Optional<Order> findByIdForUpdate(@Param("orderId") UUID orderId);

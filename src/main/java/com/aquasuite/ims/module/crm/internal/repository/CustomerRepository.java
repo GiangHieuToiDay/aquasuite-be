@@ -3,6 +3,8 @@ package com.aquasuite.ims.module.crm.internal.repository;
 import com.aquasuite.ims.module.crm.internal.entity.Customer;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -14,6 +16,10 @@ import java.util.UUID;
 
 @Repository
 public interface CustomerRepository extends JpaRepository<Customer, UUID> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select customer from Customer customer where customer.customerId = :customerId")
+    Optional<Customer> findByIdForUpdate(@Param("customerId") UUID customerId);
 
     Optional<Customer> findByUserId(UUID userId);
 

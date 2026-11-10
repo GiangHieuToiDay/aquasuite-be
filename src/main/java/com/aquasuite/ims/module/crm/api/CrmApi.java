@@ -38,4 +38,15 @@ public interface CrmApi {
     Optional<CustomerDebtProfileDto> getDebtProfile(UUID customerId);
 
     void updateCustomerStatus(UUID customerId, String status);
+
+    /**
+     * Tạo yêu cầu cấp hoặc tăng hạn mức công nợ cho khách hàng từ luồng Báo giá dự án (UC-28 / UC-24).
+     * @return requestId của yêu cầu chờ duyệt
+     */
+    UUID submitCreditProfileRequestFromQuotation(
+            UUID customerId,
+            java.math.BigDecimal requestedLimit,
+            Integer creditTermDays,
+            String reason,
+            UUID requesterId);
 }

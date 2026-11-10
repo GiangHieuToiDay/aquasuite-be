@@ -126,6 +126,10 @@ public class Order {
     @Column(name = "debt_condition", columnDefinition = "TEXT")
     private String debtCondition;
 
+    /** Tham chiếu sang yêu cầu duyệt hạn mức công nợ UC-24 nếu đơn hàng đang ở trạng thái DRAFT chờ duyệt */
+    @Column(name = "credit_request_id")
+    private UUID creditRequestId;
+
     @Column(name = "note", columnDefinition = "TEXT")
     private String note;
 

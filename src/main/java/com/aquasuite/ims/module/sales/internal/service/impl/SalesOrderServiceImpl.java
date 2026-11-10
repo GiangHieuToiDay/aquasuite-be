@@ -506,6 +506,78 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             remainingDebtAmount = finalTotal.subtract(depositAmount).max(BigDecimal.ZERO);
         }
 
+        // 9.1. Kiểm tra công nợ và quyết định trạng thái Order (DRAFT vs PROCESSING)
+        boolean hasDebtTerms = quotation.getCreditTermDays() != null 
+                && quotation.getCreditTermDays() > 0 
+                && remainingDebtAmount != null 
+                && remainingDebtAmount.compareTo(BigDecimal.ZERO) > 0;
+
+        OrderStatus initialOrderStatus = OrderStatus.PROCESSING;
+        UUID creditRequestId = null;
+
+        if (hasDebtTerms) {
+            // Kiểm tra khách hàng không bị khóa giao dịch
+            creditControlApi.requireCustomerOrderAllowed(quotation.getCustomerId());
+
+            // Kiểm tra khả dụng công nợ cho đơn hàng dự án
+            CreditAuthorizationDecision decision = creditControlApi.authorize(new CreditAuthorizationCommand(
+                    quotation.getCustomerId(),
+                    orderId,
+                    OrderChannel.DIRECT_SALES.name(),
+                    remainingDebtAmount
+            ));
+
+            boolean creditApproved = decision != null && decision.approved();
+
+            if (!creditApproved) {
+                // Khách hàng không đủ hạn mức hoặc chưa có hồ sơ công nợ
+                if (request != null && Boolean.TRUE.equals(request.getRequestCreditIncrease())) {
+                    // Tạo yêu cầu cấp/tăng hạn mức công nợ trình Chủ cửa hàng duyệt (UC-24)
+                    String reason = request.getCreditIncreaseReason();
+                    if (reason == null || reason.isBlank()) {
+                        reason = String.format("Đề xuất cấp hạn mức cho Đơn hàng dự án %s (Báo giá %s)", 
+                                orderCode, quotation.getQuotationCode());
+                    }
+
+                    var debtProfile = crmApi.getDebtProfile(quotation.getCustomerId()).orElse(null);
+                    BigDecimal currentLimit = debtProfile != null && debtProfile.creditLimit() != null 
+                            ? debtProfile.creditLimit() : BigDecimal.ZERO;
+                    BigDecimal currentAvailable = decision != null && decision.availableCredit() != null 
+                            ? decision.availableCredit() : BigDecimal.ZERO;
+                    BigDecimal currentOutstanding = currentLimit.subtract(currentAvailable).max(BigDecimal.ZERO);
+
+                    BigDecimal proposedLimit = currentOutstanding.add(remainingDebtAmount);
+                    if (proposedLimit.compareTo(new BigDecimal("500000000.00")) > 0) {
+                        proposedLimit = new BigDecimal("500000000.00");
+                    }
+                    if (proposedLimit.compareTo(BigDecimal.ZERO) <= 0) {
+                        proposedLimit = remainingDebtAmount;
+                    }
+
+                    creditRequestId = crmApi.submitCreditProfileRequestFromQuotation(
+                            quotation.getCustomerId(),
+                            proposedLimit,
+                            quotation.getCreditTermDays(),
+                            reason,
+                            currentStaffId
+                    );
+
+                    initialOrderStatus = OrderStatus.DRAFT;
+                    combinedNote += " [Chờ Chủ duyệt tăng hạn mức công nợ]";
+                    log.info("Quotation {} converted to DRAFT Order {} waiting for credit approval (requestId={})",
+                            quotation.getQuotationCode(), orderCode, creditRequestId);
+                } else {
+                    // Không yêu cầu tăng hạn mức -> Báo lỗi hạn mức không đủ
+                    log.warn("Credit order rejected for customer {}: reason={}", 
+                            quotation.getCustomerId(), decision != null ? decision.reasonCode() : "LIMIT_EXCEEDED");
+                    throw new AppException(SalesErrorCode.CREDIT_LIMIT_EXCEEDED);
+                }
+            }
+        } else {
+            // Đơn không nợ: Kiểm tra khách không bị khóa
+            creditControlApi.requireCustomerOrderAllowed(quotation.getCustomerId());
+        }
+
         // 10. Khởi tạo và lưu Order kèm toàn bộ thông tin snapshot từ Báo giá
         Order order = Order.builder()
                 .orderId(orderId)
@@ -525,8 +597,9 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .salesStaffId(currentStaffId)
                 .orderType(OrderType.PROJECT.name())
                 .orderChannel(OrderChannel.DIRECT_SALES.name())
-                .orderStatus(OrderStatus.PROCESSING.name())
+                .orderStatus(initialOrderStatus.name())
                 .paymentStatus(PaymentStatus.UNPAID.name())
+                .creditRequestId(creditRequestId)
                 .orderDate(now)
                 .dueDate(dueDate)
                 .subtotal(calculatedSubtotal)
@@ -554,7 +627,6 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 BigDecimal milestoneAmount = finalTotal.multiply(pct)
                         .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
                 milestonesToSave.add(OrderPaymentMilestone.builder()
-                        .milestoneId(UUID.randomUUID())
                         .orderId(orderId)
                         .stageName(qm.getStageName())
                         .percent(pct)
