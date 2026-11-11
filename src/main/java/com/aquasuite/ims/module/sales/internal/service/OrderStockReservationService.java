@@ -119,6 +119,8 @@ public class OrderStockReservationService {
     }
 
     private void allocate(UUID orderId,List<OrderItem> source,List<Line> lines,UUID operationId,String warehouse,UUID actorId,boolean deferred) {
+        // The saved UC29 selection cannot fund quantities cancelled by a later UC26 decision.
+        if (store.requiresReservationReview(orderId)) fail(RESERVATION_SELECTION_CONFLICT);
         Map<UUID,OrderItem> byId = new HashMap<>();
         source.forEach(i -> byId.put(i.getOrderItemId(),i));
         List<Line> allocation = new ArrayList<>(lines);

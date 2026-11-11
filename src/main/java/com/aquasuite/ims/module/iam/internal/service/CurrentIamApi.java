@@ -53,6 +53,19 @@ public class CurrentIamApi implements IamApi {
 
     @Override
     @Transactional(readOnly = true)
+    public java.util.Map<UUID, String> findUserDisplayNames(java.util.Set<UUID> userIds) {
+        if (userIds.isEmpty()) return java.util.Map.of();
+        var names = new java.util.HashMap<UUID, String>();
+        for (var user : userRepository.findAllById(userIds)) {
+            String name = user.getFullName();
+            if (name == null || name.isBlank()) name = user.getUsername();
+            if (name != null && !name.isBlank()) names.put(user.getId(), name.trim());
+        }
+        return java.util.Map.copyOf(names);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public java.util.Optional<UserSummaryDto> findByEmail(String email) {
         if (email == null || email.isBlank()) {
             return java.util.Optional.empty();

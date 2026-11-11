@@ -9,10 +9,13 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 public interface OrderModificationRequestRepository extends JpaRepository<OrderModificationRequest, UUID> {
+
+    List<OrderModificationRequest> findByOrderIdOrderByCreatedAtAsc(UUID orderId);
 
     boolean existsByOrderIdAndRequestStatusIn(UUID orderId, Collection<OrderModificationRequestStatus> statuses);
 

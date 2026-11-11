@@ -23,4 +23,7 @@ public record CustomerDebtSummaryResponse(
         BigDecimal overdueBalance,
         BigDecimal availableCredit,
         LocalDate nearestDueDate,
-        DebtStatus debtStatus) {}
+        DebtStatus debtStatus,
+        BigDecimal codHeldAmount,
+        BigDecimal customerCollectibleAmount,
+        boolean codReviewRequired) {}

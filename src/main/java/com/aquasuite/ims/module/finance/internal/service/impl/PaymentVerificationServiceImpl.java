@@ -43,6 +43,7 @@ public class PaymentVerificationServiceImpl implements PaymentVerificationServic
     private final SalesOrderApi sales;
     /** Xác định kế toán đang thực hiện quyết định. */
     private final IamApi iam;
+    private final com.aquasuite.ims.module.finance.internal.repository.CodRepository cod;
 
     /**
      * Liệt kê khoản chuyển khoản đang chờ xác minh theo thứ tự ghi nhận, có thể lọc theo đơn.
@@ -122,7 +123,7 @@ public class PaymentVerificationServiceImpl implements PaymentVerificationServic
 
         // Tính lại số đã xác minh của đơn (không trừ PENDING khác) và số còn phải trả.
         BigDecimal verified = verifiedPaid(order);
-        BigDecimal remaining = order.totalAmount().subtract(verified).max(BigDecimal.ZERO);
+        BigDecimal remaining = order.totalAmount().subtract(verified).subtract(cod.held(orderId)).max(BigDecimal.ZERO);
         if (locked.getAmount().compareTo(remaining) > 0) {
             // Vượt nghĩa vụ: báo lỗi, giữ nguyên PENDING (transaction rollback), không tự hoàn/chuyển đơn.
             throw new AppException(PaymentVerificationErrorCode.OVER_OBLIGATION);

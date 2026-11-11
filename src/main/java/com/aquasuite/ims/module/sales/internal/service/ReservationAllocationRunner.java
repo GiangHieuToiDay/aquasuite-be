@@ -2,6 +2,8 @@ package com.aquasuite.ims.module.sales.internal.service;
 
 import com.aquasuite.ims.module.sales.internal.repository.ReservationAllocationStore;
 import com.aquasuite.ims.share.exception.AppException;
+import com.aquasuite.ims.module.sales.internal.payload.response.OrderStockReservationView;
+import com.aquasuite.ims.module.sales.internal.error.ProjectDepositErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -13,6 +15,15 @@ import java.util.UUID;
 public class ReservationAllocationRunner {
     private final ReservationAllocationProcessor processor;
     private final ReservationAllocationStore jobs;
+    private final OrderStockReservationService reservations;
+
+    public OrderStockReservationView retry(UUID orderId, UUID allocationId) {
+        reservations.get(orderId); // Authorize before exposing a job or retrying.
+        var job = jobs.find(allocationId).filter(j -> orderId.equals(j.orderId()))
+                .orElseThrow(() -> new AppException(ProjectDepositErrorCode.INVALID_REQUEST));
+        attempt(job.id());
+        return reservations.get(orderId);
+    }
 
     /** Runs outside the payment transaction; allocation failure must not undo verified money. */
     public void attempt(UUID id) {

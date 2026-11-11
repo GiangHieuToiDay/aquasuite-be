@@ -157,3 +157,14 @@ Non-deferred orders retain exact reconciliation and continue to reject ambiguous
 legacy ownership. No automatic history backfill, aggregate reset or adoption is
 performed. This supersedes the blanket legacy-mismatch restriction above only for
 persisted deferred orders. Releasing a UC29 hold affects only that hold's quantity.
+
+## UC36 history and approved release — 09/11/2026
+
+Use the same order context; no separate UC36 screen or warehouse selector is needed. The sole warehouse is WH_MAIN. See [UC36 implementation contract](../specifications/UC-36-approved-release.md).
+
+- GET `/api/v1/sales/orders/{orderId}/stock-reservations/history`: Sales can read every order. Owner/admin/accountant can also read. Returns reservation balances, inventory activities and UC26 requester/reviewer metadata, execution status and completed release results. No payment amounts, price differences or finance documents are included. Existing UC29 payment routes are unchanged by this slice.
+- POST `/api/v1/sales/orders/{orderId}/stock-reservations/releases/{decisionId}`: SHOP_OWNER executes an already valid owner-approved UC26 decision. No request body, quantity, actor or warehouse is supplied by the client. Supports full cancellation and remove/reduce only. Retry returns the saved result. This executes the decision; it does not approve it again.
+- Results record decisionId, orderId, executedBy, executedAt, and per-reservation releasedQty. Failure rolls back all lines and history; the decision stays available for retry. PENDING_CANCEL is not a completed approval and cannot release.
+- A reduction first removes unallocated demand; only held quantity exceeding the retained order quantity is released. Zero-release execution is saved too. Physical stock and legacy aggregate-only holds are unchanged.
+- Pending-cancel/approved quantity-changing UC26 decisions block allocation against the old immutable UC29 selection. Historical requested/waiting quantities are not rewritten by UC36. Reconciliation/new selection after order changes is outside this slice.
+- Deploy additive Flyway V30 normally. UC26 currently has no approve route; execution requires a valid persisted decision from that future integration. No automatic execution listener or approval UI is included.

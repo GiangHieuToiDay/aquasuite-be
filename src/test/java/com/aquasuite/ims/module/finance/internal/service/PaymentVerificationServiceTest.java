@@ -29,6 +29,7 @@ class PaymentVerificationServiceTest {
     @Mock TransactionRepository transactions;
     @Mock SalesOrderApi sales;
     @Mock IamApi iam;
+    @Mock com.aquasuite.ims.module.finance.internal.repository.CodRepository cod;
     @InjectMocks PaymentVerificationServiceImpl service;
 
     UUID orderId;
@@ -39,6 +40,7 @@ class PaymentVerificationServiceTest {
 
     @BeforeEach
     void setup() {
+        lenient().when(cod.held(any())).thenReturn(BigDecimal.ZERO);
         orderId = UUID.randomUUID();
         customerId = UUID.randomUUID();
         actorId = UUID.randomUUID();

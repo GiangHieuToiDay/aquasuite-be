@@ -32,6 +32,7 @@ class OrderPaymentServiceTest {
     @Mock SalesOrderApi sales;
     @Mock IamApi iam;
     @Mock FinanceLockRepository locks;
+    @Mock com.aquasuite.ims.module.finance.internal.repository.CodRepository cod;
     @InjectMocks OrderPaymentServiceImpl service;
     UUID orderId;
     UUID customerId;
@@ -39,6 +40,7 @@ class OrderPaymentServiceTest {
     SalesOrderPaymentInfoDto order;
 
     @BeforeEach void setup() {
+        lenient().when(cod.held(any())).thenReturn(BigDecimal.ZERO);
         orderId = UUID.randomUUID(); customerId = UUID.randomUUID(); actorId = UUID.randomUUID();
         order = SalesOrderPaymentInfoDto.builder().orderId(orderId).customerId(customerId)
                 .totalAmount(new BigDecimal("10000000")).validForPayment(true).build();

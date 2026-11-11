@@ -1,5 +1,7 @@
 # UC-36 — Quản lý hàng giữ
 
+> Phạm vi mới nhất ngày 09/11/2026: UC36 dùng chung ngữ cảnh UC29, chỉ bổ sung lịch sử và thực hiện giải phóng theo quyết định UC26 đã lưu hợp lệ. Một kho WH_MAIN, Sales đọc mọi đơn, Chủ cửa hàng duyệt tại UC26, UC36 không duyệt lại và không trả dữ liệu tiền. Xem [thiết kế triển khai](UC-36-approved-release.md). Giữ tạm, hết hạn và ma trận duyệt Kế toán trong bản nháp bên dưới không thuộc phạm vi triển khai này.
+
 ## Metadata
 
 - Work ID: UC29-UC36-SPEC. Version: 0.4, 02/11/2026. Status: **DRAFT**.

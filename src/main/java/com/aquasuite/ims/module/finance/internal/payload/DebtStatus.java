@@ -6,5 +6,6 @@ public enum DebtStatus {
     OVERDUE,
     CREDIT_BLOCKED,
     BLACKLISTED,
+    COD_REVIEW,
     BLOCKED
 }

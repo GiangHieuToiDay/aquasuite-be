@@ -52,6 +52,7 @@ class CustomerDebtServiceImplTest {
     @Mock private DebtEmailNotificationPort emailNotificationPort;
     @Mock private StatementPdfService statementPdfService;
     @Mock private FinanceLockRepository financeLocks;
+    @Mock private com.aquasuite.ims.module.finance.internal.repository.CodRepository cod;
 
     @InjectMocks private CustomerDebtServiceImpl service;
 
@@ -61,6 +62,7 @@ class CustomerDebtServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.lenient().when(cod.held(any())).thenReturn(BigDecimal.ZERO);
         customer = new CustomerDebtProfileDto(CUSTOMER_ID, "KH-001", "An Khang", "0903118240",
                 "ketoan@example.com", "CONTRACTOR", "0312456789", "An Khang Co.", List.of(), List.of(),
                 new BigDecimal("500.00"), 30, "ACTIVE");

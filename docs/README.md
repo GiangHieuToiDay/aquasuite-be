@@ -29,6 +29,7 @@ Hệ thống tài liệu backend bao gồm các tài liệu chuyên đề sau:
   - Các cổng quyết định nhất quán còn mở (`TBD`) về tồn kho, thanh toán, giao hàng và bảo hành.
 
 ### 2. Contracts and Conventions
+- [UC30 MVP: thu COD tiền mặt và bàn giao](contracts/uc30-mvp.md): khai thu không cần ảnh, kế toán nhận tiền từng phần, chống thu trùng và theo dõi khoản shipper còn giữ. [Spec](specifications/UC-30-cod-mvp.md). Backend thử, chưa có frontend/UC41 đầy đủ.
 - [Customer email/password login](contracts/customer-login.md): Use existing email/password login; redundant customer-login removed; registration OTP via email. [Design](specifications/WORK-016-customer-phone-login.md).
 - [`contracts/api-conventions.md`](contracts/api-conventions.md):
   - Quy ước cấu trúc phản hồi HTTP chuẩn hóa qua `ApiResponse<T>` và `FieldErrorDetail`.

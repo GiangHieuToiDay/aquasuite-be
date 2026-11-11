@@ -14,7 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class OrderStockReservationHttpTest {
     @Test void rejectsMissingKeysInvalidQuantitiesAndInvalidWarehousesBeforeCallingService() throws Exception {
         var service=mock(OrderStockReservationService.class);
-        var mvc=MockMvcBuilders.standaloneSetup(new OrderStockReservationController(service,mock(com.aquasuite.ims.module.sales.internal.service.ReservationAllocationRecovery.class)))
+        var mvc=MockMvcBuilders.standaloneSetup(new OrderStockReservationController(service,mock(com.aquasuite.ims.module.sales.internal.service.ReservationAllocationRunner.class)))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
         String path="/api/v1/sales/orders/"+UUID.randomUUID()+"/stock-reservations/requests";
         for(String body : new String[]{"{}",
@@ -28,7 +28,7 @@ class OrderStockReservationHttpTest {
     @Test void accessDeniedUsesTheStandardEnvelope() throws Exception {
         var service=mock(OrderStockReservationService.class);UUID order=UUID.randomUUID();
         when(service.get(order)).thenThrow(new AppException(CommonErrorCode.ACCESS_DENIED));
-        MockMvcBuilders.standaloneSetup(new OrderStockReservationController(service,mock(com.aquasuite.ims.module.sales.internal.service.ReservationAllocationRecovery.class)))
+        MockMvcBuilders.standaloneSetup(new OrderStockReservationController(service,mock(com.aquasuite.ims.module.sales.internal.service.ReservationAllocationRunner.class)))
                 .setControllerAdvice(new GlobalExceptionHandler()).build()
                 .perform(get("/api/v1/sales/orders/"+order+"/stock-reservations"))
                 .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("AUTH_002"));

@@ -50,6 +50,7 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
     private final DebtEmailNotificationPort emailNotificationPort;
     private final StatementPdfService statementPdfService;
     private final FinanceLockRepository financeLocks;
+    private final com.aquasuite.ims.module.finance.internal.repository.CodRepository cod;
 
     /** Kiểm tra khách bị khóa trước mọi đơn mới, kể cả đơn thanh toán ngay. */
     @Override
@@ -62,7 +63,7 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public CustomerDebtPageResponse list(String keyword, String customerType, String debtStatus, int page, int size) {
         List<CustomerDebtSummaryResponse> summaries = calculateAll().stream()
                 .filter(summary -> matches(summary, keyword, customerType, debtStatus))
@@ -77,19 +78,19 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public DebtDashboardStatsResponse stats() {
         List<CustomerDebtSummaryResponse> summaries = calculateAll();
         return DebtDashboardStatsResponse.builder()
                 .totalOutstanding(summaries.stream().map(CustomerDebtSummaryResponse::outstandingBalance).reduce(ZERO, BigDecimal::add))
-                .overdueCustomerCount(summaries.stream().filter(value -> value.overdueBalance().compareTo(ZERO) > 0).count())
+                .overdueCustomerCount(summaries.stream().filter(value -> !value.codReviewRequired() && value.overdueBalance().compareTo(ZERO) > 0).count())
                 .creditBlockedCustomerCount(summaries.stream().filter(value -> value.debtStatus() == DebtStatus.CREDIT_BLOCKED
                         || value.debtStatus() == DebtStatus.BLACKLISTED || value.debtStatus() == DebtStatus.BLOCKED).count())
                 .build();
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public CustomerDebtDetailResponse detail(UUID customerId) {
         CustomerDebtProfileDto customer = getCustomer(customerId);
         DebtCalculation calculation = calculate(customer, documentsFor(Set.of(customerId)));
@@ -103,8 +104,9 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public BlacklistStatusResponse blacklistStatus(UUID customerId) {
+        cod.requireCustomerReconciled(customerId);
         CustomerDebtDetailResponse detail = detail(customerId);
         CustomerDebtSummaryResponse summary = detail.summary();
         boolean blacklisted = summary.debtStatus() == DebtStatus.BLACKLISTED;
@@ -117,9 +119,10 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
 
     /** Kiểm tra công nợ, kỳ hạn 1–30 ngày và hạn mức đối với giá trị đơn dự kiến. */
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public CreditCheckResponse checkCredit(UUID customerId, CreditCheckRequest request) {
         lock("customer-credit:" + customerId);
+        cod.requireCustomerReconciled(customerId);
         CustomerDebtProfileDto customer = getCustomer(customerId);
         DebtCalculation calculation = calculate(customer, documentsFor(Set.of(customerId)));
         boolean counter = "COUNTER".equalsIgnoreCase(request.orderChannel()) || "POS".equalsIgnoreCase(request.orderChannel());
@@ -148,6 +151,7 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
         lock("order-credit-override:" + orderId);
         SalesOrderDebtDto order = salesReceivableApi.findOrderById(orderId)
                 .orElseThrow(() -> new AppException(CustomerDebtErrorCode.INVALID_CREDIT_REQUEST));
+        cod.requireCustomerReconciled(order.customerId());
         CustomerDebtProfileDto customer = getCustomer(order.customerId());
         DebtStatus status = calculate(customer, documentsFor(Set.of(customer.customerId()))).summary().debtStatus();
         if (status == DebtStatus.BLACKLISTED || status == DebtStatus.BLOCKED
@@ -166,6 +170,7 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
     @Override
     @Transactional
     public DebtReminderResponse sendReminder(UUID customerId, DebtReminderRequest request, UUID actorId) {
+        cod.requireCustomerReconciled(customerId);
         CustomerDebtDetailResponse detail = detail(customerId);
         if (detail.summary().outstandingBalance().compareTo(ZERO) == 0) {
             return new DebtReminderResponse(ZERO, "SKIPPED", "NOT_CONFIGURED", "Customer has paid in full.");
@@ -203,8 +208,9 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public StatementDocument exportStatement(UUID customerId, UUID actorId) {
+        cod.requireCustomerReconciled(customerId);
         StatementDocument document = statementPdfService.generate(detail(customerId));
         publish(actorId, customerId, "STATEMENT_EXPORTED", Map.of(), Map.of("fileName", document.fileName()), null);
         return document;
@@ -213,6 +219,7 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
     @Override
     @Transactional
     public StatementEmailResponse emailStatement(UUID customerId, UUID actorId) {
+        cod.requireCustomerReconciled(customerId);
         CustomerDebtDetailResponse detail = detail(customerId);
         if (detail.customer().email() == null || detail.customer().email().isBlank()) {
             throw new AppException(CustomerDebtErrorCode.INVALID_CREDIT_REQUEST, "Customer email is required to send a statement.");
@@ -307,11 +314,17 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
                     .paymentMethod(transaction.getPaymentMethod()).transactionDate(transaction.getTransactionDate())
                     .status(transaction.getStatus()).build());
         }
+        Map<UUID, BigDecimal> codHeld = new HashMap<>();
+        for (SalesOrderDebtDto order : orders) codHeld.put(order.orderId(), cod.held(order.orderId()));
+        boolean codReview = cod.customerHasOpenCod(customer.customerId());
         List<OrderDebtResponse> orderResponses = orders.stream().map(order -> OrderDebtResponse.builder()
                 .orderId(order.orderId()).orderCode(order.orderCode()).orderChannel(order.orderChannel())
                 .orderStatus(order.orderStatus()).paymentStatus(order.paymentStatus()).dueDate(order.dueDate())
                 .totalAmount(amount(order.totalAmount())).verifiedPaidAmount(orderPaid.getOrDefault(order.orderId(), ZERO))
                 .outstandingAmount(positive(amount(order.totalAmount()).subtract(orderPaid.getOrDefault(order.orderId(), ZERO))))
+                .codHeldAmount(codHeld.get(order.orderId()))
+                .customerCollectibleAmount(positive(amount(order.totalAmount()).subtract(orderPaid.getOrDefault(order.orderId(), ZERO))
+                        .subtract(codHeld.get(order.orderId()))))
                 .build()).toList();
         LocalDate today = LocalDate.now(ZoneOffset.UTC);
         BigDecimal overdue = ZERO;
@@ -347,13 +360,17 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
         BigDecimal limit = amount(customer.creditLimit());
         BigDecimal available = limit.subtract(outstanding);
         DebtStatus status = resolveStatus(customer, limit, outstanding, overdue, blacklisted);
+        if (codReview && status != DebtStatus.BLOCKED) status = DebtStatus.COD_REVIEW;
+        BigDecimal totalHeld = codHeld.values().stream().reduce(ZERO, BigDecimal::add);
         CustomerDebtSummaryResponse summary = CustomerDebtSummaryResponse.builder().customerId(customer.customerId())
                 .customerCode(customer.customerCode()).customerName(customer.customerName()).phone(customer.phone())
                 .companyName(customer.companyName()).customerType(customer.customerType()).creditLimit(limit)
                 .unbilledCommitment(unbilledCommitment).issuedInvoiceReceivable(issuedInvoiceReceivable)
                 .unallocatedAdvanceAmount(unallocated)
                 .outstandingBalance(outstanding).overdueBalance(overdue).availableCredit(available)
-                .nearestDueDate(nearestDue).debtStatus(status).build();
+                .nearestDueDate(nearestDue).debtStatus(status)
+                .codHeldAmount(totalHeld).customerCollectibleAmount(positive(outstanding.subtract(totalHeld)))
+                .codReviewRequired(codReview).build();
         return new DebtCalculation(summary, invoiceResponses, orderResponses, receiptResponses, unallocated, unallocatedReceipts);
     }
 

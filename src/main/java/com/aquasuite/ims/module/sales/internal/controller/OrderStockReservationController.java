@@ -3,7 +3,7 @@ package com.aquasuite.ims.module.sales.internal.controller;
 import com.aquasuite.ims.module.sales.internal.payload.request.OrderStockReservationRequest;
 import com.aquasuite.ims.module.sales.internal.payload.response.OrderStockReservationView;
 import com.aquasuite.ims.module.sales.internal.service.OrderStockReservationService;
-import com.aquasuite.ims.module.sales.internal.service.ReservationAllocationRecovery;
+import com.aquasuite.ims.module.sales.internal.service.ReservationAllocationRunner;
 import com.aquasuite.ims.share.dto.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +15,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/sales/orders/{orderId}/stock-reservations")
 public class OrderStockReservationController {
     private final OrderStockReservationService service;
-    private final ReservationAllocationRecovery recovery;
+    private final ReservationAllocationRunner runner;
     @GetMapping
     public ApiResponse<OrderStockReservationView> get(@PathVariable UUID orderId) {
         return ApiResponse.ok(service.get(orderId));
@@ -32,6 +32,6 @@ public class OrderStockReservationController {
     }
     @PostMapping("/allocations/{allocationId}/retry")
     public ApiResponse<OrderStockReservationView> retry(@PathVariable UUID orderId,@PathVariable UUID allocationId) {
-        return ApiResponse.ok(recovery.retry(orderId,allocationId));
+        return ApiResponse.ok(runner.retry(orderId,allocationId));
     }
 }

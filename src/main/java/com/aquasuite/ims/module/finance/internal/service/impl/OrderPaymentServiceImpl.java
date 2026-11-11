@@ -38,6 +38,7 @@ public class OrderPaymentServiceImpl implements OrderPaymentService {
     private final IamApi iam;
     /** Giữ khóa PostgreSQL theo mã chống ghi trùng trong transaction hiện tại. */
     private final FinanceLockRepository locks;
+    private final com.aquasuite.ims.module.finance.internal.repository.CodRepository cod;
 
     /**
      * Khóa đơn, kiểm tra yêu cầu gửi lại và số còn phải trả, rồi lưu một giao dịch.
@@ -73,7 +74,7 @@ public class OrderPaymentServiceImpl implements OrderPaymentService {
         }
         var existing = payments(order);
         var summary = summary(order, existing);
-        if (request.amount().signum() <= 0 || request.amount().compareTo(summary.remaining()) > 0) {
+        if (request.amount().signum() <= 0 || request.amount().compareTo(summary.remaining().subtract(cod.held(orderId))) > 0) {
             throw new AppException(OrderPaymentErrorCode.AMOUNT_EXCEEDS_BALANCE);
         }
         UUID id = UUID.randomUUID();

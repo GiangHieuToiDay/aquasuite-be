@@ -14,6 +14,8 @@ import com.aquasuite.ims.module.sales.internal.payload.request.OrderStockReserva
 import com.aquasuite.ims.module.sales.internal.payload.response.OrderStockReservationView;
 import com.aquasuite.ims.module.sales.internal.repository.OrderStockReservationStore;
 import com.aquasuite.ims.module.sales.internal.service.OrderStockReservationService;
+import com.aquasuite.ims.module.sales.internal.service.ReservationManagementService;
+import com.aquasuite.ims.module.sales.internal.repository.ReservationReleaseStore;
 import com.aquasuite.ims.share.exception.*;
 import com.aquasuite.ims.testsupport.PostgreSqlIntegrationTestSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -37,13 +39,15 @@ import static com.aquasuite.ims.module.sales.internal.error.ProjectDepositErrorC
 @AutoConfigureTestDatabase(replace=AutoConfigureTestDatabase.Replace.NONE)
 @Import({OrderStockReservationService.class,OrderStockReservationStore.class,OrderReceivableApiImpl.class,SalesOrderApiImpl.class,
         StockReservationService.class,StockReservationStore.class,InventoryServiceImpl.class,
-        OrderStockReservationPostgresTest.Json.class})
+        ReservationManagementService.class,ReservationReleaseStore.class,OrderStockReservationPostgresTest.Json.class})
 @Transactional(propagation=Propagation.NOT_SUPPORTED)
 class OrderStockReservationPostgresTest extends PostgreSqlIntegrationTestSupport {
     @TestConfiguration static class Json {
         @Bean ObjectMapper json() { return new ObjectMapper().findAndRegisterModules(); }
     }
     @Autowired OrderStockReservationService service;
+    @Autowired ReservationManagementService management;
+    @SpyBean ReservationReleaseStore releaseResults;
     @Autowired InventoryServiceImpl legacy;
     @Autowired com.aquasuite.ims.module.inventory.api.StockReservationApi reservationApi;
     @Autowired JdbcTemplate jdbc;
@@ -51,7 +55,7 @@ class OrderStockReservationPostgresTest extends PostgreSqlIntegrationTestSupport
     @SpyBean StockReservationStore ledger;
     UUID order,item,variant,customer,actor,inventory;
     @BeforeEach void fixture() {
-        reset(ledger,iam);
+        reset(ledger,iam,releaseResults);
         order=UUID.randomUUID();item=UUID.randomUUID();variant=UUID.randomUUID();
         customer=UUID.randomUUID();actor=UUID.randomUUID();inventory=UUID.randomUUID();
         when(iam.getCurrentUser()).thenReturn(UserSummaryDto.builder().id(actor).roles(List.of("SHOP_OWNER")).build());
@@ -73,6 +77,75 @@ class OrderStockReservationPostgresTest extends PostgreSqlIntegrationTestSupport
                 insert into transactions(transaction_id,transaction_code,transaction_type,category,customer_id,order_id,
                 amount,payment_method,status,transaction_date,created_by) values(?,?,'RECEIPT','SALE',?,?,?,'CASH',?,current_timestamp,?)
                 """,id,"T-"+id,customer,order,new BigDecimal(amount),status,actor);
+    }
+    private UUID approvedDecision(String retained) {
+        jdbc.update("insert into users(id,username,email,password_hash,status) values(?,?,?,?, 'ACTIVE')",
+                actor,"uc36_"+actor,"uc36_"+actor+"@test.invalid","{disabled-test-account}");
+        when(iam.getUserById(actor)).thenReturn(UserSummaryDto.builder().id(actor).roles(List.of("SHOP_OWNER")).build());
+        UUID decision=UUID.randomUUID();
+        jdbc.update("""
+                insert into order_modification_requests(modification_request_id,order_id,customer_id,request_type,
+                request_status,customer_reason,requested_by,reviewed_by,reviewed_at)
+                values(?,?,?,?,'APPROVED','Customer request',?,?,current_timestamp)
+                """,decision,order,customer,retained==null?"FULL_CANCELLATION":"ITEM_CHANGE",actor,actor);
+        if(retained!=null) jdbc.update("""
+                insert into order_modification_request_items(modification_request_item_id,modification_request_id,
+                order_item_id,original_variant_id,change_action,original_quantity,requested_quantity,unit_price_snapshot)
+                values(?,?,?,?,'REDUCE',10,?,10)
+                """,UUID.randomUUID(),decision,item,variant,new BigDecimal(retained));
+        return decision;
+    }
+    @Test void uc36ReleasesApprovedPartialQuantityAndReplaysWithoutChangingPhysicalStock() {
+        receipt("20","VERIFIED");
+        service.apply(order,request(UUID.randomUUID(),"10"),false);
+        UUID decision=approvedDecision("2");
+        var result=management.release(order,decision);
+        assertThat(result.lines().getFirst().releasedQty()).isEqualByComparingTo("4");
+        assertThat(reserved()).isEqualByComparingTo("2");
+        assertThat(management.release(order,decision)).isEqualTo(result);
+        assertThat(operations()).isEqualTo(2);
+        assertThat(jdbc.queryForObject("select on_hand_qty from inventories where inventory_id=?",BigDecimal.class,inventory)).isEqualByComparingTo("6");
+        assertThat(management.history(order).decisions().getFirst().releaseStatus()).isEqualTo("COMPLETED");
+        error(() -> service.apply(order,request(UUID.randomUUID(),"10"),true),RESERVATION_SELECTION_CONFLICT);
+    }
+    @Test void uc36RollsBackStockAndLedgerWhenResultPersistenceFails() {
+        receipt("20","VERIFIED");service.apply(order,request(UUID.randomUUID(),"10"),false);
+        UUID decision=approvedDecision(null);
+        doThrow(new IllegalStateException("Injected result failure")).when(releaseResults).save(any());
+        assertThatThrownBy(() -> management.release(order,decision)).isInstanceOf(IllegalStateException.class);
+        assertThat(reserved()).isEqualByComparingTo("6");
+        assertThat(operations()).isEqualTo(1);
+        assertThat(releaseResults.find(decision)).isEmpty();
+        doCallRealMethod().when(releaseResults).save(any());
+        assertThat(management.release(order,decision).lines().getFirst().releasedQty()).isEqualByComparingTo("6");
+    }
+    @Test void uc36ConcurrentExecutionReleasesOnlyOnce() throws Exception {
+        receipt("20","VERIFIED");service.apply(order,request(UUID.randomUUID(),"10"),false);
+        UUID decision=approvedDecision(null);
+        var executor=Executors.newFixedThreadPool(2);
+        try {
+            var a=executor.submit(() -> management.release(order,decision));
+            var b=executor.submit(() -> management.release(order,decision));
+            assertThat(a.get(20,TimeUnit.SECONDS)).isEqualTo(b.get(20,TimeUnit.SECONDS));
+            assertThat(reserved()).isZero();
+            assertThat(operations()).isEqualTo(2);
+        } finally { executor.shutdownNow(); }
+    }
+    @Test void uc36NeverAdoptsOrReleasesLegacyAggregateHolds() {
+        receipt("20","VERIFIED");service.apply(order,request(UUID.randomUUID(),"4"),false);
+        jdbc.update("update inventories set reserved_qty=reserved_qty+2 where inventory_id=?",inventory);
+        UUID decision=approvedDecision(null);
+        assertThat(management.release(order,decision).lines().getFirst().releasedQty()).isEqualByComparingTo("4");
+        assertThat(reserved()).isEqualByComparingTo("2");
+    }
+    @Test void uc36ReductionCanCompleteWithZeroReleaseAndBlocksRefillingCancelledSelection() {
+        receipt("20","VERIFIED");service.apply(order,request(UUID.randomUUID(),"10"),false);
+        UUID decision=approvedDecision("8");
+        var result=management.release(order,decision);
+        assertThat(result.lines().getFirst().releasedQty()).isZero();
+        assertThat(reserved()).isEqualByComparingTo("6");
+        assertThat(management.release(order,decision)).isEqualTo(result);
+        error(() -> service.apply(order,request(UUID.randomUUID(),"10"),true),RESERVATION_SELECTION_CONFLICT);
     }
     private OrderStockReservationRequest request(UUID key,String qty) {
         return new OrderStockReservationRequest(key,"WH_MAIN",List.of(new Line(item,new BigDecimal(qty))));

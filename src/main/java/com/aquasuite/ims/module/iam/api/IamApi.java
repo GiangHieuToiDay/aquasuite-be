@@ -13,6 +13,9 @@ public interface IamApi {
 
     UserSummaryDto getUserById(UUID userId);
 
+    /** Display names for known IDs only; missing users are omitted. */
+    java.util.Map<UUID, String> findUserDisplayNames(java.util.Set<UUID> userIds);
+
     java.util.Optional<UserSummaryDto> findByEmail(String email);
 
     boolean existsByPhoneAndUserIdNot(String phone, UUID userId);

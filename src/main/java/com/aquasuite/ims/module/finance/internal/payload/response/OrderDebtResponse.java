@@ -17,4 +17,6 @@ public record OrderDebtResponse(
         LocalDate dueDate,
         BigDecimal totalAmount,
         BigDecimal verifiedPaidAmount,
-        BigDecimal outstandingAmount) {}
+        BigDecimal outstandingAmount,
+        BigDecimal codHeldAmount,
+        BigDecimal customerCollectibleAmount) {}
