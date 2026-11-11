@@ -85,6 +85,8 @@ class SalesOrderServiceTest {
     @Mock private SalesInvoiceRepository salesInvoiceRepository;
     @Mock private SalesInvoiceItemRepository salesInvoiceItemRepository;
     @Mock private CreditControlApi creditControlApi;
+    @Mock private OrderStockReservationService orderStockReservationService;
+    @Mock private com.aquasuite.ims.module.finance.api.OrderReceivableApi orderReceivableApi;
 
     @Mock
     private CatalogApi catalogApi;
@@ -150,9 +152,10 @@ class SalesOrderServiceTest {
                 .build();
     }
 
-    @Test
-    @DisplayName("UC-21: Tạo đơn hàng bán lẻ thành công -> Đặt giữ tồn kho (reserveStock), orderStatus=PROCESSING, paymentStatus=UNPAID")
-    void createSalesOrder_Success_IndividualSku_ReservesStockAndSetsUnpaidProcessing() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"false,false", "true,false", "false,true", "true,true"})
+    @DisplayName("UC-21: Persist holding intent while preserving legacy stock/payment behavior")
+    void createSalesOrder_Success_IndividualSku_ReservesStockAndSetsUnpaidProcessing(boolean deferred, boolean byPhone) {
         // Arrange
         CreateSalesOrderRequest request = CreateSalesOrderRequest.builder()
                 .customerId(customerId)
@@ -163,6 +166,7 @@ class SalesOrderServiceTest {
                 .discountAmount(new BigDecimal("500000"))
                 .deliveryAddress("Nhận tại quầy Showroom")
                 .note("Khách nhận tại quầy")
+                .reserveStockAfterDeposit(deferred)
                 .items(List.of(
                         CreateOrderItemRequest.builder()
                                 .variantId(variantId)
@@ -172,11 +176,18 @@ class SalesOrderServiceTest {
                 ))
                 .build();
 
-        when(crmApi.getCustomerById(customerId)).thenReturn(Optional.of(customerDto));
+        if (byPhone) {
+            request.setCustomerId(null);
+            request.setCustomerPhone(" 0988776655 ");
+            request.setCustomerName("Counter customer");
+            when(crmApi.getOrCreateCounterCustomer(" 0988776655 ", "Counter customer")).thenReturn(customerDto);
+        } else {
+            when(crmApi.getCustomerById(customerId)).thenReturn(Optional.of(customerDto));
+        }
         when(iamApi.getCurrentUserId()).thenReturn(staffId);
         when(orderCodeGenerator.generateOrderCode()).thenReturn("SO-20261103-0001");
         when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.of(skuDto));
-        when(inventoryApi.checkAvailability(variantId, new BigDecimal("2"))).thenReturn(true);
+        if (!deferred) when(inventoryApi.checkAvailability(variantId, new BigDecimal("2"))).thenReturn(true);
         when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(orderItemRepository.saveAllAndFlush(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -196,7 +207,15 @@ class SalesOrderServiceTest {
         assertThat(response.getItems()).hasSize(1);
 
         // Xác nhận chỉ đặt giữ tồn kho (reserved_qty), không tự ý trừ on_hand_qty (thuộc UC-37)
-        verify(inventoryApi).reserveStock(variantId, new BigDecimal("2"));
+        verify(orderRepository).saveAndFlush(org.mockito.ArgumentMatchers.argThat(order ->
+                order.isReserveStockAfterDeposit() == deferred && customerId.equals(order.getCustomerId())));
+        verify(crmApi, never()).getOrCreateWalkInCustomer();
+        if (deferred) {
+            verify(inventoryApi, never()).reserveStock(any(), any());
+            verify(inventoryApi, never()).checkAvailability(any(), any());
+        } else {
+            verify(inventoryApi).reserveStock(variantId, new BigDecimal("2"));
+        }
         verify(salesInvoiceRepository).saveAndFlush(org.mockito.ArgumentMatchers.argThat(invoice ->
                 "STORE".equals(invoice.getInvoiceType()) && "DRAFT".equals(invoice.getStatus())
                         && customerId.equals(invoice.getCustomerId())
@@ -233,7 +252,7 @@ class SalesOrderServiceTest {
         CatalogBundleSummaryDto comboDto = CatalogBundleSummaryDto.builder()
                 .bundleId(comboId)
                 .bundleName("Combo Phòng Tắm Master")
-                .packagePrice(new BigDecimal("15000000"))
+                .packagePrice(new BigDecimal("14000000"))
                 .status("ACTIVE")
                 .items(List.of(
                         CatalogBundleSummaryDto.CatalogBundleItemDto.builder()
@@ -282,8 +301,20 @@ class SalesOrderServiceTest {
         assertThat(response.getOrderCode()).isEqualTo("SO-20261103-0002");
         assertThat(response.getOrderStatus()).isEqualTo(OrderStatus.PROCESSING.name());
         assertThat(response.getPaymentStatus()).isEqualTo(PaymentStatus.UNPAID.name());
-        assertThat(response.getTotalAmount()).isEqualByComparingTo(new BigDecimal("30000000"));
+        assertThat(response.getTotalAmount()).isEqualByComparingTo(new BigDecimal("28000000"));
         assertThat(response.getItems()).hasSize(2);
+        assertThat(response.getDisplayItems()).hasSize(1);
+        assertThat(response.getDisplayItems().getFirst().quantity()).isEqualByComparingTo("2");
+        assertThat(response.getDisplayItems().getFirst().components()).hasSize(2);
+        assertThat(response.getDisplayItems().getFirst().unitPrice()).isEqualByComparingTo("14000000");
+        assertThat(response.getDisplayItems().getFirst().lineTotal()).isEqualByComparingTo("28000000");
+        assertThat(response.getItems().stream().map(i -> i.getLineTotal())
+                .reduce(BigDecimal.ZERO,BigDecimal::add)).isEqualByComparingTo("28000000");
+        assertThat(response.getItems().stream().map(i -> i.getDiscountAmount())
+                .reduce(BigDecimal.ZERO,BigDecimal::add)).isEqualByComparingTo("2000000");
+        verify(salesInvoiceRepository).saveAndFlush(org.mockito.ArgumentMatchers.argThat(invoice ->
+                invoice.getTotalAmount().compareTo(new BigDecimal("28000000")) == 0));
+
 
         verify(inventoryApi).reserveStock(compVariant1, new BigDecimal("2"));
         verify(inventoryApi).reserveStock(compVariant2, new BigDecimal("2"));
@@ -472,9 +503,10 @@ class SalesOrderServiceTest {
     // UC-28 / UC-073: Chuyển đổi báo giá thành đơn hàng công trình (Convert Quotation to Order)
     // =========================================================================
 
-    @Test
-    @DisplayName("UC-28 / UC-073: Chuyển đổi báo giá đã chốt (ACCEPTED) thành Đơn hàng công trình thành công")
-    void convertQuotationToOrder_Success_WhenAccepted() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("UC-28: Persist both explicit and default holding intent when converting")
+    void convertQuotationToOrder_Success_WhenAccepted(boolean deferred) {
         UUID quotationId = UUID.randomUUID();
         Quotation quotation = Quotation.builder()
                 .quotationId(quotationId)
@@ -525,6 +557,7 @@ class SalesOrderServiceTest {
 
         ConvertQuotationToOrderRequest request = ConvertQuotationToOrderRequest.builder()
                 .note("Đã thỏa thuận cọc 30%")
+                .reserveStockAfterDeposit(deferred)
                 .build();
 
         when(quotationRepository.findById(quotationId)).thenReturn(Optional.of(quotation));
@@ -540,6 +573,11 @@ class SalesOrderServiceTest {
         when(orderPaymentMilestoneRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
 
         SalesOrderDetailResponse response = salesOrderService.convertQuotationToOrder(quotationId, request);
+
+        verify(orderRepository).save(org.mockito.ArgumentMatchers.argThat(order ->
+                order.isReserveStockAfterDeposit()));
+        verify(inventoryApi, never()).reserveStock(any(), any());
+        verify(orderStockReservationService).registerConvertedOrder(any(Order.class), anyList(), eq(staffId));
 
         assertThat(response).isNotNull();
         assertThat(response.getOrderCode()).isEqualTo("SO-20261105-0001");
@@ -610,6 +648,8 @@ class SalesOrderServiceTest {
         assertThat(quotation.getStatus()).isEqualTo(QuotationStatus.ACCEPTED);
         assertThat(quotation.getAcceptedAt()).isNotNull();
         verify(quotationRepository).save(quotation);
+        verify(orderRepository).save(org.mockito.ArgumentMatchers.argThat(order -> !order.isReserveStockAfterDeposit()));
+        verify(orderStockReservationService, never()).registerConvertedOrder(any(),anyList(),any());
     }
 
     @Test

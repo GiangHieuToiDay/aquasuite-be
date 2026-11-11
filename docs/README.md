@@ -29,6 +29,7 @@ Hệ thống tài liệu backend bao gồm các tài liệu chuyên đề sau:
   - Các cổng quyết định nhất quán còn mở (`TBD`) về tồn kho, thanh toán, giao hàng và bảo hành.
 
 ### 2. Contracts and Conventions
+- [Customer email/password login](contracts/customer-login.md): Use existing email/password login; redundant customer-login removed; registration OTP via email. [Design](specifications/WORK-016-customer-phone-login.md).
 - [`contracts/api-conventions.md`](contracts/api-conventions.md):
   - Quy ước cấu trúc phản hồi HTTP chuẩn hóa qua `ApiResponse<T>` và `FieldErrorDetail`.
   - Cơ chế bắt lỗi tập trung trong `GlobalExceptionHandler` (`AppException`, validation, access denied, DB integrity).
@@ -36,7 +37,13 @@ Hệ thống tài liệu backend bao gồm các tài liệu chuyên đề sau:
   - Quy chuẩn đặt tên URI và phương thức HTTP cho các Feature Spec tương lai.
 
 ### 3. Specifications and Templates
+- [WORK-020: tự giữ sau xác minh cọc](specifications/WORK-020-auto-deposit-reservations.md): luồng UC29 theo quyết định người dùng 07/11/2026; dùng API xác minh UC70 hiện có, hàng đợi phân bổ bền vững và trạng thái cọc/giữ riêng.
 - [`specifications/WORK-019-uc70-pending-payment-verifications.md`](specifications/WORK-019-uc70-pending-payment-verifications.md): Dự thảo thiết kế BE UC-70 xác minh chuyển khoản đang chờ; các quyết định về quyền và contract còn mở, Design Review PENDING.
+- [UC29 cơ bản trên đơn có sẵn](contracts/uc29-basic.md): chọn phần hàng, kiểm tra khoản thu VERIFIED và giữ PostgreSQL; có giới hạn đối chiếu tồn giữ legacy. Phạm vi mới tại UC29 mục 13, không thay bản demo thành production bằng cách bỏ profile.
+- [`specifications/UC-29-project-deposit-reservation.md`](specifications/UC-29-project-deposit-reservation.md) và [`specifications/UC-36-stock-reservation-management.md`](specifications/UC-36-stock-reservation-management.md):
+  - Spec nghiệp vụ nháp cho cọc 20% khi khách yêu cầu giữ hàng và quản lý reservation; có tham chiếu chéo tới các UC tiền, hủy/giảm và xuất/giao hiện có.
+  - Phần service/quy tắc dùng chung đặt trong UC chủ trì và được tham chiếu hai chiều giữa UC-29 và UC-36, gồm đánh giá code tái sử dụng và quyết định còn mở. Status DRAFT, Design Review PENDING; chưa phải contract/schema được duyệt.
+  - [Bản thử UC-29 và hướng dẫn API](contracts/uc29-demo.md): profile `uc29-demo`, tạo/tái sử dụng đơn, chọn dòng giữ và cọc 20%; adapter mô phỏng trong module sở hữu, không ghi tiền/tồn thật và chưa phải implementation production.
 - [`specifications/UC-13-product-combos.md`](specifications/UC-13-product-combos.md):
   - Đặc tả mục tiêu UC-13: combo SKU cố định, endpoint/DTO, publication, giá/tồn, thành phần và kiểm chứng.
   - Thay thế spec/code guide SCRUM14 cũ; Design Review PENDING, không chứng nhận implementation hiện tại.
@@ -70,3 +77,5 @@ Khi tiếp cận dự án để nghiên cứu hoặc triển khai công việc m
 2. Đọc [`architecture/Architecture-Aquasuite.md`](architecture/Architecture-Aquasuite.md) để nắm rõ ranh giới module và trạng thái hệ thống.
 3. Đọc [`contracts/api-conventions.md`](contracts/api-conventions.md) và [`architecture/module-contracts.md`](architecture/module-contracts.md) trước khi thiết kế bất kỳ API hoặc Event nào.
 4. Đọc [`workflow/feature-delivery.md`](workflow/feature-delivery.md) để phân loại rủi ro và áp dụng đúng mức kiểm soát trước khi lập trình.
+
+- [Counter customer and account linking](specifications/CUSTOMER-PHONE-LINK.md): phone-based customer creation at POS and later account linking; V27 migration and accepted ownership policy.

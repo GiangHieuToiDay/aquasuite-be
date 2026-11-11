@@ -26,6 +26,12 @@ public class SalesOrderSummaryResponse {
     private String projectName;
     private BigDecimal depositPercent;
     private BigDecimal depositAmount;
+
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+    private com.aquasuite.ims.module.finance.api.dto.OrderReceivableView payment;
+
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+    private String depositStatus;
     private Integer creditTermDays;
     private BigDecimal remainingDebtAmount;
     private UUID salesStaffId;

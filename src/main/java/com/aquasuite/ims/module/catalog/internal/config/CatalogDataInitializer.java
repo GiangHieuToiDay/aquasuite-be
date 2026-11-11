@@ -32,6 +32,7 @@ public class CatalogDataInitializer implements CommandLineRunner {
     @Override
     public void run(String... args) {
         initCategories();
+        initComboCategory();
         initBrands();
         initSampleProducts();
     }
@@ -49,6 +50,12 @@ public class CatalogDataInitializer implements CommandLineRunner {
                             createCategory("601", "BƠM NƯỚC & PHỤ KIỆN CẤP THOÁT"),
                             createCategory("708", "ĐÈN CHIẾU SÁNG & ĐÈN TRANG TRÍ")));
             log.info("Seeded 7 reference categories successfully.");
+        }
+    }
+
+    private void initComboCategory() {
+        if (!categoryRepository.existsByCategoryCodeIgnoreCase("COMBO")) {
+            categoryRepository.save(createCategory("COMBO", "Combo"));
         }
     }
 

@@ -1,0 +1,2 @@
+ALTER TABLE order_items ADD COLUMN IF NOT EXISTS combo_sku VARCHAR(100);
+ALTER TABLE order_items ADD COLUMN IF NOT EXISTS combo_unit_price NUMERIC(15,2);

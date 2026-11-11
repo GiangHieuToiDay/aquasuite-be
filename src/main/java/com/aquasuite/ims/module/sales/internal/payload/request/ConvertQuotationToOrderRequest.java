@@ -30,5 +30,8 @@ public class ConvertQuotationToOrderRequest {
 
     /** Lý do xin cấp hoặc tăng hạn mức công nợ trình Chủ cửa hàng phê duyệt */
     private String creditIncreaseReason;
+
+    /** Optional opt-in; a positive quotation depositPercent automatically defers holds and selects WH_MAIN. */
+    private boolean reserveStockAfterDeposit;
 }
 

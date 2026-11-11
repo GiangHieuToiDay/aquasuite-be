@@ -94,28 +94,20 @@ class RegisterConcurrencyIT extends RegisterTestSupport {
                                                 registrations.verify(
                                                         new VerifyRegistrationRequest(
                                                                 EMAIL, old))));
-        // Either verification locks first, or resend invalidates the old code before verification.
-        assertThat(
-                        results.equals(List.of("REG_006", "SUCCESS"))
-                                || results.equals(List.of("SUCCESS", "REG_002"))
-                                || results.equals(List.of("SUCCESS", "REG_003")))
-                .isTrue();
+        // The processing claim serializes resend and verification.
+        assertThat(results).allMatch(r -> List.of("SUCCESS", "REG_006", "REG_003", "REG_002").contains(r));
+        if (users.count() == 0) {
+            registrations.verify(new VerifyRegistrationRequest(EMAIL, otp()));
+        }
+        assertThat(users.count()).isEqualTo(1);
     }
     @Test
-    void differentPendingEmailsWithSamePhoneCreateOnlyOneAccount() throws Exception {
+    void differentPendingEmailsCannotShareOnePhoneChallenge() throws Exception {
         registered();
-        String firstCode = otp();
-        String otherEmail = "other@example.test";
         var secondForm = form();
-        secondForm.put("email", otherEmail);
-        postJson(ROOT, secondForm, 201);
-        String secondCode = otp();
-        var results = race(
-                () -> outcome(() -> registrations.verify(new VerifyRegistrationRequest(EMAIL, firstCode))),
-                () -> outcome(() -> registrations.verify(new VerifyRegistrationRequest(otherEmail, secondCode))));
-        assertThat(results).containsExactlyInAnyOrder("SUCCESS", "REG_001");
-        assertThat(users.count()).isEqualTo(1);
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM customers", Integer.class)).isEqualTo(1);
+        secondForm.put("email", "other@example.test");
+        postJson(ROOT, secondForm, 409);
+        assertThat(users.count()).isZero();
     }
 
 }

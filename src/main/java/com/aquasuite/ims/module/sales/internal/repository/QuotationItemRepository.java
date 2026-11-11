@@ -14,5 +14,8 @@ public interface QuotationItemRepository extends JpaRepository<QuotationItem, UU
 
     List<QuotationItem> findByQuotationIdIn(List<UUID> quotationIds);
 
-    void deleteByQuotationId(UUID quotationId);
+    // One statement avoids deleting component entities twice after the parent FK cascades.
+    @org.springframework.data.jpa.repository.Modifying(flushAutomatically = true)
+    @org.springframework.data.jpa.repository.Query("delete from QuotationItem item where item.quotationId = :quotationId")
+    void deleteByQuotationId(@org.springframework.data.repository.query.Param("quotationId") UUID quotationId);
 }

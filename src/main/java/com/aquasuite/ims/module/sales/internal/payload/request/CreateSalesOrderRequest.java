@@ -25,10 +25,12 @@ public class CreateSalesOrderRequest {
     /** ID khách hàng (nếu khách quen đã có trong hệ thống) */
     private UUID customerId;
 
-    /** Tra cứu khách hàng theo SĐT (nếu không có sẽ mặc định Walk-in Customer) */
+    /** Reuse/create a CRM customer by phone; no account is created. Blank keeps anonymous walk-in. */
+    @jakarta.validation.constraints.Pattern(regexp = "^\\s*(?:0[35789][0-9]{8})?\\s*$")
     private String customerPhone;
 
     /** Tên khách hàng (tùy chọn lưu kèm nếu là khách vãng lai) */
+    @jakarta.validation.constraints.Size(max = 150)
     private String customerName;
 
     /** Phân loại đơn hàng: RETAIL (mặc định) hoặc PROJECT */
@@ -57,6 +59,9 @@ public class CreateSalesOrderRequest {
 
     /** Ghi chú đơn hàng */
     private String note;
+
+    /** Customer requests UC29: do not reserve stock until the verified 20% deposit funds selected lines. */
+    private boolean reserveStockAfterDeposit;
 
     /** Danh sách SKU lẻ */
     @Valid

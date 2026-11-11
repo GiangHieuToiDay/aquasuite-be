@@ -2,6 +2,7 @@ package com.aquasuite.ims.module.sales.internal.service.impl;
 
 import com.aquasuite.ims.module.catalog.api.CatalogApi;
 import com.aquasuite.ims.module.catalog.api.dto.CatalogSkuSummaryDto;
+import com.aquasuite.ims.module.catalog.api.dto.CatalogBundleSummaryDto;
 import com.aquasuite.ims.module.crm.api.CrmApi;
 import com.aquasuite.ims.module.crm.api.dto.CustomerAddressDto;
 import com.aquasuite.ims.module.crm.api.dto.CustomerSummaryDto;
@@ -138,7 +139,8 @@ public class QuotationServiceImpl implements QuotationService {
         UUID quotationId = UUID.randomUUID();
 
         // Thẩm định SKU & quy cách đơn vị tính
-        Map<UUID, CatalogSkuSummaryDto> skuMap = validateVariantsAndGetSkuMap(itemRequests);
+        var selection = validateVariantsAndGetSkuMap(itemRequests);
+        Map<UUID, CatalogSkuSummaryDto> skuMap = selection.skus();
 
         // Tra cứu tồn kho
         Set<UUID> variantIds = skuMap.keySet();
@@ -150,7 +152,7 @@ public class QuotationServiceImpl implements QuotationService {
         List<QuotationItem> quotationItems = new ArrayList<>(itemRequests.size());
         Map<UUID, String> skuNames = new HashMap<>();
 
-        buildQuotationLinesAndEntities(quotationId, itemRequests, skuMap, stockMap, calcLines, discountRates, quotationItems, skuNames);
+        buildQuotationLinesAndEntities(quotationId, itemRequests, skuMap, selection.bundles(), stockMap, calcLines, discountRates, quotationItems, skuNames);
 
         // 4. Tính toán tài chính
         QuotationTotals totals = quotationCalculator.calculate(calcLines, request.getVatRate(), request.getShippingFee());
@@ -223,7 +225,8 @@ public class QuotationServiceImpl implements QuotationService {
 
         List<QuotationItemRequest> itemRequests = request.getItems() != null ? request.getItems() : Collections.emptyList();
 
-        Map<UUID, CatalogSkuSummaryDto> skuMap = validateVariantsAndGetSkuMap(itemRequests);
+        var selection = validateVariantsAndGetSkuMap(itemRequests);
+        Map<UUID, CatalogSkuSummaryDto> skuMap = selection.skus();
         Set<UUID> variantIds = skuMap.keySet();
         Map<UUID, StockSummaryDto> stockMap = variantIds.isEmpty() ? Collections.emptyMap() : inventoryApi.getStockSummaries(variantIds);
 
@@ -233,7 +236,7 @@ public class QuotationServiceImpl implements QuotationService {
         Map<UUID, String> skuNames = new HashMap<>();
 
         UUID previewId = UUID.randomUUID();
-        buildQuotationLinesAndEntities(previewId, itemRequests, skuMap, stockMap, calcLines, discountRates, virtualItems, skuNames);
+        buildQuotationLinesAndEntities(previewId, itemRequests, skuMap, selection.bundles(), stockMap, calcLines, discountRates, virtualItems, skuNames);
 
         QuotationTotals totals = quotationCalculator.calculate(calcLines, request.getVatRate(), request.getShippingFee());
         DiscountCheckResult approvalResult = discountPolicyChecker.check(discountRates, DEFAULT_STAFF_DISCOUNT_LIMIT);
@@ -344,7 +347,8 @@ public class QuotationServiceImpl implements QuotationService {
 
         // Tạo dòng mới
         List<QuotationItemRequest> itemRequests = request.getItems() != null ? request.getItems() : Collections.emptyList();
-        Map<UUID, CatalogSkuSummaryDto> skuMap = validateVariantsAndGetSkuMap(itemRequests);
+        var selection = validateVariantsAndGetSkuMap(itemRequests);
+        Map<UUID, CatalogSkuSummaryDto> skuMap = selection.skus();
         Set<UUID> variantIds = skuMap.keySet();
         Map<UUID, StockSummaryDto> stockMap = variantIds.isEmpty() ? Collections.emptyMap() : inventoryApi.getStockSummaries(variantIds);
 
@@ -353,7 +357,7 @@ public class QuotationServiceImpl implements QuotationService {
         List<QuotationItem> newItems = new ArrayList<>(itemRequests.size());
         Map<UUID, String> skuNames = new HashMap<>();
 
-        buildQuotationLinesAndEntities(quotationId, itemRequests, skuMap, stockMap, calcLines, discountRates, newItems, skuNames);
+        buildQuotationLinesAndEntities(quotationId, itemRequests, skuMap, selection.bundles(), stockMap, calcLines, discountRates, newItems, skuNames);
 
         QuotationTotals totals = quotationCalculator.calculate(calcLines, quotation.getVatRate(), quotation.getShippingFee());
         DiscountCheckResult approvalResult = discountPolicyChecker.check(discountRates, DEFAULT_STAFF_DISCOUNT_LIMIT);
@@ -466,6 +470,7 @@ public class QuotationServiceImpl implements QuotationService {
             Map<UUID, StockSummaryDto> stockMap = inventoryApi.getStockSummaries(variantIds);
             boolean itemsUpdated = false;
             for (QuotationItem item : items) {
+                if (item.getVariantId() == null) continue;
                 StockSummaryDto stockDto = stockMap.get(item.getVariantId());
                 BigDecimal availableQty = (stockDto != null && stockDto.availableQty() != null) ? stockDto.availableQty() : BigDecimal.ZERO;
                 BigDecimal newBackorder = item.getQuantity().subtract(availableQty).max(BigDecimal.ZERO);
@@ -477,6 +482,7 @@ public class QuotationServiceImpl implements QuotationService {
                 }
             }
             if (itemsUpdated) {
+                refreshComboBackorders(items);
                 quotationItemRepository.saveAll(items);
             }
         }
@@ -713,16 +719,19 @@ public class QuotationServiceImpl implements QuotationService {
         Map<UUID, String> skuNames = new HashMap<>();
 
         Map<UUID, UUID> oldToNewItemIds = new HashMap<>();
+        Set<UUID> comboParents = sourceItems.stream().filter(item -> item.getComboId() != null)
+                .map(QuotationItem::getQuotationItemId).collect(Collectors.toSet());
         for (QuotationItem oldItem : sourceItems) {
             oldToNewItemIds.put(oldItem.getQuotationItemId(), UUID.randomUUID());
         }
 
         for (QuotationItem oldItem : sourceItems) {
-            CatalogSkuSummaryDto skuDto = skuMap.get(oldItem.getVariantId());
-            StockSummaryDto stockDto = stockMap.get(oldItem.getVariantId());
+            boolean comboSnapshot = oldItem.getComboId() != null || comboParents.contains(oldItem.getParentItemId());
+            CatalogSkuSummaryDto skuDto = oldItem.getVariantId() == null ? null : skuMap.get(oldItem.getVariantId());
+            StockSummaryDto stockDto = oldItem.getVariantId() == null ? null : stockMap.get(oldItem.getVariantId());
 
-            BigDecimal unitPrice = (skuDto != null && skuDto.sellingPrice() != null) ? skuDto.sellingPrice() : oldItem.getUnitPrice();
-            BigDecimal unitCost = (skuDto != null && skuDto.costPrice() != null) ? skuDto.costPrice() : oldItem.getUnitCost();
+            BigDecimal unitPrice = (!comboSnapshot && skuDto != null && skuDto.sellingPrice() != null) ? skuDto.sellingPrice() : oldItem.getUnitPrice();
+            BigDecimal unitCost = (!comboSnapshot && skuDto != null && skuDto.costPrice() != null) ? skuDto.costPrice() : oldItem.getUnitCost();
             BigDecimal qty = oldItem.getQuantity();
             BigDecimal availableQty = (stockDto != null && stockDto.availableQty() != null) ? stockDto.availableQty() : BigDecimal.ZERO;
             BigDecimal backorderQty = qty.subtract(availableQty).max(BigDecimal.ZERO);
@@ -744,6 +753,9 @@ public class QuotationServiceImpl implements QuotationService {
                     .quotationId(newQuotationId)
                     .parentItemId(newParentItemId)
                     .variantId(oldItem.getVariantId())
+                    .comboId(oldItem.getComboId())
+                    .comboName(oldItem.getComboName())
+                    .itemType(oldItem.getItemType())
                     .sku(skuDto != null ? skuDto.sku() : oldItem.getSku())
                     .unit(skuDto != null && skuDto.unit() != null ? skuDto.unit() : oldItem.getUnit())
                     .quantity(qty)
@@ -757,6 +769,7 @@ public class QuotationServiceImpl implements QuotationService {
 
             newItems.add(newItem);
         }
+        refreshComboBackorders(newItems);
 
         QuotationTotals totals = quotationCalculator.calculate(calcLines, newQuotation.getVatRate(), newQuotation.getShippingFee());
         newQuotation.setTotalAmount(totals.grandTotal());
@@ -1134,9 +1147,11 @@ public class QuotationServiceImpl implements QuotationService {
         return resp;
     }
 
-    private Map<UUID, CatalogSkuSummaryDto> validateVariantsAndGetSkuMap(List<QuotationItemRequest> itemRequests) {
+    private record Selection(Map<UUID, CatalogSkuSummaryDto> skus, Map<UUID, CatalogBundleSummaryDto> bundles) {}
+
+    private Selection validateVariantsAndGetSkuMap(List<QuotationItemRequest> itemRequests) {
         if (itemRequests == null || itemRequests.isEmpty()) {
-            return Collections.emptyMap();
+            return new Selection(Collections.emptyMap(), Collections.emptyMap());
         }
 
         Set<UUID> seenVariants = new HashSet<>();
@@ -1150,9 +1165,28 @@ public class QuotationServiceImpl implements QuotationService {
                 .map(QuotationItemRequest::getVariantId)
                 .collect(Collectors.toSet());
 
-        Map<UUID, CatalogSkuSummaryDto> skuMap = catalogApi.getSkuSummaries(variantIds);
+        Map<UUID, CatalogSkuSummaryDto> skuMap = new HashMap<>(catalogApi.getSkuSummaries(variantIds));
+        Map<UUID, CatalogBundleSummaryDto> bundles = new HashMap<>();
+        Set<UUID> componentIds = new HashSet<>();
+        for (UUID id : variantIds) {
+            if (skuMap.containsKey(id)) continue;
+            var bundle = catalogApi.getBundleSummary(id)
+                    .orElseThrow(() -> new AppException(SalesErrorCode.SKU_NOT_FOUND,id));
+            if (!id.equals(bundle.bundleId()) || bundle.bundleName() == null || bundle.bundleName().isBlank()
+                    || !"ACTIVE".equalsIgnoreCase(bundle.status()) || bundle.packagePrice() == null
+                    || bundle.packagePrice().signum() <= 0 || bundle.items() == null || bundle.items().isEmpty()
+                    || bundle.items().stream().anyMatch(item -> item.variantId() == null || item.quantity() <= 0)) {
+                throw new AppException(SalesErrorCode.INVALID_COMBO,id);
+            }
+            bundles.put(id,bundle);
+            bundle.items().forEach(item -> componentIds.add(item.variantId()));
+        }
+        if (!componentIds.isEmpty()) skuMap.putAll(catalogApi.getSkuSummaries(componentIds));
 
-        for (UUID varId : variantIds) {
+        Set<UUID> skuIds = new HashSet<>(variantIds);
+        skuIds.removeAll(bundles.keySet());
+        skuIds.addAll(componentIds);
+        for (UUID varId : skuIds) {
             CatalogSkuSummaryDto skuDto = skuMap.get(varId);
             if (skuDto == null) {
                 throw new AppException(SalesErrorCode.SKU_NOT_FOUND, varId);
@@ -1163,17 +1197,33 @@ public class QuotationServiceImpl implements QuotationService {
         }
 
         for (QuotationItemRequest itemReq : itemRequests) {
+            var bundle = bundles.get(itemReq.getVariantId());
+            if (bundle != null) {
+                if (itemReq.getQuantity() == null || itemReq.getQuantity().signum() <= 0
+                        || itemReq.getQuantity().remainder(BigDecimal.ONE).signum() != 0) {
+                    throw new AppException(SalesErrorCode.INVALID_UNIT_QUANTITY,itemReq.getQuantity(),"Bộ");
+                }
+                BigDecimal retail = bundle.items().stream().map(item -> {
+                    BigDecimal price = skuMap.get(item.variantId()).sellingPrice();
+                    if (price == null || price.signum() < 0) throw new AppException(SalesErrorCode.INVALID_COMBO,bundle.bundleId());
+                    return price.multiply(BigDecimal.valueOf(item.quantity()));
+                }).reduce(BigDecimal.ZERO,BigDecimal::add);
+                if (retail.signum() <= 0 || bundle.packagePrice().compareTo(retail) > 0)
+                    throw new AppException(SalesErrorCode.INVALID_COMBO,bundle.bundleId());
+                continue;
+            }
             CatalogSkuSummaryDto skuDto = skuMap.get(itemReq.getVariantId());
             validateUnitQuantity(skuDto.unit(), itemReq.getQuantity());
         }
 
-        return skuMap;
+        return new Selection(skuMap,bundles);
     }
 
     private void buildQuotationLinesAndEntities(
             UUID quotationId,
             List<QuotationItemRequest> itemRequests,
             Map<UUID, CatalogSkuSummaryDto> skuMap,
+            Map<UUID, CatalogBundleSummaryDto> bundles,
             Map<UUID, StockSummaryDto> stockMap,
             List<CalculationLine> calcLines,
             List<BigDecimal> discountRates,
@@ -1182,6 +1232,39 @@ public class QuotationServiceImpl implements QuotationService {
     ) {
         int sortOrder = 1;
         for (QuotationItemRequest itemReq : itemRequests) {
+            if (bundles.containsKey(itemReq.getVariantId())) {
+                var bundle = bundles.get(itemReq.getVariantId());
+                BigDecimal qty = itemReq.getQuantity();
+                BigDecimal rate = itemReq.getDiscountRate() == null ? BigDecimal.ZERO : itemReq.getDiscountRate();
+                BigDecimal cost = bundle.items().stream().map(item -> {
+                    BigDecimal unitCost = skuMap.get(item.variantId()).costPrice();
+                    return (unitCost == null ? BigDecimal.ZERO : unitCost).multiply(BigDecimal.valueOf(item.quantity()));
+                }).reduce(BigDecimal.ZERO,BigDecimal::add);
+                QuotationItem root = QuotationItem.builder().quotationItemId(UUID.randomUUID()).quotationId(quotationId)
+                        .comboId(bundle.bundleId()).comboName(bundle.bundleName()).itemType("COMBO_HEADER")
+                        .sku(bundle.bundleCode() == null ? "COMBO-"+bundle.bundleId() : bundle.bundleCode())
+                        .unit("Bộ").quantity(qty).unitPrice(bundle.packagePrice()).discountRate(rate)
+                        .unitCost(cost).sortOrder(sortOrder++).build();
+                quotationItems.add(root);
+                calcLines.add(new CalculationLine(qty,bundle.packagePrice(),rate,cost,false));
+                discountRates.add(rate);
+                for (var component : bundle.items()) {
+                    var sku = skuMap.get(component.variantId());
+                    BigDecimal required = qty.multiply(BigDecimal.valueOf(component.quantity()));
+                    var stock = stockMap.get(component.variantId());
+                    BigDecimal available = stock == null || stock.availableQty() == null ? BigDecimal.ZERO : stock.availableQty();
+                    BigDecimal missing = required.subtract(available).max(BigDecimal.ZERO);
+                    BigDecimal unitCost = sku.costPrice() == null ? BigDecimal.ZERO : sku.costPrice();
+                    quotationItems.add(QuotationItem.builder().quotationItemId(UUID.randomUUID()).quotationId(quotationId)
+                            .parentItemId(root.getQuotationItemId()).itemType("COMBO_COMPONENT").variantId(sku.variantId()).sku(sku.sku())
+                            .unit(sku.unit() == null ? "" : sku.unit()).quantity(required).unitPrice(sku.sellingPrice())
+                            .unitCost(unitCost).discountRate(BigDecimal.ZERO).backorderQty(missing)
+                            .leadTimeDays(missing.signum() > 0 ? DEFAULT_BACKORDER_LEAD_TIME_DAYS : 0).sortOrder(sortOrder++).build());
+                    skuNames.put(sku.variantId(),sku.variantName());
+                    calcLines.add(new CalculationLine(required,sku.sellingPrice(),BigDecimal.ZERO,unitCost,true));
+                }
+                continue;
+            }
             CatalogSkuSummaryDto skuDto = skuMap.get(itemReq.getVariantId());
             StockSummaryDto stockDto = stockMap != null ? stockMap.get(itemReq.getVariantId()) : null;
 
@@ -1218,6 +1301,21 @@ public class QuotationServiceImpl implements QuotationService {
                     .build();
 
             quotationItems.add(quotationItem);
+        }
+        refreshComboBackorders(quotationItems);
+    }
+
+    private void refreshComboBackorders(List<QuotationItem> items) {
+        for (var root : items) {
+            if (root.getComboId() == null) continue;
+            BigDecimal missing = BigDecimal.ZERO;
+            for (var child : items) {
+                if (!root.getQuotationItemId().equals(child.getParentItemId())) continue;
+                BigDecimal perCombo = child.getQuantity().divide(root.getQuantity());
+                missing = missing.max(child.getBackorderQty().divide(perCombo,0,RoundingMode.UP));
+            }
+            root.setBackorderQty(missing.min(root.getQuantity()));
+            root.setLeadTimeDays(missing.signum() > 0 ? DEFAULT_BACKORDER_LEAD_TIME_DAYS : 0);
         }
     }
 

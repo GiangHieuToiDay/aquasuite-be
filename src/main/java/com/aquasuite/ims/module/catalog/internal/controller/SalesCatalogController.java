@@ -5,6 +5,7 @@ import com.aquasuite.ims.module.catalog.internal.entity.Category;
 import com.aquasuite.ims.module.catalog.internal.entity.Product;
 import com.aquasuite.ims.module.catalog.internal.entity.ProductImage;
 import com.aquasuite.ims.module.catalog.internal.entity.ProductVariant;
+import com.aquasuite.ims.module.catalog.internal.enums.ProductStatus;
 import com.aquasuite.ims.module.catalog.internal.enums.ProductType;
 import com.aquasuite.ims.module.catalog.internal.enums.VariantStatus;
 import com.aquasuite.ims.module.catalog.internal.payload.req.BundlePageRequest;
@@ -83,7 +84,10 @@ public class SalesCatalogController {
 
         for (ProductVariant v : variants) {
             Product p = productMap.get(v.getProductId());
-            boolean isCombo = p != null && p.getProductType() == ProductType.BUNDLE;
+            if (p != null && p.getProductType() == ProductType.BUNDLE) {
+                continue;
+            }
+            boolean isCombo = false;
             String category = (p != null && p.getCategoryId() != null) ? categoryNameMap.getOrDefault(p.getCategoryId(), "Thiết bị") : "Thiết bị";
             String brand = (p != null && p.getBrandId() != null) ? brandNameMap.getOrDefault(p.getBrandId(), "TOTO") : "TOTO";
             BigDecimal stock = stockMap.containsKey(v.getVariantId()) ? stockMap.get(v.getVariantId()).availableQty() : BigDecimal.valueOf(50);
@@ -107,13 +111,18 @@ public class SalesCatalogController {
 
         // Truy vấn các gói Combo (Bundle) đã phát hành từ Database
         try {
-            var bundlePage = bundleQueryService.getPublishedBundles(new BundlePageRequest(1, 100, null, null, null));
-            if (bundlePage != null && bundlePage.getItems() != null) {
+            int page = 0;
+            com.aquasuite.ims.share.dto.PageResponse<BundleResponse> bundlePage;
+            do {
+                bundlePage = bundleQueryService.getBundleList(new BundlePageRequest(page++, 100, null, ProductStatus.ACTIVE, null));
+                if (bundlePage == null || bundlePage.getItems() == null) {
+                    break;
+                }
                 for (BundleResponse b : bundlePage.getItems()) {
                     String bundleBrand = b.brandId() != null ? brandNameMap.getOrDefault(b.brandId(), "TOTO") : "TOTO";
                     String imgUrl = imageMap.get(b.bundleId());
 
-                    BigDecimal minComboStock = BigDecimal.valueOf(50);
+                    BigDecimal minComboStock = BigDecimal.ZERO;
                     List<String> components = new ArrayList<>();
                     if (b.items() != null && !b.items().isEmpty()) {
                         BigDecimal minStock = null;
@@ -151,7 +160,7 @@ public class SalesCatalogController {
                             .components(components)
                             .build());
                 }
-            }
+            } while (page < bundlePage.getTotalPages());
         } catch (Exception ex) {
             log.warn("Could not load published bundles into sales catalog: {}", ex.getMessage());
         }

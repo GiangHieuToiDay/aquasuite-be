@@ -56,5 +56,8 @@ public class SalesOrderDetailResponse {
     private List<SalesOrderItemResponse> items = new ArrayList<>();
 
     @Builder.Default
+    private List<SalesOrderDisplayItemResponse> displayItems = new ArrayList<>();
+
+    @Builder.Default
     private List<SalesOrderMilestoneResponse> milestones = new ArrayList<>();
 }

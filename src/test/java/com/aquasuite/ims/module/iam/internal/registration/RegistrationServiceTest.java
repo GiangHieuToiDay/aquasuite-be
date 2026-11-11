@@ -15,9 +15,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.mail.MailSendException;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
@@ -35,7 +32,6 @@ class RegistrationServiceTest {
     @Mock RoleRepository roles;
     @Mock PasswordEncoder encoder;
     @Mock RegistrationOtpStore store;
-    @Mock JavaMailSender mail;
     @Mock PlatformTransactionManager manager;
     @Mock AuthService auth;
     @Mock CustomerRegistrationApi profiles;
@@ -45,7 +41,7 @@ class RegistrationServiceTest {
 
     @BeforeEach
     void setup() {
-        service = new RegisterService(users, roles, encoder, store, mail,
+        service = new RegisterService(users, roles, encoder, store,
                 new TransactionTemplate(manager), auth, profiles);
         pending = new PendingRegistration(UUID.randomUUID(), "Customer Name", EMAIL,
                 "0901234567", "encoded-password");
@@ -83,31 +79,30 @@ class RegistrationServiceTest {
         var response = service.register(new RegisterRequest("Customer Name", EMAIL,
                 "0901234567", "SyntheticPass1!", "SyntheticPass1!", true));
         var captured = ArgumentCaptor.forClass(PendingRegistration.class);
-        verify(store).save(captured.capture(), eq("encoded-value"));
+        verify(store).save(captured.capture());
         assertThat(captured.getValue().passwordHash()).isEqualTo("encoded-value");
         assertThat(response.id()).isEqualTo(captured.getValue().id());
         verify(users, never()).saveAndFlush(any());
         verify(users, never()).insertPendingRegistration(any(), any(), any(), any(), any(), any());
         verifyNoInteractions(roles, manager, profiles, auth);
-        verify(mail).send(any(SimpleMailMessage.class));
         assertThat(captured.getValue().toString()).doesNotContain("encoded-value");
     }
 
     @Test
-    void duplicateAccountDoesNotCreatePendingStateOrSendEmail() {
+    void duplicateAccountDoesNotCreatePendingState() {
         when(users.existsByEmailIgnoreCase(EMAIL)).thenReturn(true);
         assertCode(() -> service.register(new RegisterRequest("Customer Name", EMAIL,
                 "0901234567", "SyntheticPass1!", "SyntheticPass1!", true)), "REG_001");
-        verifyNoInteractions(store, encoder, mail);
+        verifyNoInteractions(store, encoder);
     }
 
     @Test
-    void mailFailureRetainsPendingStateWithoutCreatingUser() {
+    void smsFailureDoesNotCreateUser() {
         when(encoder.encode(anyString())).thenReturn("encoded-value");
-        doThrow(new MailSendException("synthetic outage")).when(mail).send(any(SimpleMailMessage.class));
+        doThrow(new AppException(com.aquasuite.ims.module.iam.internal.error.RegistrationErrorCode.SMS_UNAVAILABLE)).when(store).save(any());
         assertCode(() -> service.register(new RegisterRequest("Customer Name", EMAIL,
-                "0901234567", "SyntheticPass1!", "SyntheticPass1!", true)), "REG_007");
-        verify(store).save(any(), anyString());
+                "0901234567", "SyntheticPass1!", "SyntheticPass1!", true)), "REG_010");
+        verify(store).save(any());
         verify(users, never()).saveAndFlush(any());
     }
 
@@ -181,14 +176,23 @@ class RegistrationServiceTest {
     }
 
     @Test
-    void resendRotatesBeforeSendingEmailWithoutDatabaseWrites() {
-        when(encoder.encode(anyString())).thenReturn("encoded-otp");
+    void resendUsesPendingSmsChallengeWithoutDatabaseWrites() {
         service.resend(new ResendRegistrationOtpRequest(EMAIL));
-        var order = inOrder(store, mail);
-        order.verify(store).rotateOtp(EMAIL, "encoded-otp");
-        order.verify(mail).send(any(SimpleMailMessage.class));
+        verify(store).rotateOtp(EMAIL);
         verify(users, never()).saveAndFlush(any());
         verifyNoInteractions(manager, profiles, auth);
+    }
+
+    @Test
+    void linkedCustomerConflictRollsBackUserAndReleasesOtp() {
+        creatable();
+        doThrow(new AppException(com.aquasuite.ims.share.exception.CommonErrorCode.DATA_INTEGRITY_VIOLATION))
+                .when(profiles).createProfile(any());
+        assertCode(() -> service.verify(verification()), "DB_001");
+        verify(manager).rollback(any());
+        verify(store).release(claim);
+        verify(store, never()).complete(any());
+        verifyNoInteractions(auth);
     }
 
     private static void assertCode(Runnable action, String code) {

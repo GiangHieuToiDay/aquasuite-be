@@ -66,6 +66,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -90,6 +91,8 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     private final QuotationItemRepository quotationItemRepository;
     private final QuotationPaymentMilestoneRepository quotationPaymentMilestoneRepository;
     private final OrderPaymentMilestoneRepository orderPaymentMilestoneRepository;
+    private final com.aquasuite.ims.module.sales.internal.service.OrderStockReservationService orderStockReservationService;
+    private final com.aquasuite.ims.module.finance.api.OrderReceivableApi orderReceivableApi;
 
     /**
      * Tạo đơn tại quầy: kiểm tra khách, tính tổng, kiểm tra mua nợ nếu cần,
@@ -145,7 +148,8 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 }
 
                 // Kiểm tra tồn kho khả dụng (available_qty = on_hand_qty - reserved_qty)
-                boolean isStockAvailable = inventoryApi.checkAvailability(skuDto.variantId(), itemReq.getQuantity());
+                boolean isStockAvailable = request.isReserveStockAfterDeposit()
+                        || inventoryApi.checkAvailability(skuDto.variantId(), itemReq.getQuantity());
                 if (!isStockAvailable) {
                     log.warn("Insufficient stock for variant SKU={}, requiredQty={}", skuDto.sku(),
                             itemReq.getQuantity());
@@ -186,12 +190,20 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                         .orElseThrow(() -> new AppException(SalesErrorCode.COMBO_NOT_FOUND, comboReq.getComboId()));
 
                 int comboQty = Math.max(comboReq.getQuantity(), 1);
+                UUID comboGroupId = UUID.randomUUID();
+                if (bundleDto.packagePrice() == null || bundleDto.packagePrice().signum() <= 0
+                        || bundleDto.items() == null || bundleDto.items().isEmpty()) {
+                    throw new AppException(com.aquasuite.ims.share.exception.CommonErrorCode.INVALID_REQUEST_PARAM);
+                }
+                List<OrderItem> comboItems = new ArrayList<>();
+
 
                 // Kiểm tra tồn kho khả dụng cho toàn bộ component SKU trong gói combo
                 if (bundleDto.items() != null) {
                     for (CatalogBundleSummaryDto.CatalogBundleItemDto comp : bundleDto.items()) {
                         BigDecimal requiredQty = BigDecimal.valueOf((long) comp.quantity() * comboQty);
-                        boolean isCompAvailable = inventoryApi.checkAvailability(comp.variantId(), requiredQty);
+                        boolean isCompAvailable = request.isReserveStockAfterDeposit()
+                                || inventoryApi.checkAvailability(comp.variantId(), requiredQty);
                         if (!isCompAvailable) {
                             log.warn("Insufficient stock for combo component SKU={}, combo={}", comp.sku(),
                                     bundleDto.bundleName());
@@ -210,6 +222,10 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                                 .orderItemId(UUID.randomUUID())
                                 .orderId(orderId)
                                 .comboId(bundleDto.bundleId())
+                                .comboGroupId(comboGroupId)
+                                .comboQuantity(BigDecimal.valueOf(comboQty))
+                                .comboSku(bundleDto.bundleCode())
+                                .comboUnitPrice(bundleDto.packagePrice())
                                 .variantId(comp.variantId())
                                 .sku(comp.sku())
                                 .productName(bundleDto.bundleName())
@@ -220,8 +236,18 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                                 .lineTotal(compLineTotal)
                                 .build();
 
-                        orderItemsToSave.add(comboItem);
-                        calculatedSubtotal = calculatedSubtotal.add(compLineTotal);
+                        comboItems.add(comboItem);
+                    }
+                    Map<UUID, BigDecimal> weights = comboItems.stream().collect(java.util.stream.Collectors.toMap(
+                            OrderItem::getOrderItemId, OrderItem::getLineTotal));
+                    var allocated = com.aquasuite.ims.module.sales.internal.calculator.QuotationComboAllocator
+                            .allocate(bundleDto.packagePrice().multiply(BigDecimal.valueOf(comboQty)), weights);
+                    for (OrderItem item : comboItems) {
+                        BigDecimal net = allocated.get(item.getOrderItemId());
+                        item.setDiscountAmount(item.getLineTotal().subtract(net));
+                        item.setLineTotal(net);
+                        orderItemsToSave.add(item);
+                        calculatedSubtotal = calculatedSubtotal.add(net);
                     }
                 }
             }
@@ -254,8 +280,10 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         LocalDate dueDate = null; // Hạn nợ theo đợt được tính khi có hóa đơn điện tử tương ứng.
 
         // 10. Đặt giữ tồn kho (reserved_qty) cho các mặt hàng trong đơn
-        for (OrderItem item : orderItemsToSave) {
-            inventoryApi.reserveStock(item.getVariantId(), item.getQuantity());
+        if (!request.isReserveStockAfterDeposit()) {
+            for (OrderItem item : orderItemsToSave) {
+                inventoryApi.reserveStock(item.getVariantId(), item.getQuantity());
+            }
         }
 
         // 11. Lưu Order Entity & Order Items
@@ -275,6 +303,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .discountAmount(orderDiscount)
                 .totalAmount(finalTotal)
                 .deliveryAddress(request.getDeliveryAddress())
+                .reserveStockAfterDeposit(request.isReserveStockAfterDeposit())
                 .note(request.getNote())
                 .createdAt(now)
                 .updatedAt(now)
@@ -330,6 +359,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 finalCustomerPhone,
                 staffName);
         response.setStoreInvoiceId(storeInvoiceId);
+        populateDisplayItems(response, savedOrder, savedItems, itemResponses);
         return response;
     }
 
@@ -388,7 +418,17 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         BigDecimal calculatedSubtotal = BigDecimal.ZERO;
         BigDecimal totalDiscount = BigDecimal.ZERO;
 
+        boolean quotationRequiresDeposit = quotation.getDepositPercent() != null
+                && quotation.getDepositPercent().signum() > 0;
+        boolean reserveAfterDeposit = quotationRequiresDeposit
+                || (request != null && request.isReserveStockAfterDeposit());
+
+        var comboNet = com.aquasuite.ims.module.sales.internal.calculator.QuotationComboAllocator.allocate(quotationItems);
+        Map<UUID,QuotationItem> comboRoots = quotationItems.stream()
+                .filter(item -> item.getComboId() != null && item.getVariantId() == null)
+                .collect(java.util.stream.Collectors.toMap(QuotationItem::getQuotationItemId,item -> item));
         for (QuotationItem qItem : quotationItems) {
+            if (comboRoots.containsKey(qItem.getQuotationItemId())) continue;
             CatalogSkuSummaryDto skuDto = catalogApi.getSkuSummary(qItem.getVariantId())
                     .orElseThrow(() -> new AppException(SalesErrorCode.SKU_NOT_FOUND, qItem.getVariantId()));
 
@@ -407,6 +447,11 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             }
 
             BigDecimal lineTotal = grossLine.subtract(lineDiscount);
+            QuotationItem comboRoot = comboRoots.get(qItem.getParentItemId());
+            if (comboRoot != null) {
+                lineTotal = comboNet.get(qItem.getQuotationItemId());
+                lineDiscount = grossLine.subtract(lineTotal);
+            }
             if (lineTotal.compareTo(BigDecimal.ZERO) < 0) {
                 lineTotal = BigDecimal.ZERO;
             }
@@ -415,8 +460,14 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                     .orderItemId(UUID.randomUUID())
                     .orderId(orderId)
                     .variantId(skuDto.variantId())
+                    .comboId(comboRoot == null ? null : comboRoot.getComboId())
+                    .comboGroupId(comboRoot == null ? null : comboRoot.getQuotationItemId())
+                    .comboQuantity(comboRoot == null ? null : comboRoot.getQuantity())
+                    .comboSku(comboRoot == null ? null : comboRoot.getSku())
+                    .comboUnitPrice(comboRoot == null ? null : comboRoot.getUnitPrice())
                     .sku(skuDto.sku())
-                    .productName(skuDto.productName() != null ? skuDto.productName() : skuDto.variantName())
+                    .productName(comboRoot != null ? comboRoot.getComboName()
+                            : skuDto.productName() != null ? skuDto.productName() : skuDto.variantName())
                     .variantName(skuDto.variantName())
                     .quantity(qty)
                     .unitPrice(unitPrice)
@@ -429,6 +480,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             totalDiscount = totalDiscount.add(lineDiscount);
 
             // Giữ chỗ tồn kho khả dụng nếu kho đang có sẵn hàng (UC-086)
+            if (!reserveAfterDeposit) {
             try {
                 Optional<StockSummaryDto> stockOpt = inventoryApi.getStockSummary(skuDto.variantId());
                 if (stockOpt.isPresent() && stockOpt.get().availableQty() != null) {
@@ -442,6 +494,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 }
             } catch (Exception ex) {
                 log.warn("Stock reservation skipped for variant {}: {}", skuDto.variantId(), ex.getMessage());
+            }
             }
         }
 
@@ -507,9 +560,9 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         }
 
         // 9.1. Kiểm tra công nợ và quyết định trạng thái Order (DRAFT vs PROCESSING)
-        boolean hasDebtTerms = quotation.getCreditTermDays() != null 
-                && quotation.getCreditTermDays() > 0 
-                && remainingDebtAmount != null 
+        boolean hasDebtTerms = quotation.getCreditTermDays() != null
+                && quotation.getCreditTermDays() > 0
+                && remainingDebtAmount != null
                 && remainingDebtAmount.compareTo(BigDecimal.ZERO) > 0;
 
         OrderStatus initialOrderStatus = OrderStatus.PROCESSING;
@@ -535,14 +588,14 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                     // Tạo yêu cầu cấp/tăng hạn mức công nợ trình Chủ cửa hàng duyệt (UC-24)
                     String reason = request.getCreditIncreaseReason();
                     if (reason == null || reason.isBlank()) {
-                        reason = String.format("Đề xuất cấp hạn mức cho Đơn hàng dự án %s (Báo giá %s)", 
+                        reason = String.format("Đề xuất cấp hạn mức cho Đơn hàng dự án %s (Báo giá %s)",
                                 orderCode, quotation.getQuotationCode());
                     }
 
                     var debtProfile = crmApi.getDebtProfile(quotation.getCustomerId()).orElse(null);
-                    BigDecimal currentLimit = debtProfile != null && debtProfile.creditLimit() != null 
+                    BigDecimal currentLimit = debtProfile != null && debtProfile.creditLimit() != null
                             ? debtProfile.creditLimit() : BigDecimal.ZERO;
-                    BigDecimal currentAvailable = decision != null && decision.availableCredit() != null 
+                    BigDecimal currentAvailable = decision != null && decision.availableCredit() != null
                             ? decision.availableCredit() : BigDecimal.ZERO;
                     BigDecimal currentOutstanding = currentLimit.subtract(currentAvailable).max(BigDecimal.ZERO);
 
@@ -568,7 +621,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                             quotation.getQuotationCode(), orderCode, creditRequestId);
                 } else {
                     // Không yêu cầu tăng hạn mức -> Báo lỗi hạn mức không đủ
-                    log.warn("Credit order rejected for customer {}: reason={}", 
+                    log.warn("Credit order rejected for customer {}: reason={}",
                             quotation.getCustomerId(), decision != null ? decision.reasonCode() : "LIMIT_EXCEEDED");
                     throw new AppException(SalesErrorCode.CREDIT_LIMIT_EXCEEDED);
                 }
@@ -591,6 +644,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .shippingFee(quotation.getShippingFee())
                 .depositPercent(depositPercent)
                 .depositAmount(depositAmount)
+                .reserveStockAfterDeposit(reserveAfterDeposit)
                 .creditTermDays(quotation.getCreditTermDays())
                 .remainingDebtAmount(remainingDebtAmount)
                 .debtCondition(quotation.getDebtCondition())
@@ -645,6 +699,10 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             }
         }
 
+        if (quotationRequiresDeposit) {
+            orderStockReservationService.registerConvertedOrder(savedOrder, savedItems, currentStaffId);
+        }
+
         // 11. Cập nhật báo giá sang ACCEPTED nếu trước đó đang là APPROVED
         if (quotation.getStatus() == QuotationStatus.APPROVED) {
             quotation.setStatus(QuotationStatus.ACCEPTED);
@@ -668,6 +726,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 customerPhone,
                 staffName);
         response.setMilestones(milestoneResponses != null ? milestoneResponses : new ArrayList<>());
+        populateDisplayItems(response, savedOrder, savedItems, itemResponses);
         return response;
     }
 
@@ -682,6 +741,17 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     @Transactional(readOnly = true)
     public Page<SalesOrderSummaryResponse> getSalesOrders(SalesOrderFilterRequest filter, Pageable pageable) {
         Specification<Order> spec = buildFilterSpecification(filter);
+        var payments = new java.util.HashMap<UUID, com.aquasuite.ims.module.finance.api.dto.OrderReceivableView>();
+        if (filter != null && filter.isDepositReservationOnly()) {
+            spec = spec.and(com.aquasuite.ims.module.sales.internal.repository.DepositReservationOrderSpecification.eligible());
+            // shortcut: per-order Finance reads; introduce a batch public query if candidate volume grows large.
+            for (Order candidate : orderRepository.findAll(spec)) {
+                orderReceivableApi.getOrderReceivable(candidate.getOrderId())
+                        .filter(payment -> payment.depositRequired() != null && payment.depositRequired().signum() > 0)
+                        .ifPresent(payment -> payments.put(candidate.getOrderId(),payment));
+            }
+            spec = spec.and((root, query, cb) -> root.get("orderId").in(payments.keySet()));
+        }
         Page<Order> orderPage = orderRepository.findAll(spec, pageable);
 
         return orderPage.map(order -> {
@@ -704,12 +774,18 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
             String staffName = getStaffName(order.getSalesStaffId());
 
-            return salesOrderMapper.toSummaryResponse(
+            var response = salesOrderMapper.toSummaryResponse(
                     order,
                     itemCount,
                     customerName,
                     customerPhone,
                     staffName);
+            var payment = payments.get(order.getOrderId());
+            if (payment != null) {
+                response.setPayment(payment);
+                response.setDepositStatus(payment.depositSatisfied() ? "SATISFIED" : "AWAITING_DEPOSIT");
+            }
+            return response;
         });
     }
 
@@ -760,6 +836,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         }
         salesInvoiceRepository.findByOrderIdAndInvoiceType(orderId, "STORE")
                 .ifPresent(invoice -> response.setStoreInvoiceId(invoice.getInvoiceId()));
+        populateDisplayItems(response, order, items, itemResponses);
         return response;
     }
 
@@ -842,5 +919,15 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
             return cb.and(predicates.toArray(new Predicate[0]));
         };
+    }
+    private void populateDisplayItems(SalesOrderDetailResponse response, Order order,
+                                      List<OrderItem> items, List<SalesOrderItemResponse> mapped) {
+        List<QuotationItem> snapshots = order.getQuotationId() != null
+                && items.stream().anyMatch(i -> i.getComboId() != null
+                        && (i.getComboQuantity() == null || i.getComboSku() == null || i.getComboUnitPrice() == null))
+                ? quotationItemRepository.findByQuotationIdOrderBySortOrderAsc(order.getQuotationId())
+                : List.of();
+        response.setDisplayItems(com.aquasuite.ims.module.sales.internal.service.helper.OrderDisplayItems
+                .build(items, mapped, snapshots));
     }
 }

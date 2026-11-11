@@ -37,6 +37,7 @@ public class SalesOrderApiImpl implements SalesOrderApi {
     private final SalesInvoiceRepository salesInvoiceRepository;
     /** Đọc các mốc thanh toán theo thỏa thuận đã snapshot vào đơn. */
     private final OrderPaymentMilestoneRepository orderPaymentMilestoneRepository;
+    private final org.springframework.context.ApplicationEventPublisher events;
 
     /** Lấy thông tin đơn và mã hóa đơn cửa hàng phục vụ hiển thị, tính thanh toán. */
     @Override
@@ -103,6 +104,11 @@ public class SalesOrderApiImpl implements SalesOrderApi {
         order.setPaymentStatus(resolvedStatus.name());
         order.setUpdatedAt(OffsetDateTime.now());
         orderRepository.save(order);
+
+        if (resolvedStatus != PaymentStatus.UNPAID) {
+            events.publishEvent(new com.aquasuite.ims.module.sales.internal.event.OrderPaymentRecorded(
+                    UUID.randomUUID(), orderId, java.time.Instant.now()));
+        }
 
         log.info("Updated paymentStatus of order {} ({}) to {}",
                 order.getOrderCode(), order.getOrderId(), resolvedStatus.name());

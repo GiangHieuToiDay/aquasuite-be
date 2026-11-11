@@ -5,6 +5,8 @@ spring:
       port: ${SPRING_DATA_REDIS_PORT:${SPRING_REDIS_PORT:6379}}
 
 aquasuite:
+  reservations:
+    retry-enabled: false
   config:
     environment: test
     auth-generation: 2

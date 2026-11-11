@@ -69,6 +69,10 @@ aquasuite:
     environment: default
     auth-generation: 2
   iam:
+    twilio:
+      account-sid: ${TWILIO_ACCOUNT_SID:}
+      auth-token: ${TWILIO_AUTH_TOKEN:}
+      verify-service-sid: ${TWILIO_VERIFY_SERVICE_SID:}
     dev-seed:
       enabled: false
   security:

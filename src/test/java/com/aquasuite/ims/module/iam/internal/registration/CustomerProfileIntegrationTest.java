@@ -59,7 +59,7 @@ class CustomerProfileIntegrationTest extends RegisterTestSupport {
                 .isEqualTo(1);
         var changed =
                 new CustomerRegistrationRequest(
-                        user.getId(), "Different Name", user.getPhone(), user.getEmail());
+                        user.getId(), "Different Name", "0907654321", user.getEmail());
         assertThatThrownBy(
                         () -> transactions.execute(tx -> customerProfiles.createProfile(changed)))
                 .isInstanceOfSatisfying(
@@ -71,6 +71,27 @@ class CustomerProfileIntegrationTest extends RegisterTestSupport {
                                 String.class,
                                 user.getId()))
                 .isEqualTo(user.getFullName());
+    }
+
+    @Test
+    void emailOtpActivationLinksCounterCustomerAndKeepsPreviousOrder() throws Exception {
+        java.util.UUID customer=java.util.UUID.randomUUID(), order=java.util.UUID.randomUUID();
+        jdbc.update("INSERT INTO customers(customer_id,customer_code,customer_name,phone) VALUES(?,?,?,?)",
+                customer,"COUNTER-"+customer,"Existing counter name","0901234567");
+        jdbc.update("INSERT INTO orders(order_id,order_code,customer_id,order_channel,order_status,payment_status,order_date,total_amount) VALUES(?,?,?,'IN_STORE','PROCESSING','UNPAID',current_timestamp,100)",
+                order,"COUNTER-"+order,customer);
+        try {
+            var user=registered();
+            assertThat(jdbc.queryForObject("SELECT user_id FROM customers WHERE customer_id=?",java.util.UUID.class,customer)).isNull();
+            postJson(ROOT+"/verifications",Map.of("email",EMAIL,"otp",otp()),200);
+            assertThat(jdbc.queryForObject("SELECT user_id FROM customers WHERE customer_id=?",java.util.UUID.class,customer)).isEqualTo(user.getId());
+            assertThat(jdbc.queryForObject("SELECT customer_id FROM orders WHERE order_id=?",java.util.UUID.class,order)).isEqualTo(customer);
+            assertThat(jdbc.queryForObject("SELECT customer_name FROM customers WHERE customer_id=?",String.class,customer)).isEqualTo("Existing counter name");
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM customers WHERE phone='0901234567'",Integer.class)).isEqualTo(1);
+            assertThat(users.findById(user.getId()).orElseThrow().getStatus()).isEqualTo(UserStatus.ACTIVE);
+        } finally {
+            jdbc.update("DELETE FROM orders WHERE order_id=?",order);
+        }
     }
 
     @Test
