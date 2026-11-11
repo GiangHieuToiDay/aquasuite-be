@@ -1,0 +1,247 @@
+<mxfile host="app.diagrams.net" modified="2026-11-11T18:00:00.000Z" agent="AquaSuite" version="21.0.0" type="device">
+  <diagram id="uc21-pos-creation-seq" name="UC-21.1 Tao Don Hang POS">
+    <mxGraphModel dx="1600" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1150" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- TIÊU ĐỀ BIỂU ĐỒ -->
+        <mxCell id="title" value="&lt;b style=&quot;font-size: 16px; color: #0F172A;&quot;&gt;SEQUENCE DIAGRAM: UC-21.1 TẠO ĐƠN HÀNG BÁN LẺ TẠI QUẦY (POS ORDER CREATION)&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size: 12px; color: #64748B;&quot;&gt;AquaSuite - Module Sales (Hệ sinh thái Quản lý &amp; Bán hàng Thiết bị vệ sinh Thám Vân Home)&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#CBD5E1;strokeWidth=1.5;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1490" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- ================= CÁC ĐƯỜNG SINH MỆNH (LIFELINES) ================= -->
+        <!-- 1. Actor: Sales Staff -->
+        <mxCell id="ll_staff" value="Sales Staff&#xa;(Nhân viên bán hàng)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=45;fillColor=#E0F2FE;strokeColor=#0284C7;fontStyle=1;fontColor=#0369A1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="95" width="130" height="970" as="geometry" />
+        </mxCell>
+
+        <!-- 2. UI: POSOrderCreatePage -->
+        <mxCell id="ll_ui" value="&lt;b&gt;:POSOrderCreatePage&lt;/b&gt;&#xa;(React Frontend)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=45;fillColor=#F0F9FF;strokeColor=#0EA5E9;fontColor=#0369A1;" vertex="1" parent="1">
+          <mxGeometry x="200" y="95" width="140" height="970" as="geometry" />
+        </mxCell>
+
+        <!-- 3. Controller: SalesOrderController -->
+        <mxCell id="ll_ctrl" value="&lt;b&gt;:SalesOrderController&lt;/b&gt;&#xa;(REST Controller)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=45;fillColor=#F1F5F9;strokeColor=#64748B;fontColor=#334155;" vertex="1" parent="1">
+          <mxGeometry x="370" y="95" width="140" height="970" as="geometry" />
+        </mxCell>
+
+        <!-- 4. Service: SalesOrderServiceImpl -->
+        <mxCell id="ll_svc" value="&lt;b&gt;:SalesOrderServiceImpl&lt;/b&gt;&#xa;(Application Service)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=45;fillColor=#EFF6FF;strokeColor=#3B82F6;fontColor=#1D4ED8;" vertex="1" parent="1">
+          <mxGeometry x="540" y="95" width="150" height="970" as="geometry" />
+        </mxCell>
+
+        <!-- 5. CRM Module: CrmApi -->
+        <mxCell id="ll_crm" value="&lt;b&gt;:CrmApi&lt;/b&gt;&#xa;(CRM Module)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=45;fillColor=#FDF2F8;strokeColor=#DB2777;fontColor=#9D174D;" vertex="1" parent="1">
+          <mxGeometry x="720" y="95" width="120" height="970" as="geometry" />
+        </mxCell>
+
+        <!-- 6. Catalog Module: CatalogApi -->
+        <mxCell id="ll_catalog" value="&lt;b&gt;:CatalogApi&lt;/b&gt;&#xa;(Catalog Module)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=45;fillColor=#F5F3FF;strokeColor=#8B5CF6;fontColor=#5B21B6;" vertex="1" parent="1">
+          <mxGeometry x="870" y="95" width="120" height="970" as="geometry" />
+        </mxCell>
+
+        <!-- 7. Inventory Module: InventoryApi -->
+        <mxCell id="ll_inv" value="&lt;b&gt;:InventoryApi&lt;/b&gt;&#xa;(Inventory Module)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=45;fillColor=#ECFDF5;strokeColor=#10B981;fontColor=#047857;" vertex="1" parent="1">
+          <mxGeometry x="1020" y="95" width="130" height="970" as="geometry" />
+        </mxCell>
+
+        <!-- 8. Finance Module: CreditControlApi -->
+        <mxCell id="ll_finance" value="&lt;b&gt;:CreditControlApi&lt;/b&gt;&#xa;(Finance Module)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=45;fillColor=#FFFBEB;strokeColor=#F59E0B;fontColor=#B45309;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="95" width="130" height="970" as="geometry" />
+        </mxCell>
+
+        <!-- 9. Repository: Order & Invoice Repos -->
+        <mxCell id="ll_repo" value="&lt;b&gt;:OrderRepository /&lt;/b&gt;&#xa;&lt;b&gt;:SalesInvoiceRepo&lt;/b&gt;" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=45;fillColor=#F8FAFC;strokeColor=#475569;fontColor=#1E293B;" vertex="1" parent="1">
+          <mxGeometry x="1340" y="95" width="140" height="970" as="geometry" />
+        </mxCell>
+
+        <!-- 10. Database -->
+        <mxCell id="ll_db" value="&lt;b&gt;PostgreSQL DB&lt;/b&gt;&#xa;(Database)" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;size=45;fillColor=#FEF2F2;strokeColor=#EF4444;fontColor=#B91C1C;" vertex="1" parent="1">
+          <mxGeometry x="1510" y="95" width="110" height="970" as="geometry" />
+        </mxCell>
+
+        <!-- ================= THÔNG ĐIỆP & TƯƠNG TÁC (MESSAGES) ================= -->
+        <!-- Bước 1 -->
+        <mxCell id="msg1" value="1: Chọn khách hàng, thêm SKU/Combo, nhập giảm giá, chọn PT thanh toán &amp; bấm &quot;Tạo đơn hàng&quot;" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#0284C7;strokeWidth=1.5;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="105" y="165" as="sourcePoint" />
+            <mxPoint x="269" y="165" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Bước 2 -->
+        <mxCell id="msg2" value="2: POST /api/v1/sales/orders (CreateSalesOrderRequest)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#0284C7;strokeWidth=1.5;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="270" y="195" as="sourcePoint" />
+            <mxPoint x="439" y="195" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Bước 3 -->
+        <mxCell id="msg3" value="3: createSalesOrder(request)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#3B82F6;strokeWidth=1.5;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="440" y="225" as="sourcePoint" />
+            <mxPoint x="614" y="225" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- KHUNG 1: ĐỊNH DANH KHÁCH HÀNG CRM -->
+        <mxCell id="frame_crm" value="1. Định danh hoặc tự động lưu khách hàng vào CRM" style="shape=umlFrame;whiteSpace=wrap;html=1;width=290;height=22;fillColor=#FDF2F8;strokeColor=#DB2777;strokeWidth=1;fontColor=#9D174D;" vertex="1" parent="1">
+          <mxGeometry x="580" y="250" width="280" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="msg4" value="4: getOrCreateWalkInCustomer(cleanName, cleanPhone)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#DB2777;strokeWidth=1.5;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="615" y="285" as="sourcePoint" />
+            <mxPoint x="779" y="285" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg5" value="5: return CustomerSummaryDto (customerId, code, name)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;rounded=0;strokeColor=#DB2777;strokeWidth=1.5;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="779" y="315" as="sourcePoint" />
+            <mxPoint x="615" y="315" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- KHUNG 2: KIỂM TRA CHẶN KHÁCH HÀNG -->
+        <mxCell id="msg6" value="6: requireCustomerOrderAllowed(customerId)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#F59E0B;strokeWidth=1.5;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="615" y="360" as="sourcePoint" />
+            <mxPoint x="1244" y="360" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg7" value="7: Khách hàng hợp lệ (Không bị BLOCKED)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;rounded=0;strokeColor=#F59E0B;strokeWidth=1.5;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1244" y="385" as="sourcePoint" />
+            <mxPoint x="615" y="385" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- KHUNG 3: LOOP KIỂM TRA SKU & COMBO -->
+        <mxCell id="frame_items" value="loop [Duyệt từng biến thể SKU lẻ hoặc gói Combo cố định]" style="shape=umlFrame;whiteSpace=wrap;html=1;width=310;height=22;fillColor=#F8FAFC;strokeColor=#8B5CF6;strokeWidth=1;fontColor=#5B21B6;" vertex="1" parent="1">
+          <mxGeometry x="580" y="410" width="530" height="135" as="geometry" />
+        </mxCell>
+        <mxCell id="msg8" value="8: getSkuSummary(variantId) / getBundleSummary(comboId)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#8B5CF6;strokeWidth=1.5;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="615" y="445" as="sourcePoint" />
+            <mxPoint x="929" y="445" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg9" value="9: SkuSummaryDto / BundleSummaryDto (Fixed items, Giá niêm yết)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;rounded=0;strokeColor=#8B5CF6;strokeWidth=1.5;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="929" y="475" as="sourcePoint" />
+            <mxPoint x="615" y="475" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg10" value="10: checkAvailability(variantId, requiredQty)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#10B981;strokeWidth=1.5;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="615" y="505" as="sourcePoint" />
+            <mxPoint x="1084" y="505" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg11" value="11: Tồn kho khả dụng hợp lệ (available_qty &gt;= requiredQty)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;rounded=0;strokeColor=#10B981;strokeWidth=1.5;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1084" y="530" as="sourcePoint" />
+            <mxPoint x="615" y="530" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- KHUNG 4: ALT THANH TOÁN MUA NỢ (CREDIT) -->
+        <mxCell id="frame_credit" value="opt [Khi paymentMethod == PaymentMethod.CREDIT]" style="shape=umlFrame;whiteSpace=wrap;html=1;width=290;height=22;fillColor=#FFFBEB;strokeColor=#F59E0B;strokeWidth=1;fontColor=#B45309;" vertex="1" parent="1">
+          <mxGeometry x="580" y="560" width="700" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="msg12" value="12: authorize(CreditAuthorizationCommand: customerId, orderId, COUNTER, totalAmount)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#F59E0B;strokeWidth=1.5;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="615" y="595" as="sourcePoint" />
+            <mxPoint x="1244" y="595" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg13" value="13: CreditAuthorizationDecision (approved = true, reason = null)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;rounded=0;strokeColor=#F59E0B;strokeWidth=1.5;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1244" y="625" as="sourcePoint" />
+            <mxPoint x="615" y="625" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- KHUNG 5: GIỮ CHỖ TỒN KHO KHẢ DỤNG -->
+        <mxCell id="frame_reserve" value="loop [Giữ tồn kho khả dụng cho toàn bộ SKU &amp; linh kiện Combo]" style="shape=umlFrame;whiteSpace=wrap;html=1;width=350;height=22;fillColor=#ECFDF5;strokeColor=#10B981;strokeWidth=1;fontColor=#047857;" vertex="1" parent="1">
+          <mxGeometry x="580" y="665" width="530" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="msg14" value="14: reserveStock(variantId, quantity)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#10B981;strokeWidth=1.5;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="615" y="695" as="sourcePoint" />
+            <mxPoint x="1084" y="695" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg15" value="15: Tăng reserved_qty thành công" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;rounded=0;strokeColor=#10B981;strokeWidth=1.5;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1084" y="720" as="sourcePoint" />
+            <mxPoint x="615" y="720" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- KHUNG 6: PERSISTENCE TRANSACTION -->
+        <mxCell id="frame_tx" value="Database Transaction [@Transactional: Atomicity]" style="shape=umlFrame;whiteSpace=wrap;html=1;width=270;height=22;fillColor=#F8FAFC;strokeColor=#475569;strokeWidth=1;fontColor=#1E293B;" vertex="1" parent="1">
+          <mxGeometry x="580" y="750" width="1010" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="msg16" value="16: saveAndFlush(Order &amp; OrderItems) [status: PROCESSING, paymentStatus: UNPAID, channel: COUNTER]" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#475569;strokeWidth=1.5;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="615" y="785" as="sourcePoint" />
+            <mxPoint x="1409" y="785" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg17" value="17: INSERT INTO orders, order_items" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#EF4444;strokeWidth=1.5;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1410" y="810" as="sourcePoint" />
+            <mxPoint x="1564" y="810" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg18" value="18: Commit Order" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;rounded=0;strokeColor=#EF4444;strokeWidth=1.5;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1564" y="835" as="sourcePoint" />
+            <mxPoint x="1410" y="835" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg19" value="19: saveAndFlush(SalesInvoice: STORE, DRAFT)" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#475569;strokeWidth=1.5;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="615" y="865" as="sourcePoint" />
+            <mxPoint x="1409" y="865" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg20" value="20: INSERT INTO sales_invoices, sales_invoice_items" style="html=1;verticalAlign=bottom;endArrow=block;rounded=0;strokeColor=#EF4444;strokeWidth=1.5;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1410" y="890" as="sourcePoint" />
+            <mxPoint x="1564" y="890" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg21" value="21: Commit Store Invoice" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;rounded=0;strokeColor=#EF4444;strokeWidth=1.5;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1564" y="915" as="sourcePoint" />
+            <mxPoint x="1410" y="915" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- KẾT THÚC & TRẢ VỀ FRONTEND -->
+        <mxCell id="msg22" value="22: return SalesOrderDetailResponse (orderCode, storeInvoiceId)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;rounded=0;strokeColor=#3B82F6;strokeWidth=1.5;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="614" y="960" as="sourcePoint" />
+            <mxPoint x="440" y="960" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg23" value="23: 201 Created (ApiResponse: MSG58 &quot;Sales order created successfully.&quot;)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;rounded=0;strokeColor=#0284C7;strokeWidth=1.5;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="439" y="985" as="sourcePoint" />
+            <mxPoint x="270" y="985" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="msg24" value="24: Mở popup POSOrderSuccessModal (In phiếu bán hàng / Chuyển sang thu tiền UC-23)" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;rounded=0;strokeColor=#0284C7;strokeWidth=1.5;fontColor=#0F172A;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="269" y="1015" as="sourcePoint" />
+            <mxPoint x="105" y="1015" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

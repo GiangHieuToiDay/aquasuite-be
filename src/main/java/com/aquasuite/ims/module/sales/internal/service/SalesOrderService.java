@@ -3,6 +3,7 @@ package com.aquasuite.ims.module.sales.internal.service;
 import com.aquasuite.ims.module.sales.internal.payload.request.ConvertQuotationToOrderRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.CreateSalesOrderRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.SalesOrderFilterRequest;
+import com.aquasuite.ims.module.sales.internal.payload.request.UpdateOrderFulfillmentRequest;
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderDetailResponse;
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderSummaryResponse;
 import org.springframework.data.domain.Page;
@@ -39,4 +40,16 @@ public interface SalesOrderService {
     default SalesOrderDetailResponse convertQuotationToOrder(UUID quotationId) {
         return convertQuotationToOrder(quotationId, null);
     }
+
+    /**
+     * Cập nhật thông tin giao nhận và điều phối (địa chỉ, lịch giao, ghi chú)
+     * khi đơn hàng đang ở trạng thái PROCESSING.
+     */
+    SalesOrderDetailResponse updateFulfillmentInfo(UUID orderId, UpdateOrderFulfillmentRequest request);
+
+    /**
+     * Xác nhận hoàn tất đơn hàng (chuyển PROCESSING -> COMPLETED)
+     * khi đơn hàng đã thanh toán đủ (PAID).
+     */
+    SalesOrderDetailResponse completeSalesOrder(UUID orderId);
 }
