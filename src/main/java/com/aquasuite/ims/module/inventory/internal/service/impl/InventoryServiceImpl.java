@@ -1,5 +1,7 @@
 package com.aquasuite.ims.module.inventory.internal.service.impl;
 
+import com.aquasuite.ims.module.catalog.api.CatalogApi;
+import com.aquasuite.ims.module.catalog.api.dto.CatalogSkuSummaryDto;
 import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.inventory.api.InventoryApi;
 import com.aquasuite.ims.module.inventory.api.dto.GoodsReceiptSummaryDto;
@@ -7,10 +9,13 @@ import com.aquasuite.ims.module.inventory.api.dto.MovementType;
 import com.aquasuite.ims.module.inventory.api.dto.StockAdjustCommand;
 import com.aquasuite.ims.module.inventory.api.dto.StockSummaryDto;
 import com.aquasuite.ims.module.inventory.api.dto.VariantInventoryUsage;
+import com.aquasuite.ims.module.inventory.api.event.InventoryThresholdChangedEvent;
 import com.aquasuite.ims.module.inventory.api.event.LowStockAlertEvent;
 import com.aquasuite.ims.module.inventory.internal.entity.Inventory;
 import com.aquasuite.ims.module.inventory.internal.entity.StockMovement;
+import com.aquasuite.ims.module.inventory.internal.enums.InventoryStockStatus;
 import com.aquasuite.ims.module.inventory.internal.error.InventoryErrorCode;
+import com.aquasuite.ims.module.inventory.internal.payload.res.InventoryListItemResponse;
 import com.aquasuite.ims.module.inventory.internal.repository.GoodsReceiptRepository;
 import com.aquasuite.ims.module.inventory.internal.repository.InventoryRepository;
 import com.aquasuite.ims.module.inventory.internal.repository.StockCountItemRepository;
@@ -24,6 +29,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -41,6 +47,7 @@ public class InventoryServiceImpl implements InventoryApi, InventoryService {
     private final GoodsReceiptRepository goodsReceiptRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final IamApi iamApi;
+    private final CatalogApi catalogApi;
 
     // =========================================================================
     // 1. CỔNG FACADE PUBLIC DÀNH CHO CÁC MODULE KHÁC
@@ -279,6 +286,134 @@ public class InventoryServiceImpl implements InventoryApi, InventoryService {
                 .build();
 
         adjustPhysicalStock(command);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<InventoryListItemResponse> searchInventory(String keyword, String status, boolean lowStockOnly, Pageable pageable) {
+        String normalizedStatus = normalizeStatus(status);
+
+        // Có từ khóa: phân giải tập variantId khớp (theo mã SKU hoặc tên sản phẩm) từ Catalog trước,
+        // để việc phân trang vẫn chính xác ở tầng CSDL.
+        if (StringUtils.hasText(keyword)) {
+            Set<UUID> matchedVariantIds = resolveVariantIdsByKeyword(keyword.trim());
+            if (matchedVariantIds.isEmpty()) {
+                return Page.empty(pageable);
+            }
+            Page<Inventory> page = inventoryRepository.searchByVariantIds(matchedVariantIds, lowStockOnly, normalizedStatus, pageable);
+            return enrich(page);
+        }
+
+        Page<Inventory> page = inventoryRepository.search(lowStockOnly, normalizedStatus, pageable);
+        return enrich(page);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<InventoryListItemResponse> getLowStockItems(Pageable pageable) {
+        // Danh sách tồn thấp toàn kho: tái dùng đúng định nghĩa low-stock trong câu truy vấn search.
+        return enrich(inventoryRepository.search(true, null, pageable));
+    }
+
+    @Override
+    @Transactional
+    public StockSummaryDto updateThreshold(UUID variantId, BigDecimal minimumQty, BigDecimal maximumQty, UUID actorUserId) {
+        validateThreshold(minimumQty, maximumQty);
+
+        // Khóa dòng tồn để tránh ghi đè đồng thời; chỉ chỉnh ngưỡng, không đụng tồn vật lý/giữ hàng.
+        Inventory inv = inventoryRepository.findByVariantIdForUpdate(variantId)
+                .orElseThrow(() -> new AppException(InventoryErrorCode.INVENTORY_NOT_FOUND, variantId));
+
+        BigDecimal oldMin = inv.getMinimumQty();
+        BigDecimal oldMax = inv.getMaximumQty();
+
+        inv.setMinimumQty(minimumQty);
+        inv.setMaximumQty(maximumQty);
+        inventoryRepository.save(inv);
+
+        UUID actorId = actorUserId != null ? actorUserId : iamApi.getCurrentUserId();
+        eventPublisher.publishEvent(new InventoryThresholdChangedEvent(
+                actorId, variantId, oldMin, oldMax, minimumQty, maximumQty));
+
+        // Ngưỡng thay đổi có thể khiến SKU rơi vào mức cảnh báo ngay lập tức.
+        if (inv.isLowStock()) {
+            eventPublisher.publishEvent(new LowStockAlertEvent(
+                    inv.getVariantId(), inv.getOnHandQty(), inv.getAvailableQty(), inv.getMinimumQty()));
+        }
+        return toDto(inv);
+    }
+
+    /** Kiểm tra ràng buộc ngưỡng tồn: tối thiểu ≥ 0; tối đa (nếu có) ≥ tối thiểu. */
+    private void validateThreshold(BigDecimal minimumQty, BigDecimal maximumQty) {
+        if (minimumQty == null || minimumQty.compareTo(BigDecimal.ZERO) < 0) {
+            throw new AppException(InventoryErrorCode.INVALID_THRESHOLD);
+        }
+        if (maximumQty != null && maximumQty.compareTo(minimumQty) < 0) {
+            throw new AppException(InventoryErrorCode.INVALID_THRESHOLD);
+        }
+    }
+
+    /** Chuẩn hóa tham số trạng thái lọc; giá trị rỗng hoặc không hợp lệ được coi như không lọc (null). */
+    private String normalizeStatus(String status) {
+        if (!StringUtils.hasText(status)) return null;
+        try {
+            return InventoryStockStatus.valueOf(status.trim().toUpperCase(Locale.ROOT)).name();
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+    }
+
+    /** Phân giải tập variantId có mã SKU hoặc tên sản phẩm/biến thể chứa từ khóa (không phân biệt hoa thường). */
+    private Set<UUID> resolveVariantIdsByKeyword(String keyword) {
+        String needle = keyword.toLowerCase(Locale.ROOT);
+        return catalogApi.getAllActiveSkus().stream()
+                .filter(sku -> contains(sku.sku(), needle)
+                        || contains(sku.productName(), needle)
+                        || contains(sku.variantName(), needle))
+                .map(CatalogSkuSummaryDto::variantId)
+                .collect(Collectors.toSet());
+    }
+
+    private boolean contains(String value, String lowerNeedle) {
+        return value != null && value.toLowerCase(Locale.ROOT).contains(lowerNeedle);
+    }
+
+    /** Gắn thông tin SKU (mã, tên, đơn vị) từ Catalog vào trang tồn kho để trả về cho màn tra cứu. */
+    private Page<InventoryListItemResponse> enrich(Page<Inventory> page) {
+        List<UUID> variantIds = page.getContent().stream().map(Inventory::getVariantId).toList();
+        Map<UUID, CatalogSkuSummaryDto> skuMap = variantIds.isEmpty()
+                ? Collections.emptyMap()
+                : catalogApi.getSkuSummaries(variantIds);
+        return page.map(inv -> toListItem(inv, skuMap.get(inv.getVariantId())));
+    }
+
+    private InventoryListItemResponse toListItem(Inventory inv, CatalogSkuSummaryDto sku) {
+        String productName = sku == null ? null
+                : (sku.productName() != null ? sku.productName() : sku.variantName());
+        return InventoryListItemResponse.builder()
+                .variantId(inv.getVariantId())
+                .sku(sku != null ? sku.sku() : null)
+                .productName(productName)
+                .unit(sku != null ? sku.unit() : null)
+                .onHandQty(inv.getOnHandQty())
+                .reservedQty(inv.getReservedQty())
+                .availableQty(inv.getAvailableQty())
+                .minimumQty(inv.getMinimumQty())
+                .maximumQty(inv.getMaximumQty())
+                .status(computeStatus(inv))
+                .lowStock(inv.isLowStock())
+                .build();
+    }
+
+    /** Suy ra trạng thái tồn kho hiển thị từ tồn khả dụng và ngưỡng tối thiểu. */
+    private InventoryStockStatus computeStatus(Inventory inv) {
+        if (inv.getAvailableQty().compareTo(BigDecimal.ZERO) <= 0) {
+            return InventoryStockStatus.OUT_OF_STOCK;
+        }
+        if (inv.isLowStock()) {
+            return InventoryStockStatus.LOW_STOCK;
+        }
+        return InventoryStockStatus.IN_STOCK;
     }
 
     private StockSummaryDto toDto(Inventory inv) {
