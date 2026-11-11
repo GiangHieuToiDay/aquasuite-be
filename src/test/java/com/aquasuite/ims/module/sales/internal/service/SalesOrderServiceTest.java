@@ -29,6 +29,7 @@ import com.aquasuite.ims.module.sales.internal.payload.request.CreateComboItemRe
 import com.aquasuite.ims.module.sales.internal.payload.request.CreateOrderItemRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.CreateSalesOrderRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.SalesOrderFilterRequest;
+import com.aquasuite.ims.module.sales.internal.payload.request.UpdateOrderFulfillmentRequest;
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderDetailResponse;
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderSummaryResponse;
 import com.aquasuite.ims.module.sales.internal.repository.OrderItemRepository;
@@ -713,5 +714,101 @@ class SalesOrderServiceTest {
         assertThatThrownBy(() -> salesOrderService.convertQuotationToOrder(quotationId))
                 .isInstanceOf(AppException.class)
                 .hasFieldOrPropertyWithValue("errorCode", SalesErrorCode.SKU_NOT_ACTIVE);
+    }
+
+    @Test
+    @DisplayName("UC-21.2: Cập nhật thông tin giao nhận thành công khi đơn đang PROCESSING")
+    void updateFulfillmentInfo_Success_WhenProcessing() {
+        UUID orderId = UUID.randomUUID();
+        Order existingOrder = Order.builder()
+                .orderId(orderId)
+                .orderCode("SO-20261111-0001")
+                .customerId(customerId)
+                .orderStatus(OrderStatus.PROCESSING.name())
+                .paymentStatus(PaymentStatus.UNPAID.name())
+                .deliveryAddress("Địa chỉ cũ")
+                .deliverySchedule("Lịch cũ")
+                .note("Ghi chú cũ")
+                .build();
+
+        UpdateOrderFulfillmentRequest updateReq = UpdateOrderFulfillmentRequest.builder()
+                .deliveryAddress("123 Phố Mới, Thuận Thành, Bắc Ninh")
+                .deliverySchedule("Giao sáng Chủ Nhật trước 10h")
+                .note("Gọi trước 15 phút khi đến")
+                .build();
+
+        when(orderRepository.findById(orderId)).thenReturn(Optional.of(existingOrder));
+        when(orderItemRepository.findByOrderId(orderId)).thenReturn(List.of());
+        when(crmApi.getCustomerById(customerId)).thenReturn(Optional.of(customerDto));
+
+        SalesOrderDetailResponse response = salesOrderService.updateFulfillmentInfo(orderId, updateReq);
+
+        assertThat(response).isNotNull();
+        assertThat(existingOrder.getDeliveryAddress()).isEqualTo("123 Phố Mới, Thuận Thành, Bắc Ninh");
+        assertThat(existingOrder.getDeliverySchedule()).isEqualTo("Giao sáng Chủ Nhật trước 10h");
+        assertThat(existingOrder.getNote()).isEqualTo("Gọi trước 15 phút khi đến");
+        verify(orderRepository).save(existingOrder);
+    }
+
+    @Test
+    @DisplayName("UC-21.2: Báo lỗi khi cập nhật thông tin giao nhận của đơn đã COMPLETED")
+    void updateFulfillmentInfo_Throws_WhenNotProcessing() {
+        UUID orderId = UUID.randomUUID();
+        Order completedOrder = Order.builder()
+                .orderId(orderId)
+                .orderCode("SO-20261111-0002")
+                .orderStatus(OrderStatus.COMPLETED.name())
+                .build();
+
+        UpdateOrderFulfillmentRequest updateReq = UpdateOrderFulfillmentRequest.builder()
+                .deliveryAddress("Địa chỉ mới")
+                .build();
+
+        when(orderRepository.findById(orderId)).thenReturn(Optional.of(completedOrder));
+
+        assertThatThrownBy(() -> salesOrderService.updateFulfillmentInfo(orderId, updateReq))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", SalesErrorCode.ORDER_NOT_MODIFIABLE);
+    }
+
+    @Test
+    @DisplayName("UC-21.2: Xác nhận hoàn tất đơn hàng thành công khi đơn đang PROCESSING và đã thanh toán đủ (PAID)")
+    void completeSalesOrder_Success_WhenProcessingAndPaid() {
+        UUID orderId = UUID.randomUUID();
+        Order processingPaidOrder = Order.builder()
+                .orderId(orderId)
+                .orderCode("SO-20261111-0003")
+                .customerId(customerId)
+                .orderStatus(OrderStatus.PROCESSING.name())
+                .paymentStatus(PaymentStatus.PAID.name())
+                .build();
+
+        when(orderRepository.findById(orderId)).thenReturn(Optional.of(processingPaidOrder));
+        when(orderItemRepository.findByOrderId(orderId)).thenReturn(List.of());
+        when(crmApi.getCustomerById(customerId)).thenReturn(Optional.of(customerDto));
+
+        SalesOrderDetailResponse response = salesOrderService.completeSalesOrder(orderId);
+
+        assertThat(response).isNotNull();
+        assertThat(processingPaidOrder.getOrderStatus()).isEqualTo(OrderStatus.COMPLETED.name());
+        verify(orderRepository).save(processingPaidOrder);
+    }
+
+    @Test
+    @DisplayName("UC-21.2: Báo lỗi khi hoàn tất đơn hàng mà chưa thanh toán đủ (UNPAID hoặc PARTIALLY_PAID)")
+    void completeSalesOrder_Throws_WhenNotPaid() {
+        UUID orderId = UUID.randomUUID();
+        Order unpaidOrder = Order.builder()
+                .orderId(orderId)
+                .orderCode("SO-20261111-0004")
+                .orderStatus(OrderStatus.PROCESSING.name())
+                .paymentStatus(PaymentStatus.UNPAID.name())
+                .build();
+
+        when(orderRepository.findById(orderId)).thenReturn(Optional.of(unpaidOrder));
+
+        assertThatThrownBy(() -> salesOrderService.completeSalesOrder(orderId))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", SalesErrorCode.ORDER_CANNOT_COMPLETE);
     }
 }

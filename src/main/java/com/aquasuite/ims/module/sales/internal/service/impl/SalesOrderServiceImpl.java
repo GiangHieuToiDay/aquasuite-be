@@ -34,6 +34,7 @@ import com.aquasuite.ims.module.sales.internal.payload.request.CreateComboItemRe
 import com.aquasuite.ims.module.sales.internal.payload.request.CreateOrderItemRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.CreateSalesOrderRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.SalesOrderFilterRequest;
+import com.aquasuite.ims.module.sales.internal.payload.request.UpdateOrderFulfillmentRequest;
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderDetailResponse;
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderItemResponse;
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderMilestoneResponse;
@@ -691,6 +692,71 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         return response;
     }
 
+    /**
+     * Cập nhật thông tin giao nhận và điều phối (địa chỉ, lịch giao, ghi chú)
+     * khi đơn hàng đang ở trạng thái PROCESSING.
+     */
+    @Override
+    @Transactional
+    public SalesOrderDetailResponse updateFulfillmentInfo(UUID orderId, UpdateOrderFulfillmentRequest request) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new AppException(SalesErrorCode.ORDER_NOT_FOUND));
+
+        if (!OrderStatus.PROCESSING.name().equalsIgnoreCase(order.getOrderStatus())) {
+            log.warn("Cannot update fulfillment info for order {} with status {}", order.getOrderCode(), order.getOrderStatus());
+            throw new AppException(SalesErrorCode.ORDER_NOT_MODIFIABLE);
+        }
+
+        if (request != null) {
+            if (request.getDeliveryAddress() != null) {
+                order.setDeliveryAddress(request.getDeliveryAddress().trim());
+            }
+            if (request.getDeliverySchedule() != null) {
+                order.setDeliverySchedule(request.getDeliverySchedule().trim());
+            }
+            if (request.getNote() != null) {
+                order.setNote(request.getNote().trim());
+            }
+        }
+        order.setUpdatedAt(OffsetDateTime.now());
+        orderRepository.save(order);
+
+        log.info("Updated fulfillment info for order {}: address={}, schedule={}",
+                order.getOrderCode(), order.getDeliveryAddress(), order.getDeliverySchedule());
+
+        return getSalesOrderDetail(orderId);
+    }
+
+    /**
+     * Xác nhận hoàn tất đơn hàng (chuyển PROCESSING -> COMPLETED)
+     * khi đơn hàng đã thanh toán đủ (PAID).
+     */
+    @Override
+    @Transactional
+    public SalesOrderDetailResponse completeSalesOrder(UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new AppException(SalesErrorCode.ORDER_NOT_FOUND));
+
+        if (!OrderStatus.PROCESSING.name().equalsIgnoreCase(order.getOrderStatus())) {
+            log.warn("Cannot complete order {} with status {}", order.getOrderCode(), order.getOrderStatus());
+            throw new AppException(SalesErrorCode.ORDER_NOT_MODIFIABLE);
+        }
+
+        if (!PaymentStatus.PAID.name().equalsIgnoreCase(order.getPaymentStatus())) {
+            log.warn("Cannot complete order {}: payment status is {}, must be PAID",
+                    order.getOrderCode(), order.getPaymentStatus());
+            throw new AppException(SalesErrorCode.ORDER_CANNOT_COMPLETE);
+        }
+
+        order.setOrderStatus(OrderStatus.COMPLETED.name());
+        order.setUpdatedAt(OffsetDateTime.now());
+        orderRepository.save(order);
+
+        log.info("Sales Order {} marked as COMPLETED successfully", order.getOrderCode());
+
+        return getSalesOrderDetail(orderId);
+    }
+
     // =========================================================================
     // PRIVATE HELPER METHODS
     // =========================================================================
@@ -746,8 +812,22 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
             if (filter != null) {
                 if (filter.getKeyword() != null && !filter.getKeyword().isBlank()) {
-                    String pattern = "%" + filter.getKeyword().trim().toLowerCase() + "%";
-                    predicates.add(cb.like(cb.lower(root.get("orderCode")), pattern));
+                    String trimmed = filter.getKeyword().trim();
+                    String pattern = "%" + trimmed.toLowerCase() + "%";
+                    List<Predicate> keywordPredicates = new ArrayList<>();
+                    keywordPredicates.add(cb.like(cb.lower(root.get("orderCode")), pattern));
+                    keywordPredicates.add(cb.like(cb.lower(root.get("projectName")), pattern));
+
+                    // Tìm kiếm kết hợp theo SĐT khách hàng nếu tìm thấy trong CRM
+                    try {
+                        crmApi.getCustomerByPhone(trimmed).ifPresent(c -> {
+                            keywordPredicates.add(cb.equal(root.get("customerId"), c.customerId()));
+                        });
+                    } catch (Exception e) {
+                        log.debug("Customer lookup for search keyword ignored: {}", e.getMessage());
+                    }
+
+                    predicates.add(cb.or(keywordPredicates.toArray(new Predicate[0])));
                 }
                 if (filter.getOrderStatus() != null) {
                     predicates.add(cb.equal(root.get("orderStatus"), filter.getOrderStatus().name()));

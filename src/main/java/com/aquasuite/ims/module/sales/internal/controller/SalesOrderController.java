@@ -3,6 +3,7 @@ package com.aquasuite.ims.module.sales.internal.controller;
 import com.aquasuite.ims.module.sales.internal.payload.request.ConvertQuotationToOrderRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.CreateSalesOrderRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.SalesOrderFilterRequest;
+import com.aquasuite.ims.module.sales.internal.payload.request.UpdateOrderFulfillmentRequest;
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderDetailResponse;
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderSummaryResponse;
 import com.aquasuite.ims.module.sales.internal.service.SalesOrderService;
@@ -18,6 +19,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -89,5 +91,32 @@ public class SalesOrderController {
     ) {
         SalesOrderDetailResponse detail = salesOrderService.getSalesOrderDetail(orderId);
         return ResponseEntity.ok(ApiResponse.ok(detail));
+    }
+
+    /**
+     * Cập nhật thông tin giao nhận và điều phối (địa chỉ, lịch giao, ghi chú)
+     * khi đơn hàng đang ở trạng thái PROCESSING.
+     */
+    @PatchMapping("/{orderId}/fulfillment")
+    public ResponseEntity<ApiResponse<SalesOrderDetailResponse>> updateFulfillment(
+            @PathVariable UUID orderId,
+            @Valid @RequestBody UpdateOrderFulfillmentRequest request
+    ) {
+        log.info("API: Update fulfillment for orderId={}", orderId);
+        SalesOrderDetailResponse response = salesOrderService.updateFulfillmentInfo(orderId, request);
+        return ResponseEntity.ok(ApiResponse.ok(response, "Cập nhật thông tin giao nhận thành công!"));
+    }
+
+    /**
+     * Xác nhận hoàn tất đơn hàng (chuyển PROCESSING -> COMPLETED)
+     * khi đơn hàng đã thanh toán đủ (PAID).
+     */
+    @PatchMapping("/{orderId}/complete")
+    public ResponseEntity<ApiResponse<SalesOrderDetailResponse>> completeOrder(
+            @PathVariable UUID orderId
+    ) {
+        log.info("API: Complete sales order orderId={}", orderId);
+        SalesOrderDetailResponse response = salesOrderService.completeSalesOrder(orderId);
+        return ResponseEntity.ok(ApiResponse.ok(response, "Hoàn tất đơn hàng thành công!"));
     }
 }

@@ -22,7 +22,9 @@ public enum SalesErrorCode implements BaseErrorCode {
     ACTOR_REQUIRED("SALES_013", "Cần xác định nhân viên tạo đơn", HttpStatus.UNAUTHORIZED),
     ALREADY_CONVERTED_TO_ORDER("SALES_014", "Báo giá {0} đã được chuyển đổi thành đơn hàng: {1}", HttpStatus.CONFLICT),
     QUOTATION_NOT_ACCEPTED_OR_APPROVED("SALES_015", "Báo giá phải ở trạng thái ĐÃ DUYỆT (APPROVED) hoặc ĐÃ CHỐT (ACCEPTED) mới được tạo đơn hàng, trạng thái hiện tại: {0}", HttpStatus.BAD_REQUEST),
-    QUOTATION_NOT_FOUND("SALES_016", "Không tìm thấy thông tin báo giá: {0}", HttpStatus.NOT_FOUND);
+    QUOTATION_NOT_FOUND("SALES_016", "Không tìm thấy thông tin báo giá: {0}", HttpStatus.NOT_FOUND),
+    ORDER_NOT_MODIFIABLE("SALES_017", "Chỉ có thể cập nhật thông tin khi đơn hàng đang ở trạng thái Đang xử lý (PROCESSING)", HttpStatus.BAD_REQUEST),
+    ORDER_CANNOT_COMPLETE("SALES_018", "Đơn hàng chỉ có thể hoàn tất khi đang ở trạng thái Đang xử lý (PROCESSING) và đã thanh toán đủ (PAID)", HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String message;
