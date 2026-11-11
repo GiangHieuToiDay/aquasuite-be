@@ -27,25 +27,7 @@ public enum PurchasingErrorCode implements BaseErrorCode {
     CLOSE_REASON_REQUIRED("PO_016", "Bắt buộc phải nhập lý do đóng PO", HttpStatus.BAD_REQUEST),
     INVALID_QUANTITY("PO_017", "Số lượng đặt cho SKU {0} phải lớn hơn 0 và đúng quy cách đơn vị", HttpStatus.BAD_REQUEST),
     INVALID_UNIT_COST("PO_018", "Đơn giá nhập cho SKU {0} phải lớn hơn hoặc bằng 0", HttpStatus.BAD_REQUEST),
-    DUPLICATE_SKU_IN_PO("PO_019", "SKU {0} đã xuất hiện trong đơn mua hàng", HttpStatus.BAD_REQUEST),
-    PO_RECEIPT_EXCEEDS_REMAINING("PO_020", "Số lượng nhận của SKU {0} vượt quá số còn phải nhận của đơn mua hàng", HttpStatus.BAD_REQUEST),
-    EXPECTED_DATE_REQUIRED("PO_021", "Vui lòng nhập ngày giao hàng dự kiến khi có đơn giá nhập", HttpStatus.BAD_REQUEST),
-    PO_CONFIRM_MISSING_EXPECTED_DATE("PO_022", "Đơn mua hàng chưa có ngày giao hàng dự kiến, không thể xác nhận đơn", HttpStatus.BAD_REQUEST),
-    PO_LOCKED_ITEMS_CANNOT_EDIT("PO_023", "Đơn mua hàng đã chốt và đang trong tiến trình giao nhận. Để đặt thêm hàng, vui lòng tạo Đơn mua hàng mới.", HttpStatus.BAD_REQUEST),
-    STAGE_SUM_NOT_MATCH_PO_TOTAL("PO_024", "Tổng số tiền các đợt giao phải đúng bằng tổng giá trị đơn mua hàng", HttpStatus.BAD_REQUEST),
-    STAGE_MISSING_EXPECTED_DATE("PO_025", "Mọi đợt giao hàng đều phải có ngày giao hàng dự kiến", HttpStatus.BAD_REQUEST),
-    STAGE_ALREADY_SETTLED("PO_026", "Đợt giao hàng này đã được xác nhận thanh toán trước đó", HttpStatus.CONFLICT),
-    STAGE_SETTLEMENT_REASON_REQUIRED("PO_027", "Bắt buộc nhập lý do/ghi chú khi số tiền thực chi khác số tiền đợt", HttpStatus.BAD_REQUEST),
-    PO_CANNOT_REOPEN_WITH_SETTLED_STAGES("PO_028", "Đơn mua hàng đã có đợt nhận hàng/thanh toán, không thể mở lại để sửa. Vui lòng hoàn tác các đợt trước.", HttpStatus.BAD_REQUEST),
-    PO_CANNOT_CANCEL_WITH_SETTLED_STAGES("PO_029", "Đơn mua hàng đã có đợt nhận hàng/thanh toán, không thể hủy đơn. Vui lòng chọn Đóng PO nhận thiếu.", HttpStatus.BAD_REQUEST),
-    PO_CLOSE_SHORT_REQUIRES_SETTLED_STAGE("PO_030", "Chỉ có thể đóng PO nhận thiếu khi đã có ít nhất một đợt hoàn thành", HttpStatus.BAD_REQUEST),
-    ROLLBACK_REQUEST_ALREADY_PENDING("PO_031", "Đợt này đang có một yêu cầu hoàn tác chờ chủ cửa hàng phê duyệt", HttpStatus.BAD_REQUEST),
-    STAGE_NOT_FOUND("PO_032", "Không tìm thấy đợt giao hàng yêu cầu", HttpStatus.NOT_FOUND),
-    ROLLBACK_REQUEST_NOT_FOUND("PO_033", "Không tìm thấy yêu cầu hoàn tác", HttpStatus.NOT_FOUND),
-    ROLLBACK_REQUEST_NOT_PENDING("PO_034", "Yêu cầu hoàn tác đã được xử lý trước đó", HttpStatus.BAD_REQUEST),
-    STAGE_NOT_SETTLED("PO_035", "Chỉ có thể hoàn tác đợt đã thanh toán (SETTLED)", HttpStatus.BAD_REQUEST),
-    REOPEN_REASON_REQUIRED("PO_036", "Bắt buộc phải nhập lý do mở lại đơn mua hàng", HttpStatus.BAD_REQUEST),
-    ROLLBACK_REASON_REQUIRED("PO_037", "Bắt buộc phải nhập lý do hoàn tác đợt", HttpStatus.BAD_REQUEST);
+    DUPLICATE_SKU_IN_PO("PO_019", "SKU {0} đã xuất hiện trong đơn mua hàng", HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String message;

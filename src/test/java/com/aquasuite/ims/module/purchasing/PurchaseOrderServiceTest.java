@@ -15,21 +15,14 @@ import com.aquasuite.ims.module.inventory.internal.repository.SupplierRepository
 import com.aquasuite.ims.module.purchasing.api.PurchasingApi;
 import com.aquasuite.ims.module.purchasing.internal.entity.PurchaseOrder;
 import com.aquasuite.ims.module.purchasing.internal.entity.PurchaseOrderItem;
-import com.aquasuite.ims.module.purchasing.internal.entity.PurchaseOrderStage;
-import com.aquasuite.ims.module.purchasing.internal.entity.PurchaseOrderStageRollbackRequest;
-import com.aquasuite.ims.module.purchasing.internal.enums.PurchaseOrderDeliveryType;
-import com.aquasuite.ims.module.purchasing.internal.enums.PurchaseOrderStageStatus;
 import com.aquasuite.ims.module.purchasing.internal.enums.PurchaseOrderStatus;
-import com.aquasuite.ims.module.purchasing.internal.enums.RollbackRequestStatus;
 import com.aquasuite.ims.module.purchasing.internal.error.PurchasingErrorCode;
 import com.aquasuite.ims.module.purchasing.internal.payload.request.*;
 import com.aquasuite.ims.module.purchasing.internal.payload.response.LowStockSuggestionResponse;
 import com.aquasuite.ims.module.purchasing.internal.payload.response.PurchaseOrderResponse;
-import com.aquasuite.ims.module.purchasing.internal.payload.response.StageRollbackRequestResponse;
+import com.aquasuite.ims.module.purchasing.internal.payload.response.SupplierItemOptionResponse;
 import com.aquasuite.ims.module.purchasing.internal.repository.PurchaseOrderItemRepository;
 import com.aquasuite.ims.module.purchasing.internal.repository.PurchaseOrderRepository;
-import com.aquasuite.ims.module.purchasing.internal.repository.PurchaseOrderStageRepository;
-import com.aquasuite.ims.module.purchasing.internal.repository.PurchaseOrderStageRollbackRequestRepository;
 import com.aquasuite.ims.module.purchasing.internal.service.PoCodeGenerator;
 import com.aquasuite.ims.module.purchasing.internal.service.PurchaseOrderCalculator;
 import com.aquasuite.ims.module.purchasing.internal.service.PurchaseOrderPdfService;
@@ -39,16 +32,16 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -59,12 +52,6 @@ class PurchaseOrderServiceTest {
 
     @Mock
     private PurchaseOrderItemRepository purchaseOrderItemRepository;
-
-    @Mock
-    private PurchaseOrderStageRepository stageRepository;
-
-    @Mock
-    private PurchaseOrderStageRollbackRequestRepository rollbackRequestRepository;
 
     @Mock
     private SupplierRepository supplierRepository;
@@ -108,8 +95,6 @@ class PurchaseOrderServiceTest {
         purchaseOrderService = new PurchaseOrderServiceImpl(
                 purchaseOrderRepository,
                 purchaseOrderItemRepository,
-                stageRepository,
-                rollbackRequestRepository,
                 supplierRepository,
                 supplierProductRepository,
                 catalogApi,
@@ -256,7 +241,7 @@ class PurchaseOrderServiceTest {
                 .items(List.of(
                         CreatePurchaseOrderRequest.CreatePurchaseOrderItemRequest.builder()
                                 .variantId(variantId1)
-                                .quantity(new BigDecimal("10.5"))
+                                .quantity(new BigDecimal("10.5")) // 'cái' cannot have decimals
                                 .build()
                 ))
                 .build();
@@ -278,7 +263,7 @@ class PurchaseOrderServiceTest {
                 .items(List.of(
                         CreatePurchaseOrderRequest.CreatePurchaseOrderItemRequest.builder()
                                 .variantId(variantId2)
-                                .quantity(new BigDecimal("15.75"))
+                                .quantity(new BigDecimal("15.75")) // 'mét' allows 2 decimals
                                 .build()
                 ))
                 .build();
@@ -289,7 +274,7 @@ class PurchaseOrderServiceTest {
     }
 
     @Test
-    @DisplayName("Update Draft PO - Phase 2: Enter unit cost and expected date, transitions DRAFT -> QUOTED")
+    @DisplayName("Update Draft PO - Phase 2: Enter unit cost and expected date, calculate total amount")
     void testUpdateDraft_Success() {
         UUID poId = UUID.randomUUID();
         PurchaseOrder po = PurchaseOrder.builder()
@@ -322,38 +307,11 @@ class PurchaseOrderServiceTest {
         PurchaseOrderResponse response = purchaseOrderService.updateDraft(poId, request);
 
         assertNotNull(response);
-        assertEquals(PurchaseOrderStatus.QUOTED, response.getStatus());
         assertEquals(new BigDecimal("9500000.00"), response.getTotalAmount());
         assertEquals("Đã chốt giá qua Zalo, giao hàng trước 17h", response.getNote());
         assertEquals(1, response.getItems().size());
         assertEquals(new BigDecimal("950000.00"), response.getItems().get(0).getUnitCost());
         assertEquals(new BigDecimal("9500000.00"), response.getItems().get(0).getLineTotal());
-    }
-
-    @Test
-    @DisplayName("Update PO - When CONFIRMED, throws PO_LOCKED_ITEMS_CANNOT_EDIT")
-    void testUpdateDraft_LockedItems_WhenConfirmed_Throws() {
-        UUID poId = UUID.randomUUID();
-        PurchaseOrder po = PurchaseOrder.builder()
-                .purchaseOrderId(poId)
-                .status(PurchaseOrderStatus.CONFIRMED)
-                .version(1)
-                .build();
-
-        when(purchaseOrderRepository.findById(poId)).thenReturn(Optional.of(po));
-
-        UpdatePurchaseOrderRequest request = UpdatePurchaseOrderRequest.builder()
-                .version(1)
-                .items(List.of(
-                        UpdatePurchaseOrderRequest.UpdatePurchaseOrderItemRequest.builder()
-                                .variantId(variantId1)
-                                .quantity(BigDecimal.ONE)
-                                .build()
-                ))
-                .build();
-
-        AppException ex = assertThrows(AppException.class, () -> purchaseOrderService.updateDraft(poId, request));
-        assertEquals(PurchasingErrorCode.PO_LOCKED_ITEMS_CANNOT_EDIT.getCode(), ex.getErrorCode().getCode());
     }
 
     @Test
@@ -369,7 +327,7 @@ class PurchaseOrderServiceTest {
         when(purchaseOrderRepository.findById(poId)).thenReturn(Optional.of(po));
 
         UpdatePurchaseOrderRequest request = UpdatePurchaseOrderRequest.builder()
-                .version(1)
+                .version(1) // version mismatch
                 .items(List.of(
                         UpdatePurchaseOrderRequest.UpdatePurchaseOrderItemRequest.builder()
                                 .variantId(variantId1)
@@ -383,70 +341,14 @@ class PurchaseOrderServiceTest {
     }
 
     @Test
-    @DisplayName("Update PO with Staged delivery - Last stage balances remainder rounding")
-    void testStagedDelivery_AmountBalance_Rounding() {
-        UUID poId = UUID.randomUUID();
-        PurchaseOrder po = PurchaseOrder.builder()
-                .purchaseOrderId(poId)
-                .status(PurchaseOrderStatus.QUOTED)
-                .version(0)
-                .build();
-
-        when(purchaseOrderRepository.findById(poId)).thenReturn(Optional.of(po));
-        when(catalogApi.getSkuSummaries(List.of(variantId1))).thenReturn(Map.of(variantId1, skuDto1));
-        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        // 3 items @ 1,000,000 = 3,000,000. Stages: 1,000,000 (33.33%), 1,000,000 (33.33%), last stage balances
-        UpdatePurchaseOrderRequest request = UpdatePurchaseOrderRequest.builder()
-                .version(0)
-                .expectedDate(LocalDate.now().plusDays(10))
-                .deliveryPlanType(PurchaseOrderDeliveryType.STAGED.name())
-                .items(List.of(
-                        UpdatePurchaseOrderRequest.UpdatePurchaseOrderItemRequest.builder()
-                                .variantId(variantId1)
-                                .quantity(new BigDecimal("3"))
-                                .unitCost(new BigDecimal("1000000.00"))
-                                .build()
-                ))
-                .stages(List.of(
-                        CreatePurchaseOrderStageRequest.builder()
-                                .stageName("Đợt 1")
-                                .expectedDeliveryDate(LocalDate.now().plusDays(2))
-                                .percent(new BigDecimal("33.33"))
-                                .amount(new BigDecimal("1000000.00"))
-                                .build(),
-                        CreatePurchaseOrderStageRequest.builder()
-                                .stageName("Đợt 2")
-                                .expectedDeliveryDate(LocalDate.now().plusDays(5))
-                                .percent(new BigDecimal("33.33"))
-                                .amount(new BigDecimal("1000000.00"))
-                                .build(),
-                        CreatePurchaseOrderStageRequest.builder()
-                                .stageName("Đợt 3")
-                                .expectedDeliveryDate(LocalDate.now().plusDays(10))
-                                .percent(new BigDecimal("33.34"))
-                                .amount(new BigDecimal("999999.00")) // Discrepancy by 1 VND
-                                .build()
-                ))
-                .build();
-
-        PurchaseOrderResponse response = purchaseOrderService.updateDraft(poId, request);
-        assertNotNull(response);
-        assertEquals(3, response.getStages().size());
-        // Last stage auto balanced to 1,000,000.00 so sum = 3,000,000.00
-        assertEquals(new BigDecimal("1000000.00"), response.getStages().get(2).getAmount());
-    }
-
-    @Test
-    @DisplayName("Confirm PO - Phase 3: Transition QUOTED -> CONFIRMED")
+    @DisplayName("Confirm PO - Phase 3: Transition DRAFT -> CONFIRMED, all items have prices")
     void testConfirm_Success() {
         UUID poId = UUID.randomUUID();
         PurchaseOrder po = PurchaseOrder.builder()
                 .purchaseOrderId(poId)
                 .poCode("PO-202611-0001")
                 .supplierId(supplierId)
-                .status(PurchaseOrderStatus.QUOTED)
-                .expectedDate(LocalDate.now().plusDays(7))
+                .status(PurchaseOrderStatus.DRAFT)
                 .build();
 
         PurchaseOrderItem item = PurchaseOrderItem.builder()
@@ -471,8 +373,6 @@ class PurchaseOrderServiceTest {
         assertEquals(new BigDecimal("5000000.00"), response.getTotalAmount());
         assertEquals(userId, response.getConfirmedBy());
         assertNotNull(response.getConfirmedAt());
-        assertEquals(1, response.getStages().size());
-        assertEquals(new BigDecimal("5000000.00"), response.getStages().get(0).getAmount());
     }
 
     @Test
@@ -482,15 +382,14 @@ class PurchaseOrderServiceTest {
         PurchaseOrder po = PurchaseOrder.builder()
                 .purchaseOrderId(poId)
                 .supplierId(supplierId)
-                .status(PurchaseOrderStatus.QUOTED)
-                .expectedDate(LocalDate.now().plusDays(5))
+                .status(PurchaseOrderStatus.DRAFT)
                 .build();
 
         PurchaseOrderItem item = PurchaseOrderItem.builder()
                 .variantId(variantId1)
                 .sku("SKU-01")
                 .quantityOrdered(BigDecimal.TEN)
-                .unitCost(null)
+                .unitCost(null) // Missing price
                 .build();
         po.addItem(item);
 
@@ -502,382 +401,23 @@ class PurchaseOrderServiceTest {
     }
 
     @Test
-    @DisplayName("Settle Stage - Pay on delivery, settles stage and updates paid amount")
-    void testSettleStage_Success() {
-        UUID poId = UUID.randomUUID();
-        UUID stageId = UUID.randomUUID();
-
-        PurchaseOrder po = PurchaseOrder.builder()
-                .purchaseOrderId(poId)
-                .status(PurchaseOrderStatus.CONFIRMED)
-                .totalAmount(new BigDecimal("10000000.00"))
-                .paidAmount(BigDecimal.ZERO)
-                .build();
-
-        PurchaseOrderStage stage = PurchaseOrderStage.builder()
-                .stageId(stageId)
-                .purchaseOrder(po)
-                .stageName("Đợt 1")
-                .amount(new BigDecimal("5000000.00"))
-                .status(PurchaseOrderStageStatus.PENDING)
-                .build();
-        po.addStage(stage);
-
-        PurchaseOrderStage stage2 = PurchaseOrderStage.builder()
-                .stageId(UUID.randomUUID())
-                .purchaseOrder(po)
-                .stageName("Đợt 2")
-                .amount(new BigDecimal("5000000.00"))
-                .status(PurchaseOrderStageStatus.PENDING)
-                .build();
-        po.addStage(stage2);
-
-        when(purchaseOrderRepository.findById(poId)).thenReturn(Optional.of(po));
-        when(stageRepository.findByStageIdAndPurchaseOrder_PurchaseOrderId(stageId, poId)).thenReturn(Optional.of(stage));
-        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        SettleStageRequest request = SettleStageRequest.builder()
-                .actualAmount(new BigDecimal("5000000.00"))
-                .paymentMethod("BANK_TRANSFER")
-                .paymentReference("VCB123456")
-                .note("Đã nhận hàng đủ và chuyển khoản")
-                .build();
-
-        PurchaseOrderResponse response = purchaseOrderService.settleStage(poId, stageId, request);
-
-        assertNotNull(response);
-        assertEquals(PurchaseOrderStatus.CONFIRMED, response.getStatus()); // Still 1 stage pending
-        assertEquals(new BigDecimal("5000000.00"), response.getPaidAmount());
-        assertEquals(PurchaseOrderStageStatus.SETTLED, stage.getStatus());
-        assertEquals(new BigDecimal("5000000.00"), stage.getActualAmount());
-        assertEquals("VCB123456", stage.getPaymentReference());
-    }
-
-    @Test
-    @DisplayName("Settle Stage - Out of order settlement allowed (Stage 2 settled before Stage 1)")
-    void testSettleStage_OutOfOrder_Success() {
-        UUID poId = UUID.randomUUID();
-        UUID stage1Id = UUID.randomUUID();
-        UUID stage2Id = UUID.randomUUID();
-
-        PurchaseOrder po = PurchaseOrder.builder()
-                .purchaseOrderId(poId)
-                .status(PurchaseOrderStatus.CONFIRMED)
-                .totalAmount(new BigDecimal("10000000.00"))
-                .paidAmount(BigDecimal.ZERO)
-                .build();
-
-        PurchaseOrderStage stage1 = PurchaseOrderStage.builder()
-                .stageId(stage1Id)
-                .purchaseOrder(po)
-                .stageName("Đợt 1")
-                .amount(new BigDecimal("5000000.00"))
-                .status(PurchaseOrderStageStatus.PENDING)
-                .build();
-        PurchaseOrderStage stage2 = PurchaseOrderStage.builder()
-                .stageId(stage2Id)
-                .purchaseOrder(po)
-                .stageName("Đợt 2")
-                .amount(new BigDecimal("5000000.00"))
-                .status(PurchaseOrderStageStatus.PENDING)
-                .build();
-        po.addStage(stage1);
-        po.addStage(stage2);
-
-        when(purchaseOrderRepository.findById(poId)).thenReturn(Optional.of(po));
-        when(stageRepository.findByStageIdAndPurchaseOrder_PurchaseOrderId(stage2Id, poId)).thenReturn(Optional.of(stage2));
-        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        SettleStageRequest request = SettleStageRequest.builder()
-                .actualAmount(new BigDecimal("5000000.00"))
-                .paymentMethod("CASH")
-                .build();
-
-        PurchaseOrderResponse response = purchaseOrderService.settleStage(poId, stage2Id, request);
-        assertNotNull(response);
-        assertEquals(PurchaseOrderStageStatus.SETTLED, stage2.getStatus());
-        assertEquals(PurchaseOrderStageStatus.PENDING, stage1.getStatus());
-    }
-
-    @Test
-    @DisplayName("Settle Stage - Different actual amount without note throws STAGE_SETTLEMENT_REASON_REQUIRED")
-    void testSettleStage_DifferentAmount_MissingNote_Throws() {
-        UUID poId = UUID.randomUUID();
-        UUID stageId = UUID.randomUUID();
-
-        PurchaseOrder po = PurchaseOrder.builder()
-                .purchaseOrderId(poId)
-                .status(PurchaseOrderStatus.CONFIRMED)
-                .build();
-
-        PurchaseOrderStage stage = PurchaseOrderStage.builder()
-                .stageId(stageId)
-                .purchaseOrder(po)
-                .amount(new BigDecimal("5000000.00"))
-                .status(PurchaseOrderStageStatus.PENDING)
-                .build();
-        po.addStage(stage);
-
-        when(purchaseOrderRepository.findById(poId)).thenReturn(Optional.of(po));
-        when(stageRepository.findByStageIdAndPurchaseOrder_PurchaseOrderId(stageId, poId)).thenReturn(Optional.of(stage));
-
-        SettleStageRequest request = SettleStageRequest.builder()
-                .actualAmount(new BigDecimal("4800000.00")) // Less than stage amount
-                .paymentMethod("CASH")
-                .note(null) // Missing required reason
-                .build();
-
-        AppException ex = assertThrows(AppException.class, () -> purchaseOrderService.settleStage(poId, stageId, request));
-        assertEquals(PurchasingErrorCode.STAGE_SETTLEMENT_REASON_REQUIRED.getCode(), ex.getErrorCode().getCode());
-    }
-
-    @Test
-    @DisplayName("Settle All Stages - When last stage is settled, PO automatically transitions to COMPLETED")
-    void testSettleAllStages_AutoCompleted() {
-        UUID poId = UUID.randomUUID();
-        UUID stageId = UUID.randomUUID();
-
-        PurchaseOrder po = PurchaseOrder.builder()
-                .purchaseOrderId(poId)
-                .status(PurchaseOrderStatus.CONFIRMED)
-                .totalAmount(new BigDecimal("5000000.00"))
-                .paidAmount(BigDecimal.ZERO)
-                .build();
-
-        PurchaseOrderStage stage = PurchaseOrderStage.builder()
-                .stageId(stageId)
-                .purchaseOrder(po)
-                .amount(new BigDecimal("5000000.00"))
-                .status(PurchaseOrderStageStatus.PENDING)
-                .build();
-        po.addStage(stage);
-
-        when(purchaseOrderRepository.findById(poId)).thenReturn(Optional.of(po));
-        when(stageRepository.findByStageIdAndPurchaseOrder_PurchaseOrderId(stageId, poId)).thenReturn(Optional.of(stage));
-        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        SettleStageRequest request = SettleStageRequest.builder()
-                .actualAmount(new BigDecimal("5000000.00"))
-                .paymentMethod("BANK_TRANSFER")
-                .build();
-
-        PurchaseOrderResponse response = purchaseOrderService.settleStage(poId, stageId, request);
-        assertNotNull(response);
-        assertEquals(PurchaseOrderStatus.COMPLETED, response.getStatus(), "PO must automatically complete when all stages are settled");
-    }
-
-    @Test
-    @DisplayName("Rollback Workflow - Accountant requests rollback, Owner approves, stage returns to PENDING")
-    void testRollbackWorkflow_AccountantRequest_OwnerApprove() {
-        UUID poId = UUID.randomUUID();
-        UUID stageId = UUID.randomUUID();
-        UUID rollbackId = UUID.randomUUID();
-
-        PurchaseOrder po = PurchaseOrder.builder()
-                .purchaseOrderId(poId)
-                .status(PurchaseOrderStatus.COMPLETED)
-                .totalAmount(new BigDecimal("5000000.00"))
-                .paidAmount(new BigDecimal("5000000.00"))
-                .build();
-
-        PurchaseOrderStage stage = PurchaseOrderStage.builder()
-                .stageId(stageId)
-                .purchaseOrder(po)
-                .amount(new BigDecimal("5000000.00"))
-                .actualAmount(new BigDecimal("5000000.00"))
-                .status(PurchaseOrderStageStatus.SETTLED)
-                .build();
-        po.addStage(stage);
-
-        // 1. Accountant requests rollback
-        when(stageRepository.findByStageIdAndPurchaseOrder_PurchaseOrderId(stageId, poId)).thenReturn(Optional.of(stage));
-        when(rollbackRequestRepository.existsByStage_StageIdAndStatus(stageId, RollbackRequestStatus.PENDING)).thenReturn(false);
-        when(rollbackRequestRepository.save(any(PurchaseOrderStageRollbackRequest.class))).thenAnswer(inv -> {
-            PurchaseOrderStageRollbackRequest r = inv.getArgument(0);
-            return r;
-        });
-
-        StageRollbackRequest req = StageRollbackRequest.builder().requestReason("Bấm nhầm số tiền").build();
-        StageRollbackRequestResponse rollbackResp = purchaseOrderService.requestStageRollback(poId, stageId, req);
-        assertNotNull(rollbackResp);
-        assertEquals(RollbackRequestStatus.PENDING, rollbackResp.getStatus());
-
-        // 2. Owner approves rollback
-        PurchaseOrderStageRollbackRequest pendingRR = PurchaseOrderStageRollbackRequest.builder()
-                .rollbackId(rollbackId)
-                .stage(stage)
-                .purchaseOrderId(poId)
-                .status(RollbackRequestStatus.PENDING)
-                .build();
-
-        when(rollbackRequestRepository.findById(rollbackId)).thenReturn(Optional.of(pendingRR));
-        when(purchaseOrderRepository.findById(poId)).thenReturn(Optional.of(po));
-        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        ReviewRollbackRequest reviewReq = ReviewRollbackRequest.builder().approved(true).reviewNote("Đồng ý").build();
-        PurchaseOrderResponse poResp = purchaseOrderService.reviewStageRollback(poId, rollbackId, reviewReq);
-
-        assertNotNull(poResp);
-        assertEquals(PurchaseOrderStatus.CONFIRMED, poResp.getStatus(), "PO must revert from COMPLETED to CONFIRMED");
-        assertEquals(0, poResp.getPaidAmount().compareTo(BigDecimal.ZERO));
-        assertEquals(PurchaseOrderStageStatus.PENDING, stage.getStatus());
-        assertNull(stage.getActualAmount());
-    }
-
-    @Test
-    @DisplayName("Direct Rollback - Owner directly rolls back settled stage")
-    void testDirectRollback_Owner_Success() {
-        UUID poId = UUID.randomUUID();
-        UUID stageId = UUID.randomUUID();
-
-        PurchaseOrder po = PurchaseOrder.builder()
-                .purchaseOrderId(poId)
-                .status(PurchaseOrderStatus.CONFIRMED)
-                .totalAmount(new BigDecimal("10000000.00"))
-                .paidAmount(new BigDecimal("5000000.00"))
-                .build();
-
-        PurchaseOrderStage stage = PurchaseOrderStage.builder()
-                .stageId(stageId)
-                .purchaseOrder(po)
-                .amount(new BigDecimal("5000000.00"))
-                .actualAmount(new BigDecimal("5000000.00"))
-                .status(PurchaseOrderStageStatus.SETTLED)
-                .build();
-        po.addStage(stage);
-
-        when(purchaseOrderRepository.findById(poId)).thenReturn(Optional.of(po));
-        when(stageRepository.findByStageIdAndPurchaseOrder_PurchaseOrderId(stageId, poId)).thenReturn(Optional.of(stage));
-        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        StageRollbackRequest req = StageRollbackRequest.builder().requestReason("Chủ kiểm tra thấy sai").build();
-        PurchaseOrderResponse resp = purchaseOrderService.directRollbackStage(poId, stageId, req);
-
-        assertNotNull(resp);
-        assertEquals(0, resp.getPaidAmount().compareTo(BigDecimal.ZERO));
-        assertEquals(PurchaseOrderStageStatus.PENDING, stage.getStatus());
-    }
-
-    @Test
-    @DisplayName("Reopen to Quoted - Allowed when 0 stages are settled")
-    void testReopenToQuoted_Success() {
+    @DisplayName("Cancel PO - Confirmed with existing goods receipt throws PO_CANNOT_CANCEL_RECEIPT_EXISTS")
+    void testCancel_Confirmed_ReceiptExists_Throws() {
         UUID poId = UUID.randomUUID();
         PurchaseOrder po = PurchaseOrder.builder()
                 .purchaseOrderId(poId)
                 .status(PurchaseOrderStatus.CONFIRMED)
-                .stages(new ArrayList<>(List.of(
-                        PurchaseOrderStage.builder().status(PurchaseOrderStageStatus.PENDING).build()
-                )))
                 .build();
 
         when(purchaseOrderRepository.findById(poId)).thenReturn(Optional.of(po));
-        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(inventoryApi.hasConfirmedGoodsReceipt(poId)).thenReturn(true);
 
-        ReopenPoRequest req = ReopenPoRequest.builder().reopenReason("NCC báo tăng giá 5%").build();
-        PurchaseOrderResponse resp = purchaseOrderService.reopenToQuoted(poId, req);
-
-        assertNotNull(resp);
-        assertEquals(PurchaseOrderStatus.QUOTED, resp.getStatus());
-        assertEquals("NCC báo tăng giá 5%", resp.getReopenReason());
-    }
-
-    @Test
-    @DisplayName("Reopen to Quoted - With settled stages throws PO_CANNOT_REOPEN_WITH_SETTLED_STAGES")
-    void testReopenToQuoted_WithSettledStages_Throws() {
-        UUID poId = UUID.randomUUID();
-        PurchaseOrder po = PurchaseOrder.builder()
-                .purchaseOrderId(poId)
-                .status(PurchaseOrderStatus.CONFIRMED)
-                .stages(new ArrayList<>(List.of(
-                        PurchaseOrderStage.builder().status(PurchaseOrderStageStatus.SETTLED).build()
-                )))
+        CancelPurchaseOrderRequest request = CancelPurchaseOrderRequest.builder()
+                .cancelReason("Nhà cung cấp hủy giao hàng")
                 .build();
 
-        when(purchaseOrderRepository.findById(poId)).thenReturn(Optional.of(po));
-
-        ReopenPoRequest req = ReopenPoRequest.builder().reopenReason("Thử mở lại").build();
-        AppException ex = assertThrows(AppException.class, () -> purchaseOrderService.reopenToQuoted(poId, req));
-        assertEquals(PurchasingErrorCode.PO_CANNOT_REOPEN_WITH_SETTLED_STAGES.getCode(), ex.getErrorCode().getCode());
-    }
-
-    @Test
-    @DisplayName("Close Short PO - Allowed when >= 1 stage is settled; pending stages cancelled, PO COMPLETED")
-    void testCloseShort_WithSettledStage_Success() {
-        UUID poId = UUID.randomUUID();
-        UUID stage1Id = UUID.randomUUID();
-        UUID stage2Id = UUID.randomUUID();
-
-        PurchaseOrder po = PurchaseOrder.builder()
-                .purchaseOrderId(poId)
-                .status(PurchaseOrderStatus.CONFIRMED)
-                .totalAmount(new BigDecimal("10000000.00"))
-                .paidAmount(new BigDecimal("5000000.00"))
-                .build();
-
-        PurchaseOrderStage stage1 = PurchaseOrderStage.builder()
-                .stageId(stage1Id)
-                .purchaseOrder(po)
-                .amount(new BigDecimal("5000000.00"))
-                .status(PurchaseOrderStageStatus.SETTLED)
-                .build();
-        PurchaseOrderStage stage2 = PurchaseOrderStage.builder()
-                .stageId(stage2Id)
-                .purchaseOrder(po)
-                .amount(new BigDecimal("5000000.00"))
-                .status(PurchaseOrderStageStatus.PENDING)
-                .build();
-        po.addStage(stage1);
-        po.addStage(stage2);
-
-        when(purchaseOrderRepository.findById(poId)).thenReturn(Optional.of(po));
-        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
-
-        CloseShortPoRequest req = CloseShortPoRequest.builder().closeReason("NCC đứt hàng vĩnh viễn").build();
-        PurchaseOrderResponse resp = purchaseOrderService.closeShortPurchaseOrder(poId, req);
-
-        assertNotNull(resp);
-        assertEquals(PurchaseOrderStatus.COMPLETED, resp.getStatus());
-        assertTrue(resp.getIsShortClosed());
-        assertEquals("NCC đứt hàng vĩnh viễn", resp.getCloseReason());
-        assertEquals(PurchaseOrderStageStatus.CANCELLED, stage2.getStatus());
-    }
-
-    @Test
-    @DisplayName("Close Short PO - No settled stages throws PO_CLOSE_SHORT_REQUIRES_SETTLED_STAGE")
-    void testCloseShort_NoSettledStage_Throws() {
-        UUID poId = UUID.randomUUID();
-        PurchaseOrder po = PurchaseOrder.builder()
-                .purchaseOrderId(poId)
-                .status(PurchaseOrderStatus.CONFIRMED)
-                .stages(new ArrayList<>(List.of(
-                        PurchaseOrderStage.builder().status(PurchaseOrderStageStatus.PENDING).build()
-                )))
-                .build();
-
-        when(purchaseOrderRepository.findById(poId)).thenReturn(Optional.of(po));
-
-        CloseShortPoRequest req = CloseShortPoRequest.builder().closeReason("Chưa nhận đợt nào").build();
-        AppException ex = assertThrows(AppException.class, () -> purchaseOrderService.closeShortPurchaseOrder(poId, req));
-        assertEquals(PurchasingErrorCode.PO_CLOSE_SHORT_REQUIRES_SETTLED_STAGE.getCode(), ex.getErrorCode().getCode());
-    }
-
-    @Test
-    @DisplayName("Cancel PO - With settled stages throws PO_CANNOT_CANCEL_WITH_SETTLED_STAGES")
-    void testCancel_WithSettledStages_Throws() {
-        UUID poId = UUID.randomUUID();
-        PurchaseOrder po = PurchaseOrder.builder()
-                .purchaseOrderId(poId)
-                .status(PurchaseOrderStatus.CONFIRMED)
-                .stages(new ArrayList<>(List.of(
-                        PurchaseOrderStage.builder().status(PurchaseOrderStageStatus.SETTLED).build()
-                )))
-                .build();
-
-        when(purchaseOrderRepository.findById(poId)).thenReturn(Optional.of(po));
-
-        CancelPurchaseOrderRequest req = CancelPurchaseOrderRequest.builder().cancelReason("Muốn hủy").build();
-        AppException ex = assertThrows(AppException.class, () -> purchaseOrderService.cancelPurchaseOrder(poId, req));
-        assertEquals(PurchasingErrorCode.PO_CANNOT_CANCEL_WITH_SETTLED_STAGES.getCode(), ex.getErrorCode().getCode());
+        AppException ex = assertThrows(AppException.class, () -> purchaseOrderService.cancelPurchaseOrder(poId, request));
+        assertEquals(PurchasingErrorCode.PO_CANNOT_CANCEL_RECEIPT_EXISTS.getCode(), ex.getErrorCode().getCode());
     }
 
     @Test
@@ -917,6 +457,7 @@ class PurchaseOrderServiceTest {
         when(supplierProductRepository.findByIdSupplierId(supplierId)).thenReturn(List.of(sp));
         when(catalogApi.getSkusByProductIds(List.of(productId1))).thenReturn(List.of(skuDto1));
 
+        // Available = 5, Min = 10, Max = 30 -> Low stock!
         StockSummaryDto stock = StockSummaryDto.builder()
                 .variantId(variantId1)
                 .availableQty(new BigDecimal("5"))
@@ -925,6 +466,7 @@ class PurchaseOrderServiceTest {
                 .onHandQty(new BigDecimal("5"))
                 .build();
         when(inventoryApi.getStockSummaries(List.of(variantId1))).thenReturn(Map.of(variantId1, stock));
+        // Incoming in open POs = 10
         when(purchasingApi.getIncomingStockQtyMap(List.of(variantId1))).thenReturn(Map.of(variantId1, new BigDecimal("10")));
 
         List<LowStockSuggestionResponse> suggestions = purchaseOrderService.getLowStockSuggestions(supplierId);
@@ -932,6 +474,7 @@ class PurchaseOrderServiceTest {
         assertEquals(1, suggestions.size());
         LowStockSuggestionResponse s = suggestions.get(0);
         assertEquals(variantId1, s.getVariantId());
+        // Proposed = 30 (max) - 5 (avail) - 10 (incoming) = 15
         assertEquals(new BigDecimal("15"), s.getSuggestedQty());
         assertEquals(new BigDecimal("900000.00"), s.getLastSupplyPrice());
     }

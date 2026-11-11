@@ -26,11 +26,6 @@ public class PurchaseOrderListItemResponse {
     private LocalDate orderDate;
     private LocalDate expectedDate;
     private BigDecimal totalAmount;
-    private BigDecimal paidAmount;
-    private String deliveryPlanType;
-    private Boolean isShortClosed;
-    private Integer totalStages;
-    private Integer settledStages;
     private Integer totalItems;
     private String createdByName;
     private OffsetDateTime createdAt;
