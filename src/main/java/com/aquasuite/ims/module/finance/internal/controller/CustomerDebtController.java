@@ -27,30 +27,32 @@ public class CustomerDebtController {
     private final IamApi iamApi;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('SALES_STAFF','ACCOUNTANT','SHOP_OWNER')")
+    @PreAuthorize("hasAnyRole('ACCOUNTANT','SHOP_OWNER')")
     public ApiResponse<CustomerDebtPageResponse> list(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String customerType,
             @RequestParam(required = false) String debtStatus,
+            @RequestParam(defaultValue = "customerCode") String sortBy,
+            @RequestParam(defaultValue = "asc") String direction,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ApiResponse.ok(service.list(keyword, customerType, debtStatus, page, size));
+        return ApiResponse.ok(service.list(keyword, customerType, debtStatus, sortBy, direction, page, size));
     }
 
     @GetMapping("/stats")
-    @PreAuthorize("hasAnyRole('SALES_STAFF','ACCOUNTANT','SHOP_OWNER')")
+    @PreAuthorize("hasAnyRole('ACCOUNTANT','SHOP_OWNER')")
     public ApiResponse<DebtDashboardStatsResponse> stats() {
         return ApiResponse.ok(service.stats());
     }
 
     @GetMapping("/{customerId}")
-    @PreAuthorize("hasAnyRole('SALES_STAFF','ACCOUNTANT','SHOP_OWNER')")
+    @PreAuthorize("hasAnyRole('ACCOUNTANT','SHOP_OWNER')")
     public ApiResponse<CustomerDebtDetailResponse> detail(@PathVariable UUID customerId) {
         return ApiResponse.ok(service.detail(customerId));
     }
 
     @GetMapping("/{customerId}/blacklist-status")
-    @PreAuthorize("hasAnyRole('SALES_STAFF','ACCOUNTANT','SHOP_OWNER')")
+    @PreAuthorize("hasAnyRole('ACCOUNTANT','SHOP_OWNER')")
     public ApiResponse<BlacklistStatusResponse> blacklistStatus(@PathVariable UUID customerId) {
         return ApiResponse.ok(service.blacklistStatus(customerId));
     }

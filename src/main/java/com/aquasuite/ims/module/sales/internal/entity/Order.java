@@ -117,6 +117,9 @@ public class Order {
     @Column(name = "deposit_amount", precision = 15, scale = 2)
     private BigDecimal depositAmount;
 
+    @Column(name = "reserve_stock_after_deposit", nullable = false)
+    private boolean reserveStockAfterDeposit;
+
     @Column(name = "credit_term_days")
     private Integer creditTermDays;
 
@@ -125,6 +128,10 @@ public class Order {
 
     @Column(name = "debt_condition", columnDefinition = "TEXT")
     private String debtCondition;
+
+    /** Tham chiếu sang yêu cầu duyệt hạn mức công nợ UC-24 nếu đơn hàng đang ở trạng thái DRAFT chờ duyệt */
+    @Column(name = "credit_request_id")
+    private UUID creditRequestId;
 
     @Column(name = "note", columnDefinition = "TEXT")
     private String note;

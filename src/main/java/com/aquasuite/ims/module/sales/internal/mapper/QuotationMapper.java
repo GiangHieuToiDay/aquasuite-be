@@ -207,9 +207,10 @@ public interface QuotationMapper {
 
                     QuotationItemResponse itemResp = QuotationItemResponse.builder()
                             .quotationItemId(item.getQuotationItemId())
-                            .variantId(item.getVariantId())
+                            .variantId(item.getComboId() != null ? item.getComboId() : item.getVariantId())
+                            .comboId(item.getComboId())
                             .sku(item.getSku())
-                            .variantName(safeSkuNames.getOrDefault(item.getVariantId(), null))
+                            .variantName(item.getComboId() != null ? item.getComboName() : safeSkuNames.getOrDefault(item.getVariantId(), null))
                             .unit(item.getUnit())
                             .quantity(item.getQuantity())
                             .unitPrice(item.getUnitPrice())
@@ -252,6 +253,7 @@ public interface QuotationMapper {
         QuotationOwnerData ownerData = null;
         if (includeOwnerData && totals != null) {
             ownerData = QuotationOwnerData.builder()
+                    .totalCost(totals.totalCost())
                     .grossProfit(totals.grossProfit())
                     .marginPercent(totals.marginPercent())
                     .marginPercentAtApproval(quotation.getMarginPercentAtApproval())

@@ -145,7 +145,7 @@ class BundleCoreHttpIT extends BundleCoreTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.totalElements").value(1))
                 .andExpect(jsonPath("$.data.items[0].items[0].quantity").value(1))
-                .andExpect(jsonPath("$.data.items[0].categoryId").value(CATEGORY.toString()));
+                .andExpect(jsonPath("$.data.items[0].categoryId").value(d.get("categoryId").asText()));
         mvc.perform(get("/api/v1/catalog/bundle/admin").param("page", "100"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items").isEmpty());
@@ -160,7 +160,7 @@ class BundleCoreHttpIT extends BundleCoreTestSupport {
                                         .content(put.toString()))
                         .andExpect(status().isOk())
                         .andExpect(jsonPath("$.data.items[0].quantity").value(1))
-                        .andExpect(jsonPath("$.data.categoryId").value(CATEGORY.toString()))
+                        .andExpect(jsonPath("$.data.categoryId").value(d.get("categoryId").asText()))
                         .andReturn();
         v =
                 json.readTree(changed.getResponse().getContentAsByteArray())
@@ -181,7 +181,7 @@ class BundleCoreHttpIT extends BundleCoreTestSupport {
                         .andExpect(status().isOk())
                         .andExpect(jsonPath("$.data.productStatus").value("INACTIVE"))
                         .andExpect(jsonPath("$.data.items[0].quantity").value(1))
-                        .andExpect(jsonPath("$.data.categoryId").value(CATEGORY.toString()))
+                        .andExpect(jsonPath("$.data.categoryId").value(d.get("categoryId").asText()))
                         .andReturn();
         v = json.readTree(off.getResponse().getContentAsByteArray()).at("/data/version").asLong();
         mvc.perform(

@@ -16,13 +16,17 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 
-/** Guest-facing CUSTOMER account registration, email verification and resend operations. */
+/**
+ * Cung cấp API đăng ký tài khoản CUSTOMER, xác thực và gửi lại OTP qua email cho khách chưa đăng nhập.
+ * Các phản hồi không được cache vì có thể chứa thông tin đăng ký hoặc token đăng nhập.
+ */
 @RestController
 @RequestMapping("/api/v1/iam/register")
 @RequiredArgsConstructor
 public class RegisterController {
     private final RegisterService registrations;
 
+    /** Tiếp nhận form đăng ký, gửi email OTP và trả về phiên chờ xác thực; chưa tạo tài khoản. */
     @PostMapping
     public ResponseEntity<ApiResponse<RegisterResponse>> register(
             @Valid @RequestBody RegisterRequest request) {
@@ -34,6 +38,7 @@ public class RegisterController {
                                 "Please verify the code sent to your email."));
     }
 
+    /** Xác thực OTP của phiên được tra theo email, tạo tài khoản và trả về kết quả đăng nhập. */
     @PostMapping("/verifications")
     public ResponseEntity<ApiResponse<LoginResponse>> verify(
             @Valid @RequestBody VerifyRegistrationRequest request) {
@@ -45,6 +50,7 @@ public class RegisterController {
                                 "Account registered successfully! Welcome to AquaSuite."));
     }
 
+    /** Gửi lại OTP tới email đã lưu trong phiên đăng ký, áp dụng thời gian chờ và giới hạn gửi. */
     @PostMapping("/otp-resends")
     public ResponseEntity<ApiResponse<Void>> resend(
             @Valid @RequestBody ResendRegistrationOtpRequest request) {
@@ -54,7 +60,7 @@ public class RegisterController {
                 .body(ApiResponse.ok(null, "A verification code has been sent to your email."));
     }
 
-    /** Avoid the global validation logger, whose exception text includes rejected credentials. */
+    /** Trả lỗi validation theo từng trường, tránh logger toàn cục có thể ghi giá trị credential bị từ chối. */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> validation(MethodArgumentNotValidException error) {
         var fields =

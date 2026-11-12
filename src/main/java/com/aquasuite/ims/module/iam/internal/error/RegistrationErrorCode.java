@@ -27,6 +27,9 @@ public enum RegistrationErrorCode implements BaseErrorCode {
             HttpStatus.SERVICE_UNAVAILABLE),
     UNAVAILABLE(
             "REG_008", "Registration is temporarily unavailable.", HttpStatus.SERVICE_UNAVAILABLE),
+    SMS_UNAVAILABLE(
+            "REG_010", "Unable to send or check the SMS verification code. Please try again later.",
+            HttpStatus.SERVICE_UNAVAILABLE),
     LOGIN_REQUIRED(
             "REG_009",
             "Account activated. Please log in with your registered credentials.",

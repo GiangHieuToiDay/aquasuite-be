@@ -1,0 +1,42 @@
+meta {
+  name: 08 - Reject Zero Quantity
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/v1/inventory/goods-receipts
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "purchaseOrderId": "{{grPurchaseOrderId}}",
+    "note": "Bruno UC-32 - số lượng 0",
+    "items": [
+      {
+        "purchaseOrderItemId": "{{grPoItemId}}",
+        "quantity": 0
+      }
+    ]
+  }
+}
+
+tests {
+  test('Zero quantity is rejected', function () {
+    expect(res.getStatus()).to.equal(400);
+  });
+}
+
+docs {
+  Số lượng phải > 0 -> chặn bởi validation (@DecimalMin) hoặc INV_015.
+}

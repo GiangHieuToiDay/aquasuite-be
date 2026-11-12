@@ -276,10 +276,14 @@ public class SalesOrderPostmanSimulationTest {
                 quotationRepository,
                 quotationItemRepository,
                 quotationPaymentMilestoneRepository,
-                orderPaymentMilestoneRepository
+                orderPaymentMilestoneRepository,
+                org.mockito.Mockito.mock(com.aquasuite.ims.module.sales.internal.service.OrderStockReservationService.class),
+                org.mockito.Mockito.mock(com.aquasuite.ims.module.finance.api.OrderReceivableApi.class),
+                org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class)
         );
 
-        salesOrderApi = new SalesOrderApiImpl(orderRepository, salesInvoiceRepository);
+        salesOrderApi = new SalesOrderApiImpl(orderRepository, salesInvoiceRepository, orderPaymentMilestoneRepository,
+                org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class));
         SalesOrderController controller = new SalesOrderController(salesOrderService);
 
         mockMvc = MockMvcBuilders.standaloneSetup(controller)

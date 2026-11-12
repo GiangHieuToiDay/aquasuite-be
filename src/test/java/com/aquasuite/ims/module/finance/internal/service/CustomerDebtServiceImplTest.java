@@ -22,6 +22,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import com.aquasuite.ims.module.finance.internal.repository.FinanceLockRepository;
+import com.aquasuite.ims.module.finance.internal.payload.DebtStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -101,7 +102,7 @@ class CustomerDebtServiceImplTest {
         when(transactionRepository.findByCustomerIdInAndStatusIgnoreCase(any(), eq("VERIFIED")))
                 .thenReturn(List.of(directInvoiceReceipt));
 
-        var page = service.list(null, null, null, 0, 20);
+        var page = service.list(null, null, null, "customerCode", "asc", 0, 20);
 
         assertEquals(1, page.content().size());
         assertMoney("150.00", page.content().getFirst().outstandingBalance());
@@ -203,6 +204,27 @@ class CustomerDebtServiceImplTest {
         }
         assertEquals(false, service.checkCredit(CUSTOMER_ID,
                 new CreditCheckRequest(null, "IN_STORE", new BigDecimal("100.00"))).approved());
+    }
+
+    @Test
+    void noCreditProfileKeepsReceivableButNeverReportsNegativeAvailableCredit() {
+        SalesOrderDebtDto paidInSalesOnly = new SalesOrderDebtDto(ORDER_ID, CUSTOMER_ID, "ORD-PAID", "COUNTER",
+                "COMPLETED", "PAID", new BigDecimal("200.00"), BigDecimal.ZERO,
+                new BigDecimal("200.00"), null);
+        CustomerDebtProfileDto noCreditProfile = new CustomerDebtProfileDto(CUSTOMER_ID, "KH-001", "An Khang",
+                "0903118240", "ketoan@example.com", "RETAIL", null, null,
+                List.of(), List.of(), BigDecimal.ZERO, null, "ACTIVE");
+        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(java.util.Optional.of(noCreditProfile));
+        when(salesReceivableApi.findOrdersByCustomerIds(any())).thenReturn(List.of(paidInSalesOnly));
+        when(salesReceivableApi.findInvoicesByCustomerIds(any())).thenReturn(List.of());
+        when(transactionRepository.findByCustomerIdInAndStatusIgnoreCase(any(), eq("VERIFIED"))).thenReturn(List.of());
+
+        var summary = service.creditSummary(CUSTOMER_ID);
+
+        // Finance receipts, rather than Sales.paymentStatus, are the money source of truth.
+        assertMoney("200.00", summary.outstandingBalance());
+        assertMoney("0.00", summary.availableCredit());
+        assertEquals(DebtStatus.NO_CREDIT, summary.debtStatus());
     }
 
     @Test

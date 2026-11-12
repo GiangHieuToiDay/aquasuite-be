@@ -3,6 +3,8 @@ package com.aquasuite.ims.module.finance.internal.service.impl;
 import com.aquasuite.ims.module.finance.internal.entity.Transaction;
 import com.aquasuite.ims.module.finance.internal.error.OrderPaymentErrorCode;
 import com.aquasuite.ims.module.finance.internal.payload.request.RecordOrderPaymentRequest;
+import com.aquasuite.ims.module.finance.internal.payload.response.OrderMilestoneProgress;
+import com.aquasuite.ims.module.finance.internal.payload.response.OrderMilestoneProgressResponse;
 import com.aquasuite.ims.module.finance.internal.payload.response.OrderPaymentResponse;
 import com.aquasuite.ims.module.finance.internal.payload.response.OrderPaymentSummary;
 import com.aquasuite.ims.module.finance.internal.repository.TransactionRepository;
@@ -10,6 +12,7 @@ import com.aquasuite.ims.module.finance.internal.repository.FinanceLockRepositor
 import com.aquasuite.ims.module.finance.internal.service.OrderPaymentService;
 import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.sales.api.SalesOrderApi;
+import com.aquasuite.ims.module.sales.api.dto.SalesOrderMilestoneDto;
 import com.aquasuite.ims.module.sales.api.dto.SalesOrderPaymentInfoDto;
 import com.aquasuite.ims.share.exception.AppException;
 import com.aquasuite.ims.share.exception.CommonErrorCode;
@@ -18,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -118,6 +122,45 @@ public class OrderPaymentServiceImpl implements OrderPaymentService {
     }
 
     /**
+     * Tính tiến độ thanh toán theo từng mốc của đơn trong một ảnh chụp dữ liệu nhất quán.
+     *
+     * <p>Số liệu toàn đơn dùng lại cách tính của {@link #summary}: chỉ cộng khoản
+     * {@code VERIFIED} vào đã trả, {@code PENDING} hiển thị riêng. Tổng đã xác minh được
+     * phân bổ lần lượt vào các mốc theo thứ tự thỏa thuận do Sales cung cấp; mỗi mốc nhận
+     * tối đa phần còn thiếu của mốc, phần dư chảy sang mốc tiếp theo cùng đơn. Việc đọc đơn,
+     * giao dịch và mốc đều nằm trong cùng transaction readonly để bảo đảm nhất quán; không
+     * tạo thêm giao dịch và không đếm trùng số tiền.</p>
+     *
+     * @param orderId mã đơn cần tính tiến độ
+     * @return tổng quan toàn đơn kèm tiến độ từng mốc
+     * @throws AppException nếu không tìm thấy đơn hoặc dữ liệu khoản thu không nhất quán
+     */
+    @Override
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public OrderMilestoneProgressResponse milestoneProgress(UUID orderId) {
+        var order = sales.getOrderPaymentInfo(orderId)
+                .orElseThrow(() -> new AppException(OrderPaymentErrorCode.ORDER_NOT_FOUND));
+        OrderPaymentSummary summary = summary(order, payments(order));
+        List<SalesOrderMilestoneDto> milestones = sales.getOrderPaymentMilestones(orderId);
+
+        List<OrderMilestoneProgress> progress = new ArrayList<>();
+        // Số tiền đã xác minh còn lại để phân bổ tuần tự vào các mốc.
+        BigDecimal remainingVerified = summary.verifiedPaid();
+        for (SalesOrderMilestoneDto milestone : milestones) {
+            BigDecimal agreed = milestone.amount() != null ? milestone.amount() : BigDecimal.ZERO;
+            // Mốc chỉ nhận tối đa phần còn thiếu của mốc; phần dư giữ lại cho mốc sau.
+            BigDecimal paid = remainingVerified.min(agreed).max(BigDecimal.ZERO);
+            remainingVerified = remainingVerified.subtract(paid);
+            progress.add(new OrderMilestoneProgress(
+                    milestone.milestoneId(), milestone.stageName(), milestone.sortOrder(),
+                    agreed, paid, agreed.subtract(paid)));
+        }
+        return new OrderMilestoneProgressResponse(order.orderId(), summary.totalAmount(),
+                summary.verifiedPaid(), summary.pendingAmount(), summary.remaining(),
+                !progress.isEmpty(), List.copyOf(progress));
+    }
+
+    /**
      * Lấy các khoản thu của đơn và phát hiện giao dịch mang sai mã khách hàng.
      * @param order thông tin đơn dùng để kiểm tra mã khách
      * @return danh sách giao dịch loại RECEIPT
@@ -161,6 +204,7 @@ public class OrderPaymentServiceImpl implements OrderPaymentService {
      */
     private static OrderPaymentResponse response(Transaction t) {
         return new OrderPaymentResponse(t.getTransactionId(), t.getTransactionCode(), t.getOrderId(), t.getInvoiceId(), t.getAmount(),
-                t.getPaymentMethod(), t.getStatus(), t.getReferenceNo(), t.getDescription(), t.getTransactionDate(), t.getCreatedBy());
+                t.getPaymentMethod(), t.getStatus(), t.getReferenceNo(), t.getDescription(), t.getRejectReason(),
+                t.getTransactionDate(), t.getCreatedBy());
     }
 }

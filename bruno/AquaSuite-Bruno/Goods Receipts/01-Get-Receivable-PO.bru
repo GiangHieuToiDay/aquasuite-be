@@ -1,0 +1,42 @@
+meta {
+  name: 01 - Get Receivable PO
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/inventory/goods-receipts/receivable/{{grPurchaseOrderId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (res.getStatus() === 200 && body && body.data && Array.isArray(body.data.items) && body.data.items.length > 0) {
+    const first = body.data.items.find(i => Number(i.remainingQty) > 0) || body.data.items[0];
+    bru.setVar('grPoItemId', first.purchaseOrderItemId);
+    bru.setVar('grVariantId', first.variantId);
+    bru.setVar('grRemaining', first.remainingQty);
+  }
+}
+
+tests {
+  test('PO is receivable and has items', function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(200);
+    expect(body.success).to.equal(true);
+    expect(body.data.receivable).to.equal(true);
+    expect(body.data.items).to.be.an('array').and.not.empty;
+    expect(body.data.items[0].remainingQty).to.not.equal(undefined);
+  });
+}
+
+docs {
+  Lấy snapshot PO để lập phiếu nhập. Trước khi chạy, set biến grPurchaseOrderId
+  trong environment = id một PO đang ở trạng thái CONFIRMED hoặc PARTIALLY_RECEIVED.
+  Request này tự lưu dòng đầu tiên (grPoItemId, grVariantId, grRemaining) cho các bước sau.
+}

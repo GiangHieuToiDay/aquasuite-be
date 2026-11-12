@@ -16,7 +16,16 @@ public enum InventoryErrorCode implements BaseErrorCode {
     SUPPLIER_NOT_FOUND("INV_006", "Không tìm thấy nhà cung cấp: {0}", HttpStatus.NOT_FOUND),
     DUPLICATE_STOCK_COUNT_ITEM("INV_007", "Mã SKU bị lặp lại nhiều lần trong cùng phiếu kiểm kê: {0}", HttpStatus.BAD_REQUEST),
     INVALID_ADJUST_QUANTITY("INV_008", "Số lượng điều chỉnh kho phải khác 0", HttpStatus.BAD_REQUEST),
-    INVENTORY_NOT_EMPTY("INV_009", "Không thể xóa tồn kho vì SKU vẫn còn tồn, đang giữ hoặc đã có lịch sử kho", HttpStatus.CONFLICT);
+    INVENTORY_NOT_EMPTY("INV_009", "Không thể xóa tồn kho vì SKU vẫn còn tồn, đang giữ hoặc đã có lịch sử kho", HttpStatus.CONFLICT),
+    GOODS_RECEIPT_PO_NOT_FOUND("INV_010", "Không tìm thấy đơn mua hàng để nhập kho: {0}", HttpStatus.NOT_FOUND),
+    GOODS_RECEIPT_PO_NOT_RECEIVABLE("INV_011", "Đơn mua hàng không ở trạng thái cho phép nhập kho (cần CONFIRMED hoặc PARTIALLY_RECEIVED). Trạng thái hiện tại: {0}", HttpStatus.BAD_REQUEST),
+    GOODS_RECEIPT_EMPTY_ITEMS("INV_012", "Phiếu nhập phải có ít nhất một dòng với số lượng lớn hơn 0", HttpStatus.BAD_REQUEST),
+    GOODS_RECEIPT_DUPLICATE_ITEM("INV_013", "Dòng đơn mua bị lặp lại nhiều lần trong cùng phiếu nhập: {0}", HttpStatus.BAD_REQUEST),
+    GOODS_RECEIPT_ITEM_NOT_IN_PO("INV_014", "Dòng nhập không thuộc đơn mua hàng này: {0}", HttpStatus.BAD_REQUEST),
+    GOODS_RECEIPT_INVALID_QUANTITY("INV_015", "Số lượng nhận phải lớn hơn 0. Giá trị nhập: {0}", HttpStatus.BAD_REQUEST),
+    GOODS_RECEIPT_EXCEEDS_REMAINING("INV_016", "Số lượng nhận vượt quá số còn phải nhận. Nhận: {0}, Còn lại: {1}", HttpStatus.BAD_REQUEST),
+    GOODS_RECEIPT_NOT_FOUND("INV_017", "Không tìm thấy phiếu nhập kho: {0}", HttpStatus.NOT_FOUND),
+    INVALID_THRESHOLD("INV_018", "Ngưỡng tồn kho không hợp lệ: tối thiểu phải ≥ 0 và tối đa (nếu có) phải ≥ tối thiểu", HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String message;

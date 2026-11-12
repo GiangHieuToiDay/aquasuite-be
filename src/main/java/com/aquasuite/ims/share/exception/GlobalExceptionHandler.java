@@ -32,7 +32,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleValidationException(
             MethodArgumentNotValidException ex) {
-        log.warn("Validation error: {}", ex.getMessage());
+        log.warn("Validation failed for {} field(s)", ex.getBindingResult().getFieldErrorCount());
         List<FieldErrorDetail> errors =
                 ex.getBindingResult().getFieldErrors().stream()
                         .map(
@@ -51,7 +51,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadableException(HttpMessageNotReadableException ex) {
-        log.warn("Message not readable: {}", ex.getMessage());
+        log.warn("Request body could not be read");
         return ResponseEntity
                 .status(CommonErrorCode.VALIDATION_ERROR.getStatus())
                 .body(ApiResponse.error(

@@ -1,7 +1,11 @@
 package com.aquasuite.ims.module.servicedesk.internal.entity;
 
+import com.aquasuite.ims.module.servicedesk.internal.enums.TechnicalJobStatus;
+import com.aquasuite.ims.module.servicedesk.internal.enums.TechnicalJobType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.PrePersist;
@@ -54,8 +58,9 @@ public class TechnicalJob {
     @Column(name = "created_by", nullable = false)
     private UUID createdBy;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "job_type", nullable = false, length = 32)
-    private String jobType;
+    private TechnicalJobType jobType;
 
     @Column(name = "service_address", nullable = false, columnDefinition = "TEXT")
     private String serviceAddress;
@@ -63,9 +68,10 @@ public class TechnicalJob {
     @Column(name = "issue_description", nullable = false, columnDefinition = "TEXT")
     private String issueDescription;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 32)
     @Builder.Default
-    private String status = "RECEIVED";
+    private TechnicalJobStatus status = TechnicalJobStatus.ASSIGNED;
 
     @Column(name = "result", columnDefinition = "TEXT")
     private String result;
@@ -91,7 +97,7 @@ public class TechnicalJob {
             this.technicalJobId = UUID.randomUUID();
         }
         if (this.status == null) {
-            this.status = "RECEIVED";
+            this.status = TechnicalJobStatus.ASSIGNED;
         }
         if (this.createdAt == null) {
             this.createdAt = OffsetDateTime.now();

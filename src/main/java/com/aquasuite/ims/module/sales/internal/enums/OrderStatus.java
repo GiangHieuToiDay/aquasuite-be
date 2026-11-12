@@ -4,6 +4,9 @@ package com.aquasuite.ims.module.sales.internal.enums;
  * Trạng thái của đơn hàng trong hệ sinh thái bán hàng AquaSuite.
  */
 public enum OrderStatus {
+    /** Đơn hàng nháp (chờ duyệt hạn mức công nợ) */
+    DRAFT,
+
     /** Đơn hàng đang chờ xử lý hoặc chờ giao hàng */
     PROCESSING,
 

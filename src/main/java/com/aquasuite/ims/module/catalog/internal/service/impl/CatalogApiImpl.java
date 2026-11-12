@@ -76,6 +76,7 @@ public class CatalogApiImpl implements CatalogApi {
 
             return Optional.of(CatalogBundleSummaryDto.builder()
                     .bundleId(bundle.bundleId())
+                    .bundleCode(bundle.productCode())
                     .bundleName(bundle.name())
                     .packagePrice(bundle.packagePrice())
                     .status(bundle.productStatus())
@@ -94,6 +95,15 @@ public class CatalogApiImpl implements CatalogApi {
         return productVariantRepository.findByProductIdIn(productIds).stream()
                 .filter(v -> v.getStatus() == VariantStatus.ACTIVE)
                 .map(this::toDto)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<UUID> getVariantIdsByProductId(UUID productId) {
+        if (productId == null) return Collections.emptyList();
+        return productVariantRepository.findByProductId(productId).stream()
+                .map(ProductVariant::getVariantId)
                 .toList();
     }
 

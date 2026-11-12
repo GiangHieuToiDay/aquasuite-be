@@ -6,6 +6,7 @@ import com.aquasuite.ims.module.sales.internal.payload.request.SalesOrderFilterR
 import com.aquasuite.ims.module.sales.internal.payload.request.UpdateOrderFulfillmentRequest;
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderDetailResponse;
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderSummaryResponse;
+import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderPageResponse;
 import com.aquasuite.ims.module.sales.internal.service.SalesOrderService;
 import com.aquasuite.ims.share.dto.ApiResponse;
 import jakarta.validation.Valid;
@@ -37,7 +38,6 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/sales/orders")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('SALES_STAFF', 'SHOP_OWNER')")
 public class SalesOrderController {
 
     private final SalesOrderService salesOrderService;
@@ -48,6 +48,7 @@ public class SalesOrderController {
      * Thông báo thành công: MSG58 - "Sales order created successfully."
      */
     @PostMapping
+    @PreAuthorize("hasAnyRole('SALES_STAFF', 'SHOP_OWNER')")
     public ResponseEntity<ApiResponse<SalesOrderDetailResponse>> createOrder(
             @Valid @RequestBody CreateSalesOrderRequest request
     ) {
@@ -60,6 +61,7 @@ public class SalesOrderController {
      * Tạo đơn hàng công trình từ báo giá dự án đã chấp thuận (UC-28 / UC-073).
      */
     @PostMapping("/from-quotation/{quotationId}")
+    @PreAuthorize("hasAnyRole('SALES_STAFF', 'SHOP_OWNER')")
     public ResponseEntity<ApiResponse<SalesOrderDetailResponse>> createOrderFromQuotation(
             @PathVariable UUID quotationId,
             @RequestBody(required = false) ConvertQuotationToOrderRequest request
@@ -74,18 +76,20 @@ public class SalesOrderController {
      * Lấy danh sách đơn hàng có phân trang, tìm kiếm và bộ lọc đa tiêu chí.
      */
     @GetMapping
-    public ResponseEntity<ApiResponse<Page<SalesOrderSummaryResponse>>> listOrders(
+    @PreAuthorize("hasAnyRole('SALES_STAFF', 'SHOP_OWNER', 'ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<SalesOrderPageResponse>> listOrders(
             SalesOrderFilterRequest filter,
             @PageableDefault(sort = "orderDate", direction = Sort.Direction.DESC) Pageable pageable
     ) {
         Page<SalesOrderSummaryResponse> page = salesOrderService.getSalesOrders(filter, pageable);
-        return ResponseEntity.ok(ApiResponse.ok(page));
+        return ResponseEntity.ok(ApiResponse.ok(SalesOrderPageResponse.from(page)));
     }
 
     /**
      * Xem thông tin chi tiết đơn hàng (dòng sản phẩm, thông tin khách hàng, tổng tiền, trạng thái).
      */
     @GetMapping("/{orderId}")
+    @PreAuthorize("hasAnyRole('SALES_STAFF', 'SHOP_OWNER', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<SalesOrderDetailResponse>> getOrderDetail(
             @PathVariable UUID orderId
     ) {

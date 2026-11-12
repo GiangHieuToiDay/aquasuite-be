@@ -42,8 +42,18 @@ public class QuotationItem {
     @Column(name = "parent_item_id")
     private UUID parentItemId;
 
-    @Column(name = "variant_id", nullable = false)
+    @Column(name = "variant_id")
     private UUID variantId;
+
+    @Column(name = "combo_id")
+    private UUID comboId;
+
+    @Column(name = "combo_name", length = 255)
+    private String comboName;
+
+    @Builder.Default
+    @Column(name = "item_type", nullable = false, length = 20)
+    private String itemType = "SINGLE";
 
     @Column(name = "sku", nullable = false, length = 100)
     private String sku;

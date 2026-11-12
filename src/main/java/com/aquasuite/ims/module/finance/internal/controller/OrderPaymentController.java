@@ -1,6 +1,7 @@
 package com.aquasuite.ims.module.finance.internal.controller;
 
 import com.aquasuite.ims.module.finance.internal.payload.request.RecordOrderPaymentRequest;
+import com.aquasuite.ims.module.finance.internal.payload.response.OrderMilestoneProgressResponse;
 import com.aquasuite.ims.module.finance.internal.payload.response.OrderPaymentResponse;
 import com.aquasuite.ims.module.finance.internal.payload.response.OrderPaymentSummary;
 import com.aquasuite.ims.module.finance.internal.service.OrderPaymentService;
@@ -61,6 +62,18 @@ public class OrderPaymentController {
     @PreAuthorize("hasAnyRole('SALES_STAFF','SHOP_OWNER','ACCOUNTANT')")
     public ApiResponse<OrderPaymentSummary> summary(@PathVariable UUID orderId) {
         return ApiResponse.ok(service.summary(orderId));
+    }
+
+    /**
+     * Trả tiến độ thanh toán theo từng mốc của đơn, cùng số liệu toàn đơn.
+     * Chỉ khoản đã xác minh được phân bổ vào các mốc theo thứ tự; khoản đang chờ hiển thị riêng.
+     * @param orderId mã đơn cần xem tiến độ
+     * @return tiến độ từng mốc và tổng quan thanh toán của đơn
+     */
+    @GetMapping("/payment-milestones")
+    @PreAuthorize("hasAnyRole('SALES_STAFF','SHOP_OWNER','ACCOUNTANT')")
+    public ApiResponse<OrderMilestoneProgressResponse> milestoneProgress(@PathVariable UUID orderId) {
+        return ApiResponse.ok(service.milestoneProgress(orderId));
     }
 
     /**

@@ -8,6 +8,9 @@ import com.aquasuite.ims.module.crm.internal.payload.res.CustomerCreditProfileRe
 import com.aquasuite.ims.module.crm.internal.payload.res.CustomerResponse;
 import com.aquasuite.ims.module.crm.internal.repository.CustomerRepository;
 import com.aquasuite.ims.module.crm.internal.service.CustomerCreditProfileService;
+import com.aquasuite.ims.module.crm.internal.service.CustomerCreditProfileRequestService;
+import com.aquasuite.ims.module.crm.internal.payload.request.SubmitCustomerCreditProfileRequest;
+import com.aquasuite.ims.module.crm.internal.payload.res.CustomerCreditProfileRequestResponse;
 import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.share.dto.ApiResponse;
 import com.aquasuite.ims.share.dto.PageResponse;
@@ -19,6 +22,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -37,6 +41,7 @@ public class CustomerController {
 
     private final CustomerRepository customerRepository;
     private final CustomerCreditProfileService customerCreditProfileService;
+    private final CustomerCreditProfileRequestService customerCreditProfileRequestService;
     private final IamApi iamApi;
 
     /**
@@ -124,14 +129,29 @@ public class CustomerController {
         return ResponseEntity.ok(ApiResponse.ok(toResponse(saved), "Tạo khách hàng mới thành công"));
     }
 
-    /** Consumes a short-lived Shop Owner approval grant while preserving the initiating Sales Staff identity. */
+    /**
+     * Legacy compatibility endpoint. Sales Staff must use the durable credit-profile request flow instead.
+     */
     @PatchMapping("/{customerId}/credit-profile")
-    @PreAuthorize("hasAnyRole('SALES_STAFF','SHOP_OWNER')")
+    @Deprecated(since = "UC-24 credit profile approval workflow")
+    @PreAuthorize("hasRole('SHOP_OWNER')")
     public ResponseEntity<ApiResponse<CustomerCreditProfileResponse>> updateCreditProfile(
             @PathVariable UUID customerId,
             @jakarta.validation.Valid @RequestBody UpdateCustomerCreditProfileRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(customerCreditProfileService.update(customerId,
                 iamApi.getCurrentUserId(), request), "Customer credit profile updated."));
+    }
+
+    @PostMapping("/{customerId}/credit-profile-requests")
+    @PreAuthorize("hasAnyRole('SALES_STAFF','SHOP_OWNER')")
+    public ResponseEntity<ApiResponse<CustomerCreditProfileRequestResponse>> submitCreditProfileRequest(
+            @PathVariable UUID customerId,
+            @jakarta.validation.Valid @RequestBody SubmitCustomerCreditProfileRequest request) {
+        CustomerCreditProfileRequestResponse result = customerCreditProfileRequestService.submit(customerId, request);
+        String message = result.appliedImmediately()
+                ? "Customer credit profile applied."
+                : "Credit profile request submitted for Shop Owner approval.";
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(result, message));
     }
 
     private CustomerResponse toResponse(Customer c) {

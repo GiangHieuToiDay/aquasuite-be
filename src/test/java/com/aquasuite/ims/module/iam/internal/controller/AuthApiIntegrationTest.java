@@ -135,6 +135,35 @@ class AuthApiIntegrationTest extends AuthIntegrationTestSupport {
     }
 
     @Test
+    void customerEmailLoginUsesExistingJwtRefreshAndLogout() throws Exception {
+        var customerRole = roleRepository.findByRoleNameIgnoreCase("CUSTOMER").orElseThrow();
+        testActiveUser.setRoles(Set.of(customerRole));
+        testActiveUser.setPhone("0901234567");
+        userRepository.saveAndFlush(testActiveUser);
+        var login = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"john.doe@aquasuite.com\",\"password\":\"SecretPassword123!\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.user.roles[0]").value("CUSTOMER"))
+                .andReturn();
+        var data = objectMapper.readTree(login.getResponse().getContentAsString()).path("data");
+        var refreshed = mockMvc.perform(post("/api/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(java.util.Map.of(
+                                "refresh_token", data.path("refresh_token").asText()))))
+                .andExpect(status().isOk()).andReturn();
+        var access = objectMapper.readTree(refreshed.getResponse().getContentAsString())
+                .path("data").path("access_token").asText();
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/auth/me")
+                        .header("Authorization", "Bearer " + access))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.id").value(testActiveUser.getId().toString()));
+        mockMvc.perform(post("/api/v1/auth/logout").header("Authorization", "Bearer " + access))
+                .andExpect(status().isOk());
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/auth/me")
+                        .header("Authorization", "Bearer " + access)).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     @DisplayName("AC-04: Login thất bại với email không tồn tại hoặc sai password đều trả về 401 AUTH_003")
     void shouldReturnAuth003OnInvalidCredentials() throws Exception {
         // Wrong password

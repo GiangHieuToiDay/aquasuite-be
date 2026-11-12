@@ -38,6 +38,7 @@ public class PurchaseOrderController {
      * 1. Tạo đơn mua hàng nháp (Create DRAFT PO - không nhập đơn giá, total_amount = 0)
      */
     @PostMapping
+    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'ACCOUNTANT', 'SALES_STAFF')")
     public ResponseEntity<ApiResponse<PurchaseOrderResponse>> createDraft(
             @Valid @RequestBody CreatePurchaseOrderRequest request) {
         log.info("API: Create draft purchase order for supplier {}", request.getSupplierId());
@@ -49,6 +50,7 @@ public class PurchaseOrderController {
      * 2. Xem chi tiết đơn mua hàng
      */
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'ACCOUNTANT', 'SALES_STAFF')")
     public ResponseEntity<ApiResponse<PurchaseOrderResponse>> getDetail(@PathVariable UUID id) {
         log.info("API: Get purchase order detail: {}", id);
         PurchaseOrderResponse response = purchaseOrderService.getDetail(id);
@@ -59,6 +61,7 @@ public class PurchaseOrderController {
      * 3. Sửa đơn mua hàng nháp (nhập đơn giá, ngày giao dự kiến, điều khoản note)
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'ACCOUNTANT', 'SALES_STAFF')")
     public ResponseEntity<ApiResponse<PurchaseOrderResponse>> updateDraft(
             @PathVariable UUID id,
             @Valid @RequestBody UpdatePurchaseOrderRequest request) {
@@ -71,6 +74,7 @@ public class PurchaseOrderController {
      * 4. Danh sách và bộ lọc đơn mua hàng
      */
     @GetMapping
+    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'ACCOUNTANT', 'SALES_STAFF')")
     public ResponseEntity<ApiResponse<PageResponse<PurchaseOrderListItemResponse>>> listPurchaseOrders(
             @Valid PurchaseOrderFilterRequest filter) {
         log.info("API: List purchase orders with filter: {}", filter);
@@ -82,6 +86,7 @@ public class PurchaseOrderController {
      * 5. Xác nhận đơn mua hàng (DRAFT -> CONFIRMED, khóa danh sách hàng, yêu cầu đủ đơn giá)
      */
     @PostMapping("/{id}/confirm")
+    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<PurchaseOrderResponse>> confirmPurchaseOrder(@PathVariable UUID id) {
         log.info("API: Confirm purchase order: {}", id);
         PurchaseOrderResponse response = purchaseOrderService.confirmPurchaseOrder(id);
@@ -92,6 +97,7 @@ public class PurchaseOrderController {
      * 6. Hủy đơn mua hàng (DRAFT hoặc CONFIRMED khi chưa có phiếu nhập)
      */
     @PostMapping("/{id}/cancel")
+    @PreAuthorize("hasRole('SHOP_OWNER')")
     public ResponseEntity<ApiResponse<PurchaseOrderResponse>> cancelPurchaseOrder(
             @PathVariable UUID id,
             @Valid @RequestBody CancelPurchaseOrderRequest request) {
@@ -104,6 +110,7 @@ public class PurchaseOrderController {
      * 7. Đóng đơn mua hàng nhận thiếu (PARTIALLY_RECEIVED -> COMPLETED khi NCC không giao tiếp)
      */
     @PostMapping("/{id}/close")
+    @PreAuthorize("hasRole('SHOP_OWNER')")
     public ResponseEntity<ApiResponse<PurchaseOrderResponse>> closePurchaseOrder(
             @PathVariable UUID id,
             @Valid @RequestBody ClosePurchaseOrderRequest request) {
@@ -116,6 +123,7 @@ public class PurchaseOrderController {
      * 8. Xuất file PDF đơn mua hàng
      */
     @GetMapping("/{id}/pdf")
+    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'ACCOUNTANT', 'SALES_STAFF')")
     public ResponseEntity<byte[]> exportPdf(@PathVariable UUID id) {
         log.info("API: Export purchase order PDF: {}", id);
         byte[] pdfBytes = purchaseOrderService.exportPdf(id);
@@ -132,6 +140,7 @@ public class PurchaseOrderController {
      * 9. Gợi ý hàng sắp hết cho nhà cung cấp (nút Auto-Fill)
      */
     @GetMapping("/low-stock-suggestions")
+    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'ACCOUNTANT', 'SALES_STAFF')")
     public ResponseEntity<ApiResponse<List<LowStockSuggestionResponse>>> getLowStockSuggestions(
             @RequestParam UUID supplierId) {
         log.info("API: Get low stock suggestions for supplier: {}", supplierId);
@@ -143,6 +152,7 @@ public class PurchaseOrderController {
      * 10. Danh sách SKU của nhà cung cấp hoặc toàn bộ để thêm dòng hàng
      */
     @GetMapping("/supplier-items")
+    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'ACCOUNTANT','SALES_STAFF')")
     public ResponseEntity<ApiResponse<List<SupplierItemOptionResponse>>> getSupplierItems(
             @RequestParam UUID supplierId,
             @RequestParam(defaultValue = "false") boolean all) {

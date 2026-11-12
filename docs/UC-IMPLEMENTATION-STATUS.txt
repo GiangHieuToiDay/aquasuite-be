@@ -1,0 +1,25 @@
+AQUASUITE — IMPLEMENTATION STATUS (BACKEND / FRONTEND)
+Observed date: 2026-11-06
+Scope: UC-05, UC-10, UC-24, UC-26
+
+UC-05 — Manage User Accounts and Status
+Backend: IMPLEMENTED. IAM provides dashboard statistics, filtered/paginated account list, account detail, create, edit, role assignment, status change, self-protection, event/audit integration, temporary-credential email notification, and session revocation for inactive/locked accounts. The current backend model supports multiple roles for UC-05 because roleIds is a set in its HTTP request contract.
+Frontend: IMPLEMENTED IN SOURCE. The FE checkout contains UsersPage, userAccountApi, UserAccountForm, UserAccountDetailDialog, UserAccountStatusDialog, IAM exports, route /app/users, and navigation entry. This status is based on readable source files; FE Git status could not be read from the backend workspace permission boundary.
+Remaining: manual end-to-end test with a running backend, a Shop Owner account, SMTP/notification configuration, and a real browser session.
+
+UC-10 — Manage SKUs, Variants, and Pricing
+Backend: IMPLEMENTED. Catalog contains VariantController, VariantService/VariantServiceImpl, ProductVariant, matrix creation, inventory initialization contract, SKU uniqueness, retail/cost pricing checks, status changes, deletion-eligibility checks, hard-delete guard, and audit events. The implementation remains dependent on the owning Inventory/Sales document APIs for live deletion-usage checks.
+Frontend: NOT FOUND IN THE CURRENT FE SOURCE CHECKOUT. No readable FE page/feature matching Variant, SKU, Matrix, or Variant Pricing was found during the 2026-11-06 source scan.
+Remaining: build the FE Variants & Pricing tab, matrix dialog, variant form, deletion eligibility dialog, and activity-log integration; complete real integration tests against Inventory/Sales data.
+
+UC-24 — Manage Customer Debt and Receivables
+Backend: IN PROGRESS. Dashboard/detail, derived receivables, reminders, statements, block/restore, and credit control exist. The latest slice replaces Sales Staff password-based Quick Credit Approval with durable CRM-owned credit-profile requests (`V15`). Sales Staff can immediately apply only policy-qualified profiles; all other requests wait for Shop Owner review. The active profile remains `customers.credit_limit`/`credit_term_days`; `audit_logs` records lifecycle actions without identity-document values; UC-21 still executes final CreditControlApi authorization before stock reservation/order persistence. V6 adds invoice credit-term and due-date snapshot columns. UC-24 exposes unbilled commitment, invoice receivable, unallocated advance, and net credit exposure.
+Frontend: NOT FOUND IN THE CURRENT FE SOURCE CHECKOUT. No readable Customer Debt/Receivable/POS Quick Credit Approval page or feature was found.
+Remaining: integrate the POS request form and Shop Owner approval screen; Invoice issuing UC must set invoice.credit_term_days and invoice.due_date when status becomes ISSUED; UC-63 must allocate order-linked advances to invoices; quotation credit-offer automation awaits its owning branch; rerun a clean Flyway/PostgreSQL suite after Windows releases locked Surefire reports.
+
+UC-26 — Manage Order Modification / Cancellation
+Backend: PARTIALLY IMPLEMENTED / DEPENDENT ON OTHER UCS. Sales contains OrderModificationRequest entities, repository, mapper, controller, service, request statuses, review paths, and public review event. Its full lifecycle depends on UC-20 submission boundary, UC-21/UC-22 replacement order creation/confirmation, UC-23 verified payment result, Invoice tax adjustment/replacement flow, UC-64 refund approval, and Fulfillment delivery state. UC-26 must not release credit exposure while a modification request is PENDING_CANCEL; exposure is released only after terminal cancellation/adjustment/refund handling.
+Frontend: NOT FOUND IN THE CURRENT FE SOURCE CHECKOUT. No readable order-modification/cancellation feature or page was found.
+Remaining: integrate public contracts from the owning UCs when their source branches are pushed; do not duplicate those UCs inside UC-26.
+
+Verification note: targeted tests for the newest UC-24/credit-approval slice and module boundary tests pass. Testcontainers/Flyway full verification still needs an environment whose Surefire Docker NPipe fork starts normally. No status in this document means a Git commit has been made; human commit/push remains required.

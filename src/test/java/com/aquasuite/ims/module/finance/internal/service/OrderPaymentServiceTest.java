@@ -2,9 +2,11 @@ package com.aquasuite.ims.module.finance.internal.service;
 
 import com.aquasuite.ims.module.finance.internal.entity.Transaction;
 import com.aquasuite.ims.module.finance.internal.payload.request.RecordOrderPaymentRequest;
+import com.aquasuite.ims.module.finance.internal.payload.response.OrderMilestoneProgressResponse;
 import com.aquasuite.ims.module.finance.internal.repository.TransactionRepository;
 import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.sales.api.SalesOrderApi;
+import com.aquasuite.ims.module.sales.api.dto.SalesOrderMilestoneDto;
 import com.aquasuite.ims.module.sales.api.dto.SalesOrderPaymentInfoDto;
 import com.aquasuite.ims.share.exception.AppException;
 import org.junit.jupiter.api.BeforeEach;
@@ -94,6 +96,50 @@ class OrderPaymentServiceTest {
                 RecordOrderPaymentRequest.Method.CASH, null, null);
         assertThatThrownBy(() -> service.record(orderId, request)).isInstanceOf(AppException.class);
         verify(transactions, never()).saveAndFlush(any());
+    }
+
+    private SalesOrderMilestoneDto milestone(String name, int sort, String amount) {
+        return SalesOrderMilestoneDto.builder().milestoneId(UUID.randomUUID()).orderId(orderId)
+                .stageName(name).percent(null).amount(new BigDecimal(amount)).sortOrder(sort).build();
+    }
+
+    @Test void milestoneProgressAllocatesVerifiedSequentiallyAndSpillsOver() {
+        // Đơn 100 triệu; mốc 30/40/30; đã thu VERIFIED 40 triệu (một khoản 20 PENDING không tính).
+        var order100 = SalesOrderPaymentInfoDto.builder().orderId(orderId).customerId(customerId)
+                .totalAmount(new BigDecimal("100000000")).validForPayment(true).build();
+        when(sales.getOrderPaymentInfo(orderId)).thenReturn(Optional.of(order100));
+        var verified = Transaction.builder().customerId(customerId).status("VERIFIED").amount(new BigDecimal("40000000")).build();
+        var pending = Transaction.builder().customerId(customerId).status("PENDING").amount(new BigDecimal("20000000")).build();
+        when(transactions.findByOrderIdAndTransactionTypeIgnoreCase(orderId, "RECEIPT"))
+                .thenReturn(List.of(verified, pending));
+        when(sales.getOrderPaymentMilestones(orderId)).thenReturn(List.of(
+                milestone("Cọc", 1, "30000000"), milestone("Đợt 1", 2, "40000000"), milestone("Đợt 2", 3, "30000000")));
+
+        OrderMilestoneProgressResponse result = service.milestoneProgress(orderId);
+
+        assertThat(result.hasMilestones()).isTrue();
+        assertThat(result.verifiedPaid()).isEqualByComparingTo("40000000");
+        assertThat(result.pendingAmount()).isEqualByComparingTo("20000000");
+        assertThat(result.remaining()).isEqualByComparingTo("60000000");
+        assertThat(result.milestones()).hasSize(3);
+        assertThat(result.milestones().get(0).paidAmount()).isEqualByComparingTo("30000000");
+        assertThat(result.milestones().get(0).remainingAmount()).isEqualByComparingTo("0");
+        assertThat(result.milestones().get(1).paidAmount()).isEqualByComparingTo("10000000");
+        assertThat(result.milestones().get(1).remainingAmount()).isEqualByComparingTo("30000000");
+        assertThat(result.milestones().get(2).paidAmount()).isEqualByComparingTo("0");
+        assertThat(result.milestones().get(2).remainingAmount()).isEqualByComparingTo("30000000");
+    }
+
+    @Test void milestoneProgressWithoutMilestonesStillReturnsOrderTotals() {
+        when(sales.getOrderPaymentInfo(orderId)).thenReturn(Optional.of(order));
+        when(transactions.findByOrderIdAndTransactionTypeIgnoreCase(orderId, "RECEIPT")).thenReturn(List.of());
+        when(sales.getOrderPaymentMilestones(orderId)).thenReturn(List.of());
+
+        OrderMilestoneProgressResponse result = service.milestoneProgress(orderId);
+
+        assertThat(result.hasMilestones()).isFalse();
+        assertThat(result.milestones()).isEmpty();
+        assertThat(result.remaining()).isEqualByComparingTo("10000000");
     }
 
     @Test void inconsistentCustomerOnExistingReceiptDoesNotProduceAFalseBalance() {

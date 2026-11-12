@@ -9,6 +9,7 @@ import com.aquasuite.ims.module.catalog.internal.entity.Product;
 import com.aquasuite.ims.module.catalog.internal.entity.ProductImage;
 import com.aquasuite.ims.module.catalog.internal.entity.ProductVariant;
 import com.aquasuite.ims.module.catalog.internal.enums.ProductStatus;
+import com.aquasuite.ims.module.catalog.internal.enums.ProductType;
 import com.aquasuite.ims.module.catalog.internal.enums.VariantStatus;
 import com.aquasuite.ims.module.catalog.internal.mapper.ProductExcelMapper;
 import com.aquasuite.ims.module.catalog.internal.repository.*;
@@ -248,12 +249,25 @@ public class ProductBulkExcelImporter
                 .collect(Collectors.toMap(ProductVariant::getSku, Function.identity()));
 
         // 4.3. Duyệt các dòng hợp lệ -> Xử lý theo ImportMode
+        Set<UUID> variantParentIds = variantMap.values().stream()
+                .map(ProductVariant::getProductId).collect(Collectors.toSet());
+        Set<UUID> bundleParentIds = productRepository.findAllById(variantParentIds).stream()
+                .filter(parent -> parent.getProductType() == ProductType.BUNDLE)
+                .map(Product::getProductId).collect(Collectors.toSet());
+
         int successCount = 0;
         ImportMode mode = context.getImportMode();
 
         for (ProductExcelRowDto row : validRowsInBatch) {
             ProductVariant existingVariant = variantMap.get(row.sku());
             Product existingProduct = productMap.get(row.productCode());
+
+            if ((existingProduct != null && existingProduct.getProductType() == ProductType.BUNDLE)
+                    || (existingVariant != null && bundleParentIds.contains(existingVariant.getProductId()))) {
+                batchErrors.add(new ExcelRowError(row.rowNumber(), row.sku(),
+                        "Bundle products and their SKUs must be managed through the bundle API"));
+                continue;
+            }
 
             if (existingProduct != null && existingProduct.getStatus() == ProductStatus.DELETED) {
                 batchErrors.add(new ExcelRowError(row.rowNumber(), row.sku(),

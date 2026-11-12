@@ -20,8 +20,14 @@ public class CreditApprovalGrantController {
     private final CreditApprovalGrantService service;
     private final IamApi iamApi;
 
+    /**
+     * Legacy endpoint retained only for backwards compatibility with owner-operated integrations.
+     * UC-24 credit profile approval uses CRM durable requests and never asks a Sales Staff member
+     * to enter Shop Owner credentials.
+     */
+    @Deprecated(since = "UC-24 credit profile approval workflow")
     @PostMapping
-    @PreAuthorize("hasAnyRole('SALES_STAFF','SHOP_OWNER')")
+    @PreAuthorize("hasRole('SHOP_OWNER')")
     public ApiResponse<CreditApprovalGrantResponse> issue(@Valid @RequestBody CreateCreditApprovalGrantRequest request) {
         return ApiResponse.ok(service.issue(iamApi.getCurrentUserId(), request), "Store Owner credit approval granted.");
     }

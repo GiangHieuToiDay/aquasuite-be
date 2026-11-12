@@ -73,6 +73,8 @@ class DevelopmentDataInitializerTest {
         // Default mock behaviors
         when(roleRepository.save(any(Role.class))).thenAnswer(inv -> inv.getArgument(0));
         when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(userRepository.findByEmailIgnoreCase(DevelopmentDataInitializer.CUSTOMER_EMAIL))
+                .thenReturn(Optional.of(new User()));
 
         createInitializer();
     }
@@ -95,6 +97,62 @@ class DevelopmentDataInitializerTest {
         when(environment.getActiveProfiles()).thenReturn(new String[] {"dev"});
         when(environment.getProperty("aquasuite.config.environment")).thenReturn("dev");
         createInitializer();
+    }
+
+    @Test
+    void createsMissingCustomerWithCustomerRoleAndEnvironmentPassword() {
+        setDevEnvironment();
+        when(userRepository.findByEmailIgnoreCase(DevelopmentDataInitializer.CUSTOMER_EMAIL))
+                .thenReturn(Optional.empty());
+
+        initializer.initialize();
+
+        var users = ArgumentCaptor.forClass(User.class);
+        verify(userRepository, times(2)).save(users.capture());
+        User customer = users.getAllValues().stream()
+                .filter(user -> DevelopmentDataInitializer.CUSTOMER_EMAIL.equals(user.getEmail())).findFirst().orElseThrow();
+        assertThat(customer.getUsername()).isEqualTo("customer_test");
+        assertThat(customer.getStatus()).isEqualTo(UserStatus.ACTIVE);
+        assertThat(customer.isVerified()).isTrue();
+        assertThat(customer.getRoles()).extracting(Role::getRoleName).containsExactly("CUSTOMER");
+        assertThat(passwordEncoder.matches(configuredPassword, customer.getPasswordHash())).isTrue();
+    }
+
+    @Test
+    void existingCustomerIsNotOverwritten() {
+        setDevEnvironment();
+        var existing = new User();
+        existing.setId(UUID.randomUUID());
+        existing.setEmail(DevelopmentDataInitializer.CUSTOMER_EMAIL);
+        existing.setStatus(UserStatus.LOCKED);
+        existing.setPasswordHash("existing-hash");
+        when(userRepository.findByEmailIgnoreCase(DevelopmentDataInitializer.CUSTOMER_EMAIL))
+                .thenReturn(Optional.of(existing));
+
+        initializer.initialize();
+
+        verify(userRepository, never()).save(existing);
+        assertThat(existing.getStatus()).isEqualTo(UserStatus.LOCKED);
+        assertThat(existing.getPasswordHash()).isEqualTo("existing-hash");
+    }
+
+    @Test
+    void customerUsernameCollisionStopsSeeding() {
+        setDevEnvironment();
+        when(userRepository.findByEmailIgnoreCase(DevelopmentDataInitializer.CUSTOMER_EMAIL))
+                .thenReturn(Optional.empty());
+        when(userRepository.existsByUsernameIgnoreCase("customer_test")).thenReturn(true);
+
+        assertThatThrownBy(initializer::initialize)
+                .isInstanceOf(DevelopmentDataInitializer.SeedConflictException.class)
+                .hasMessageContaining("customer username");
+    }
+
+    @Test
+    void iamRunsBeforeCrm() {
+        assertThat(org.springframework.core.annotation.OrderUtils.getOrder(DevelopmentDataInitializer.class))
+                .isLessThan(org.springframework.core.annotation.OrderUtils.getOrder(
+                        com.aquasuite.ims.module.crm.internal.config.CrmDataInitializer.class));
     }
 
     @Nested
@@ -516,8 +574,44 @@ class DevelopmentDataInitializerTest {
         }
 
         @Test
-        @DisplayName("Existing owner with wrong or extra roles throws SeedConflictException")
+        @DisplayName("Existing owner missing SHOP_OWNER role throws SeedConflictException")
         void shouldThrowOnRoleSetMismatch() {
+            setDevEnvironment();
+
+            Role ownerRole =
+                    new Role(UUID.randomUUID(), "SHOP_OWNER", "Chủ cửa hàng", true, null, Set.of());
+            Role salesRole =
+                    new Role(
+                            UUID.randomUUID(),
+                            "SALES_STAFF",
+                            "Nhân viên bán hàng",
+                            true,
+                            null,
+                            Set.of());
+            when(roleRepository.findByRoleNameIgnoreCase("SHOP_OWNER"))
+                    .thenReturn(Optional.of(ownerRole));
+
+            User existingOwner = new User();
+            existingOwner.setId(UUID.randomUUID());
+            existingOwner.setEmail("owner@aquasuite.local");
+            existingOwner.setUsername("owner_test");
+            existingOwner.setStatus(UserStatus.ACTIVE);
+            existingOwner.setPasswordHash(passwordEncoder.encode("StrongDevPassword123!"));
+            existingOwner.setRoles(new HashSet<>(Set.of(salesRole)));
+
+            when(userRepository.findByEmailIgnoreCase("owner@aquasuite.local"))
+                    .thenReturn(Optional.of(existingOwner));
+            when(userRepository.findByUsernameIgnoreCase("owner_test"))
+                    .thenReturn(Optional.of(existingOwner));
+
+            assertThatThrownBy(() -> initializer.initialize())
+                    .isInstanceOf(DevelopmentDataInitializer.SeedConflictException.class)
+                    .hasMessageContaining("role set mismatch");
+        }
+
+        @Test
+        @DisplayName("Existing owner with SHOP_OWNER and additional roles succeeds")
+        void shouldSucceedWhenOwnerHasAdditionalRoles() {
             setDevEnvironment();
 
             Role ownerRole =
@@ -546,9 +640,10 @@ class DevelopmentDataInitializerTest {
             when(userRepository.findByUsernameIgnoreCase("owner_test"))
                     .thenReturn(Optional.of(existingOwner));
 
-            assertThatThrownBy(() -> initializer.initialize())
-                    .isInstanceOf(DevelopmentDataInitializer.SeedConflictException.class)
-                    .hasMessageContaining("role set mismatch");
+            boolean result = initializer.initialize();
+
+            assertThat(result).isTrue();
+            verify(userRepository, never()).save(any());
         }
 
         @Test

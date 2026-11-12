@@ -1,7 +1,9 @@
 package com.aquasuite.ims.module.sales.api;
 
+import com.aquasuite.ims.module.sales.api.dto.SalesOrderMilestoneDto;
 import com.aquasuite.ims.module.sales.api.dto.SalesOrderPaymentInfoDto;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -38,4 +40,18 @@ public interface SalesOrderApi {
      * @param paymentStatus Trạng thái thanh toán mới (UNPAID, PARTIALLY_PAID, PAID)
      */
     void updatePaymentStatus(UUID orderId, String paymentStatus);
+
+    /**
+     * Lấy snapshot chỉ đọc các mốc thanh toán theo thỏa thuận của đơn, phục vụ UC-23
+     * tính tiến độ thanh toán theo từng mốc.
+     *
+     * <p>Các mốc được sắp theo thứ tự ổn định (theo {@code sortOrder} tăng dần, và dùng
+     * {@code milestoneId} làm tiêu chí phụ khi trùng thứ tự) để Finance tính tiền đã
+     * xác minh lần lượt vào từng mốc. Đơn tạo trực tiếp có thể không có mốc nào; khi đó
+     * danh sách trả về rỗng. Phương thức chỉ đọc, không tạo hay thay đổi dữ liệu mốc.</p>
+     *
+     * @param orderId mã đơn hàng cần lấy các mốc; nếu {@code null} trả về danh sách rỗng
+     * @return danh sách mốc thanh toán đã sắp thứ tự ổn định, rỗng nếu đơn không có mốc
+     */
+    List<SalesOrderMilestoneDto> getOrderPaymentMilestones(UUID orderId);
 }

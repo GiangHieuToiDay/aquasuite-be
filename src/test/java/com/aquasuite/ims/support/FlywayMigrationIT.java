@@ -36,16 +36,180 @@ class FlywayMigrationIT {
     @Test
     void emptyDatabaseMigratesAndRetryDoesNothing() throws Exception {
         var flyway = config(database()).load();
-        assertEquals(13, flyway.migrate().migrationsExecuted);
+        assertEquals(30, flyway.migrate().migrationsExecuted);
         assertTrue(flyway.validateWithResult().validationSuccessful);
         assertEquals(0, flyway.migrate().migrationsExecuted);
         assertThrows(FlywayException.class, flyway::clean);
     }
 
     @Test
+    void v26PreservesSkuQuotesAndSupportsPackageRootsWithRealVariantChildren() throws Exception {
+        String url=database();
+        config(url).target("25").load().migrate();
+        var db=BundleCoreTestSupport.DB;
+        UUID user=UUID.randomUUID(),customer=UUID.randomUUID(),category=UUID.randomUUID();
+        UUID product=UUID.randomUUID(),variant=UUID.randomUUID(),quote=UUID.randomUUID();
+        UUID normal=UUID.randomUUID(),bundle=UUID.randomUUID(),root=UUID.randomUUID();
+        try (var connection=DriverManager.getConnection(url,db.getUsername(),db.getPassword()); var sql=connection.createStatement()) {
+            sql.execute("insert into users(id,username,email,password_hash,status) values('"+user+"','v26-user','v26@example.invalid','{disabled-test-account}','ACTIVE')");
+            sql.execute("insert into customers(customer_id,customer_code,customer_name,phone) values('"+customer+"','V26-C','Migration','0900000000')");
+            sql.execute("insert into categories(category_id,category_code,category_name) values('"+category+"','V26_CAT','Migration')");
+            sql.execute("insert into products(product_id,product_code,product_name,category_id) values('"+product+"','V26-P','SKU product','"+category+"')");
+            sql.execute("insert into products(product_id,product_code,product_name,category_id,product_type) values('"+bundle+"','V26-B','Bundle','"+category+"','BUNDLE')");
+            sql.execute("insert into product_variants(variant_id,product_id,sku,variant_name,unit) values('"+variant+"','"+product+"','V26-SKU','SKU','piece')");
+            sql.execute("insert into quotations(quotation_id,quotation_code,customer_id,project_name,quotation_date,valid_until,created_by) values('"+quote+"','V26-Q','"+customer+"','Migration',current_date,current_date+1,'"+user+"')");
+            sql.execute("insert into quotation_items(quotation_item_id,quotation_id,variant_id,quantity,unit_price,sku,unit) values('"+normal+"','"+quote+"','"+variant+"',2,100,'V26-SKU','piece')");
+        }
+        var upgraded=config(url).target("26").load();
+        assertEquals(1,upgraded.migrate().migrationsExecuted);
+        assertTrue(upgraded.validateWithResult().validationSuccessful);
+        assertEquals(0,upgraded.migrate().migrationsExecuted);
+        try (var connection=DriverManager.getConnection(url,db.getUsername(),db.getPassword()); var sql=connection.createStatement()) {
+            try (var row=sql.executeQuery("select variant_id,quantity,unit_price from quotation_items where quotation_item_id='"+normal+"'")) {
+                assertTrue(row.next()); assertEquals(variant,row.getObject(1,UUID.class));
+                assertEquals(2,row.getBigDecimal(2).intValue()); assertEquals(100,row.getBigDecimal(3).intValue());
+            }
+            sql.execute("insert into quotation_items(quotation_item_id,quotation_id,combo_id,combo_name,item_type,quantity,unit_price,sku,unit) values('"+root+"','"+quote+"','"+bundle+"','Snapshot','COMBO_HEADER',1,150,'V26-B','set')");
+            sql.execute("insert into quotation_items(quotation_item_id,quotation_id,variant_id,parent_item_id,item_type,quantity,unit_price,sku,unit) values('"+UUID.randomUUID()+"','"+quote+"','"+variant+"','"+root+"','COMBO_COMPONENT',1,200,'V26-SKU','piece')");
+            assertThrows(java.sql.SQLException.class,() -> sql.execute("insert into quotation_items(quotation_item_id,quotation_id,variant_id,quantity,unit_price,sku,unit) values('"+UUID.randomUUID()+"','"+quote+"','"+UUID.randomUUID()+"',1,100,'bad','piece')"));
+            assertThrows(java.sql.SQLException.class,() -> sql.execute("insert into quotation_items(quotation_item_id,quotation_id,quantity,unit_price,sku,unit) values('"+UUID.randomUUID()+"','"+quote+"',1,100,'bad','piece')"));
+            sql.execute("delete from quotation_items where quotation_id='"+quote+"'");
+        }
+    }
+
+    @Test
+    void v27AllowsRevisionsButStillRejectsDuplicateCodeAndRevision() throws Exception {
+        String url=database();
+        config(url).target("26").load().migrate();
+        var db=BundleCoreTestSupport.DB;
+        UUID actor=UUID.randomUUID(),customer=UUID.randomUUID();
+        String columns="quotation_id,quotation_code,revision_no,customer_id,project_name,quotation_date,valid_until,created_by";
+        String common="'V27-Q',1,'"+customer+"','Migration',current_date,current_date+1,'"+actor+"'";
+        try (var connection=DriverManager.getConnection(url,db.getUsername(),db.getPassword()); var sql=connection.createStatement()) {
+            sql.execute("insert into users(id,username,email,password_hash,status) values('"+actor+"','v27-user','v27@example.invalid','{disabled-test-account}','ACTIVE')");
+            sql.execute("insert into customers(customer_id,customer_code,customer_name,phone) values('"+customer+"','V27-C','Migration','0900000000')");
+            sql.execute("insert into quotations("+columns+") values('"+UUID.randomUUID()+"',"+common+")");
+        }
+        assertEquals(1,config(url).target("27").load().migrate().migrationsExecuted);
+        try (var connection=DriverManager.getConnection(url,db.getUsername(),db.getPassword()); var sql=connection.createStatement()) {
+            sql.execute("insert into quotations("+columns+") values('"+UUID.randomUUID()+"',"+common.replace("'V27-Q',1,","'V27-Q',2,")+")");
+            assertThrows(java.sql.SQLException.class,() -> sql.execute("insert into quotations("+columns+") values('"+UUID.randomUUID()+"',"+common+")"));
+            try (var row=sql.executeQuery("select count(*) from quotations where quotation_code='V27-Q'")) {
+                assertTrue(row.next()); assertEquals(2,row.getInt(1));
+            }
+        }
+    }
+
+    @Test
+    void v25PreservesExistingOrdersAndDefaultsHoldingIntentToFalse() throws Exception {
+        String url = database();
+        config(url).target("24").load().migrate();
+        var db = BundleCoreTestSupport.DB;
+        UUID customer = UUID.randomUUID(), order = UUID.randomUUID();
+        try (var connection = DriverManager.getConnection(url, db.getUsername(), db.getPassword())) {
+            try (var insert = connection.prepareStatement("insert into customers(customer_id,customer_code,customer_name,phone) values(?,'V25-C','Migration','0900000000')")) {
+                insert.setObject(1, customer);
+                insert.executeUpdate();
+            }
+            try (var insert = connection.prepareStatement("insert into orders(order_id,order_code,customer_id,order_channel,order_status,payment_status,order_date,total_amount,deposit_amount) values(?,'V25-O',?,'COUNTER','PROCESSING','UNPAID',now(),100,20)")) {
+                insert.setObject(1, order);
+                insert.setObject(2, customer);
+                insert.executeUpdate();
+            }
+        }
+        var upgraded = config(url).target("25").load();
+        assertEquals(1, upgraded.migrate().migrationsExecuted);
+        assertTrue(upgraded.validateWithResult().validationSuccessful);
+        assertEquals(0, upgraded.migrate().migrationsExecuted);
+        try (var connection = DriverManager.getConnection(url, db.getUsername(), db.getPassword());
+             var query = connection.prepareStatement("select reserve_stock_after_deposit,total_amount,deposit_amount,payment_status from orders where order_id=?")) {
+            query.setObject(1, order);
+            try (var row = query.executeQuery()) {
+                assertTrue(row.next());
+                org.junit.jupiter.api.Assertions.assertFalse(row.getBoolean(1));
+                assertEquals(0, row.getBigDecimal(2).compareTo(new java.math.BigDecimal("100")));
+                assertEquals(0, row.getBigDecimal(3).compareTo(new java.math.BigDecimal("20")));
+                assertEquals("UNPAID", row.getString(4));
+            }
+        }
+    }
+
+    @Test
+    void v24RemovesUnusedRequiredColumnsAndPreservesQuotationItems() throws Exception {
+        String url = database();
+        config(url).target("23").load().migrate();
+        var db = BundleCoreTestSupport.DB;
+        try (var connection = DriverManager.getConnection(url, db.getUsername(), db.getPassword());
+                var statement = connection.createStatement()) {
+            UUID user = UUID.randomUUID(), customer = UUID.randomUUID(), category = UUID.randomUUID();
+            UUID product = UUID.randomUUID(), variant = UUID.randomUUID(), quotation = UUID.randomUUID(), item = UUID.randomUUID();
+            statement.execute("INSERT INTO users(id,username,email,password_hash,status) VALUES ('" + user
+                    + "','quotation_migration','quotation-migration@example.invalid','{disabled-test-account}','ACTIVE')");
+            statement.execute("INSERT INTO customers(customer_id,customer_code,customer_name,phone) VALUES ('" + customer
+                    + "','QT-MIG','Migration','0900000000')");
+            statement.execute("INSERT INTO categories(category_id,category_code,category_name) VALUES ('" + category + "','QT_MIG','Migration')");
+            statement.execute("INSERT INTO products(product_id,product_code,product_name,category_id) VALUES ('" + product
+                    + "','QT-MIG','Migration','" + category + "')");
+            statement.execute("INSERT INTO product_variants(variant_id,product_id,sku,variant_name,unit) VALUES ('" + variant
+                    + "','" + product + "','QT-MIG','Migration','piece')");
+            statement.execute("INSERT INTO quotations(quotation_id,quotation_code,customer_id,project_name,quotation_date,valid_until,created_by) VALUES ('"
+                    + quotation + "','QT-MIG','" + customer + "','Migration',current_date,current_date+1,'" + user + "')");
+            String columns = "quotation_item_id,quotation_id,variant_id,quantity,unit_price,sku,unit";
+            String values = "'" + item + "','" + quotation + "','" + variant + "',1,10,'QT-MIG','piece'";
+            statement.execute("INSERT INTO quotation_items(" + columns + ",item_name_snapshot,net_unit_price) VALUES ("
+                    + values + ",'Historical name',10)");
+
+            assertEquals(1, config(url).target("24").load().migrate().migrationsExecuted);
+
+            try (var rows = statement.executeQuery("SELECT count(*) FROM information_schema.columns WHERE table_schema='public' "
+                    + "AND table_name='quotation_items' AND column_name IN ('item_name_snapshot','net_unit_price')")) {
+                assertTrue(rows.next());
+                assertEquals(0, rows.getInt(1));
+            }
+            try (var rows = statement.executeQuery("SELECT quantity,unit_price,sku FROM quotation_items WHERE quotation_item_id='" + item + "'")) {
+                assertTrue(rows.next());
+                assertEquals(1, rows.getBigDecimal(1).intValue());
+                assertEquals(10, rows.getBigDecimal(2).intValue());
+                assertEquals("QT-MIG", rows.getString(3));
+            }
+            statement.execute("INSERT INTO quotation_items(" + columns + ") VALUES ("
+                    + values.replace(item.toString(), UUID.randomUUID().toString()) + ")");
+        }
+    }
+
+    @Test
+    void retiredComboSeedIsRepairedWithoutDeletingCategory(@org.junit.jupiter.api.io.TempDir java.nio.file.Path legacy) throws Exception {
+        var migrations = new org.springframework.core.io.ClassPathResource("db/migration").getFile().toPath();
+        try (var files = java.nio.file.Files.list(migrations)) {
+            for (var file : files.filter(p -> p.toString().endsWith(".sql")).toList()) {
+                java.nio.file.Files.copy(file, legacy.resolve(file.getFileName()));
+            }
+        }
+        java.nio.file.Files.writeString(legacy.resolve("V16__seed_system_combo_category.sql"), """
+                INSERT INTO categories(category_id, category_code, category_name, status)
+                VALUES (gen_random_uuid(), 'COMBO', 'Combo', 'ACTIVE');
+                """);
+        String url = database();
+        config(url).locations("filesystem:" + legacy).load().migrate();
+        var current = config(url).load();
+        org.junit.jupiter.api.Assertions.assertFalse(current.validateWithResult().validationSuccessful);
+
+        new com.aquasuite.ims.share.config.FlywayConfig().flywayMigrationStrategy().migrate(current);
+
+        assertTrue(current.validateWithResult().validationSuccessful);
+        var db = BundleCoreTestSupport.DB;
+        try (var connection = DriverManager.getConnection(url, db.getUsername(), db.getPassword());
+                var statement = connection.createStatement();
+                var rows = statement.executeQuery("SELECT count(*) FROM categories WHERE category_code='COMBO'")) {
+            assertTrue(rows.next());
+            assertEquals(1, rows.getInt(1));
+        }
+    }
+
+    @Test
     void creditProfileMigrationStopsForLegacyNullTermAndEnforcesValidTerms() throws Exception {
         String url = database();
-        config(url).target("6").load().migrate();
+        config(url).target("13").load().migrate();
         var db = BundleCoreTestSupport.DB;
         try (var connection = DriverManager.getConnection(url, db.getUsername(), db.getPassword());
                 var statement = connection.createStatement()) {
@@ -81,6 +245,44 @@ class FlywayMigrationIT {
     }
 
     @Test
+    void v23RecoversOnlyAnUnambiguousConfirmedWarehouseWithoutAllocatingStock() throws Exception {
+        String url=database();
+        config(url).target("22").load().migrate();
+        var db=BundleCoreTestSupport.DB;
+        try (var connection=DriverManager.getConnection(url,db.getUsername(),db.getPassword())) {
+            UUID customer=UUID.randomUUID(),first=UUID.randomUUID(),ambiguous=UUID.randomUUID();
+            try (var insert=connection.prepareStatement("INSERT INTO customers(customer_id,customer_code,customer_name,phone) VALUES (?,?,'Migration','0900000000')")) {
+                insert.setObject(1,customer);insert.setString(2,"M-"+customer);insert.executeUpdate();
+            }
+            for (UUID order:java.util.List.of(first,ambiguous)) {
+                try (var insert=connection.prepareStatement("INSERT INTO orders(order_id,order_code,customer_id,order_channel,order_status,payment_status,order_date,total_amount) VALUES (?,?,?,'COUNTER','PROCESSING','UNPAID',now(),100)")) {
+                    insert.setObject(1,order);insert.setString(2,"M-"+order);insert.setObject(3,customer);insert.executeUpdate();
+                }
+                try (var insert=connection.prepareStatement("INSERT INTO sales_reservation_requests(order_id,selection,pricing,reservation_value,actor_id) VALUES (?,'[]','[]',100,?)")) {
+                    insert.setObject(1,order);insert.setObject(2,UUID.randomUUID());insert.executeUpdate();
+                }
+                for (String warehouse:order.equals(first) ? java.util.List.of("WH_MAIN") : java.util.List.of("WH_MAIN","WH_OTHER")) {
+                    try (var insert=connection.prepareStatement("INSERT INTO sales_reservation_operations(request_id,order_id,payload,actor_id) VALUES (?,?,?,?)")) {
+                        insert.setObject(1,UUID.randomUUID());insert.setObject(2,order);
+                        insert.setString(3,"[\""+order+"\",\"REQUEST\",\""+warehouse+"\",[]]");
+                        insert.setObject(4,UUID.randomUUID());insert.executeUpdate();
+                    }
+                }
+            }
+            assertEquals(1,config(url).target("23").load().migrate().migrationsExecuted);
+            try (var query=connection.prepareStatement("SELECT warehouse_code FROM sales_reservation_requests WHERE order_id=?")) {
+                query.setObject(1,first);
+                try (var result=query.executeQuery()) { assertTrue(result.next());assertEquals("WH_MAIN",result.getString(1)); }
+                query.setObject(1,ambiguous);
+                try (var result=query.executeQuery()) { assertTrue(result.next());assertEquals(null,result.getString(1)); }
+            }
+            try (var query=connection.createStatement();var result=query.executeQuery("SELECT count(*) FROM sales_reservation_allocations")) {
+                assertTrue(result.next());assertEquals(0,result.getInt(1));
+            }
+        }
+    }
+
+    @Test
     void categoryInsertUsesDatabaseTimestampDefaults() throws Exception {
         String url = database();
         config(url).load().migrate();
@@ -101,6 +303,50 @@ class FlywayMigrationIT {
                 assertNotNull(r.getTimestamp("created_at"));
                 assertNotNull(r.getTimestamp("updated_at"));
             }
+        }
+    }
+
+    @Test
+    void customerPhoneUniquenessUpgradePreservesHistoryAndRejectsDuplicates() throws Exception {
+        String url=database();
+        config(url).target("29").load().migrate();
+        var db=BundleCoreTestSupport.DB;
+        UUID customer=UUID.randomUUID(), duplicate=UUID.randomUUID(), order=UUID.randomUUID();
+        try (var connection=DriverManager.getConnection(url,db.getUsername(),db.getPassword()); var sql=connection.createStatement()) {
+            sql.execute("INSERT INTO customers(customer_id,customer_code,customer_name,phone) VALUES('"+customer+"','LINK-A','First','0901234567'),('"+duplicate+"','LINK-B','Second','0901234567')");
+            sql.execute("INSERT INTO orders(order_id,order_code,customer_id,order_channel,order_status,payment_status,order_date,total_amount) VALUES('"+order+"','LINK-ORDER','"+customer+"','IN_STORE','PROCESSING','UNPAID',current_timestamp,100)");
+        }
+        var upgrade=config(url).load();
+        assertThrows(FlywayException.class,upgrade::migrate);
+        try (var connection=DriverManager.getConnection(url,db.getUsername(),db.getPassword()); var sql=connection.createStatement()) {
+            try (var row=sql.executeQuery("SELECT count(*) FROM customers WHERE phone='0901234567'")) {
+                assertTrue(row.next()); assertEquals(2,row.getInt(1));
+            }
+            // Explicit fixture reconciliation, never performed by the migration itself.
+            sql.execute("UPDATE customers SET phone='0907654321' WHERE customer_id='"+duplicate+"'");
+        }
+        assertEquals(1,upgrade.migrate().migrationsExecuted);
+        try (var connection=DriverManager.getConnection(url,db.getUsername(),db.getPassword()); var sql=connection.createStatement()) {
+            try (var row=sql.executeQuery("SELECT customer_id FROM orders WHERE order_id='"+order+"'")) {
+                assertTrue(row.next()); assertEquals(customer,row.getObject(1,UUID.class));
+            }
+            assertThrows(java.sql.SQLException.class, () -> sql.execute("INSERT INTO customers(customer_id,customer_code,customer_name,phone) VALUES('"+UUID.randomUUID()+"','LINK-C','Third','0901234567')"));
+        }
+    }
+
+    @Test
+    void customerPhoneUpgradeRefusesWhitespaceWithoutChangingExistingData() throws Exception {
+        String url=database();
+        config(url).target("29").load().migrate();
+        var db=BundleCoreTestSupport.DB;
+        UUID customer=UUID.randomUUID();
+        try (var connection=DriverManager.getConnection(url,db.getUsername(),db.getPassword()); var sql=connection.createStatement()) {
+            sql.execute("INSERT INTO customers(customer_id,customer_code,customer_name,phone) VALUES('"+customer+"','LINK-PAD','First',' 0901234567 ')");
+        }
+        assertThrows(FlywayException.class, () -> config(url).load().migrate());
+        try (var connection=DriverManager.getConnection(url,db.getUsername(),db.getPassword()); var sql=connection.createStatement();
+             var row=sql.executeQuery("SELECT phone FROM customers WHERE customer_id='"+customer+"'")) {
+            assertTrue(row.next()); assertEquals(" 0901234567 ",row.getString(1));
         }
     }
 }

@@ -24,5 +24,14 @@ public class ConvertQuotationToOrderRequest {
 
     /** Hạn thanh toán / ngày giao hàng dự kiến (nếu để trống sẽ lấy theo hạn hiệu lực của báo giá hoặc +30 ngày) */
     private LocalDate dueDate;
+
+    /** Cờ yêu cầu tạo đề xuất tăng hạn mức công nợ tới Chủ cửa hàng nếu hạn mức khả dụng không đủ */
+    private Boolean requestCreditIncrease;
+
+    /** Lý do xin cấp hoặc tăng hạn mức công nợ trình Chủ cửa hàng phê duyệt */
+    private String creditIncreaseReason;
+
+    /** Optional opt-in; a positive quotation depositPercent automatically defers holds and selects WH_MAIN. */
+    private boolean reserveStockAfterDeposit;
 }
 

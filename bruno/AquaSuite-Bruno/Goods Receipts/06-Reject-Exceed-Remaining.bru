@@ -1,0 +1,44 @@
+meta {
+  name: 06 - Reject Exceed Remaining
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/v1/inventory/goods-receipts
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "purchaseOrderId": "{{grPurchaseOrderId}}",
+    "note": "Bruno UC-32 - nhận vượt số còn lại",
+    "items": [
+      {
+        "purchaseOrderItemId": "{{grPoItemId}}",
+        "quantity": 999999
+      }
+    ]
+  }
+}
+
+tests {
+  test('Over-receipt is rejected', function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(400);
+    expect(body.success).to.equal(false);
+  });
+}
+
+docs {
+  Nhận vượt số còn phải nhận -> backend từ chối (INV_016 hoặc PO_020), không cộng tồn.
+}

@@ -4,7 +4,7 @@
 
 - **Work ID**: WORK-018
 - **Feature / Use Case**: UC-21 — Create and Manage Sales Orders; UC-23 — Manage Payment and Payment Verification
-- **Version**: Dự thảo 0.7
+- **Version**: Dự thảo 0.8 — bổ sung theo dõi mốc thanh toán của đơn
 - **Owner / Decision Owner**: Product Owner và Tech Lead — chưa xác định cụ thể
 - **Owning Module**: `finance` và `sales` theo quyền sở hữu dữ liệu tương ứng; owner review liên module cần xác định
 - **Risk Reasons**: Tiền, phân quyền, xử lý đồng thời, hợp đồng công khai, liên module và migration
@@ -18,21 +18,36 @@ Cho phép nhân viên có quyền ghi nhận tiền mặt đã nhận hoặc kho
 
 - UC-21 trong `sales`: chuẩn hóa kênh `COUNTER`, tạo hóa đơn cửa hàng cùng đơn, gọi kiểm tra tín dụng cuối UC-24 theo toàn bộ giá trị đơn trong transaction ghi đơn. Contract và migration phải được review trước khi sửa code.
 - Xem lịch sử, tổng quan và ghi nhận nhiều đợt thanh toán cho một đơn.
+- Theo dõi tiến độ từng mốc thanh toán của đơn: tính các khoản `RECEIPT` / `VERIFIED` vào mốc còn thiếu theo thứ tự; hiển thị số theo thỏa thuận, đã trả và còn thiếu. Đây là phạm vi bổ sung, chưa được triển khai hoặc review.
 - Tiền mặt thực nhận do nhân viên có quyền ghi nhận là `VERIFIED`; chuyển khoản khách khai báo là `PENDING`, lưu mã tham chiếu và chứng từ nếu có.
 - Tính số tiền đã xác minh, đang chờ, còn phải trả và trạng thái thanh toán; cập nhật `sales` qua hợp đồng liên module được duyệt.
 - Phân quyền, lưu thông tin thao tác, chống ghi trùng, xử lý đồng thời và kiểm thử phù hợp.
 
 ### Out of Scope
 
-- Đối soát, xác nhận hoặc từ chối chuyển khoản của UC-70; phân bổ nhiều đơn UC-63; hoàn tiền, bút toán đảo; thu và nộp COD; duyệt mua nợ; checkout; quyết định giao hàng; FE; thanh toán thẻ hoặc máy quẹt thẻ.
+- Đối soát, xác nhận hoặc từ chối chuyển khoản của UC-70; phân bổ khoản thu vào hóa đơn điện tử theo đợt do người phụ trách UC-63 thực hiện; hoàn tiền, bút toán đảo; thu và nộp COD; duyệt mua nợ; checkout; quyết định giao hàng; FE; thanh toán thẻ hoặc máy quẹt thẻ.
 - Tài liệu chưa xác lập việc xác minh tự động qua cổng ngân hàng hoặc webhook.
-- Phát hành/liên kết hóa đơn điện tử từng đợt, điều chỉnh/in hóa đơn và in phiếu bán hàng ngoài phạm vi hiện tại. UC-24 sở hữu quy tắc kiểm tra mua nợ; work này tích hợp bước kiểm tra vào UC-21. Tự phân bổ và phân bổ thủ công thuộc thiết kế/phụ thuộc UC-63; chưa mặc định triển khai trong work này.
+- Phát hành/liên kết hóa đơn điện tử từng đợt, điều chỉnh/in hóa đơn và in phiếu bán hàng ngoài phạm vi hiện tại. UC-24 sở hữu quy tắc kiểm tra mua nợ. Việc tính tiến độ **mốc thanh toán của đơn** thuộc UC-23; tự phân bổ hoặc chọn phân bổ **vào hóa đơn điện tử** thuộc UC-63, chưa triển khai trong work này.
+
+### Order Payment Milestones — Current State and Agreed Direction
+
+**Hiện trạng sau merge:** báo giá có các mốc thanh toán; luồng `convertQuotationToOrder` sao chép tên, tỷ lệ, số tiền tính theo tổng đơn và thứ tự vào `order_payment_milestones`. UC-23 hiện chỉ đọc tổng đơn và giao dịch để tính tổng đã trả/còn thiếu; chưa lấy các mốc qua contract Sales, chưa tính hoặc trả tiến độ theo mốc. Mốc hiện có chưa thể hiện hạn từng mốc, số đã trả hoặc trạng thái thanh toán. Đơn tạo trực tiếp có thể không có mốc.
+
+**Quy tắc người dùng đã chốt:** chỉ khoản thu `RECEIPT` / `VERIFIED` của đúng đơn được tính vào tiến độ các mốc. Tính lần lượt vào mốc còn thiếu theo thứ tự đã thỏa thuận; nếu khoản tiền vượt phần thiếu của mốc hiện tại, phần dư tiếp tục tính vào các mốc tiếp theo **cùng đơn**. Khoản `PENDING` chỉ hiển thị chờ, chưa được tính đã trả cho bất kỳ mốc nào. Không tạo thêm transaction thu tiền khi tính tiến độ; tổng đã trả của đơn chỉ tính từ sổ giao dịch Finance một lần.
+
+Ví dụ đơn 100 triệu có mốc cọc 30 triệu, đợt 1 là 40 triệu, đợt 2 là 30 triệu; đã thu `VERIFIED` 40 triệu: mốc cọc đã trả 30, còn 0; đợt 1 đã trả 10, còn 30; đợt 2 đã trả 0, còn 30; toàn đơn đã trả 40, còn 60 triệu. Nếu có thêm 20 triệu `PENDING`, tiến độ mốc và số đã trả không đổi; khoản chờ hiển thị riêng. Sau khi UC-70 xác minh thành công khoản 20 triệu, tiến độ được tính lại: đợt 1 đã trả 30, còn 10; toàn đơn đã trả 60, còn 40 triệu.
+
+**Ranh giới:** tính tiến độ mốc là cách trình bày nghĩa vụ theo thỏa thuận của đơn, không khẳng định khoản tiền đã được phân bổ vào một hóa đơn điện tử. UC-63 do thành viên khác phụ trách sẽ thiết kế việc phân bổ vào hóa đơn theo đợt giao; UC-24 tính công nợ/quá hạn theo contract và quy tắc hóa đơn được duyệt. Không cộng khoản thiếu của mốc một lần nữa vào tổng nợ đơn hoặc tạo thêm giao dịch khi UC-63 phân bổ.
+
+**Đề xuất để review, chưa phải contract đã duyệt:** Sales cung cấp projection chỉ đọc qua `sales.api` gồm mã mốc, mã đơn, tên, thứ tự và số tiền; Finance tính tiến độ từ projection và tổng giao dịch `VERIFIED` trong ảnh chụp dữ liệu nhất quán. Cần chốt cơ chế dữ liệu, API, snapshot/phiên bản mốc, thứ tự ổn định, cách xử lý mốc thay đổi và tương tác UC-70/UC-63. Không import `sales.internal` từ Finance; không tự thêm quan hệ entity chéo module.
+
+**Điểm phụ thuộc sau merge:** luồng tạo đơn tại quầy hiện có kiểm tra khách và tạo hóa đơn cửa hàng. Luồng chuyển báo giá sang đơn là một đường riêng: tại thời điểm khảo sát chưa thấy gọi kiểm tra khách `BLOCKED`/tín dụng hoặc tạo hóa đơn cửa hàng trong phương thức chuyển đổi; cần phối hợp owner Sales/Finance xác nhận phạm vi, điều kiện và kiểm thử trước khi coi đây là bảo đảm toàn cục. Code hiện nhận cả báo giá `APPROVED` và `ACCEPTED`; điều kiện khách đã chốt cần nhóm thống nhất. Không sửa phần đó theo giả định.
 
 ### Related Use Cases and Invoice Proposal
 
 - UC-21 tạo đơn và tính tổng; UC-22 xử lý đơn online. Giao diện đơn có thể gọi UC-23 ghi nhận thanh toán; việc chọn phương thức dự kiến không phải giao dịch thu tiền.
 - UC-24 kiểm tra điều kiện mua nợ và theo dõi công nợ; UC-23 cung cấp giao dịch tiền vào đã xác minh để UC-24 tính toán. Phân bổ tiền trả chung cho nhiều hóa đơn thuộc UC-63. UC-26 điều chỉnh/hủy đơn; UC-23 không tự sửa đơn hoặc hoàn tiền.
-- Hiện UC-21 chưa tạo/phát hành `SalesInvoice` trong luồng tạo đơn; UC-24 chỉ tính quá hạn theo hóa đơn `ISSUED`. Đề xuất nhóm thống nhất một luồng hóa đơn thuộc `sales`, với thời điểm phát hành, người chịu trách nhiệm và cách xử lý nhiều đợt giao hàng được quyết định riêng. Không đồng nhất phiếu bán hàng, biên nhận thanh toán và hóa đơn điện tử.
+- Luồng tạo đơn tại quầy hiện tạo hóa đơn cửa hàng `STORE` / `DRAFT`; luồng chuyển báo giá sang đơn cần kiểm tra và phối hợp owner để bổ sung theo quy tắc đã chốt. UC-24 xét hóa đơn `ISSUED` không phải `STORE` để tính hạn; không đồng nhất hóa đơn cửa hàng, biên nhận thanh toán và hóa đơn điện tử.
 - Nhóm thống nhất UC-21 tạo hóa đơn cửa hàng sau khi tạo đơn; kế toán liên kết hóa đơn điện tử cho từng đợt sau khi khách nhận hàng. Trạng thái và mô hình dữ liệu cần phân biệt hai loại hóa đơn để không tính hạn nợ từ khi vừa tạo đơn.
 - Người dùng xác nhận khoản thu vẫn thuộc đơn; liên kết với hóa đơn cửa hàng không đồng nghĩa đã phân bổ vào hóa đơn điện tử. UC-24 phải thể hiện khoản thu `VERIFIED` chưa phân bổ riêng. Ghi nhận khoản thu, số chưa phân bổ và kết quả phân bổ là các thông tin khác nhau, không ghi khoản thu mới khi phân bổ.
 - Khi hóa đơn điện tử của đợt giao đầu tiên được liên kết, hệ thống tự phân bổ tiền cọc/tiền trả trước đã `VERIFIED` của đơn vào hóa đơn đó; phần trả trước còn dư tự phân bổ vào các hóa đơn đợt tiếp theo của cùng đơn khi đủ điều kiện. Với các khoản khách trả sau, kế toán kiểm tra và chọn hóa đơn khách thanh toán để gắn khoản tiền. Không phân bổ `PENDING`, không tạo thêm transaction thu tiền. Ví dụ: đơn 100 triệu, trả trước 30 triệu, hóa đơn đợt đầu 40 triệu thì đợt đầu còn 10 triệu; 60 triệu chưa xuất hóa đơn chưa tính quá hạn.
@@ -51,7 +66,7 @@ Cho phép nhân viên có quyền ghi nhận tiền mặt đã nhận hoặc kho
 - Bất biến cần review: chỉ phân bổ khoản thu `VERIFIED`, cùng khách và đơn; số tiền phân bổ dương; tổng phân bổ của một khoản không vượt số tiền đã thu; tổng phân bổ vào một hóa đơn không vượt giá trị còn phân bổ được. Việc thêm phân bổ không tạo khoản thu mới, không cộng giao dịch và phân bổ hai lần vào số đã thu của đơn.
 - Đề xuất serialize các thao tác thu, xác minh và phân bổ trên cùng đơn bằng một cơ chế khóa đã thống nhất; dùng khóa chống xử lý trùng cho lệnh/sự kiện và ràng buộc database phù hợp. Xác định transaction, retry và cơ chế xử lý khi hai hóa đơn được liên kết đồng thời, hủy/điều chỉnh, hoặc xảy ra lỗi giữa các bước. Thứ tự xác định hóa đơn đầu tiên khi cùng thời điểm và cách phục hồi vẫn cần owner quyết định.
 - Hóa đơn cửa hàng và hóa đơn điện tử theo đợt cần định danh và trạng thái khác nhau; UC-24 chỉ tính hạn từ mốc của hóa đơn điện tử được xác lập theo nghiệp vụ nhóm chốt. Cần cập nhật và review spec UC-24 trước khi đổi cách hiểu `ISSUED` hoặc `issueDate`; dữ liệu cũ không được tự động phân loại lại.
-- Theo yêu cầu người dùng, thay đổi UC-21 nằm trong WORK-018 để thiết kế và review xuyên `sales`/`finance`; dữ liệu vẫn thuộc module sở hữu tương ứng. Ownership/work item triển khai tự phân bổ UC-63 chưa chốt.
+- Theo yêu cầu người dùng, thay đổi UC-21 nằm trong WORK-018 để thiết kế và review xuyên `sales`/`finance`; dữ liệu vẫn thuộc module sở hữu tương ứng. Việc phân bổ khoản thu vào hóa đơn điện tử UC-63 do thành viên khác phụ trách; contract và thời điểm tích hợp giữa hai work item còn cần thống nhất.
 - Sau khi UC-23 và UC-70 hoàn thiện, viết hướng dẫn UC-18 theo contract thực tế: phạm vi quyền khách, tạo transaction Pending, chống tạo trùng, xác minh và cập nhật trạng thái. Checkout online hiện ngoài phạm vi.
 
 ### UC-21 Integration — Proposed Design
@@ -172,15 +187,20 @@ Trường tham chiếu bắt buộc và chính sách lưu chứng từ cần đ�
 | AC-07 | COD/mua nợ và thực hiện đơn | Kiểm thử ranh giới | Không tự tạo VERIFIED hay đổi trạng thái thực hiện đơn |
 | AC-08 | Truy cập chứng từ | Kiểm thử quyền và lỗi lưu trữ | Chỉ người có quyền truy cập; xử lý lỗi theo chính sách được duyệt |
 | AC-09 | Giao dịch trực tiếp gắn hóa đơn hoặc chỉ gắn đơn | Kiểm thử contract UC-23/UC-24 và danh tính đơn/khách/hóa đơn | Tính đúng dư đơn và dư hóa đơn theo spec UC-24; từ chối liên kết không khớp |
-| AC-10 | Đơn 100 triệu, đã thu 30 triệu, hóa đơn điện tử đợt đầu 40 triệu | Kiểm thử tích hợp sau khi thiết kế UC-24/UC-63 được duyệt | Còn phải trả toàn đơn 70 triệu; hóa đơn đợt đầu còn 10 triệu; 60 triệu chưa xuất hóa đơn chưa tính quá hạn; chỉ có một khoản thu 30 triệu |
-| AC-11 | Khoản trả trước lớn hơn hóa đơn đầu tiên và có hóa đơn đợt sau | Kiểm thử PostgreSQL đồng thời, retry và xử lý trùng | Tự phân bổ phần dư sang hóa đơn tiếp theo cùng đơn; không vượt số đã thu hoặc giá trị hóa đơn; không phân bổ Pending |
-| AC-12 | Khách trả sau cho hóa đơn chỉ định | Kiểm thử phân quyền, xác minh và phân bổ theo contract được duyệt | Kế toán chọn đúng hóa đơn của đơn; không tự chuyển khoản sang hóa đơn khác hoặc đơn khác |
+| AC-10 | Phụ thuộc UC-63: đơn 100 triệu, đã thu 30 triệu, hóa đơn điện tử đợt đầu 40 triệu | Kiểm thử tích hợp sau khi UC-63 được thiết kế và triển khai | Còn phải trả toàn đơn 70 triệu; hóa đơn đợt đầu còn 10 triệu; 60 triệu chưa xuất hóa đơn chưa tính quá hạn; chỉ có một khoản thu 30 triệu. Không coi là AC độc lập đã đạt của UC-23. |
+| AC-11 | Phụ thuộc UC-63: khoản trả trước lớn hơn hóa đơn đầu tiên và có hóa đơn đợt sau | Kiểm thử PostgreSQL đồng thời, retry và xử lý trùng khi UC-63 có code | Tự phân bổ phần dư sang hóa đơn tiếp theo cùng đơn; không vượt số đã thu hoặc giá trị hóa đơn; không phân bổ Pending. |
+| AC-12 | Phụ thuộc UC-63: khách trả sau cho hóa đơn chỉ định | Kiểm thử phân quyền, xác minh và phân bổ khi UC-63 có code | Kế toán chọn đúng hóa đơn của đơn; không tự chuyển khoản sang hóa đơn khác hoặc đơn khác. |
 | AC-13 | Nhập số tiền vượt nghĩa vụ đơn hoặc Accountant ghi nhận tại quầy | Kiểm thử validation và phân quyền | Từ chối theo quy tắc được duyệt; không tạo giao dịch sai |
 | AC-14 | Có khoản Pending và nhân viên ghi khoản thanh toán khác | Kiểm thử tích hợp và đồng thời UC-23/UC-70 | Cho ghi khoản hợp lệ; Pending không tính đã thu; xác minh lại số còn phải trả, xử lý ngoại lệ khi thực nhận vượt nghĩa vụ theo thiết kế được duyệt |
 | AC-15 | Tạo đơn UC-21 thành công / lỗi tạo hóa đơn cửa hàng | Kiểm thử PostgreSQL và rollback | Một hóa đơn cửa hàng đúng đơn/khách; lỗi tạo đơn/hóa đơn rollback toàn bộ; không khởi động hạn nợ hóa đơn điện tử |
 | AC-16 | Hai đơn mua nợ đồng thời vượt hạn mức nếu cộng dồn | Kiểm thử PostgreSQL với transaction độc lập | Kiểm tra cuối được tuần tự hóa theo khách đến commit; không chấp nhận cả hai đơn vượt hạn mức |
 | AC-17 | Đơn COUNTER và dữ liệu/caller kênh cũ | Kiểm thử contract, migration và API | COUNTER được UC-24 nhận; xử lý giá trị cũ theo thiết kế duyệt; không đổi IN_STORE_PICKUP |
 | AC-18 | Kỳ hạn nợ null, ngoài 1–30 và dữ liệu lịch sử | Unit và PostgreSQL migration/integration tests | Từ chối cấp tín dụng không hợp lệ; DB không chấp nhận hồ sơ mới sai; migration dừng an toàn khi phát hiện dữ liệu cần xử lý |
+| AC-19 | Đơn 100 triệu có ba mốc 30/40/30; đã thu 40 triệu VERIFIED | Kiểm thử contract Sales–Finance và API tổng quan | Mốc 1 đã trả 30, còn 0; mốc 2 đã trả 10, còn 30; mốc 3 đã trả 0, còn 30; toàn đơn đã trả 40, còn 60; không tạo thêm transaction. |
+| AC-20 | Thêm khoản chuyển khoản 20 triệu PENDING vào ví dụ AC-19 | Kiểm thử tích hợp UC-23 và UC-70 sau khi UC-70 có code | Trước xác minh, tiến độ mốc không đổi, PENDING hiển thị riêng; sau xác minh thành công, mốc 2 đã trả 30, còn 10 và toàn đơn còn 40. |
+| AC-21 | Nhiều khoản VERIFIED, một khoản trải qua nhiều mốc hoặc gửi lại request | Kiểm thử PostgreSQL và idempotency | Mốc được tính tuần tự cùng đơn; không cộng tiền hai lần; tổng đã tính vào mốc không vượt tổng VERIFIED hoặc số tiền từng mốc. |
+| AC-22 | Không có mốc, trùng thứ tự, tổng mốc không khớp tổng đơn hoặc làm tròn | Kiểm thử sau khi các chính sách dữ liệu được duyệt | Kết quả/lỗi được định nghĩa theo chính sách đã chốt; không tự giả định mốc đã đủ hoặc tạo giao dịch mới. |
+| AC-23 | Đọc tiến độ khi ghi tiền hoặc xác minh đồng thời | Kiểm thử PostgreSQL với transaction độc lập | Kết quả phản ánh cùng ảnh chụp nhất quán; không đếm trùng và tuân thủ contract khóa đã review. |
 
 ## 8. Open Decisions
 
@@ -196,5 +216,8 @@ Trường tham chiếu bắt buộc và chính sách lưu chứng từ cần đ�
 | Ai tạo/phát hành hóa đơn, thời điểm phát hành, đơn chưa có hóa đơn và nhiều hóa đơn | Product Owner / phụ trách Sales, Finance | Design Review | OPEN — UC-21 chưa tạo hóa đơn; UC-24 dùng hóa đơn ISSUED để tính quá hạn |
 | Cơ chế phân bổ khoản trả trước và trả sau | Phụ trách UC-23 / UC-24 / UC-63 | Design Review | Chốt tự phân bổ tiền trả trước vào hóa đơn đầu và phần dư sang các đợt sau cùng đơn; kế toán gắn khoản trả sau theo hóa đơn khách trả. OPEN contract, dữ liệu, đồng thời và cập nhật spec UC-24/UC-63 |
 | Tích hợp kiểm tra tín dụng UC-21/UC-24 và tương thích kênh/hạn trả | Phụ trách UC-21 / UC-24 | Design Review | Đã chốt UC-21 gọi UC-24, `COUNTER` là kênh chuẩn; OPEN thiết kế tương thích dữ liệu/caller `IN_STORE`/`POS`, đồng thời và sửa sai lệch code/spec |
+| Mốc trùng thứ tự, mốc thiếu, tổng mốc khác tổng đơn, làm tròn | Owner báo giá / Sales / Finance | Design Review | OPEN — thống nhất validation, thứ tự ổn định, mốc cọc có là một mốc hay dữ liệu riêng, và hành vi đơn không có mốc. |
+| Thay đổi mốc, tổng đơn hoặc hoàn/đảo giao dịch đã xác minh | Owner Sales / Finance / UC-26 | Design Review / tích hợp | OPEN — snapshot, quyền sửa, cách tính lại, kiểm soát đồng thời và lịch sử; không tự viết lại transaction. |
+| Hạn của mốc thỏa thuận so với hạn công nợ hóa đơn | Owner UC-23 / UC-24 / UC-63 | Design Review / tích hợp | OPEN — mốc hiện chưa có ngày đến hạn; phân biệt tiến độ theo thỏa thuận với quá hạn hóa đơn điện tử, tránh cộng nợ hai lần. |
 
 Không duyệt thiết kế hoặc triển khai các phần bị ảnh hưởng khi các quyết định trên còn cản trở thiết kế an toàn.

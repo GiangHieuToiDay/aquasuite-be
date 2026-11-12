@@ -47,6 +47,10 @@ public class GoodsReceiptItem {
     @Column(name = "purchase_order_item_id", nullable = false)
     private UUID purchaseOrderItemId;
 
+    /** Tham chiếu Scalar ID sang SKU/variant (catalog.product_variants). */
+    @Column(name = "variant_id", nullable = false)
+    private UUID variantId;
+
     @Column(name = "unit", nullable = false, length = 50)
     private String unit;
 

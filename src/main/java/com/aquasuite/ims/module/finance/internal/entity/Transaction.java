@@ -96,6 +96,10 @@ public class Transaction {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
+    /** Lý do từ chối khi kế toán từ chối khoản chuyển khoản đang chờ (UC-70). */
+    @Column(name = "reject_reason", columnDefinition = "TEXT")
+    private String rejectReason;
+
     @Column(name = "created_by", nullable = false)
     private UUID createdBy;
 

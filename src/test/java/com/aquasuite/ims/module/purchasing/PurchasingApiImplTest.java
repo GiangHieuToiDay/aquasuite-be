@@ -6,6 +6,7 @@ import com.aquasuite.ims.module.purchasing.internal.enums.PurchaseOrderStatus;
 import com.aquasuite.ims.module.purchasing.internal.repository.PurchaseOrderItemRepository;
 import com.aquasuite.ims.module.purchasing.internal.repository.PurchaseOrderRepository;
 import com.aquasuite.ims.module.purchasing.internal.service.impl.PurchasingApiImpl;
+import com.aquasuite.ims.share.exception.AppException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -119,5 +120,33 @@ class PurchasingApiImplTest {
         assertEquals(PurchaseOrderStatus.COMPLETED, po.getStatus());
         assertEquals(new BigDecimal("10"), item1.getQuantityReceived());
         verify(purchaseOrderRepository).save(po);
+    }
+
+    @Test
+    @DisplayName("onGoodsReceiptConfirmed - Reject when received exceeds remaining and roll back")
+    void testOnGoodsReceiptConfirmed_ExceedsRemaining() {
+        UUID poId = UUID.randomUUID();
+        UUID vId1 = UUID.randomUUID();
+
+        PurchaseOrder po = PurchaseOrder.builder()
+                .purchaseOrderId(poId)
+                .poCode("PO-001")
+                .status(PurchaseOrderStatus.CONFIRMED)
+                .build();
+
+        PurchaseOrderItem item1 = PurchaseOrderItem.builder()
+                .variantId(vId1)
+                .sku("SKU-A")
+                .quantityOrdered(new BigDecimal("10"))
+                .quantityReceived(new BigDecimal("4"))
+                .build();
+        po.addItem(item1);
+
+        when(purchaseOrderRepository.findById(poId)).thenReturn(Optional.of(po));
+
+        // Còn lại 6 nhưng nhận 7 -> vượt, phải ném lỗi và không lưu PO.
+        assertThrows(AppException.class,
+                () -> purchasingApi.onGoodsReceiptConfirmed(poId, Map.of(vId1, new BigDecimal("7"))));
+        verify(purchaseOrderRepository, never()).save(any());
     }
 }

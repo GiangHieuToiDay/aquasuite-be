@@ -8,10 +8,15 @@ import com.aquasuite.ims.module.crm.internal.entity.Customer;
 import com.aquasuite.ims.module.crm.internal.entity.DeliveryAddressItem;
 import com.aquasuite.ims.module.crm.internal.enums.CustomerType;
 import com.aquasuite.ims.module.crm.internal.repository.CustomerRepository;
+import com.aquasuite.ims.module.crm.internal.payload.request.SubmitCustomerCreditProfileRequest;
+import com.aquasuite.ims.module.crm.internal.service.CustomerCreditProfileRequestService;
+import com.aquasuite.ims.share.exception.AppException;
+import com.aquasuite.ims.share.exception.CommonErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -24,6 +29,7 @@ import java.util.UUID;
 public class CrmApiImpl implements CrmApi {
 
     private final CustomerRepository customerRepository;
+    private final CustomerCreditProfileRequestService creditProfileRequestService;
 
     @Override
     @Transactional(readOnly = true)
@@ -95,9 +101,38 @@ public class CrmApiImpl implements CrmApi {
 
     @Override
     @Transactional
+    public CustomerSummaryDto getOrCreateCounterCustomer(String phone, String name) {
+        String canonicalPhone = phone == null ? "" : phone.trim();
+        if (!canonicalPhone.matches("0[35789][0-9]{8}")) {
+            throw new AppException(
+                    CommonErrorCode.VALIDATION_ERROR);
+        }
+        String customerName = name == null || name.isBlank() ? "Customer " + canonicalPhone : name.trim();
+        if (customerName.length() > 150) {
+            throw new AppException(
+                    CommonErrorCode.VALIDATION_ERROR);
+        }
+        UUID id = UUID.randomUUID();
+        customerRepository.insertUnlinkedCustomer(id, "CUS-" + id, customerName, canonicalPhone, null);
+        return customerRepository.findByPhone(canonicalPhone).map(this::toSummaryDto)
+                .orElseThrow(() -> new AppException(
+                        CommonErrorCode.DATA_INTEGRITY_VIOLATION));
+    }
+
+    @Override
+    @Transactional
     public CustomerSummaryDto getOrCreateWalkInCustomer() {
         return getOrCreateWalkInCustomer("Khách lẻ tại quầy", null);
     }
+
+//    @Override
+//    @Transactional
+//    public CustomerSummaryDto getOrCreateWalkInCustomer() {
+//        customerRepository.insertUnlinkedCustomer(UUID.randomUUID(), "CUS-WALKIN",
+//                "Walk-in Retail Customer", "0000000000", null);
+//        return customerRepository.findByPhone("0000000000").map(this::toSummaryDto)
+//                .orElseThrow(() -> new AppException(CommonErrorCode.DATA_INTEGRITY_VIOLATION));
+//    }
 
     @Override
     @Transactional
@@ -249,5 +284,21 @@ public class CrmApiImpl implements CrmApi {
                 customer.getCustomerType() == null ? null : customer.getCustomerType().name(),
                 customer.getTaxCode(), customer.getCompanyName(), addresses, projects,
                 customer.getCreditLimit(), customer.getCreditTermDays(), customer.getStatus());
+    }
+
+    @Override
+    @Transactional
+    public UUID submitCreditProfileRequestFromQuotation(
+            UUID customerId,
+            BigDecimal requestedLimit,
+            Integer creditTermDays,
+            String reason,
+            UUID requesterId) {
+        SubmitCustomerCreditProfileRequest req = new SubmitCustomerCreditProfileRequest();
+        req.setCreditLimit(requestedLimit);
+        req.setCreditTermDays(creditTermDays != null ? creditTermDays : 30);
+        req.setReason(reason != null && !reason.isBlank() ? reason.trim() : "Yêu cầu cấp/tăng hạn mức cho đơn hàng dự án.");
+        var response = creditProfileRequestService.submit(customerId, req);
+        return response.requestId();
     }
 }

@@ -22,6 +22,7 @@ public class QuotationItemResponse {
 
     private UUID quotationItemId;
     private UUID variantId;
+    private UUID comboId;
     private String sku;
     private String variantName;
     private String unit;

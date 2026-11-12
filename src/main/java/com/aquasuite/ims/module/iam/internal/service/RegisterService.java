@@ -17,60 +17,59 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.validation.annotation.Validated;
-import java.security.SecureRandom;
-import java.util.Locale;
 import java.util.UUID;
 
-/** Stores pending registration in Redis; creates the customer account only after valid OTP. */
+/**
+ * Điều phối đăng ký khách hàng bằng email OTP: lưu form chờ trong Redis, xác thực email,
+ * rồi tạo tài khoản và hồ sơ CRM trong cùng transaction trước khi đăng nhập.
+ */
 @Service
 @Validated
 @RequiredArgsConstructor
 public class RegisterService {
     public static final String OTP_PREFIX = RegistrationOtpStore.PREFIX;
-    private static final SecureRandom RANDOM = new SecureRandom();
     private final UserRepository users;
     private final RoleRepository roles;
     private final PasswordEncoder encoder;
     private final RegistrationOtpStore otpStore;
-    private final JavaMailSender mail;
     private final TransactionTemplate transactions;
     private final AuthService auth;
     private final CustomerRegistrationApi customerProfiles;
 
+    /** Kiểm tra trùng email/SĐT, hash mật khẩu và lưu phiên chờ kèm yêu cầu gửi email OTP. */
     public RegisterResponse register(@Valid RegisterRequest request) {
         PendingRegistration pending;
-        String otp = generateOtp();
         try {
             checkDuplicates(request.email(), request.phone());
             pending = new PendingRegistration(UUID.randomUUID(), request.fullName(),
                     request.email(), request.phone(), encoder.encode(request.password()));
-            otpStore.save(pending, encoder.encode(otp));
+            otpStore.save(pending);
         } catch (DataAccessException ex) {
             throw new AppException(RegistrationErrorCode.UNAVAILABLE);
         }
-        sendOtpEmail(pending.email(), otp);
         return new RegisterResponse(pending.id(), pending.email(), "PENDING_ACTIVATION");
     }
 
+    /** Gửi lại OTP cho phiên còn chờ; từ chối khi email đã có tài khoản hoặc phiên bị giới hạn. */
     public void resend(@Valid ResendRegistrationOtpRequest request) {
-        String otp = generateOtp();
         try {
             if (users.existsByEmailIgnoreCase(request.email())) {
                 throw new AppException(RegistrationErrorCode.NOT_PENDING);
             }
-            otpStore.rotateOtp(request.email(), encoder.encode(otp));
+            otpStore.rotateOtp(request.email());
         } catch (DataAccessException ex) {
             throw new AppException(RegistrationErrorCode.UNAVAILABLE);
         }
-        sendOtpEmail(request.email(), otp);
     }
 
+    /**
+     * Xác thực và giữ quyền xử lý phiên OTP trước khi tạo tài khoản/hồ sơ CRM atomically.
+     * Rollback sẽ nhả quyền xử lý để thử lại; lỗi đăng nhập sau commit không xóa tài khoản đã tạo.
+     */
     public LoginResponse verify(@Valid VerifyRegistrationRequest request) {
         RegistrationOtpStore.Claim claim;
         try {
@@ -104,6 +103,7 @@ public class RegisterService {
         }
     }
 
+    /** Tạo tài khoản ACTIVE với role CUSTOMER đang hoạt động và hồ sơ CRM trong transaction của caller. */
     private UUID createAccount(PendingRegistration pending) {
         checkDuplicates(pending.email(), pending.phone());
         var role = roles.findByRoleNameIgnoreCase("CUSTOMER")
@@ -126,18 +126,22 @@ public class RegisterService {
         try {
             customerProfiles.createProfile(new CustomerRegistrationRequest(user.getId(),
                     user.getFullName(), user.getPhone(), user.getEmail()));
+        } catch (AppException ex) {
+            throw ex;
         } catch (RuntimeException ex) {
             throw new AppException(RegistrationErrorCode.UNAVAILABLE);
         }
         return user.getId();
     }
 
+    /** Từ chối nếu email hoặc SĐT đã thuộc tài khoản hiện có, kể cả khi có đăng ký đồng thời. */
     private void checkDuplicates(String email, String phone) {
         if (users.existsByEmailIgnoreCase(email) || users.existsByPhone(phone)) {
             throw new AppException(RegistrationErrorCode.DUPLICATE_ACCOUNT);
         }
     }
 
+    /** Nhả claim sau rollback; nếu Redis lỗi thì giữ khóa đến khi phiên tự hết hạn để tránh xử lý trùng. */
     private void release(RegistrationOtpStore.Claim claim) {
         try {
             otpStore.release(claim);
@@ -146,20 +150,4 @@ public class RegisterService {
         }
     }
 
-    private static String generateOtp() {
-        return String.format(Locale.ROOT, "%06d", RANDOM.nextInt(1_000_000));
-    }
-
-    private void sendOtpEmail(String email, String otp) {
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(email);
-            message.setSubject("[AquaSuite] Verify your customer account");
-            message.setText("Your account activation code is: " + otp
-                    + "\nThis code expires in 5 minutes. If you did not register, ignore this email.");
-            mail.send(message);
-        } catch (RuntimeException ex) {
-            throw new AppException(RegistrationErrorCode.MAIL_UNAVAILABLE);
-        }
-    }
 }
