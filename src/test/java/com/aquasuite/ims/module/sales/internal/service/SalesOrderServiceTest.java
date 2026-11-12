@@ -88,6 +88,7 @@ class SalesOrderServiceTest {
     @Mock private CreditControlApi creditControlApi;
     @Mock private OrderStockReservationService orderStockReservationService;
     @Mock private com.aquasuite.ims.module.finance.api.OrderReceivableApi orderReceivableApi;
+    @Mock private org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     @Mock
     private CatalogApi catalogApi;
@@ -151,6 +152,12 @@ class SalesOrderServiceTest {
                 .sellingPrice(new BigDecimal("5000000"))
                 .status("ACTIVE")
                 .build();
+
+        org.mockito.Mockito.lenient().when(creditControlApi.authorize(any()))
+                .thenReturn(new CreditAuthorizationDecision(true, null, new BigDecimal("100000000")));
+        org.mockito.Mockito.lenient().when(crmApi.getCustomerByPhone(any())).thenReturn(Optional.of(customerDto));
+        org.mockito.Mockito.lenient().when(crmApi.getOrCreateCounterCustomer(any(), any())).thenReturn(customerDto);
+        org.mockito.Mockito.lenient().when(crmApi.getOrCreateWalkInCustomer(any(), any())).thenReturn(customerDto);
     }
 
     @org.junit.jupiter.params.ParameterizedTest
@@ -181,7 +188,7 @@ class SalesOrderServiceTest {
             request.setCustomerId(null);
             request.setCustomerPhone(" 0988776655 ");
             request.setCustomerName("Counter customer");
-            when(crmApi.getOrCreateCounterCustomer(" 0988776655 ", "Counter customer")).thenReturn(customerDto);
+            org.mockito.Mockito.lenient().when(crmApi.getOrCreateCounterCustomer(" 0988776655 ", "Counter customer")).thenReturn(customerDto);
         } else {
             when(crmApi.getCustomerById(customerId)).thenReturn(Optional.of(customerDto));
         }
