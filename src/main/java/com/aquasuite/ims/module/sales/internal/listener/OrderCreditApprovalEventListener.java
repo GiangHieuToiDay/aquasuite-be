@@ -29,6 +29,7 @@ public class OrderCreditApprovalEventListener {
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final InventoryApi inventoryApi;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     @EventListener
     @Transactional
@@ -52,6 +53,16 @@ public class OrderCreditApprovalEventListener {
                     orderRepository.save(order);
                     log.info("Order {} transitioned from DRAFT to PROCESSING upon Shop Owner credit approval (requestId={})",
                             order.getOrderCode(), event.requestId());
+
+                    // Đơn dự án vừa được xác nhận (PROCESSING) -> phát sự kiện để Servicedesk sinh công việc lắp đặt (FE-13).
+                    eventPublisher.publishEvent(new com.aquasuite.ims.module.sales.api.event.OrderConfirmedEvent(
+                            order.getOrderId(),
+                            order.getOrderCode(),
+                            order.getCustomerId(),
+                            order.getOrderType(),
+                            order.getSalesStaffId(),
+                            order.getDeliveryAddress(),
+                            order.getProjectName()));
                 }
             }
         } else if ("REJECTED".equalsIgnoreCase(event.action())) {

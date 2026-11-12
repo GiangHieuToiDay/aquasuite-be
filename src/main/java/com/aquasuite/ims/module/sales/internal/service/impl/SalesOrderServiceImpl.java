@@ -93,6 +93,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     private final OrderPaymentMilestoneRepository orderPaymentMilestoneRepository;
     private final com.aquasuite.ims.module.sales.internal.service.OrderStockReservationService orderStockReservationService;
     private final com.aquasuite.ims.module.finance.api.OrderReceivableApi orderReceivableApi;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     /**
      * Tạo đơn tại quầy: kiểm tra khách, tính tổng, kiểm tra mua nợ nếu cần,
@@ -667,6 +668,19 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
         Order savedOrder = orderRepository.save(order);
         List<OrderItem> savedItems = orderItemRepository.saveAll(orderItemsToSave);
+
+        // Đơn dự án đã xác nhận ngay (PROCESSING) -> phát sự kiện để Servicedesk tự sinh công việc lắp đặt (FE-13).
+        // Trường hợp đơn còn chờ duyệt hạn mức (DRAFT) sẽ phát sự kiện sau, tại OrderCreditApprovalEventListener.
+        if (OrderStatus.PROCESSING.name().equals(savedOrder.getOrderStatus())) {
+            eventPublisher.publishEvent(new com.aquasuite.ims.module.sales.api.event.OrderConfirmedEvent(
+                    savedOrder.getOrderId(),
+                    savedOrder.getOrderCode(),
+                    savedOrder.getCustomerId(),
+                    savedOrder.getOrderType(),
+                    savedOrder.getSalesStaffId(),
+                    savedOrder.getDeliveryAddress(),
+                    savedOrder.getProjectName()));
+        }
 
         // 10.1. Snapshot các đợt thanh toán (milestones) từ Báo giá sang Đơn hàng
         List<QuotationPaymentMilestone> quotationMilestones = quotationPaymentMilestoneRepository != null
