@@ -22,6 +22,9 @@ public class SalesOrderDetailResponse {
     private String orderCode;
     /** Mã hóa đơn cửa hàng gắn với đơn; đơn cũ có thể chưa có hóa đơn. */
     private UUID storeInvoiceId;
+    private Integer totalInvoiceCount;
+    private Integer draftInvoiceCount;
+    private Integer issuedInvoiceCount;
     private UUID customerId;
     private String customerName;
     private String customerPhone;

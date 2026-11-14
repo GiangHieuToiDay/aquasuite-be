@@ -101,10 +101,38 @@ public class SalesInvoice {
     @Column(name = "original_invoice_id")
     private UUID originalInvoiceId;
 
+    @Column(name = "batch_no", nullable = false)
+    @Builder.Default
+    private Integer batchNo = 1;
+
+    @Column(name = "batch_name", length = 255)
+    private String batchName;
+
+    @Column(name = "scheduled_delivery_date")
+    private OffsetDateTime scheduledDeliveryDate;
+
+    @Column(name = "issued_by")
+    private UUID issuedBy;
+
+    @Column(name = "issued_at")
+    private OffsetDateTime issuedAt;
+
+    @Column(name = "cancelled_by")
+    private UUID cancelledBy;
+
+    @Column(name = "cancelled_at")
+    private OffsetDateTime cancelledAt;
+
+    @Column(name = "note", columnDefinition = "TEXT")
+    private String note;
+
     @PrePersist
     public void prePersist() {
         if (this.invoiceId == null) {
             this.invoiceId = UUID.randomUUID();
+        }
+        if (this.batchNo == null) {
+            this.batchNo = 1;
         }
         if (this.issueDate == null) {
             this.issueDate = OffsetDateTime.now();

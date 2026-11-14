@@ -5,7 +5,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import jakarta.validation.Valid;
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * Payload tùy chọn khi chuyển đổi Báo giá (Quotation) thành Đơn hàng công trình (Sales Order) - UC-28 / UC-073.
@@ -33,5 +35,9 @@ public class ConvertQuotationToOrderRequest {
 
     /** Optional opt-in; a positive quotation depositPercent automatically defers holds and selects WH_MAIN. */
     private boolean reserveStockAfterDeposit;
+
+    /** Tùy chọn chia trước các đợt hóa đơn PROJECT (status = DRAFT) ngay khi chuyển báo giá thành đơn hàng. */
+    @Valid
+    private List<InitialInvoiceBatchRequest> batches;
 }
 
