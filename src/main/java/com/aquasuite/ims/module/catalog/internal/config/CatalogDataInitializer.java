@@ -54,8 +54,17 @@ public class CatalogDataInitializer implements CommandLineRunner {
     }
 
     private void initComboCategory() {
-        if (!categoryRepository.existsByCategoryCodeIgnoreCase("COMBO")) {
-            categoryRepository.save(createCategory("COMBO", "Combo"));
+        var legacy = categoryRepository.findByCategoryCodeIgnoreCase("COMBO");
+        boolean numericExists = categoryRepository.existsByCategoryCodeIgnoreCase("709");
+        if (legacy.isPresent()) {
+            if (numericExists) {
+                throw new IllegalStateException("Cannot rename COMBO category: category code 709 already exists");
+            }
+            Category category = legacy.get();
+            category.setCategoryCode("709");
+            categoryRepository.save(category);
+        } else if (!numericExists) {
+            categoryRepository.save(createCategory("709", "Combo"));
         }
     }
 

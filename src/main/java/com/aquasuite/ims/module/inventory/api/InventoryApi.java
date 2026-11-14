@@ -18,6 +18,10 @@ import java.util.UUID;
  */
 public interface InventoryApi {
 
+    /** Atomic delivery stock-out, including source reservation consumption. Caller holds the order lock. */
+    com.aquasuite.ims.module.inventory.api.dto.StockDispatchResult issue(
+            com.aquasuite.ims.module.inventory.api.dto.StockDispatchCommand command);
+
     /** Lấy thông tin tồn kho của 1 SKU */
     Optional<StockSummaryDto> getStockSummary(UUID variantId);
 

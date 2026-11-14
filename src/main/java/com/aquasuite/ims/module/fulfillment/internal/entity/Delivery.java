@@ -16,6 +16,10 @@ import lombok.Setter;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import java.util.List;
+import java.util.ArrayList;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(
@@ -45,11 +49,30 @@ public class Delivery {
     @Column(name = "order_id", nullable = false)
     private UUID orderId;
 
+    @Column(name = "sales_invoice_id")
+    private UUID salesInvoiceId;
+
     @Column(name = "warehouse_code", nullable = false, length = 50)
     private String warehouseCode;
 
     @Column(name = "shipper_id")
     private UUID shipperId;
+
+    @Column(name = "assigned_by")
+    private UUID assignedBy;
+
+    @Column(name = "assigned_at")
+    private OffsetDateTime assignedAt;
+
+    @Column(name = "started_at")
+    private OffsetDateTime startedAt;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "proof_photos", nullable = false, columnDefinition = "jsonb")
+    @Builder.Default
+    private List<Photo> proofPhotos = new ArrayList<>();
+
+    public record Photo(UUID photoId, String storageKey, String mimeType, long size) {}
 
     @Column(name = "batch_no")
     private Integer batchNo;

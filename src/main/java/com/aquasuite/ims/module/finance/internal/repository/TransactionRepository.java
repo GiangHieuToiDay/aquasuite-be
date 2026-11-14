@@ -16,7 +16,7 @@ import java.util.UUID;
 import java.util.Optional;
 
 /** Truy vấn giao dịch phục vụ theo dõi thanh toán và công nợ khách hàng. */
-public interface TransactionRepository extends JpaRepository<Transaction, UUID> {
+public interface TransactionRepository extends JpaRepository<Transaction, UUID>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<Transaction> {
     /**
      * Tìm giao dịch của các khách theo trạng thái, không phân biệt chữ hoa thường.
      * @param customerIds danh sách mã khách hàng

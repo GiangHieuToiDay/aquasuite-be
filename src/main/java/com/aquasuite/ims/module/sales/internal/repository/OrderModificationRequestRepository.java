@@ -14,6 +14,8 @@ import java.util.UUID;
 
 public interface OrderModificationRequestRepository extends JpaRepository<OrderModificationRequest, UUID> {
 
+    java.util.List<OrderModificationRequest> findByOrderIdOrderByCreatedAtAsc(UUID orderId);
+
     boolean existsByOrderIdAndRequestStatusIn(UUID orderId, Collection<OrderModificationRequestStatus> statuses);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

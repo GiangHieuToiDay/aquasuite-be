@@ -48,6 +48,14 @@ public class InventoryServiceImpl implements InventoryApi, InventoryService {
     private final ApplicationEventPublisher eventPublisher;
     private final IamApi iamApi;
     private final CatalogApi catalogApi;
+    private final org.springframework.beans.factory.ObjectProvider<InventoryDispatchService> dispatchService;
+
+    @Override
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public com.aquasuite.ims.module.inventory.api.dto.StockDispatchResult issue(
+            com.aquasuite.ims.module.inventory.api.dto.StockDispatchCommand command) {
+        return dispatchService.getObject().issue(command);
+    }
 
     // =========================================================================
     // 1. CỔNG FACADE PUBLIC DÀNH CHO CÁC MODULE KHÁC
