@@ -40,6 +40,26 @@ public class SalesReceivableApiImpl implements SalesReceivableApi {
     }
 
     @Override
+    public List<SalesInvoiceDebtDto> findElectronicallyIssuedStoreInvoicesByOrderId(UUID orderId) {
+        if (orderId == null) {
+            return List.of();
+        }
+        return salesInvoiceRepository.findElectronicallyIssuedStoreInvoicesByOrderId(orderId).stream()
+                .map(this::toInvoiceDto)
+                .toList();
+    }
+
+    @Override
+    public List<SalesInvoiceDebtDto> findInvoicesByIds(Collection<UUID> invoiceIds) {
+        if (invoiceIds == null || invoiceIds.isEmpty()) {
+            return List.of();
+        }
+        return salesInvoiceRepository.findByInvoiceIdIn(invoiceIds).stream()
+                .map(this::toInvoiceDto)
+                .toList();
+    }
+
+    @Override
     public Optional<SalesOrderDebtDto> findOrderById(UUID orderId) {
         return orderRepository.findById(orderId).map(this::toOrderDto);
     }
@@ -57,6 +77,7 @@ public class SalesReceivableApiImpl implements SalesReceivableApi {
                 invoice.getCustomerId(),
                 invoice.getInvoiceCode(),
                 invoice.getInvoiceSymbol(),
+                invoice.getProviderInvoiceId(),
                 invoice.getIssueDate(),
                 invoice.getSignedAt(),
                 invoice.getCreditTermDays(),

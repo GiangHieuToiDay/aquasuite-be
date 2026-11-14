@@ -12,6 +12,7 @@ import java.util.UUID;
  * @param customerId mã khách hàng
  * @param invoiceCode mã hóa đơn hiển thị
  * @param invoiceSymbol ký hiệu hóa đơn nếu có
+ * @param providerInvoiceId mã hóa đơn điện tử do nhà cung cấp trả về sau khi tích hợp thành công
  * @param issueDate thời điểm phát hành được lưu trên hóa đơn
  * @param signedAt thời điểm ký nếu có
  * @param status trạng thái hóa đơn
@@ -28,6 +29,7 @@ public record SalesInvoiceDebtDto(
         UUID customerId,
         String invoiceCode,
         String invoiceSymbol,
+        String providerInvoiceId,
         OffsetDateTime issueDate,
         OffsetDateTime signedAt,
         Integer creditTermDays,
