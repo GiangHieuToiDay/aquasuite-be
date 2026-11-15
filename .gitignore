@@ -101,3 +101,4 @@ secrets.json
 
 # Workflow plans/reviews/handoffs must remain visible to Git (see AGENTS.md).
 .agent/
+/uploads/delivery-photos/

@@ -1,0 +1,1130 @@
+{
+  "info": {
+    "_postman_id": "f7c4a912-8b3d-4c11-9a88-aquasuiteinv01",
+    "name": "AquaSuite - Two-Flow Invoice Lifecycle (RETAIL & PROJECT)",
+    "description": "Kịch bản test API đầy đủ theo kế hoạch thiết kế lại luồng Hóa đơn (DRAFT -> ISSUED -> CANCELLED) cho Đơn bán lẻ POS (STORE) và Đơn công trình từ Báo giá (PROJECT chia đợt).\n\nHướng dẫn chạy trong Postman:\n1. Đảm bảo Backend đang chạy tại {{baseUrl}} (mặc định http://localhost:8080).\n2. Điền biến collection `testPassword` (mật khẩu tài khoản test local của bạn) trước khi bấm Run Collection.\n3. Tất cả ID (token, customerId, variantId, orderId, invoiceId, quotationId...) sẽ tự động lưu qua script test giữa các bước.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "salesEmail",
+      "value": "sales@aquasuite.com",
+      "type": "string"
+    },
+    {
+      "key": "accountantEmail",
+      "value": "accountant@aquasuite.com",
+      "type": "string"
+    },
+    {
+      "key": "testPassword",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "salesToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "accountantToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "customerId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "variant1Id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "variant2Id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "retailOrderId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "retailInvoiceId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "quotationId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "projectOrderId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "batch1Id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "batch2Id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "batch3Id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "00. Setup & Đăng nhập",
+      "item": [
+        {
+          "name": "TC-01. Đăng nhập SALES_STAFF",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200 & Có access_token cho SALES_STAFF', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.success).to.eql(true);",
+                  "    pm.expect(res.data.access_token).to.be.a('string').and.not.empty;",
+                  "    pm.collectionVariables.set('salesToken', res.data.access_token);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{salesEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-02. Đăng nhập ACCOUNTANT",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200 & Có access_token cho ACCOUNTANT', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.data.access_token).to.be.a('string').and.not.empty;",
+                  "    pm.collectionVariables.set('accountantToken', res.data.access_token);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{accountantEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-03. Lấy Customer mẫu ACTIVE",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200 & Lấy customerId đầu tiên', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.data.length).to.be.above(0);",
+                  "    pm.collectionVariables.set('customerId', res.data[0].customerId);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{salesToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/customers/options",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "customers",
+                "options"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-04. Lấy 2 Variant ACTIVE còn tồn kho",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200 & Chọn 2 SKU còn tồn kho >= 20', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var items = pm.response.json().data.filter(i => !i.isCombo && Number(i.availableStock) >= 20);",
+                  "    pm.expect(items.length).to.be.at.least(2);",
+                  "    pm.collectionVariables.set('variant1Id', items[0].variantId);",
+                  "    pm.collectionVariables.set('variant2Id', items[1].variantId);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{salesToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/catalog-items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "catalog-items"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "01. Luồng Đơn Lẻ POS (STORE Invoice DRAFT -> ISSUED)",
+      "item": [
+        {
+          "name": "TC-05. Tạo đơn lẻ POS -> Tự sinh hóa đơn STORE DRAFT",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 201 & Tự khởi tạo 1 hóa đơn DRAFT', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    var data = pm.response.json().data;",
+                  "    pm.expect(data.orderType).to.eql('RETAIL');",
+                  "    pm.expect(data.orderStatus).to.eql('PROCESSING');",
+                  "    pm.expect(data.storeInvoiceId).to.be.a('string').and.not.empty;",
+                  "    pm.expect(data.totalInvoiceCount).to.eql(1);",
+                  "    pm.expect(data.draftInvoiceCount).to.eql(1);",
+                  "    pm.expect(data.issuedInvoiceCount).to.eql(0);",
+                  "    pm.collectionVariables.set('retailOrderId', data.orderId);",
+                  "    pm.collectionVariables.set('retailInvoiceId', data.storeInvoiceId);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{salesToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": \"{{customerId}}\",\n  \"orderChannel\": \"POS\",\n  \"orderType\": \"RETAIL\",\n  \"fulfillmentMethod\": \"IN_STORE_PICKUP\",\n  \"paymentMethod\": \"CASH\",\n  \"discountAmount\": 100000,\n  \"note\": \"[PM-TEST] Đơn bán lẻ tại quầy\",\n  \"items\": [\n    { \"variantId\": \"{{variant1Id}}\", \"quantity\": 2 }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "orders"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-06. Lấy danh sách hóa đơn của đơn lẻ",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200 & Hóa đơn có invoiceType=STORE, status=DRAFT, editable=true', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var list = pm.response.json().data;",
+                  "    pm.expect(list.length).to.eql(1);",
+                  "    pm.expect(list[0].invoiceType).to.eql('STORE');",
+                  "    pm.expect(list[0].status).to.eql('DRAFT');",
+                  "    pm.expect(list[0].editable).to.eql(true);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{salesToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/orders/{{retailOrderId}}/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "orders",
+                "{{retailOrderId}}",
+                "invoices"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-07. Sửa hóa đơn STORE khi đang DRAFT (Đổi SL + Thêm SKU)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200 & Cập nhật 2 dòng hàng thành công', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var inv = pm.response.json().data;",
+                  "    pm.expect(inv.status).to.eql('DRAFT');",
+                  "    pm.expect(inv.items.length).to.eql(2);",
+                  "    pm.expect(Number(inv.discountAmount)).to.eql(200000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{salesToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"batchName\": \"Hóa đơn bán lẻ (Đã sửa)\",\n  \"note\": \"[PM-TEST] Tăng SL & thêm SKU 2\",\n  \"discountAmount\": 200000,\n  \"items\": [\n    { \"variantId\": \"{{variant1Id}}\", \"quantity\": 3 },\n    { \"variantId\": \"{{variant2Id}}\", \"quantity\": 1 }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/invoices/{{retailInvoiceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "invoices",
+                "{{retailInvoiceId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-08. Xác nhận Đơn hàng tự đồng bộ theo hóa đơn nháp",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200 & Order đồng bộ đúng 2 mặt hàng và discountAmount=200000', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var order = pm.response.json().data;",
+                  "    pm.expect(order.items.length).to.eql(2);",
+                  "    pm.expect(Number(order.discountAmount)).to.eql(200000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{salesToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/orders/{{retailOrderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "orders",
+                "{{retailOrderId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-09. Phân quyền: ACCOUNTANT được xem GET (200) nhưng bị chặn sửa PUT (403)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 403 Forbidden với role ACCOUNTANT khi gọi PUT', function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accountantToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"batchName\": \"Thử sửa không đúng quyền\",\n  \"items\": [{ \"variantId\": \"{{variant1Id}}\", \"quantity\": 1 }]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/invoices/{{retailInvoiceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "invoices",
+                "{{retailInvoiceId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-10. Chốt & Phát hành hóa đơn lẻ (DRAFT -> ISSUED)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200 & Chuyển status=ISSUED, editable=false', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var inv = pm.response.json().data;",
+                  "    pm.expect(inv.status).to.eql('ISSUED');",
+                  "    pm.expect(inv.editable).to.eql(false);",
+                  "    pm.expect(inv.issuedAt).to.not.be.null;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{salesToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/invoices/{{retailInvoiceId}}/issue",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "invoices",
+                "{{retailInvoiceId}}",
+                "issue"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-11. Negative: Chặn sửa hóa đơn đã ISSUED (409 SALES_020)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 409 Conflict & code=SALES_020', function () {",
+                  "    pm.response.to.have.status(409);",
+                  "    pm.expect(pm.response.json().code).to.eql('SALES_020');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{salesToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"batchName\": \"Sửa sau phát hành\",\n  \"items\": [{ \"variantId\": \"{{variant1Id}}\", \"quantity\": 1 }]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/invoices/{{retailInvoiceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "invoices",
+                "{{retailInvoiceId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-12. Negative: Chặn xóa hóa đơn đã ISSUED (409 SALES_020)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 409 Conflict & code=SALES_020', function () {",
+                  "    pm.response.to.have.status(409);",
+                  "    pm.expect(pm.response.json().code).to.eql('SALES_020');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{salesToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/invoices/{{retailInvoiceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "invoices",
+                "{{retailInvoiceId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02. Luồng Đơn Công Trình (PROJECT chia nhiều đợt DRAFT -> ISSUED)",
+      "item": [
+        {
+          "name": "TC-13. Tạo báo giá dự án (10 SKU1 + 5 SKU2)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 201 & Tạo báo giá thành công', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    var data = pm.response.json().data;",
+                  "    pm.collectionVariables.set('quotationId', data.quotationId);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{salesToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": \"{{customerId}}\",\n  \"projectName\": \"[PM-TEST] Dự án Aqua Riverside\",\n  \"deliveryAddress\": \"123 Nguyễn Huệ, Q1\",\n  \"deliverySchedule\": \"Giao chia 2 đợt\",\n  \"vatRate\": 10,\n  \"shippingFee\": 0,\n  \"items\": [\n    { \"variantId\": \"{{variant1Id}}\", \"quantity\": 10, \"discountRate\": 0 },\n    { \"variantId\": \"{{variant2Id}}\", \"quantity\": 5, \"discountRate\": 0 }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/quotations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "quotations"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-14. Gửi báo giá (DRAFT -> SENT)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200 & status=SENT', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{salesToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/quotations/{{quotationId}}/send",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "quotations",
+                "{{quotationId}}",
+                "send"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-15. Khách chấp thuận báo giá (SENT -> ACCEPTED)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200 & status=ACCEPTED', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{salesToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/quotations/{{quotationId}}/accept",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "quotations",
+                "{{quotationId}}",
+                "accept"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-16. Negative: Chia đợt sai tổng SL (9/10) -> 400 SALES_024",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 400 & code=SALES_024', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "    pm.expect(pm.response.json().code).to.eql('SALES_024');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{salesToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"batches\": [\n    {\n      \"batchName\": \"Đợt thiếu SL\",\n      \"items\": [\n        { \"variantId\": \"{{variant1Id}}\", \"quantity\": 9 },\n        { \"variantId\": \"{{variant2Id}}\", \"quantity\": 5 }\n      ]\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/orders/from-quotation/{{quotationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "orders",
+                "from-quotation",
+                "{{quotationId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-17. Chuyển báo giá -> Đơn công trình chia 2 đợt DRAFT",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 201 & Tạo đơn PROJECT + 2 hóa đơn DRAFT', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    var data = pm.response.json().data;",
+                  "    pm.expect(data.orderType).to.eql('PROJECT');",
+                  "    pm.expect(data.totalInvoiceCount).to.eql(2);",
+                  "    pm.expect(data.draftInvoiceCount).to.eql(2);",
+                  "    pm.collectionVariables.set('projectOrderId', data.orderId);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{salesToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"batches\": [\n    {\n      \"batchName\": \"Đợt 1 - Phần thô\",\n      \"items\": [{ \"variantId\": \"{{variant1Id}}\", \"quantity\": 6 }]\n    },\n    {\n      \"batchName\": \"Đợt 2 - Hoàn thiện\",\n      \"items\": [\n        { \"variantId\": \"{{variant1Id}}\", \"quantity\": 4 },\n        { \"variantId\": \"{{variant2Id}}\", \"quantity\": 5 }\n      ]\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/orders/from-quotation/{{quotationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "orders",
+                "from-quotation",
+                "{{quotationId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-18. Lấy danh sách hóa đơn của đơn công trình (Đợt 1 & Đợt 2)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200 & 2 hóa đơn PROJECT đang DRAFT', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var list = pm.response.json().data;",
+                  "    pm.expect(list.length).to.eql(2);",
+                  "    pm.expect(list[0].invoiceType).to.eql('PROJECT');",
+                  "    pm.expect(list[0].status).to.eql('DRAFT');",
+                  "    pm.expect(list[1].invoiceType).to.eql('PROJECT');",
+                  "    pm.collectionVariables.set('batch1Id', list[0].invoiceId);",
+                  "    pm.collectionVariables.set('batch2Id', list[1].invoiceId);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{salesToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/orders/{{projectOrderId}}/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "orders",
+                "{{projectOrderId}}",
+                "invoices"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-19. Tách thêm Đợt 3 DRAFT từ Đợt 2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 201 & Tạo Đợt 3 batchNo=3', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    var inv = pm.response.json().data;",
+                  "    pm.expect(inv.invoiceType).to.eql('PROJECT');",
+                  "    pm.expect(inv.status).to.eql('DRAFT');",
+                  "    pm.expect(inv.batchNo).to.eql(3);",
+                  "    pm.collectionVariables.set('batch3Id', inv.invoiceId);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{salesToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"batchName\": \"Đợt 3 - Tách thêm\",\n  \"splitFromInvoiceId\": \"{{batch2Id}}\",\n  \"items\": [\n    { \"variantId\": \"{{variant1Id}}\", \"quantity\": 2 }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/orders/{{projectOrderId}}/invoices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "orders",
+                "{{projectOrderId}}",
+                "invoices"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-20. Hủy hóa đơn Đợt 3 nháp (DRAFT -> CANCELLED)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200 & Hủy nháp thành công', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{salesToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/invoices/{{batch3Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "invoices",
+                "{{batch3Id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-21. Phát hành Đợt 1 (DRAFT -> ISSUED, snapshot dueDate)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200 & Đợt 1 chuyển ISSUED, có dueDate theo creditTermDays', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var inv = pm.response.json().data;",
+                  "    pm.expect(inv.status).to.eql('ISSUED');",
+                  "    pm.expect(inv.editable).to.eql(false);",
+                  "    pm.expect(inv.dueDate).to.not.be.null;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{salesToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/invoices/{{batch1Id}}/issue",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "invoices",
+                "{{batch1Id}}",
+                "issue"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-22. Phát hành Đợt 2 (DRAFT -> ISSUED)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200 & Đợt 2 chuyển ISSUED', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var inv = pm.response.json().data;",
+                  "    pm.expect(inv.status).to.eql('ISSUED');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{salesToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/invoices/{{batch2Id}}/issue",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "invoices",
+                "{{batch2Id}}",
+                "issue"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-23. Kiểm tra chi tiết đơn công trình (2/2 ISSUED, 0 DRAFT)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200 & totalInvoiceCount=2, draftInvoiceCount=0, issuedInvoiceCount=2', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var data = pm.response.json().data;",
+                  "    pm.expect(data.totalInvoiceCount).to.eql(2);",
+                  "    pm.expect(data.draftInvoiceCount).to.eql(0);",
+                  "    pm.expect(data.issuedInvoiceCount).to.eql(2);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{salesToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/orders/{{projectOrderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "orders",
+                "{{projectOrderId}}"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

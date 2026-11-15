@@ -321,9 +321,12 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .orderId(orderId)
                 .customerId(customer.customerId())
                 .invoiceType("STORE")
+                .batchNo(1)
+                .batchName("Hóa đơn bán lẻ")
                 .issueDate(now)
                 .subtotal(calculatedSubtotal)
                 .discountAmount(orderDiscount)
+                .taxAmount(BigDecimal.ZERO)
                 .totalAmount(finalTotal)
                 .status("DRAFT")
                 .createdBy(salesStaffId)
@@ -338,6 +341,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .quantity(item.getQuantity())
                 .unitPrice(item.getUnitPrice())
                 .discountAmount(item.getDiscountAmount())
+                .taxRate(BigDecimal.ZERO)
                 .lineTotal(item.getLineTotal())
                 .build()).toList());
 
@@ -361,6 +365,9 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 finalCustomerPhone,
                 staffName);
         response.setStoreInvoiceId(storeInvoiceId);
+        response.setTotalInvoiceCount(1);
+        response.setDraftInvoiceCount(1);
+        response.setIssuedInvoiceCount(0);
         populateDisplayItems(response, savedOrder, savedItems, itemResponses);
         return response;
     }
@@ -667,8 +674,22 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .updatedAt(now)
                 .build();
 
+        com.aquasuite.ims.module.sales.internal.service.helper.SalesInvoiceDraftInitializer
+                .validateBatches(orderItemsToSave, request != null ? request.getBatches() : null);
+
         Order savedOrder = orderRepository.save(order);
         List<OrderItem> savedItems = orderItemRepository.saveAll(orderItemsToSave);
+
+        // Khởi tạo 1 hoặc nhiều hóa đơn PROJECT ở trạng thái DRAFT theo các đợt giao
+        List<SalesInvoice> initializedInvoices = com.aquasuite.ims.module.sales.internal.service.helper.SalesInvoiceDraftInitializer
+                .initializeForProjectOrder(
+                        savedOrder != null ? savedOrder : order,
+                        savedItems != null && !savedItems.isEmpty() ? savedItems : orderItemsToSave,
+                        request != null ? request.getBatches() : null,
+                        currentStaffId,
+                        salesInvoiceRepository,
+                        salesInvoiceItemRepository
+                );
 
         // Đơn dự án đã xác nhận ngay (PROCESSING) -> phát sự kiện để Servicedesk tự sinh công việc lắp đặt (FE-13).
         // Trường hợp đơn còn chờ duyệt hạn mức (DRAFT) sẽ phát sự kiện sau, tại OrderCreditApprovalEventListener.
@@ -741,6 +762,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 customerPhone,
                 staffName);
         response.setMilestones(milestoneResponses != null ? milestoneResponses : new ArrayList<>());
+        applyInvoiceCounts(response, initializedInvoices);
         populateDisplayItems(response, savedOrder, savedItems, itemResponses);
         return response;
     }
@@ -849,8 +871,16 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             List<SalesOrderMilestoneResponse> milestoneResponses = salesOrderMapper.toMilestoneResponseList(milestones);
             response.setMilestones(milestoneResponses != null ? milestoneResponses : new ArrayList<>());
         }
-        salesInvoiceRepository.findByOrderIdAndInvoiceType(orderId, "STORE")
+        List<SalesInvoice> orderInvoices = salesInvoiceRepository.findByOrderIdOrderByBatchNoAscCreatedAtAsc(orderId);
+        orderInvoices.stream()
+                .filter(inv -> "STORE".equalsIgnoreCase(inv.getInvoiceType()))
+                .findFirst()
                 .ifPresent(invoice -> response.setStoreInvoiceId(invoice.getInvoiceId()));
+        if (response.getStoreInvoiceId() == null) {
+            salesInvoiceRepository.findByOrderIdAndInvoiceType(orderId, "STORE")
+                    .ifPresent(invoice -> response.setStoreInvoiceId(invoice.getInvoiceId()));
+        }
+        applyInvoiceCounts(response, orderInvoices);
         populateDisplayItems(response, order, items, itemResponses);
         return response;
     }
@@ -1023,5 +1053,31 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 : List.of();
         response.setDisplayItems(com.aquasuite.ims.module.sales.internal.service.helper.OrderDisplayItems
                 .build(items, mapped, snapshots));
+    }
+
+    private void applyInvoiceCounts(SalesOrderDetailResponse response, List<SalesInvoice> invoices) {
+        if (invoices == null || invoices.isEmpty()) {
+            response.setTotalInvoiceCount(0);
+            response.setDraftInvoiceCount(0);
+            response.setIssuedInvoiceCount(0);
+            return;
+        }
+        int total = 0;
+        int draft = 0;
+        int issued = 0;
+        for (SalesInvoice inv : invoices) {
+            if (inv == null || "CANCELLED".equalsIgnoreCase(inv.getStatus())) {
+                continue;
+            }
+            total++;
+            if ("DRAFT".equalsIgnoreCase(inv.getStatus())) {
+                draft++;
+            } else if ("ISSUED".equalsIgnoreCase(inv.getStatus())) {
+                issued++;
+            }
+        }
+        response.setTotalInvoiceCount(total);
+        response.setDraftInvoiceCount(draft);
+        response.setIssuedInvoiceCount(issued);
     }
 }

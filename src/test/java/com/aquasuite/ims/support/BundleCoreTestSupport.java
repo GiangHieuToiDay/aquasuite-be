@@ -140,7 +140,7 @@ public abstract class BundleCoreTestSupport {
                 "Category");
         jdbc.update(
                 "INSERT INTO categories(category_id,category_code,category_name,status)"
-                        + " VALUES(?,'COMBO','Combo','ACTIVE')",
+                        + " VALUES(?,'709','Combo','ACTIVE')",
                 UUID.randomUUID());
         jdbc.update(
                 "INSERT INTO"

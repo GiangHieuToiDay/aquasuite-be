@@ -10,6 +10,13 @@ import java.util.*;
 @RequiredArgsConstructor
 public class OrderStockReservationStore {
     private final JdbcTemplate jdbc;
+    public boolean requiresReservationReview(UUID order) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("""
+                select exists(select 1 from public.order_modification_requests
+                where order_id=? and request_status in ('PENDING_CANCEL','APPROVED')
+                and request_type in ('FULL_CANCELLATION','ITEM_CHANGE'))
+                """, Boolean.class, order));
+    }
     public void lockOrder(UUID order) {
         jdbc.query("select order_id from public.orders where order_id=? for update", rs -> {}, order);
     }
