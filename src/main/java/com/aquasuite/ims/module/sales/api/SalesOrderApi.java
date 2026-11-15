@@ -2,6 +2,7 @@ package com.aquasuite.ims.module.sales.api;
 
 import com.aquasuite.ims.module.sales.api.dto.SalesOrderMilestoneDto;
 import com.aquasuite.ims.module.sales.api.dto.SalesOrderPaymentInfoDto;
+import com.aquasuite.ims.module.sales.api.dto.SalesOrderItemSummaryDto;
 
 import java.util.List;
 import java.util.Optional;
@@ -54,4 +55,7 @@ public interface SalesOrderApi {
      * @return danh sách mốc thanh toán đã sắp thứ tự ổn định, rỗng nếu đơn không có mốc
      */
     List<SalesOrderMilestoneDto> getOrderPaymentMilestones(UUID orderId);
+
+    /** Resolves the immutable order-line display snapshot for a scalar order-item reference. */
+    Optional<SalesOrderItemSummaryDto> getOrderItemSummary(UUID orderItemId);
 }
