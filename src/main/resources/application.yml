@@ -3,6 +3,10 @@ server:
   port: ${SERVER_PORT:8080}
 
 spring:
+  config:
+    import:
+      - optional:classpath:application-local.yml
+      - optional:file:./src/main/resources/application-local.yml
   servlet:
     multipart:
       max-file-size: 6MB
@@ -89,4 +93,14 @@ cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME:}
   api-key: ${CLOUDINARY_API_KEY:}
   api-secret: ${CLOUDINARY_API_SECRET:}
+
+payos:
+  base-url: ${PAYOS_BASE_URL:https://api-merchant.payos.vn}
+  client-id: ${PAYOS_CLIENT_ID:}
+  api-key: ${PAYOS_API_KEY:}
+  checksum-key: ${PAYOS_CHECKSUM_KEY:}
+  return-url: ${PAYOS_RETURN_URL:http://localhost:5173/checkout/result}
+  cancel-url: ${PAYOS_CANCEL_URL:http://localhost:5173/checkout/result}
+  override-amount: ${PAYOS_OVERRIDE_AMOUNT:}
+
 

@@ -1,0 +1,679 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-uc17-4c11-9a88-aquasuitecart17",
+    "name": "AquaSuite - UC-17 Customer Shopping Cart Workflow (Lâm)",
+    "description": "Kịch bản test API đầy đủ cho chức năng Quản lý Giỏ hàng trực tuyến (UC-17 - Lâm).\n\nHướng dẫn chạy trong Postman:\n1. Đảm bảo Backend đang chạy tại `{{baseUrl}}` (mặc định `http://localhost:8080`).\n2. Điền biến collection `customerEmail` và `testPassword` của tài khoản Khách hàng (role `CUSTOMER` có liên kết hồ sơ `customers`) trước khi bấm **Run Collection**.\n3. Toàn bộ biến (`customerToken`, `variant1Id`, `variant2Id`, `cartItem1Id`, `cartItem2Id`...) sẽ tự động trích xuất và truyền qua các bước bằng script test.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "customerEmail",
+      "value": "customer@aquasuite.com",
+      "type": "string"
+    },
+    {
+      "key": "testPassword",
+      "value": "Password123!",
+      "type": "string"
+    },
+    {
+      "key": "customerToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "customerId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "variant1Id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "variant2Id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "cartItem1Id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "cartItem2Id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "00. Setup & Đăng nhập Khách hàng",
+      "item": [
+        {
+          "name": "TC-01. Đăng nhập tài khoản CUSTOMER",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200 & Có access_token cho CUSTOMER', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.success).to.eql(true);",
+                  "    pm.expect(res.data.access_token).to.be.a('string').and.not.empty;",
+                  "    pm.collectionVariables.set('customerToken', res.data.access_token);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{customerEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-02. Lấy 2 Variant ACTIVE còn tồn kho để test giỏ hàng",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200 & Chọn 2 biến thể SKU còn tồn kho >= 5', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var items = pm.response.json().data.filter(i => !i.isCombo && Number(i.availableStock) >= 5);",
+                  "    pm.expect(items.length).to.be.at.least(2);",
+                  "    pm.collectionVariables.set('variant1Id', items[0].variantId);",
+                  "    pm.collectionVariables.set('variant2Id', items[1].variantId);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/catalog-items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "catalog-items"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-03. Dọn sạch giỏ hàng trước khi chạy kịch bản (Reset State)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200 & Giỏ hàng được làm trống (totalItems = 0)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.success).to.eql(true);",
+                  "    pm.expect(res.data.totalItems).to.eql(0);",
+                  "    pm.expect(res.data.subtotal).to.eql(0);",
+                  "    pm.collectionVariables.set('customerId', res.data.customerId);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/cart",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "cart"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "01. Luồng Quản lý Giỏ hàng Chính (Xem -> Thêm -> Cộng dồn -> Sửa -> Xóa)",
+      "item": [
+        {
+          "name": "TC-04. Xem giỏ hàng khi đang trống (GET /api/v1/sales/cart)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200 & Trả về giỏ hàng trống của khách hàng hiện tại', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var data = pm.response.json().data;",
+                  "    pm.expect(data.customerId).to.eql(pm.collectionVariables.get('customerId'));",
+                  "    pm.expect(data.items).to.be.an('array').that.is.empty;",
+                  "    pm.expect(data.totalItems).to.eql(0);",
+                  "    pm.expect(data.totalQuantity).to.eql(0);",
+                  "    pm.expect(data.subtotal).to.eql(0);",
+                  "    pm.expect(data.hasInvalidItems).to.eql(false);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/cart",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "cart"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-05. Thêm biến thể 1 (số lượng = 2) vào giỏ hàng",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200 & Tạo dòng giỏ hàng đầu tiên (quantity = 2)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.success).to.eql(true);",
+                  "    var data = res.data;",
+                  "    pm.expect(data.totalItems).to.eql(1);",
+                  "    pm.expect(Number(data.totalQuantity)).to.eql(2);",
+                  "    var item = data.items.find(i => i.variantId === pm.collectionVariables.get('variant1Id'));",
+                  "    pm.expect(item).to.be.an('object');",
+                  "    pm.expect(Number(item.quantity)).to.eql(2);",
+                  "    pm.expect(Number(item.lineTotal)).to.eql(Number(item.currentSellingPrice) * 2);",
+                  "    pm.collectionVariables.set('cartItem1Id', item.cartItemId);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"variantId\": \"{{variant1Id}}\",\n  \"quantity\": 2\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/cart/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "cart",
+                "items"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-06. Thêm trùng biến thể 1 (số lượng = 1) -> Tự động cộng dồn lên 3",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200 & Cộng dồn số lượng biến thể 1 từ 2 -> 3 (không tạo dòng trùng)', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var data = pm.response.json().data;",
+                  "    pm.expect(data.totalItems).to.eql(1);",
+                  "    pm.expect(Number(data.totalQuantity)).to.eql(3);",
+                  "    var item = data.items[0];",
+                  "    pm.expect(item.cartItemId).to.eql(pm.collectionVariables.get('cartItem1Id'));",
+                  "    pm.expect(Number(item.quantity)).to.eql(3);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"variantId\": \"{{variant1Id}}\",\n  \"quantity\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/cart/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "cart",
+                "items"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-07. Thêm biến thể 2 (số lượng = 2) vào giỏ hàng",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200 & Giỏ hàng có 2 dòng mặt hàng, tổng số lượng = 5', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var data = pm.response.json().data;",
+                  "    pm.expect(data.totalItems).to.eql(2);",
+                  "    pm.expect(Number(data.totalQuantity)).to.eql(5);",
+                  "    var item2 = data.items.find(i => i.variantId === pm.collectionVariables.get('variant2Id'));",
+                  "    pm.expect(item2).to.be.an('object');",
+                  "    pm.collectionVariables.set('cartItem2Id', item2.cartItemId);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"variantId\": \"{{variant2Id}}\",\n  \"quantity\": 2\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/cart/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "cart",
+                "items"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-08. Cập nhật số lượng biến thể 2 từ 2 -> 4 (PUT /api/v1/sales/cart/items/:id)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200 & Cập nhật số lượng biến thể 2 thành 4, tổng số lượng = 7', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var data = pm.response.json().data;",
+                  "    pm.expect(Number(data.totalQuantity)).to.eql(7);",
+                  "    var item2 = data.items.find(i => i.cartItemId === pm.collectionVariables.get('cartItem2Id'));",
+                  "    pm.expect(Number(item2.quantity)).to.eql(4);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 4\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/cart/items/{{cartItem2Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "cart",
+                "items",
+                "{{cartItem2Id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-09. Xóa dòng biến thể 2 khỏi giỏ (DELETE /api/v1/sales/cart/items/:id)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200 & Xóa dòng biến thể 2, còn lại 1 dòng trong giỏ', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var data = pm.response.json().data;",
+                  "    pm.expect(data.totalItems).to.eql(1);",
+                  "    pm.expect(Number(data.totalQuantity)).to.eql(3);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/cart/items/{{cartItem2Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "cart",
+                "items",
+                "{{cartItem2Id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02. Kiểm tra Ràng buộc Nghiệp vụ & Negative Cases (400 / 404 / Clear)",
+      "item": [
+        {
+          "name": "TC-10. Đặt số lượng vượt tồn kho khả dụng -> 400 SALES_001",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 400 & Trả về mã lỗi SALES_001 (INSUFFICIENT_STOCK)', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.success).to.eql(false);",
+                  "    pm.expect(res.code).to.eql('SALES_001');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"variantId\": \"{{variant1Id}}\",\n  \"quantity\": 999999\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/cart/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "cart",
+                "items"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-11. Gửi số lượng = 0 -> 400 Validation Error (SYS_003)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 400 & Trả về lỗi validation trường quantity', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.success).to.eql(false);",
+                  "    pm.expect(res.errors).to.be.an('array').that.is.not.empty;",
+                  "    pm.expect(res.errors[0].field).to.eql('quantity');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"variantId\": \"{{variant1Id}}\",\n  \"quantity\": 0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/cart/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "cart",
+                "items"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-12. Xóa cartItemId không tồn tại -> 404 SALES_026",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 404 & Trả về mã lỗi SALES_026 (CART_ITEM_NOT_FOUND)', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.success).to.eql(false);",
+                  "    pm.expect(res.code).to.eql('SALES_026');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/cart/items/00000000-0000-0000-0000-000000000999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "cart",
+                "items",
+                "00000000-0000-0000-0000-000000000999"
+              ]
+            }
+          }
+        },
+        {
+          "name": "TC-13. Làm trống toàn bộ giỏ hàng (DELETE /api/v1/sales/cart)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200 & Làm trống toàn bộ giỏ hàng thành công', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    var data = pm.response.json().data;",
+                  "    pm.expect(data.totalItems).to.eql(0);",
+                  "    pm.expect(data.items).to.be.an('array').that.is.empty;",
+                  "    pm.expect(data.subtotal).to.eql(0);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{customerToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/sales/cart",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "cart"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

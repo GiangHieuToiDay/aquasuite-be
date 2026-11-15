@@ -1,0 +1,437 @@
+package com.aquasuite.ims.module.sales.internal.service.impl;
+
+import com.aquasuite.ims.module.catalog.api.CatalogApi;
+import com.aquasuite.ims.module.catalog.api.dto.CatalogSkuSummaryDto;
+import com.aquasuite.ims.module.crm.api.CrmApi;
+import com.aquasuite.ims.module.crm.api.dto.CustomerAddressDto;
+import com.aquasuite.ims.module.crm.api.dto.CustomerSummaryDto;
+import com.aquasuite.ims.module.iam.api.IamApi;
+import com.aquasuite.ims.module.inventory.api.InventoryApi;
+import com.aquasuite.ims.module.inventory.api.dto.StockSummaryDto;
+import com.aquasuite.ims.module.sales.internal.entity.CartItem;
+import com.aquasuite.ims.module.sales.internal.entity.OnlinePayosPayment;
+import com.aquasuite.ims.module.sales.internal.entity.Order;
+import com.aquasuite.ims.module.sales.internal.entity.OrderItem;
+import com.aquasuite.ims.module.sales.internal.enums.OrderChannel;
+import com.aquasuite.ims.module.sales.internal.enums.OrderStatus;
+import com.aquasuite.ims.module.sales.internal.enums.OrderType;
+import com.aquasuite.ims.module.sales.internal.enums.PaymentMethod;
+import com.aquasuite.ims.module.sales.internal.enums.PaymentStatus;
+import com.aquasuite.ims.module.sales.internal.error.SalesErrorCode;
+import com.aquasuite.ims.module.sales.internal.mapper.OnlineCheckoutMapper;
+import com.aquasuite.ims.module.sales.internal.mapper.SalesOrderMapper;
+import com.aquasuite.ims.module.sales.internal.payment.PayosClient;
+import com.aquasuite.ims.module.sales.internal.payment.PayosProperties;
+import com.aquasuite.ims.module.sales.internal.payload.request.PlaceOnlineOrderRequest;
+import com.aquasuite.ims.module.sales.internal.payload.response.CartResponse;
+import com.aquasuite.ims.module.sales.internal.payload.response.OnlineCheckoutPreviewResponse;
+import com.aquasuite.ims.module.sales.internal.payload.response.OnlineOrderCheckoutResponse;
+import com.aquasuite.ims.module.sales.internal.payload.response.PayosPaymentLinkResponse;
+import com.aquasuite.ims.module.sales.internal.payload.response.SalesOrderItemResponse;
+import com.aquasuite.ims.module.sales.internal.repository.CartItemRepository;
+import com.aquasuite.ims.module.sales.internal.repository.OnlinePayosPaymentRepository;
+import com.aquasuite.ims.module.sales.internal.repository.OrderItemRepository;
+import com.aquasuite.ims.module.sales.internal.repository.OrderRepository;
+import com.aquasuite.ims.module.sales.internal.service.CartService;
+import com.aquasuite.ims.module.sales.internal.service.OnlineCheckoutService;
+import com.aquasuite.ims.module.sales.internal.service.helper.OrderCodeGenerator;
+import com.aquasuite.ims.share.exception.AppException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
+
+/**
+ * Triển khai nghiệp vụ Đặt hàng và Thanh toán trực tuyến (UC-18) kèm PayOS (Napas 24/7).
+ * Đơn hàng Online không sử dụng mua nợ (CREDIT) và bắt đầu ở trạng thái PENDING_CONFIRMATION.
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class OnlineCheckoutServiceImpl implements OnlineCheckoutService {
+
+    private static final String ACTIVE_STATUS = "ACTIVE";
+    private static final Set<String> REUSABLE_PAYOS_STATUSES = Set.of("PENDING", "PROCESSING", "UNDERPAID");
+
+    private final CartService cartService;
+    private final CartItemRepository cartItemRepository;
+    private final OrderRepository orderRepository;
+    private final OrderItemRepository orderItemRepository;
+    private final OnlinePayosPaymentRepository onlinePayosPaymentRepository;
+    private final OrderCodeGenerator orderCodeGenerator;
+    private final SalesOrderMapper salesOrderMapper;
+    private final OnlineCheckoutMapper onlineCheckoutMapper;
+    private final PayosClient payosClient;
+    private final PayosProperties payosProperties;
+    private final IamApi iamApi;
+    private final CrmApi crmApi;
+    private final CatalogApi catalogApi;
+    private final InventoryApi inventoryApi;
+
+    @Override
+    @Transactional(readOnly = true)
+    public OnlineCheckoutPreviewResponse getCheckoutPreview() {
+        CustomerSummaryDto customer = resolveCurrentCustomer();
+        CartResponse cart = cartService.getCurrentCart();
+        List<CustomerAddressDto> savedAddresses = crmApi.getDeliveryAddressesByCustomerId(customer.customerId());
+        CustomerAddressDto defaultAddress = savedAddresses.stream()
+                .filter(CustomerAddressDto::isDefault)
+                .findFirst()
+                .orElse(savedAddresses.isEmpty() ? null : savedAddresses.get(0));
+
+        BigDecimal shippingFee = BigDecimal.ZERO;
+        BigDecimal grandTotal = defaultAmount(cart.getSubtotal()).add(shippingFee);
+
+        return OnlineCheckoutPreviewResponse.builder()
+                .cart(cart)
+                .savedAddresses(savedAddresses)
+                .defaultAddress(defaultAddress)
+                .shippingFee(shippingFee)
+                .grandTotal(grandTotal)
+                .payosConfigured(payosProperties.isConfigured())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public OnlineOrderCheckoutResponse placeOnlineOrder(PlaceOnlineOrderRequest request) {
+        validatePaymentMethod(request.getPaymentMethod());
+        CustomerSummaryDto customer = resolveCurrentCustomer();
+        UUID customerId = customer.customerId();
+
+        List<CartItem> cartItems = cartItemRepository.findAllByCustomerIdOrderByUpdatedAtDesc(customerId);
+        if (cartItems.isEmpty()) {
+            throw new AppException(SalesErrorCode.CART_EMPTY_FOR_CHECKOUT);
+        }
+
+        String resolvedAddress = resolveDeliveryAddress(customerId, request);
+        List<OrderItem> itemsToSave = buildAndValidateOrderItems(cartItems);
+
+        BigDecimal subtotal = itemsToSave.stream()
+                .map(OrderItem::getLineTotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal shippingFee = BigDecimal.ZERO;
+        BigDecimal totalAmount = subtotal.add(shippingFee);
+
+        UUID orderId = UUID.randomUUID();
+        String orderCode = orderCodeGenerator.generateOrderCode();
+        OffsetDateTime now = OffsetDateTime.now();
+
+        for (OrderItem item : itemsToSave) {
+            item.setOrderId(orderId);
+        }
+
+        Order order = Order.builder()
+                .orderId(orderId)
+                .orderCode(orderCode)
+                .customerId(customerId)
+                .orderType(OrderType.RETAIL.name())
+                .orderChannel(OrderChannel.ONLINE.name())
+                .orderStatus(OrderStatus.PENDING_CONFIRMATION.name())
+                .paymentStatus(PaymentStatus.UNPAID.name())
+                .paymentMethod(request.getPaymentMethod().name())
+                .orderDate(now)
+                .subtotal(subtotal)
+                .discountAmount(BigDecimal.ZERO)
+                .shippingFee(shippingFee)
+                .totalAmount(totalAmount)
+                .deliveryAddress(resolvedAddress)
+                .deliverySchedule(trimToNull(request.getDeliverySchedule()))
+                .note(trimToNull(request.getNote()))
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+
+        Order savedOrder = orderRepository.saveAndFlush(order);
+        List<OrderItem> savedItems = orderItemRepository.saveAllAndFlush(itemsToSave);
+
+        OnlinePayosPayment payosPayment = null;
+        if (request.getPaymentMethod() == PaymentMethod.BANK_TRANSFER) {
+            payosPayment = createPayosPaymentForOrder(savedOrder, savedItems, customer);
+        }
+
+        cartItemRepository.deleteAllByCustomerId(customerId);
+
+        log.info("Placed online order (UC-18): orderCode={}, customerId={}, method={}, total={}",
+                orderCode, customerId, request.getPaymentMethod(), totalAmount);
+
+        return buildCheckoutResponse(savedOrder, savedItems, payosPayment);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OnlineOrderCheckoutResponse getOnlineOrderDetail(UUID orderId) {
+        UUID customerId = resolveCurrentCustomer().customerId();
+        Order order = findOwnedOrder(orderId, customerId);
+        List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+        OnlinePayosPayment payosPayment = onlinePayosPaymentRepository.findByOrderId(orderId).orElse(null);
+        return buildCheckoutResponse(order, items, payosPayment);
+    }
+
+    @Override
+    @Transactional
+    public OnlineOrderCheckoutResponse verifyAndSyncPayosPayment(UUID orderId) {
+        UUID customerId = resolveCurrentCustomer().customerId();
+        Order order = findOwnedOrder(orderId, customerId);
+        OnlinePayosPayment payosPayment = onlinePayosPaymentRepository.findByOrderId(orderId)
+                .orElseThrow(() -> new AppException(SalesErrorCode.ORDER_NOT_PAYABLE_VIA_PAYOS));
+
+        PayosClient.PaymentLinkStatusResult remoteStatus = payosClient.getPaymentLinkInfo(payosPayment.getPayosOrderCode());
+        String statusName = remoteStatus.status() != null ? remoteStatus.status().toUpperCase() : "PENDING";
+
+        payosPayment.setStatus(statusName);
+        payosPayment.setAmountPaid(remoteStatus.amountPaid());
+        onlinePayosPaymentRepository.save(payosPayment);
+
+        if ("PAID".equals(statusName) && !PaymentStatus.PAID.name().equalsIgnoreCase(order.getPaymentStatus())) {
+            order.setPaymentStatus(PaymentStatus.PAID.name());
+            order.setUpdatedAt(OffsetDateTime.now());
+            order = orderRepository.save(order);
+            log.info("Synced PayOS payment PAID for orderCode={}, payosOrderCode={}",
+                    order.getOrderCode(), payosPayment.getPayosOrderCode());
+        }
+
+        List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+        return buildCheckoutResponse(order, items, payosPayment);
+    }
+
+    @Override
+    @Transactional
+    public OnlineOrderCheckoutResponse createOrRefreshPayosPaymentLink(UUID orderId) {
+        CustomerSummaryDto customer = resolveCurrentCustomer();
+        Order order = findOwnedOrder(orderId, customer.customerId());
+
+        if (!OrderChannel.ONLINE.name().equalsIgnoreCase(order.getOrderChannel())
+                || OrderStatus.CANCELLED.name().equalsIgnoreCase(order.getOrderStatus())
+                || PaymentStatus.PAID.name().equalsIgnoreCase(order.getPaymentStatus())) {
+            throw new AppException(SalesErrorCode.ORDER_NOT_PAYABLE_VIA_PAYOS);
+        }
+
+        Optional<OnlinePayosPayment> existingOpt = onlinePayosPaymentRepository.findByOrderId(orderId);
+        if (existingOpt.isPresent()) {
+            OnlinePayosPayment existing = existingOpt.get();
+            if (REUSABLE_PAYOS_STATUSES.contains(existing.getStatus())) {
+                List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+                return buildCheckoutResponse(order, items, existing);
+            }
+            onlinePayosPaymentRepository.delete(existing);
+            onlinePayosPaymentRepository.flush();
+        }
+
+        if (!PaymentMethod.BANK_TRANSFER.name().equalsIgnoreCase(order.getPaymentMethod())) {
+            order.setPaymentMethod(PaymentMethod.BANK_TRANSFER.name());
+            order = orderRepository.save(order);
+        }
+
+        List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+        OnlinePayosPayment created = createPayosPaymentForOrder(order, items, customer);
+        return buildCheckoutResponse(order, items, created);
+    }
+
+    private void validatePaymentMethod(PaymentMethod method) {
+        if (method != PaymentMethod.BANK_TRANSFER && method != PaymentMethod.CASH) {
+            throw new AppException(SalesErrorCode.ONLINE_PAYMENT_METHOD_INVALID);
+        }
+    }
+
+    private CustomerSummaryDto resolveCurrentCustomer() {
+        UUID userId = iamApi.getCurrentUserId();
+        return crmApi.getCustomerByUserId(userId)
+                .orElseThrow(() -> new AppException(SalesErrorCode.CUSTOMER_NOT_FOUND));
+    }
+
+    private Order findOwnedOrder(UUID orderId, UUID customerId) {
+        return orderRepository.findByOrderIdAndCustomerId(orderId, customerId)
+                .orElseThrow(() -> new AppException(SalesErrorCode.ORDER_NOT_FOUND));
+    }
+
+    private String resolveDeliveryAddress(UUID customerId, PlaceOnlineOrderRequest request) {
+        if (request.getAddressId() != null) {
+            CustomerAddressDto address = crmApi.getDeliveryAddressesByCustomerId(customerId).stream()
+                    .filter(a -> request.getAddressId().equals(a.addressId()))
+                    .findFirst()
+                    .orElseThrow(() -> new AppException(SalesErrorCode.DELIVERY_ADDRESS_REQUIRED));
+            return formatAddress(address.recipientName(), address.phone(), address.addressText());
+        }
+
+        String manualAddress = trimToNull(request.getDeliveryAddress());
+        if (manualAddress == null) {
+            throw new AppException(SalesErrorCode.DELIVERY_ADDRESS_REQUIRED);
+        }
+        return formatAddress(request.getRecipientName(), request.getRecipientPhone(), manualAddress);
+    }
+
+    private String formatAddress(String recipientName, String phone, String addressText) {
+        String name = trimToNull(recipientName);
+        String mobile = trimToNull(phone);
+        if (name == null && mobile == null) {
+            return addressText;
+        }
+        String contact = (name != null ? name : "") + (mobile != null ? " (" + mobile + ")" : "");
+        return contact.trim() + " - " + addressText;
+    }
+
+    private List<OrderItem> buildAndValidateOrderItems(List<CartItem> cartItems) {
+        Set<UUID> variantIds = cartItems.stream().map(CartItem::getVariantId).collect(Collectors.toSet());
+        Map<UUID, CatalogSkuSummaryDto> skuMap = catalogApi.getSkuSummaries(variantIds);
+        Map<UUID, StockSummaryDto> stockMap = inventoryApi.getStockSummaries(variantIds);
+
+        List<OrderItem> items = new ArrayList<>(cartItems.size());
+        for (CartItem cartItem : cartItems) {
+            CatalogSkuSummaryDto sku = skuMap.get(cartItem.getVariantId());
+            if (sku == null) {
+                throw new AppException(SalesErrorCode.SKU_NOT_FOUND, cartItem.getVariantId());
+            }
+            if (!ACTIVE_STATUS.equalsIgnoreCase(sku.status())) {
+                throw new AppException(SalesErrorCode.SKU_NOT_ACTIVE, sku.sku());
+            }
+
+            BigDecimal availableQty = Optional.ofNullable(stockMap.get(cartItem.getVariantId()))
+                    .map(StockSummaryDto::availableQty)
+                    .orElse(BigDecimal.ZERO);
+            BigDecimal quantity = defaultAmount(cartItem.getQuantity());
+            if (availableQty.compareTo(quantity) < 0) {
+                throw new AppException(SalesErrorCode.INSUFFICIENT_STOCK, sku.sku());
+            }
+
+            BigDecimal unitPrice = defaultAmount(sku.sellingPrice());
+            BigDecimal lineTotal = unitPrice.multiply(quantity).setScale(2, RoundingMode.HALF_UP);
+
+            items.add(OrderItem.builder()
+                    .orderItemId(UUID.randomUUID())
+                    .variantId(cartItem.getVariantId())
+                    .sku(sku.sku())
+                    .productName(sku.productName())
+                    .variantName(sku.variantName())
+                    .quantity(quantity)
+                    .unitPrice(unitPrice)
+                    .discountAmount(BigDecimal.ZERO)
+                    .lineTotal(lineTotal)
+                    .build());
+        }
+        return items;
+    }
+
+    private OnlinePayosPayment createPayosPaymentForOrder(
+            Order order,
+            List<OrderItem> items,
+            CustomerSummaryDto customer
+    ) {
+        long payosOrderCode = generateUniquePayosOrderCode();
+        long amount = resolvePayosAmount(order.getTotalAmount());
+        String description = buildPayosDescription(order.getOrderCode());
+
+        List<PayosClient.PaymentItemData> payosItems = items.stream()
+                .map(i -> new PayosClient.PaymentItemData(
+                        i.getVariantName() != null && !i.getVariantName().isBlank() ? i.getVariantName() : i.getSku(),
+                        Math.max(1, i.getQuantity().intValue()),
+                        i.getUnitPrice().setScale(0, RoundingMode.HALF_UP).longValue(),
+                        "Cái"
+                ))
+                .toList();
+
+        String returnUrl = appendOrderIdQuery(payosProperties.getReturnUrl(), order.getOrderId());
+        String cancelUrl = appendOrderIdQuery(payosProperties.getCancelUrl(), order.getOrderId());
+
+        PayosClient.PaymentLinkResult result = payosClient.createPaymentLink(
+                new PayosClient.CreatePaymentCommand(
+                        payosOrderCode,
+                        amount,
+                        description,
+                        returnUrl,
+                        cancelUrl,
+                        customer.customerName(),
+                        customer.email(),
+                        customer.phone(),
+                        order.getDeliveryAddress(),
+                        payosItems
+                )
+        );
+
+        OnlinePayosPayment entity = OnlinePayosPayment.builder()
+                .orderId(order.getOrderId())
+                .payosOrderCode(result.orderCode())
+                .paymentLinkId(result.paymentLinkId())
+                .checkoutUrl(result.checkoutUrl())
+                .qrCode(result.qrCode())
+                .bin(result.bin())
+                .accountNumber(result.accountNumber())
+                .accountName(result.accountName())
+                .amount(result.amount())
+                .amountPaid(0L)
+                .description(result.description())
+                .status(result.status())
+                .build();
+
+        return onlinePayosPaymentRepository.saveAndFlush(entity);
+    }
+
+    private long generateUniquePayosOrderCode() {
+        long candidate;
+        do {
+            long secondsPart = System.currentTimeMillis() / 100L;
+            int randomSuffix = ThreadLocalRandom.current().nextInt(100, 999);
+            candidate = secondsPart * 1000L + randomSuffix;
+        } while (onlinePayosPaymentRepository.existsByPayosOrderCode(candidate));
+        return candidate;
+    }
+
+    private long resolvePayosAmount(BigDecimal orderTotal) {
+        if (payosProperties.getOverrideAmount() != null && payosProperties.getOverrideAmount() > 0) {
+            return payosProperties.getOverrideAmount();
+        }
+        long total = defaultAmount(orderTotal).setScale(0, RoundingMode.HALF_UP).longValue();
+        return Math.max(1000L, total);
+    }
+
+    private String buildPayosDescription(String orderCode) {
+        String compact = orderCode != null ? orderCode.replaceAll("[^A-Za-z0-9]", "") : "AQUASUITE";
+        String raw = "AQS " + compact;
+        return raw.length() > 25 ? raw.substring(0, 25) : raw;
+    }
+
+    private String appendOrderIdQuery(String baseUrl, UUID orderId) {
+        if (baseUrl == null || baseUrl.isBlank()) {
+            return "http://localhost:5173/checkout/result?orderId=" + orderId;
+        }
+        String separator = baseUrl.contains("?") ? "&" : "?";
+        return baseUrl + separator + "orderId=" + orderId;
+    }
+
+    private OnlineOrderCheckoutResponse buildCheckoutResponse(
+            Order order,
+            List<OrderItem> items,
+            OnlinePayosPayment payosPayment
+    ) {
+        List<SalesOrderItemResponse> itemResponses = salesOrderMapper.toItemResponseList(items);
+        PayosPaymentLinkResponse payosResponse = payosPayment != null
+                ? onlineCheckoutMapper.toPayosPaymentLinkResponse(payosPayment)
+                : null;
+        return onlineCheckoutMapper.toOrderCheckoutResponse(order, itemResponses, payosResponse);
+    }
+
+    private BigDecimal defaultAmount(BigDecimal value) {
+        return value != null ? value : BigDecimal.ZERO;
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+}
+

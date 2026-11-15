@@ -7,6 +7,9 @@ public enum OrderStatus {
     /** Đơn hàng nháp (chờ duyệt hạn mức công nợ) */
     DRAFT,
 
+    /** Đơn hàng Online mới đặt, chờ nhân viên bán hàng xác nhận (UC-18 / UC-22) */
+    PENDING_CONFIRMATION,
+
     /** Đơn hàng đang chờ xử lý hoặc chờ giao hàng */
     PROCESSING,
 
