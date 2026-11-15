@@ -1,0 +1,377 @@
+package com.aquasuite.ims.module.servicedesk;
+
+import com.aquasuite.ims.module.catalog.api.CatalogApi;
+import com.aquasuite.ims.module.catalog.api.dto.CatalogSkuSummaryDto;
+import com.aquasuite.ims.module.crm.api.CrmApi;
+import com.aquasuite.ims.module.crm.api.dto.CustomerAddressDto;
+import com.aquasuite.ims.module.crm.api.dto.CustomerSummaryDto;
+import com.aquasuite.ims.module.iam.api.IamApi;
+import com.aquasuite.ims.module.sales.api.SalesWarrantyApi;
+import com.aquasuite.ims.module.servicedesk.api.event.WarrantyClaimSubmittedEvent;
+import com.aquasuite.ims.module.servicedesk.api.event.WarrantyTicketAuditEvent;
+import com.aquasuite.ims.module.servicedesk.internal.entity.TechnicalJob;
+import com.aquasuite.ims.module.servicedesk.internal.entity.TicketMedia;
+import com.aquasuite.ims.module.servicedesk.internal.entity.WarrantyRecord;
+import com.aquasuite.ims.module.servicedesk.internal.entity.WarrantyTicket;
+import com.aquasuite.ims.module.servicedesk.internal.enums.PreferredSlot;
+import com.aquasuite.ims.module.servicedesk.internal.enums.TechnicalJobStatus;
+import com.aquasuite.ims.module.servicedesk.internal.enums.TechnicalJobType;
+import com.aquasuite.ims.module.servicedesk.internal.enums.WarrantyStatus;
+import com.aquasuite.ims.module.servicedesk.internal.enums.WarrantyTicketStatus;
+import com.aquasuite.ims.module.servicedesk.internal.error.ServicedeskErrorCode;
+import com.aquasuite.ims.module.servicedesk.internal.payload.req.CancelWarrantyTicketRequest;
+import com.aquasuite.ims.module.servicedesk.internal.payload.req.CreateWarrantyTicketRequest;
+import com.aquasuite.ims.module.servicedesk.internal.payload.res.ClaimFormResponse;
+import com.aquasuite.ims.module.servicedesk.internal.payload.res.WarrantyTicketDetailResponse;
+import com.aquasuite.ims.module.servicedesk.internal.repository.TechnicalJobRepository;
+import com.aquasuite.ims.module.servicedesk.internal.repository.WarrantyRecordRepository;
+import com.aquasuite.ims.module.servicedesk.internal.repository.WarrantyTicketRepository;
+import com.aquasuite.ims.module.servicedesk.internal.service.helper.WarrantyTicketCodeGenerator;
+import com.aquasuite.ims.module.servicedesk.internal.service.impl.WarrantyTicketServiceImpl;
+import com.aquasuite.ims.module.servicedesk.internal.storage.MediaValidator;
+import com.aquasuite.ims.module.servicedesk.internal.storage.ServicedeskMediaStoragePort;
+import com.aquasuite.ims.module.servicedesk.internal.storage.StoredMedia;
+import com.aquasuite.ims.share.exception.AppException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.mock.web.MockMultipartFile;
+
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class WarrantyTicketServiceTest {
+
+    private static final ZoneId VN_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+    private static final Clock FIXED_CLOCK = Clock.fixed(Instant.parse("2026-11-13T05:00:00Z"), VN_ZONE); // 2026-11-13 12:00 VN
+
+    @Mock private WarrantyTicketRepository warrantyTicketRepository;
+    @Mock private WarrantyRecordRepository warrantyRecordRepository;
+    @Mock private TechnicalJobRepository technicalJobRepository;
+    @Mock private WarrantyTicketCodeGenerator warrantyTicketCodeGenerator;
+    @Mock private ServicedeskMediaStoragePort servicedeskMediaStoragePort;
+    @Mock private MediaValidator mediaValidator;
+    @Mock private IamApi iamApi;
+    @Mock private CrmApi crmApi;
+    @Mock private CatalogApi catalogApi;
+    @Mock private SalesWarrantyApi salesWarrantyApi;
+    @Mock private ApplicationEventPublisher eventPublisher;
+
+    private WarrantyTicketServiceImpl service;
+
+    private final UUID userId = UUID.randomUUID();
+    private final UUID customerId = UUID.randomUUID();
+    private final UUID recordId = UUID.randomUUID();
+    private final UUID variantId = UUID.randomUUID();
+
+    private CustomerSummaryDto customer;
+
+    @BeforeEach
+    void setUp() {
+        service = new WarrantyTicketServiceImpl(
+                warrantyTicketRepository,
+                warrantyRecordRepository,
+                technicalJobRepository,
+                warrantyTicketCodeGenerator,
+                servicedeskMediaStoragePort,
+                mediaValidator,
+                iamApi,
+                crmApi,
+                catalogApi,
+                salesWarrantyApi,
+                eventPublisher,
+                FIXED_CLOCK
+        );
+
+        customer = CustomerSummaryDto.builder()
+                .customerId(customerId)
+                .userId(userId)
+                .customerCode("CUST-001")
+                .customerName("Nguyễn Văn A")
+                .phone("0987654321")
+                .email("nva@example.com")
+                .build();
+
+        lenient().when(iamApi.getCurrentUserId()).thenReturn(userId);
+        lenient().when(crmApi.getCustomerByUserId(userId)).thenReturn(Optional.of(customer));
+        lenient().when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.of(
+                CatalogSkuSummaryDto.builder()
+                        .variantId(variantId)
+                        .sku("TOTO-CS988")
+                        .productName("Bồn cầu thông minh")
+                        .variantName("Bản tiêu chuẩn")
+                        .build()
+        ));
+    }
+
+    private WarrantyRecord activeRecord(LocalDate start, LocalDate end) {
+        return WarrantyRecord.builder()
+                .warrantyRecordId(recordId)
+                .warrantyCode("WAR-202611-0001")
+                .customerId(customerId)
+                .variantId(variantId)
+                .serialNumber("SN-123456")
+                .startDate(start)
+                .endDate(end)
+                .warrantyMonths(24)
+                .status(WarrantyStatus.ACTIVE)
+                .createdAt(OffsetDateTime.now())
+                .build();
+    }
+
+    @Test
+    @DisplayName("getClaimForm: Thành công trả về form pre-populated")
+    void getClaimForm_success() {
+        WarrantyRecord rec = activeRecord(LocalDate.of(2026, 1, 1), LocalDate.of(2028, 1, 1));
+        when(warrantyRecordRepository.findById(recordId)).thenReturn(Optional.of(rec));
+        when(crmApi.getDeliveryAddressesByCustomerId(customerId)).thenReturn(List.of(
+                CustomerAddressDto.builder().addressId(UUID.randomUUID()).addressText("123 Lê Lợi, TP.HCM").isDefault(true).build()
+        ));
+
+        ClaimFormResponse form = service.getClaimForm(recordId);
+
+        assertThat(form).isNotNull();
+        assertThat(form.warrantyCode()).isEqualTo("WAR-202611-0001");
+        assertThat(form.canSubmit()).isTrue();
+        assertThat(form.expired()).isFalse();
+        assertThat(form.contactName()).isEqualTo("Nguyễn Văn A");
+        assertThat(form.suggestedSiteAddress()).isEqualTo("123 Lê Lợi, TP.HCM");
+    }
+
+    @Test
+    @DisplayName("getClaimForm: Thẻ không thuộc khách hàng -> ném WARRANTY_FORBIDDEN (SVD_019)")
+    void getClaimForm_forbidden() {
+        WarrantyRecord rec = activeRecord(LocalDate.of(2026, 1, 1), LocalDate.of(2028, 1, 1));
+        rec.setCustomerId(UUID.randomUUID()); // thuộc khách khác
+        when(warrantyRecordRepository.findById(recordId)).thenReturn(Optional.of(rec));
+
+        assertThatThrownBy(() -> service.getClaimForm(recordId))
+                .isInstanceOf(AppException.class)
+                .matches(ex -> ((AppException) ex).getErrorCode() == ServicedeskErrorCode.WARRANTY_FORBIDDEN);
+    }
+
+    @Test
+    @DisplayName("getClaimForm: Thẻ VOIDED -> canSubmit=false kèm lý do")
+    void getClaimForm_voided() {
+        WarrantyRecord rec = activeRecord(LocalDate.of(2026, 1, 1), LocalDate.of(2028, 1, 1));
+        rec.setStatus(WarrantyStatus.VOIDED);
+        when(warrantyRecordRepository.findById(recordId)).thenReturn(Optional.of(rec));
+
+        ClaimFormResponse form = service.getClaimForm(recordId);
+        assertThat(form.canSubmit()).isFalse();
+        assertThat(form.blockedReason()).contains("vô hiệu hóa");
+    }
+
+    @Test
+    @DisplayName("getClaimForm: Đang có ticket mở -> canSubmit=false kèm openTicketCode")
+    void getClaimForm_hasOpenTicket() {
+        WarrantyRecord rec = activeRecord(LocalDate.of(2026, 1, 1), LocalDate.of(2028, 1, 1));
+        when(warrantyRecordRepository.findById(recordId)).thenReturn(Optional.of(rec));
+        when(warrantyTicketRepository.findFirstByWarrantyRecordIdAndStatusIn(eq(recordId), any()))
+                .thenReturn(Optional.of(WarrantyTicket.builder()
+                        .ticketId(UUID.randomUUID())
+                        .ticketCode("TCK-WAR-202611-0099")
+                        .status(WarrantyTicketStatus.NEW)
+                        .build()));
+
+        ClaimFormResponse form = service.getClaimForm(recordId);
+        assertThat(form.canSubmit()).isFalse();
+        assertThat(form.openTicketCode()).isEqualTo("TCK-WAR-202611-0099");
+    }
+
+    @Test
+    @DisplayName("getClaimForm: Thẻ EXPIRED -> expired=true nhưng canSubmit=true (không chặn)")
+    void getClaimForm_expired() {
+        WarrantyRecord rec = activeRecord(LocalDate.of(2024, 1, 1), LocalDate.of(2025, 1, 1)); // đã hết hạn
+        when(warrantyRecordRepository.findById(recordId)).thenReturn(Optional.of(rec));
+
+        ClaimFormResponse form = service.getClaimForm(recordId);
+        assertThat(form.expired()).isTrue();
+        assertThat(form.canSubmit()).isTrue();
+    }
+
+    @Test
+    @DisplayName("submit: Thành công tạo ticket, lưu DB và phát 2 sự kiện")
+    void submit_success() {
+        WarrantyRecord rec = activeRecord(LocalDate.of(2026, 1, 1), LocalDate.of(2028, 1, 1));
+        when(warrantyRecordRepository.findByIdForUpdate(recordId)).thenReturn(Optional.of(rec));
+        when(warrantyTicketRepository.findFirstByWarrantyRecordIdAndStatusIn(eq(recordId), any())).thenReturn(Optional.empty());
+        when(warrantyTicketCodeGenerator.nextCode(any())).thenReturn("TCK-WAR-202611-0001");
+        when(warrantyTicketRepository.saveAndFlush(any(WarrantyTicket.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        CreateWarrantyTicketRequest request = CreateWarrantyTicketRequest.builder()
+                .warrantyRecordId(recordId)
+                .issueDescription("Vòi rửa thông minh không kéo ra được khi bấm nút wash")
+                .preferredDate(LocalDate.of(2026, 11, 15))
+                .preferredSlot(PreferredSlot.MORNING)
+                .siteAddress("Số 15 Lê Duẩn, P. Bến Nghé, Quận 1")
+                .media(List.of(
+                        TicketMedia.builder().type("IMAGE").url("https://res.cloudinary.com/demo/image/upload/aquasuite/warranty-tickets/" + customerId + "/img1.jpg").publicId("p1").contentType("image/jpeg").sizeBytes(1024).build()
+                ))
+                .build();
+
+        WarrantyTicketDetailResponse response = service.submit(request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.ticketCode()).isEqualTo("TCK-WAR-202611-0001");
+        assertThat(response.status()).isEqualTo(WarrantyTicketStatus.NEW);
+        assertThat(response.canCancel()).isTrue();
+
+        // Kiểm tra 2 sự kiện được phát ra
+        verify(eventPublisher).publishEvent(any(WarrantyTicketAuditEvent.class));
+        verify(eventPublisher).publishEvent(any(WarrantyClaimSubmittedEvent.class));
+    }
+
+    @Test
+    @DisplayName("submit: Thẻ VOIDED -> từ chối ném SVD_022")
+    void submit_voided_rejected() {
+        WarrantyRecord rec = activeRecord(LocalDate.of(2026, 1, 1), LocalDate.of(2028, 1, 1));
+        rec.setStatus(WarrantyStatus.VOIDED);
+        when(warrantyRecordRepository.findByIdForUpdate(recordId)).thenReturn(Optional.of(rec));
+
+        CreateWarrantyTicketRequest request = CreateWarrantyTicketRequest.builder()
+                .warrantyRecordId(recordId)
+                .issueDescription("Mô tả lỗi hợp lệ trên mười ký tự")
+                .siteAddress("Địa chỉ nhà")
+                .build();
+
+        assertThatThrownBy(() -> service.submit(request))
+                .isInstanceOf(AppException.class)
+                .matches(ex -> ((AppException) ex).getErrorCode() == ServicedeskErrorCode.WARRANTY_RECORD_VOIDED);
+    }
+
+    @Test
+    @DisplayName("submit: Đang có ticket mở -> từ chối ném SVD_021")
+    void submit_alreadyOpenTicket_rejected() {
+        WarrantyRecord rec = activeRecord(LocalDate.of(2026, 1, 1), LocalDate.of(2028, 1, 1));
+        when(warrantyRecordRepository.findByIdForUpdate(recordId)).thenReturn(Optional.of(rec));
+        when(warrantyTicketRepository.findFirstByWarrantyRecordIdAndStatusIn(eq(recordId), any()))
+                .thenReturn(Optional.of(WarrantyTicket.builder().ticketCode("TCK-WAR-202611-0005").status(WarrantyTicketStatus.NEW).build()));
+
+        CreateWarrantyTicketRequest request = CreateWarrantyTicketRequest.builder()
+                .warrantyRecordId(recordId)
+                .issueDescription("Mô tả lỗi hợp lệ trên mười ký tự")
+                .siteAddress("Địa chỉ nhà")
+                .build();
+
+        assertThatThrownBy(() -> service.submit(request))
+                .isInstanceOf(AppException.class)
+                .matches(ex -> ((AppException) ex).getErrorCode() == ServicedeskErrorCode.WARRANTY_TICKET_ALREADY_OPEN);
+    }
+
+    @Test
+    @DisplayName("submit: Mô tả sự cố < 10 ký tự -> từ chối")
+    void submit_shortDescription_rejected() {
+        WarrantyRecord rec = activeRecord(LocalDate.of(2026, 1, 1), LocalDate.of(2028, 1, 1));
+        when(warrantyRecordRepository.findByIdForUpdate(recordId)).thenReturn(Optional.of(rec));
+
+        CreateWarrantyTicketRequest request = CreateWarrantyTicketRequest.builder()
+                .warrantyRecordId(recordId)
+                .issueDescription("Hỏng máy") // 8 ký tự
+                .siteAddress("Địa chỉ nhà")
+                .build();
+
+        assertThatThrownBy(() -> service.submit(request))
+                .isInstanceOf(AppException.class)
+                .matches(ex -> ((AppException) ex).getErrorCode() == ServicedeskErrorCode.INVALID_MEDIA_FILE);
+    }
+
+    @Test
+    @DisplayName("submit: Ngày hẹn trong quá khứ -> từ chối ném SVD_026")
+    void submit_pastDate_rejected() {
+        WarrantyRecord rec = activeRecord(LocalDate.of(2026, 1, 1), LocalDate.of(2028, 1, 1));
+        when(warrantyRecordRepository.findByIdForUpdate(recordId)).thenReturn(Optional.of(rec));
+
+        CreateWarrantyTicketRequest request = CreateWarrantyTicketRequest.builder()
+                .warrantyRecordId(recordId)
+                .issueDescription("Mô tả sự cố chi tiết đầy đủ hợp lệ")
+                .preferredDate(LocalDate.of(2026, 11, 12)) // hôm qua
+                .siteAddress("Địa chỉ nhà")
+                .build();
+
+        assertThatThrownBy(() -> service.submit(request))
+                .isInstanceOf(AppException.class)
+                .matches(ex -> ((AppException) ex).getErrorCode() == ServicedeskErrorCode.INVALID_PREFERRED_DATE);
+    }
+
+    @Test
+    @DisplayName("submit: Ngày hẹn quá 60 ngày -> từ chối ném SVD_026")
+    void submit_farFutureDate_rejected() {
+        WarrantyRecord rec = activeRecord(LocalDate.of(2026, 1, 1), LocalDate.of(2028, 1, 1));
+        when(warrantyRecordRepository.findByIdForUpdate(recordId)).thenReturn(Optional.of(rec));
+
+        CreateWarrantyTicketRequest request = CreateWarrantyTicketRequest.builder()
+                .warrantyRecordId(recordId)
+                .issueDescription("Mô tả sự cố chi tiết đầy đủ hợp lệ")
+                .preferredDate(LocalDate.of(2027, 2, 1)) // quá 60 ngày
+                .siteAddress("Địa chỉ nhà")
+                .build();
+
+        assertThatThrownBy(() -> service.submit(request))
+                .isInstanceOf(AppException.class)
+                .matches(ex -> ((AppException) ex).getErrorCode() == ServicedeskErrorCode.INVALID_PREFERRED_DATE);
+    }
+
+    @Test
+    @DisplayName("cancel: Ticket NEW -> Hủy thành công và chuyển trạng thái CANCELLED")
+    void cancel_success() {
+        UUID ticketId = UUID.randomUUID();
+        WarrantyTicket ticket = WarrantyTicket.builder()
+                .ticketId(ticketId)
+                .ticketCode("TCK-WAR-202611-0001")
+                .warrantyRecordId(recordId)
+                .customerId(customerId)
+                .status(WarrantyTicketStatus.NEW)
+                .build();
+
+        when(warrantyTicketRepository.findByTicketIdAndCustomerId(ticketId, customerId)).thenReturn(Optional.of(ticket));
+        when(warrantyTicketRepository.save(any(WarrantyTicket.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        WarrantyTicketDetailResponse response = service.cancel(ticketId, new CancelWarrantyTicketRequest("Tôi đã tự sửa được rồi"));
+
+        assertThat(response.status()).isEqualTo(WarrantyTicketStatus.CANCELLED);
+        assertThat(response.cancelReason()).isEqualTo("Tôi đã tự sửa được rồi");
+        verify(eventPublisher).publishEvent(any(WarrantyTicketAuditEvent.class));
+    }
+
+    @Test
+    @DisplayName("cancel: Ticket đã IN_PROGRESS -> từ chối ném SVD_028")
+    void cancel_inProgress_rejected() {
+        UUID ticketId = UUID.randomUUID();
+        WarrantyTicket ticket = WarrantyTicket.builder()
+                .ticketId(ticketId)
+                .ticketCode("TCK-WAR-202611-0001")
+                .warrantyRecordId(recordId)
+                .customerId(customerId)
+                .status(WarrantyTicketStatus.IN_PROGRESS)
+                .build();
+
+        when(warrantyTicketRepository.findByTicketIdAndCustomerId(ticketId, customerId)).thenReturn(Optional.of(ticket));
+
+        assertThatThrownBy(() -> service.cancel(ticketId, new CancelWarrantyTicketRequest("Hủy")))
+                .isInstanceOf(AppException.class)
+                .matches(ex -> ((AppException) ex).getErrorCode() == ServicedeskErrorCode.WARRANTY_TICKET_NOT_CANCELLABLE);
+    }
+}
+
