@@ -2,6 +2,9 @@ package com.aquasuite.ims.module.catalog.api;
 
 import com.aquasuite.ims.module.catalog.api.dto.CatalogBundleSummaryDto;
 import com.aquasuite.ims.module.catalog.api.dto.CatalogSkuSummaryDto;
+import com.aquasuite.ims.module.catalog.api.dto.CatalogBrandSummaryDto;
+import com.aquasuite.ims.module.catalog.api.dto.CatalogCategorySummaryDto;
+import com.aquasuite.ims.module.catalog.api.dto.CatalogVariantWarrantyReferenceDto;
 
 import java.util.Collection;
 import java.util.List;
@@ -35,4 +38,19 @@ public interface CatalogApi {
 
     /** Lấy toàn bộ SKU đang ở trạng thái ACTIVE */
     List<CatalogSkuSummaryDto> getAllActiveSkus();
+
+    /** Resolve a brand for cross-module validation/display. */
+    Optional<CatalogBrandSummaryDto> getBrandSummary(UUID brandId);
+
+    /** Resolve a category for cross-module validation/display. */
+    Optional<CatalogCategorySummaryDto> getCategorySummary(UUID categoryId);
+
+    /** Active reference data used by policy-editing screens. */
+    List<CatalogBrandSummaryDto> getActiveBrands();
+
+    /** Active reference data used by policy-editing screens. */
+    List<CatalogCategorySummaryDto> getActiveCategories();
+
+    /** SKU variants that currently reference the supplied warranty-policy ID. */
+    List<CatalogVariantWarrantyReferenceDto> getVariantsByWarrantyPolicyId(UUID warrantyPolicyId);
 }

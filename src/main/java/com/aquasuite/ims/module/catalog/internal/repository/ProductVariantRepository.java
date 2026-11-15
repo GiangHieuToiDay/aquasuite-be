@@ -40,6 +40,10 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
 
     List<ProductVariant> findByProductIdIn(Collection<UUID> productIds);
 
+    List<ProductVariant> findByWarrantyPolicyId(UUID warrantyPolicyId);
+
+    long countByWarrantyPolicyId(UUID warrantyPolicyId);
+
     boolean existsBySku(String sku);
 
     boolean existsBySkuIgnoreCase(String sku);
