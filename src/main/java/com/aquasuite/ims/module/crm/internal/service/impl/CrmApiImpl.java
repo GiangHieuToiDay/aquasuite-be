@@ -17,12 +17,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -300,5 +303,25 @@ public class CrmApiImpl implements CrmApi {
         req.setReason(reason != null && !reason.isBlank() ? reason.trim() : "Yêu cầu cấp/tăng hạn mức cho đơn hàng dự án.");
         var response = creditProfileRequestService.submit(customerId, req);
         return response.requestId();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<UUID> findCustomerIdsByPhoneKeyword(String phoneKeyword) {
+        if (phoneKeyword == null || phoneKeyword.isBlank()) {
+            return Collections.emptyList();
+        }
+        return customerRepository.findCustomerIdsByPhoneKeyword(phoneKeyword.trim());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<UUID, CustomerSummaryDto> getCustomersByIds(Collection<UUID> customerIds) {
+        if (customerIds == null || customerIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return customerRepository.findAllById(customerIds).stream()
+                .map(this::toSummaryDto)
+                .collect(Collectors.toMap(CustomerSummaryDto::customerId, dto -> dto, (a, b) -> a));
     }
 }

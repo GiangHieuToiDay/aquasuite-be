@@ -55,4 +55,10 @@ public interface SalesInvoiceRepository extends JpaRepository<SalesInvoice, UUID
     boolean existsByOrderIdAndStatus(UUID orderId, String status);
 
     long countByOrderIdAndStatusNot(UUID orderId, String status);
+
+//    List<SalesInvoice> findByOrderIdOrderByIssueDateDesc(UUID orderId);
+
+    List<SalesInvoice> findByOrderIdOrderByIssueDateDesc(UUID orderId);
+
+//    List<SalesInvoice> findByOrderIdOrderByIssueDateDesc(UUID orderId);
 }

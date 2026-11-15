@@ -8,4 +8,5 @@ BEGIN
         RAISE EXCEPTION 'Customer phone linking blocked: reconcile duplicate customer phones before migration';
     END IF;
 END $$;
+CREATE UNIQUE INDEX uq_customers_phone ON public.customers (phone);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_customers_phone ON public.customers (phone);
