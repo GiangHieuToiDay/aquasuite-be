@@ -1,4 +1,4 @@
--- UC-63: persist how a verified customer receipt settles issued electronic invoices.
+-- UC-63 / V40: persist how a verified customer receipt settles issued electronic invoices.
 -- The receipt transaction itself remains immutable and is never duplicated by allocation.
 
 CREATE TABLE public.payment_invoice_allocations (

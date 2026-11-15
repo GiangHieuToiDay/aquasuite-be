@@ -52,7 +52,7 @@ UC-23 and UC-70 create and verify one immutable incoming receipt. UC-63 records 
 
 - Finance owns `payment_invoice_allocations`.
 - The table uses scalar `transaction_id`, `order_id`, and `invoice_id`; it does not use JPA associations across modules.
-- V31 is additive: primary key, strictly positive amount check, `ACTIVE` status, timestamps, audit actor, indexes, and PostgreSQL foreign keys where the existing schema permits.
+- V40 is additive: primary key, strictly positive amount check, `ACTIVE` status, timestamps, audit actor, indexes, and PostgreSQL foreign keys where the existing schema permits.
 - Existing rows are not backfilled. Existing receipts remain unallocated until an Accountant allocates them.
 - Aggregate amount limits are enforced under locks in the service, not by a row-level SQL check.
 
