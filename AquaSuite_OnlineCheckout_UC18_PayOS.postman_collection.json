@@ -1,0 +1,170 @@
+{
+  "info": {
+    "_postman_id": "uc18-online-checkout-payos-aquasuite",
+    "name": "AquaSuite - UC-18 Online Checkout & PayOS (VietQR)",
+    "description": "Bộ API test End-to-End cho UC-18 (Đặt hàng trực tuyến & Thanh toán PayOS). Chạy theo thứ tự từ 1 đến 8.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080/api/v1" },
+    { "key": "customerToken", "value": "" },
+    { "key": "variantId", "value": "0aec814b-599d-4d5f-9f36-fce0a5a12969" },
+    { "key": "orderId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Customer Login (Lấy JWT Customer)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Login 200 OK', function () { pm.response.to.have.status(200); });",
+              "var json = pm.response.json();",
+              "if (json.data && json.data.access_token) { pm.collectionVariables.set('customerToken', json.data.access_token); }"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"customer@aquasuite.com\",\n  \"password\": \"Password123!\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "login"]
+        }
+      }
+    },
+    {
+      "name": "2. Thêm sản phẩm vào giỏ hàng (UC-17)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{customerToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"variantId\": \"{{variantId}}\",\n  \"quantity\": 1\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/sales/cart/items",
+          "host": ["{{baseUrl}}"],
+          "path": ["sales", "cart", "items"]
+        }
+      }
+    },
+    {
+      "name": "3. Checkout Preview (Giỏ hàng + Sổ địa chỉ + Trạng thái PayOS)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{customerToken}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/sales/online-orders/checkout-preview",
+          "host": ["{{baseUrl}}"],
+          "path": ["sales", "online-orders", "checkout-preview"]
+        }
+      }
+    },
+    {
+      "name": "4. Negative Test - Đặt đơn CREDIT bị chặn (400 SALES_030)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{customerToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"deliveryAddress\": \"123 Nguyễn Văn Linh, Q.7, TP.HCM\",\n  \"paymentMethod\": \"CREDIT\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/sales/online-orders",
+          "host": ["{{baseUrl}}"],
+          "path": ["sales", "online-orders"]
+        }
+      }
+    },
+    {
+      "name": "5. Đặt hàng trực tuyến qua PayOS VietQR (BANK_TRANSFER)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var json = pm.response.json();",
+              "if (json.data && json.data.orderId) { pm.collectionVariables.set('orderId', json.data.orderId); }"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{customerToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"recipientName\": \"Nguyễn Bá Lâm\",\n  \"recipientPhone\": \"0901234567\",\n  \"deliveryAddress\": \"123 Nguyễn Văn Linh, Q.7, TP.HCM\",\n  \"deliverySchedule\": \"Giao sáng mai\",\n  \"note\": \"Thanh toán thử PayOS 2000đ\",\n  \"paymentMethod\": \"BANK_TRANSFER\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/sales/online-orders",
+          "host": ["{{baseUrl}}"],
+          "path": ["sales", "online-orders"]
+        }
+      }
+    },
+    {
+      "name": "6. Xem chi tiết đơn hàng & link PayOS",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{customerToken}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/sales/online-orders/{{orderId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["sales", "online-orders", "{{orderId}}"]
+        }
+      }
+    },
+    {
+      "name": "7. Đối soát & Xác nhận đã thanh toán PayOS (sau khi quét QR)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Authorization", "value": "Bearer {{customerToken}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/sales/online-orders/{{orderId}}/payos/verify",
+          "host": ["{{baseUrl}}"],
+          "path": ["sales", "online-orders", "{{orderId}}", "payos", "verify"]
+        }
+      }
+    },
+    {
+      "name": "8. Đặt hàng COD (CASH)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{customerToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"recipientName\": \"Nguyễn Bá Lâm\",\n  \"recipientPhone\": \"0901234567\",\n  \"deliveryAddress\": \"45 Lê Lợi, Q.1, TP.HCM\",\n  \"paymentMethod\": \"CASH\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/sales/online-orders",
+          "host": ["{{baseUrl}}"],
+          "path": ["sales", "online-orders"]
+        }
+      }
+    }
+  ]
+}
+

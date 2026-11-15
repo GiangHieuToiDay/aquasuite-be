@@ -75,6 +75,9 @@ public class Order {
     @Column(name = "payment_status", nullable = false, length = 32)
     private String paymentStatus;
 
+    @Column(name = "payment_method", length = 32)
+    private String paymentMethod;
+
     @Column(name = "order_date", nullable = false)
     private OffsetDateTime orderDate;
 

@@ -29,6 +29,8 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
 
     Optional<Order> findByOrderCode(String orderCode);
 
+    Optional<Order> findByOrderIdAndCustomerId(UUID orderId, UUID customerId);
+
     boolean existsByOrderCode(String orderCode);
 
     long countByOrderCodeStartingWith(String prefix);

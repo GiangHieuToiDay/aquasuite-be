@@ -31,7 +31,15 @@ public enum SalesErrorCode implements BaseErrorCode {
     INVOICE_MODIFICATION_BLOCKED_BY_UC26("SALES_022", "Đơn hàng đang có yêu cầu điều chỉnh/hủy (UC-26) chờ xử lý, tạm khóa chỉnh sửa hoặc phát hành hóa đơn", HttpStatus.CONFLICT),
     INVOICE_TOTAL_BELOW_PAID("SALES_023", "Tổng giá trị đơn hàng mới ({0}) không được nhỏ hơn số tiền khách đã thanh toán xác nhận ({1})", HttpStatus.CONFLICT),
     INVOICE_SPLIT_INVALID("SALES_024", "Dữ liệu chia đợt hóa đơn không hợp lệ: {0}", HttpStatus.BAD_REQUEST),
-    INVOICE_CANNOT_DELETE_ONLY_BATCH("SALES_025", "Không thể xóa hóa đơn duy nhất của đơn hàng", HttpStatus.BAD_REQUEST);
+    INVOICE_CANNOT_DELETE_ONLY_BATCH("SALES_025", "Không thể xóa hóa đơn duy nhất của đơn hàng", HttpStatus.BAD_REQUEST),
+    CART_ITEM_NOT_FOUND("SALES_026", "Không tìm thấy sản phẩm trong giỏ hàng", HttpStatus.NOT_FOUND),
+    INVALID_CART_QUANTITY("SALES_027", "Số lượng sản phẩm trong giỏ hàng phải lớn hơn 0", HttpStatus.BAD_REQUEST),
+    CART_EMPTY_FOR_CHECKOUT("SALES_028", "Giỏ hàng đang trống, không thể đặt hàng trực tuyến", HttpStatus.BAD_REQUEST),
+    DELIVERY_ADDRESS_REQUIRED("SALES_029", "Vui lòng chọn hoặc nhập địa chỉ giao hàng hợp lệ", HttpStatus.BAD_REQUEST),
+    ONLINE_PAYMENT_METHOD_INVALID("SALES_030", "Đơn hàng trực tuyến chỉ hỗ trợ Thanh toán chuyển khoản (PayOS) hoặc COD", HttpStatus.BAD_REQUEST),
+    PAYOS_CONFIG_MISSING("SALES_031", "Chưa cấu hình thông tin kết nối PayOS (Client ID / API Key / Checksum Key)", HttpStatus.BAD_REQUEST),
+    PAYOS_API_ERROR("SALES_032", "Lỗi kết nối cổng thanh toán PayOS: {0}", HttpStatus.BAD_GATEWAY),
+    ORDER_NOT_PAYABLE_VIA_PAYOS("SALES_033", "Đơn hàng không hỗ trợ hoặc đã hoàn tất thanh toán PayOS", HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String message;
