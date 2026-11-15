@@ -26,14 +26,46 @@ CREATE TABLE IF NOT EXISTS public.warranty_policies (
     CONSTRAINT chk_warranty_policies_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
 );
 
+-- UC-45 may already have created this table with its older generic-policy shape.
+-- Keep those policy IDs and SKU/warranty-record references while adding UC-44 fields.
+ALTER TABLE public.warranty_policies
+    ADD COLUMN IF NOT EXISTS brand_id UUID,
+    ADD COLUMN IF NOT EXISTS category_id UUID,
+    ADD COLUMN IF NOT EXISTS warranty_period_months INTEGER,
+    ADD COLUMN IF NOT EXISTS coverage_conditions TEXT,
+    ADD COLUMN IF NOT EXISTS created_by UUID,
+    ADD COLUMN IF NOT EXISTS updated_by UUID;
+
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'warranty_policies'
+          AND column_name = 'warranty_months'
+    ) THEN
+        UPDATE public.warranty_policies
+        SET warranty_period_months = COALESCE(warranty_period_months, warranty_months),
+            coverage_conditions = COALESCE(coverage_conditions, NULLIF(btrim(warranty_terms), ''),
+                                           'Legacy warranty policy');
+        ALTER TABLE public.warranty_policies ALTER COLUMN warranty_months DROP NOT NULL;
+        ALTER TABLE public.warranty_policies ALTER COLUMN policy_name TYPE VARCHAR(255);
+    END IF;
+END $$;
+
 CREATE UNIQUE INDEX IF NOT EXISTS uq_warranty_policies_active_brand_category
     ON public.warranty_policies (brand_id, category_id) WHERE status = 'ACTIVE';
 CREATE INDEX IF NOT EXISTS idx_warranty_policies_status ON public.warranty_policies (status);
 CREATE INDEX IF NOT EXISTS idx_warranty_policies_brand_category ON public.warranty_policies (brand_id, category_id);
 
 -- ProductVariant keeps the scalar ID in Java; the database FK protects integrity.
-ALTER TABLE public.product_variants
-    ADD CONSTRAINT fk_product_variants_warranty_policy
-    FOREIGN KEY (warranty_policy_id) REFERENCES public.warranty_policies (warranty_policy_id) ON DELETE RESTRICT NOT VALID;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_product_variants_warranty_policy') THEN
+        ALTER TABLE public.product_variants
+            ADD CONSTRAINT fk_product_variants_warranty_policy
+            FOREIGN KEY (warranty_policy_id) REFERENCES public.warranty_policies (warranty_policy_id)
+            ON DELETE RESTRICT NOT VALID;
+    END IF;
+END $$;
 CREATE INDEX IF NOT EXISTS idx_product_variants_warranty_policy_id
     ON public.product_variants (warranty_policy_id) WHERE warranty_policy_id IS NOT NULL;

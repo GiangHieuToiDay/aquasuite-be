@@ -47,7 +47,7 @@ class DeliveryPostgresTest {
                 c.createStatement().execute("CREATE TABLE deliveries (delivery_id UUID PRIMARY KEY, delivery_code VARCHAR(100) NOT NULL UNIQUE, order_id UUID NOT NULL, warehouse_code VARCHAR(50) NOT NULL, shipper_id UUID, batch_no INTEGER, delivery_status VARCHAR(32) NOT NULL DEFAULT 'DRAFT', dispatch_date TIMESTAMPTZ, scheduled_date TIMESTAMPTZ, delivered_at TIMESTAMPTZ, recipient_name VARCHAR(255) NOT NULL, recipient_phone VARCHAR(32) NOT NULL, delivery_address TEXT NOT NULL, cod_required BOOLEAN NOT NULL DEFAULT FALSE, cod_amount NUMERIC(15,2) NOT NULL DEFAULT 0, created_by UUID NOT NULL, confirmed_by UUID, confirmed_at TIMESTAMPTZ, note TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now())");
                 c.createStatement().execute("CREATE TABLE delivery_items (delivery_item_id UUID PRIMARY KEY, delivery_id UUID NOT NULL, order_item_id UUID NOT NULL, inventory_id UUID NOT NULL, variant_id UUID NOT NULL, quantity NUMERIC(12,2) NOT NULL, serial_numbers JSONB)");
                 c.createStatement().execute("INSERT INTO deliveries(delivery_id,delivery_code,order_id,warehouse_code,recipient_name,recipient_phone,delivery_address,created_by,delivery_status) VALUES ('00000000-0000-0000-0000-000000000001','legacy','00000000-0000-0000-0000-000000000002','MAIN','Test','000','Test','00000000-0000-0000-0000-000000000003','DELIVERED')");
-                ScriptUtils.executeSqlScript(c, new ClassPathResource("db/migration/V31__add_delivery_assignment_and_photos.sql"));
+                ScriptUtils.executeSqlScript(c, new ClassPathResource("db/migration/V41__add_delivery_assignment_and_photos.sql"));
             }
             return ds;
         }

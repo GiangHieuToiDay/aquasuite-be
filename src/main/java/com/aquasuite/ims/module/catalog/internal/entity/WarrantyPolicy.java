@@ -19,7 +19,7 @@ import java.util.UUID;
  * Chính sách bảo hành chuẩn của danh mục (Phương án B).
  * Được liên kết từ {@link ProductVariant#getWarrantyPolicyId()} và sử dụng khi cấp thẻ bảo hành UC-45.
  */
-@Entity
+@Entity(name = "CatalogWarrantyPolicy")
 @Table(name = "warranty_policies")
 @Getter
 @Setter
@@ -38,14 +38,11 @@ public class WarrantyPolicy {
     @Column(name = "policy_name", nullable = false, length = 150)
     private String policyName;
 
-    @Column(name = "warranty_months", nullable = false)
+    @Column(name = "warranty_period_months", nullable = false)
     private Integer warrantyMonths;
 
-    @Column(name = "warranty_terms", columnDefinition = "TEXT")
+    @Column(name = "coverage_conditions", columnDefinition = "TEXT")
     private String warrantyTerms;
-
-    @Column(name = "description", columnDefinition = "TEXT")
-    private String description;
 
     @Column(name = "status", nullable = false, length = 32)
     @Builder.Default

@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-@Repository
+@Repository("catalogWarrantyPolicyRepository")
 public interface WarrantyPolicyRepository extends JpaRepository<WarrantyPolicy, UUID> {
 
     Optional<WarrantyPolicy> findByPolicyCodeIgnoreCase(String policyCode);

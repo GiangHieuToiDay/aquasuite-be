@@ -1,12 +1,8 @@
 package com.aquasuite.ims.module.catalog.internal.service.impl;
 
 import com.aquasuite.ims.module.catalog.api.CatalogWarrantyApi;
-import com.aquasuite.ims.module.catalog.api.dto.CatalogWarrantyPolicyDto;
-import com.aquasuite.ims.module.catalog.internal.entity.Product;
 import com.aquasuite.ims.module.catalog.internal.entity.ProductVariant;
 import com.aquasuite.ims.module.catalog.internal.entity.WarrantyPolicy;
-import com.aquasuite.ims.module.catalog.internal.repository.ProductRepository;
-import com.aquasuite.ims.module.catalog.internal.repository.ProductVariantRepository;
 import com.aquasuite.ims.module.catalog.internal.repository.WarrantyPolicyRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,26 +16,27 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class CatalogWarrantyApiImpl implements CatalogWarrantyApi {
 
-    private final ProductVariantRepository productVariantRepository;
-    private final ProductRepository productRepository;
+    private final com.aquasuite.ims.module.catalog.internal.repository.ProductVariantRepository productVariantRepository;
+    private final com.aquasuite.ims.module.catalog.internal.repository.ProductRepository productRepository;
     private final WarrantyPolicyRepository warrantyPolicyRepository;
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<CatalogWarrantyPolicyDto> getWarrantyInfoByVariantId(UUID variantId) {
+    public Optional<com.aquasuite.ims.module.catalog.api.dto.CatalogWarrantyPolicyDto> getWarrantyInfoByVariantId(UUID variantId) {
         if (variantId == null) {
             return Optional.empty();
         }
         return productVariantRepository.findById(variantId).map(variant -> {
             String productName = variant.getProductId() == null
                     ? null
-                    : productRepository.findById(variant.getProductId()).map(Product::getProductName).orElse(null);
+                    : productRepository.findById(variant.getProductId())
+                            .map(com.aquasuite.ims.module.catalog.internal.entity.Product::getProductName).orElse(null);
 
             WarrantyPolicy policy = variant.getWarrantyPolicyId() == null
                     ? null
                     : warrantyPolicyRepository.findById(variant.getWarrantyPolicyId()).orElse(null);
 
-            return CatalogWarrantyPolicyDto.builder()
+            return com.aquasuite.ims.module.catalog.api.dto.CatalogWarrantyPolicyDto.builder()
                     .variantId(variant.getVariantId())
                     .sku(variant.getSku())
                     .variantName(variant.getVariantName())
@@ -57,7 +54,7 @@ public class CatalogWarrantyApiImpl implements CatalogWarrantyApi {
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<CatalogWarrantyPolicyDto> getWarrantyPolicyById(UUID policyId) {
+    public Optional<com.aquasuite.ims.module.catalog.api.dto.CatalogWarrantyPolicyDto> getWarrantyPolicyById(UUID policyId) {
         if (policyId == null) {
             return Optional.empty();
         }
@@ -66,15 +63,15 @@ public class CatalogWarrantyApiImpl implements CatalogWarrantyApi {
 
     @Override
     @Transactional(readOnly = true)
-    public List<CatalogWarrantyPolicyDto> getActiveWarrantyPolicies() {
+    public List<com.aquasuite.ims.module.catalog.api.dto.CatalogWarrantyPolicyDto> getActiveWarrantyPolicies() {
         return warrantyPolicyRepository.findByStatusOrderByWarrantyMonthsAscPolicyNameAsc("ACTIVE")
                 .stream()
                 .map(this::toPolicyDto)
                 .toList();
     }
 
-    private CatalogWarrantyPolicyDto toPolicyDto(WarrantyPolicy policy) {
-        return CatalogWarrantyPolicyDto.builder()
+    private com.aquasuite.ims.module.catalog.api.dto.CatalogWarrantyPolicyDto toPolicyDto(WarrantyPolicy policy) {
+        return com.aquasuite.ims.module.catalog.api.dto.CatalogWarrantyPolicyDto.builder()
                 .warrantyPolicyId(policy.getWarrantyPolicyId())
                 .policyCode(policy.getPolicyCode())
                 .policyName(policy.getPolicyName())

@@ -2,9 +2,7 @@ package com.aquasuite.ims.module.catalog.internal.config;
 
 import com.aquasuite.ims.module.catalog.internal.entity.ProductVariant;
 import com.aquasuite.ims.module.catalog.internal.entity.WarrantyPolicy;
-import com.aquasuite.ims.module.catalog.internal.repository.ProductVariantRepository;
 import com.aquasuite.ims.module.catalog.internal.repository.WarrantyPolicyRepository;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
@@ -23,12 +21,20 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class CatalogWarrantyDevInitializer {
 
-    private final ProductVariantRepository variantRepository;
+    private final com.aquasuite.ims.module.catalog.internal.repository.ProductVariantRepository variantRepository;
     private final WarrantyPolicyRepository warrantyPolicyRepository;
     private final Environment environment;
+
+    public CatalogWarrantyDevInitializer(
+            com.aquasuite.ims.module.catalog.internal.repository.ProductVariantRepository variantRepository,
+            WarrantyPolicyRepository warrantyPolicyRepository,
+            Environment environment) {
+        this.variantRepository = variantRepository;
+        this.warrantyPolicyRepository = warrantyPolicyRepository;
+        this.environment = environment;
+    }
 
     @EventListener(ApplicationReadyEvent.class)
     @Transactional

@@ -1,4 +1,4 @@
--- V32: Hỗ trợ Đặt hàng Trực tuyến (UC-18) và tích hợp Thanh toán PayOS
+-- V43: Hỗ trợ Đặt hàng Trực tuyến (UC-18) và tích hợp Thanh toán PayOS
 ALTER TABLE public.orders
     ADD COLUMN IF NOT EXISTS payment_method VARCHAR(32);
 
