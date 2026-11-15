@@ -61,4 +61,6 @@ public interface SalesInvoiceRepository extends JpaRepository<SalesInvoice, UUID
     List<SalesInvoice> findByOrderIdOrderByIssueDateDesc(UUID orderId);
 
 //    List<SalesInvoice> findByOrderIdOrderByIssueDateDesc(UUID orderId);
+
+//    List<SalesInvoice> findByOrderIdOrderByIssueDateDesc(UUID orderId);
 }
