@@ -31,8 +31,8 @@ class PaymentVerificationPostgresIT extends PostgreSqlIntegrationTestSupport {
         UUID actor = UUID.randomUUID(), customer = UUID.randomUUID(), order = UUID.randomUUID();
         jdbc.update("INSERT INTO users(id, username, email, password_hash, status) VALUES (?, ?, ?, ?, 'ACTIVE')",
                 actor, prefix + "-" + actor, actor + "@example.invalid", "{disabled-test-account}");
-        jdbc.update("INSERT INTO customers(customer_id, customer_code, customer_name, phone) VALUES (?, ?, 'Test', '0900000000')",
-                customer, prefix + "-" + customer);
+        jdbc.update("INSERT INTO customers(customer_id, customer_code, customer_name, phone) VALUES (?, ?, 'Test', ?)",
+                customer, prefix + "-" + customer, "09" + System.nanoTime());
         jdbc.update("INSERT INTO orders(order_id, order_code, customer_id, order_channel, order_status, payment_status, order_date, total_amount) "
                 + "VALUES (?, ?, ?, 'COUNTER', 'PROCESSING', 'UNPAID', now(), " + total + ")", order, prefix + "-" + order, customer);
         when(iam.getCurrentUserId()).thenReturn(actor);

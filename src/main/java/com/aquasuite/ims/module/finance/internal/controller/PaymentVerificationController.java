@@ -19,7 +19,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/finance/payment-verifications")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ACCOUNTANT')")
+@PreAuthorize("hasAnyRole('ACCOUNTANT','SHOP_OWNER')")
 public class PaymentVerificationController {
 
     /** Xử lý nghiệp vụ xem/xác minh/từ chối khoản chờ. */

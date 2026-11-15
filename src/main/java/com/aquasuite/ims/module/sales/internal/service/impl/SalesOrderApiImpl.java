@@ -3,13 +3,16 @@ package com.aquasuite.ims.module.sales.internal.service.impl;
 import com.aquasuite.ims.module.sales.api.SalesOrderApi;
 import com.aquasuite.ims.module.sales.api.dto.SalesOrderMilestoneDto;
 import com.aquasuite.ims.module.sales.api.dto.SalesOrderPaymentInfoDto;
+import com.aquasuite.ims.module.sales.api.dto.SalesOrderItemSummaryDto;
 import com.aquasuite.ims.module.sales.internal.entity.Order;
+import com.aquasuite.ims.module.sales.internal.entity.OrderItem;
 import com.aquasuite.ims.module.sales.internal.entity.OrderPaymentMilestone;
 import com.aquasuite.ims.module.sales.internal.enums.OrderStatus;
 import com.aquasuite.ims.module.sales.internal.enums.PaymentStatus;
 import com.aquasuite.ims.module.sales.internal.error.SalesErrorCode;
 import com.aquasuite.ims.module.sales.internal.repository.OrderPaymentMilestoneRepository;
 import com.aquasuite.ims.module.sales.internal.repository.OrderRepository;
+import com.aquasuite.ims.module.sales.internal.repository.OrderItemRepository;
 import com.aquasuite.ims.module.sales.internal.repository.SalesInvoiceRepository;
 import com.aquasuite.ims.share.exception.AppException;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +36,7 @@ public class SalesOrderApiImpl implements SalesOrderApi {
 
     /** Đọc, khóa và cập nhật đơn hàng do Sales quản lý. */
     private final OrderRepository orderRepository;
+    private final OrderItemRepository orderItemRepository;
     /** Tìm hóa đơn cửa hàng liên quan đến đơn. */
     private final SalesInvoiceRepository salesInvoiceRepository;
     /** Đọc các mốc thanh toán theo thỏa thuận đã snapshot vào đơn. */
@@ -145,5 +149,19 @@ public class SalesOrderApiImpl implements SalesOrderApi {
                         .sortOrder(m.getSortOrder())
                         .build())
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<SalesOrderItemSummaryDto> getOrderItemSummary(UUID orderItemId) {
+        if (orderItemId == null) return Optional.empty();
+        return orderItemRepository.findById(orderItemId).flatMap(item -> orderRepository.findById(item.getOrderId())
+                .map(order -> toOrderItemSummary(item, order)));
+    }
+
+    private SalesOrderItemSummaryDto toOrderItemSummary(OrderItem item, Order order) {
+        return SalesOrderItemSummaryDto.builder().orderItemId(item.getOrderItemId()).orderId(order.getOrderId())
+                .orderCode(order.getOrderCode()).variantId(item.getVariantId()).sku(item.getSku())
+                .productName(item.getProductName()).variantName(item.getVariantName()).build();
     }
 }

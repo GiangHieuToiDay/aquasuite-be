@@ -282,7 +282,7 @@ public class SalesOrderPostmanSimulationTest {
                 org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class)
         );
 
-        salesOrderApi = new SalesOrderApiImpl(orderRepository, salesInvoiceRepository, orderPaymentMilestoneRepository,
+        salesOrderApi = new SalesOrderApiImpl(orderRepository, org.mockito.Mockito.mock(com.aquasuite.ims.module.sales.internal.repository.OrderItemRepository.class), salesInvoiceRepository, orderPaymentMilestoneRepository,
                 org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class));
         SalesOrderController controller = new SalesOrderController(salesOrderService);
 

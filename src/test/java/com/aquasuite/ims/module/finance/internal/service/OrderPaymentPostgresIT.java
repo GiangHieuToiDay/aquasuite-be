@@ -50,8 +50,8 @@ class OrderPaymentPostgresIT extends PostgreSqlIntegrationTestSupport {
         UUID second = UUID.randomUUID(), key = UUID.randomUUID();
         jdbc.update("INSERT INTO users(id, username, email, password_hash, status) VALUES (?, ?, ?, ?, 'ACTIVE')",
                 actor, "key-" + actor, actor + "@example.invalid", "{disabled-test-account}");
-        jdbc.update("INSERT INTO customers(customer_id, customer_code, customer_name, phone) VALUES (?, ?, 'Test', '0900000000')",
-                customer, "K-" + customer);
+        jdbc.update("INSERT INTO customers(customer_id, customer_code, customer_name, phone) VALUES (?, ?, 'Test', ?)",
+                customer, "K-" + customer, "09" + System.nanoTime());
         for (UUID order : List.of(first, second)) {
             jdbc.update("INSERT INTO orders(order_id, order_code, customer_id, order_channel, order_status, payment_status, order_date, total_amount) "
                     + "VALUES (?, ?, ?, 'COUNTER', 'PROCESSING', 'UNPAID', now(), 100)", order, "K-" + order, customer);
@@ -86,8 +86,8 @@ class OrderPaymentPostgresIT extends PostgreSqlIntegrationTestSupport {
         UUID actor = UUID.randomUUID(), customer = UUID.randomUUID(), order = UUID.randomUUID(), key = UUID.randomUUID();
         jdbc.update("INSERT INTO users(id, username, email, password_hash, status) VALUES (?, ?, ?, ?, 'ACTIVE')",
                 actor, "payrollback-" + actor, actor + "@example.invalid", "{disabled-test-account}");
-        jdbc.update("INSERT INTO customers(customer_id, customer_code, customer_name, phone) VALUES (?, ?, 'Test', '0900000000')",
-                customer, "PR-" + customer);
+        jdbc.update("INSERT INTO customers(customer_id, customer_code, customer_name, phone) VALUES (?, ?, 'Test', ?)",
+                customer, "PR-" + customer, "09" + System.nanoTime());
         jdbc.update("INSERT INTO orders(order_id, order_code, customer_id, order_channel, order_status, payment_status, order_date, total_amount) "
                 + "VALUES (?, ?, ?, 'COUNTER', 'PROCESSING', 'UNPAID', now(), 100)", order, "PR-" + order, customer);
         when(iam.getCurrentUserId()).thenReturn(actor);
@@ -110,8 +110,8 @@ class OrderPaymentPostgresIT extends PostgreSqlIntegrationTestSupport {
         UUID actor = UUID.randomUUID(), customer = UUID.randomUUID(), order = UUID.randomUUID();
         jdbc.update("INSERT INTO users(id, username, email, password_hash, status) VALUES (?, ?, ?, ?, 'ACTIVE')",
                 actor, "total-" + actor, actor + "@example.invalid", "{disabled-test-account}");
-        jdbc.update("INSERT INTO customers(customer_id, customer_code, customer_name, phone) VALUES (?, ?, 'Test', '0900000000')",
-                customer, "T-" + customer);
+        jdbc.update("INSERT INTO customers(customer_id, customer_code, customer_name, phone) VALUES (?, ?, 'Test', ?)",
+                customer, "T-" + customer, "09" + System.nanoTime());
         jdbc.update("INSERT INTO orders(order_id, order_code, customer_id, order_channel, order_status, payment_status, order_date, total_amount) "
                 + "VALUES (?, ?, ?, 'COUNTER', 'PROCESSING', 'UNPAID', now(), 100)", order, "T-" + order, customer);
         when(iam.getCurrentUserId()).thenReturn(actor);
@@ -153,8 +153,8 @@ class OrderPaymentPostgresIT extends PostgreSqlIntegrationTestSupport {
         UUID actor = UUID.randomUUID(), customer = UUID.randomUUID(), order = UUID.randomUUID();
         jdbc.update("INSERT INTO users(id, username, email, password_hash, status) VALUES (?, ?, ?, ?, 'ACTIVE')",
                 actor, "pay-" + actor, actor + "@example.invalid", "{disabled-test-account}");
-        jdbc.update("INSERT INTO customers(customer_id, customer_code, customer_name, phone) VALUES (?, ?, 'Test', '0900000000')",
-                customer, "P-" + customer);
+        jdbc.update("INSERT INTO customers(customer_id, customer_code, customer_name, phone) VALUES (?, ?, 'Test', ?)",
+                customer, "P-" + customer, "09" + System.nanoTime());
         jdbc.update("INSERT INTO orders(order_id, order_code, customer_id, order_channel, order_status, payment_status, order_date, total_amount) "
                 + "VALUES (?, ?, ?, 'COUNTER', 'PROCESSING', 'UNPAID', now(), 100)", order, "P-" + order, customer);
         when(iam.getCurrentUserId()).thenReturn(actor);
@@ -189,7 +189,7 @@ class OrderPaymentPostgresIT extends PostgreSqlIntegrationTestSupport {
         jdbc.update("INSERT INTO users(id, username, email, password_hash, status) VALUES (?, ?, ?, ?, 'ACTIVE')",
                 actor, "credit-" + actor, actor + "@example.invalid", "{disabled-test-account}");
         jdbc.update("INSERT INTO customers(customer_id, customer_code, customer_name, phone, customer_type, credit_limit, credit_term_days) "
-                + "VALUES (?, ?, 'Test', '0900000000', 'CONTRACTOR', 100, 30)", customer, "C-" + customer);
+                + "VALUES (?, ?, 'Test', ?, 'CONTRACTOR', 100, 30)", customer, "C-" + customer, "09" + System.nanoTime());
         when(iam.getCurrentUserId()).thenReturn(actor);
         when(catalog.getSkuSummary(variant)).thenReturn(java.util.Optional.of(CatalogSkuSummaryDto.builder()
                 .variantId(variant).sku("TEST").productName("Test").variantName("Test")
@@ -233,8 +233,8 @@ class OrderPaymentPostgresIT extends PostgreSqlIntegrationTestSupport {
         UUID actor = UUID.randomUUID(), customer = UUID.randomUUID(), variant = UUID.randomUUID();
         jdbc.update("INSERT INTO users(id, username, email, password_hash, status) VALUES (?, ?, ?, ?, 'ACTIVE')",
                 actor, "blocked-" + actor, actor + "@example.invalid", "{disabled-test-account}");
-        jdbc.update("INSERT INTO customers(customer_id, customer_code, customer_name, phone, status) VALUES (?, ?, 'Test', '0900000000', 'BLOCKED')",
-                customer, "B-" + customer);
+        jdbc.update("INSERT INTO customers(customer_id, customer_code, customer_name, phone, status) VALUES (?, ?, 'Test', ?, 'BLOCKED')",
+                customer, "B-" + customer, "09" + System.nanoTime());
         when(iam.getCurrentUserId()).thenReturn(actor);
         for (PaymentMethod method : List.of(PaymentMethod.CASH, PaymentMethod.CREDIT)) {
             var request = CreateSalesOrderRequest.builder().customerId(customer).paymentMethod(method)
@@ -251,8 +251,8 @@ class OrderPaymentPostgresIT extends PostgreSqlIntegrationTestSupport {
         UUID variant = jdbc.queryForObject("SELECT variant_id FROM product_variants LIMIT 1", UUID.class);
         jdbc.update("INSERT INTO users(id, username, email, password_hash, status) VALUES (?, ?, ?, ?, 'ACTIVE')",
                 actor, "rollback-" + actor, actor + "@example.invalid", "{disabled-test-account}");
-        jdbc.update("INSERT INTO customers(customer_id, customer_code, customer_name, phone) VALUES (?, ?, 'Test', '0900000000')",
-                customer, "R-" + customer);
+        jdbc.update("INSERT INTO customers(customer_id, customer_code, customer_name, phone) VALUES (?, ?, 'Test', ?)",
+                customer, "R-" + customer, "09" + System.nanoTime());
         when(iam.getCurrentUserId()).thenReturn(actor);
         when(catalog.getSkuSummary(variant)).thenReturn(java.util.Optional.of(CatalogSkuSummaryDto.builder()
                 .variantId(variant).sku("TEST").productName("Test").variantName("Test")
@@ -273,8 +273,8 @@ class OrderPaymentPostgresIT extends PostgreSqlIntegrationTestSupport {
         UUID actor = UUID.randomUUID(), customer = UUID.randomUUID(), order = UUID.randomUUID();
         jdbc.update("INSERT INTO users(id, username, email, password_hash, status) VALUES (?, ?, ?, ?, 'ACTIVE')",
                 actor, "proof-" + actor, actor + "@example.invalid", "{disabled-test-account}");
-        jdbc.update("INSERT INTO customers(customer_id, customer_code, customer_name, phone) VALUES (?, ?, 'Test', '0900000000')",
-                customer, "P-" + customer);
+        jdbc.update("INSERT INTO customers(customer_id, customer_code, customer_name, phone) VALUES (?, ?, 'Test', ?)",
+                customer, "P-" + customer, "09" + System.nanoTime());
         jdbc.update("INSERT INTO orders(order_id, order_code, customer_id, order_channel, order_status, payment_status, order_date, total_amount) "
                 + "VALUES (?, ?, ?, 'COUNTER', 'PROCESSING', 'UNPAID', now(), 100)", order, "P-" + order, customer);
         when(iam.getCurrentUserId()).thenReturn(actor);

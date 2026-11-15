@@ -122,7 +122,10 @@ public class PaymentVerificationServiceImpl implements PaymentVerificationServic
 
         // Tính lại số đã xác minh của đơn (không trừ PENDING khác) và số còn phải trả.
         BigDecimal verified = verifiedPaid(order);
-        BigDecimal remaining = order.totalAmount().subtract(verified).max(BigDecimal.ZERO);
+        BigDecimal pendingCod = transactions.findByOrderIdAndTransactionTypeIgnoreCase(orderId, TYPE_RECEIPT).stream()
+                .filter(t -> t.getDeliveryId() != null && "COD".equals(t.getPaymentType()) && STATUS_PENDING.equals(t.getStatus()))
+                .map(Transaction::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal remaining = order.totalAmount().subtract(verified).subtract(pendingCod).max(BigDecimal.ZERO);
         if (locked.getAmount().compareTo(remaining) > 0) {
             // Vượt nghĩa vụ: báo lỗi, giữ nguyên PENDING (transaction rollback), không tự hoàn/chuyển đơn.
             throw new AppException(PaymentVerificationErrorCode.OVER_OBLIGATION);

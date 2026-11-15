@@ -5,11 +5,14 @@ import com.aquasuite.ims.module.crm.api.CrmApi;
 import com.aquasuite.ims.module.crm.api.dto.CustomerDebtProfileDto;
 import com.aquasuite.ims.module.finance.api.event.CustomerDebtAuditEvent;
 import com.aquasuite.ims.module.finance.internal.entity.Transaction;
+import com.aquasuite.ims.module.finance.internal.entity.PaymentInvoiceAllocation;
+import com.aquasuite.ims.module.finance.internal.enums.PaymentAllocationStatus;
 import com.aquasuite.ims.module.finance.internal.notification.DebtEmailNotificationPort;
 import com.aquasuite.ims.module.finance.internal.payload.request.CreditCheckRequest;
 import com.aquasuite.ims.module.finance.internal.pdf.StatementDocument;
 import com.aquasuite.ims.module.finance.internal.pdf.StatementPdfService;
 import com.aquasuite.ims.module.finance.internal.repository.TransactionRepository;
+import com.aquasuite.ims.module.finance.internal.repository.PaymentInvoiceAllocationRepository;
 import com.aquasuite.ims.module.finance.internal.service.impl.CustomerDebtServiceImpl;
 import com.aquasuite.ims.module.sales.api.SalesReceivableApi;
 import com.aquasuite.ims.module.sales.api.dto.SalesInvoiceDebtDto;
@@ -48,6 +51,7 @@ class CustomerDebtServiceImplTest {
     @Mock private CrmApi crmApi;
     @Mock private SalesReceivableApi salesReceivableApi;
     @Mock private TransactionRepository transactionRepository;
+    @Mock private PaymentInvoiceAllocationRepository paymentInvoiceAllocationRepository;
     @Mock private AuditQueryApi auditQueryApi;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private DebtEmailNotificationPort emailNotificationPort;
@@ -68,8 +72,8 @@ class CustomerDebtServiceImplTest {
         order = new SalesOrderDebtDto(ORDER_ID, CUSTOMER_ID, "ORD-100", "COUNTER", "CONFIRMED", "UNPAID",
                 new BigDecimal("200.00"), BigDecimal.ZERO, new BigDecimal("200.00"), LocalDate.now().plusDays(30));
         invoice = new SalesInvoiceDebtDto(INVOICE_ID, ORDER_ID, CUSTOMER_ID, "INV-100", "MISA-INV-100",
-                OffsetDateTime.now(), null, 30, LocalDate.now().plusDays(30), "ISSUED", new BigDecimal("200.00"), BigDecimal.ZERO, BigDecimal.ZERO,
-                new BigDecimal("200.00"), null, "ELECTRONIC");
+                "MISA-INV-100", OffsetDateTime.now(), OffsetDateTime.now(), 30, LocalDate.now().plusDays(30), "ISSUED", new BigDecimal("200.00"), BigDecimal.ZERO, BigDecimal.ZERO,
+                new BigDecimal("200.00"), null, "STORE");
         when(salesReceivableApi.findOrdersByCustomerIds(any())).thenReturn(List.of(order));
         when(salesReceivableApi.findInvoicesByCustomerIds(any())).thenReturn(List.of(invoice));
     }
@@ -96,7 +100,7 @@ class CustomerDebtServiceImplTest {
     }
 
     @Test
-    void listUsesOrdersAsTheOnlyOutstandingSourceAndDoesNotDoubleCountInvoices() {
+    void listKeepsStoreLinkedReceiptUnallocatedUntilUc63AndDoesNotDoubleCountExposure() {
         Transaction directInvoiceReceipt = receipt(INVOICE_ID, ORDER_ID, new BigDecimal("50.00"));
         when(crmApi.findAllDebtProfiles()).thenReturn(List.of(customer));
         when(transactionRepository.findByCustomerIdInAndStatusIgnoreCase(any(), eq("VERIFIED")))
@@ -107,7 +111,7 @@ class CustomerDebtServiceImplTest {
         assertEquals(1, page.content().size());
         assertMoney("150.00", page.content().getFirst().outstandingBalance());
         assertMoney("0.00", page.content().getFirst().unbilledCommitment());
-        assertMoney("150.00", page.content().getFirst().issuedInvoiceReceivable());
+        assertMoney("200.00", page.content().getFirst().issuedInvoiceReceivable());
         assertMoney("350.00", page.content().getFirst().availableCredit());
     }
 
@@ -132,6 +136,27 @@ class CustomerDebtServiceImplTest {
     }
 
     @Test
+    void detailUsesUc63AllocationForIssuedInvoiceWithoutDoubleCountingReceipt() {
+        Transaction orderOnlyReceipt = receipt(null, ORDER_ID, new BigDecimal("50.00"));
+        PaymentInvoiceAllocation allocation = PaymentInvoiceAllocation.builder().transactionId(orderOnlyReceipt.getTransactionId())
+                .orderId(ORDER_ID).invoiceId(INVOICE_ID).allocatedAmount(new BigDecimal("50.00"))
+                .allocationStatus(PaymentAllocationStatus.ACTIVE).build();
+        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(java.util.Optional.of(customer));
+        when(transactionRepository.findByCustomerIdInAndStatusIgnoreCase(any(), eq("VERIFIED")))
+                .thenReturn(List.of(orderOnlyReceipt));
+        when(paymentInvoiceAllocationRepository.findByTransactionIdInAndAllocationStatus(any(), eq(PaymentAllocationStatus.ACTIVE)))
+                .thenReturn(List.of(allocation));
+        when(auditQueryApi.findByEntity(any(), any())).thenReturn(List.of());
+
+        var detail = service.detail(CUSTOMER_ID);
+
+        assertMoney("150.00", detail.summary().outstandingBalance());
+        assertMoney("150.00", detail.invoices().getFirst().outstandingAmount());
+        assertMoney("0.00", detail.unallocatedVerifiedReceiptAmount());
+        assertTrue(detail.unallocatedOrderReceipts().isEmpty());
+    }
+
+    @Test
     void receiptLinkedToStoreInvoiceIsUnallocatedToIssuedDeliveryInvoice() {
         Transaction receipt = receipt(UUID.randomUUID(), ORDER_ID, new BigDecimal("50.00"));
         when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(java.util.Optional.of(customer));
@@ -151,11 +176,11 @@ class CustomerDebtServiceImplTest {
                 "CONFIRMED", "PARTIALLY_PAID", new BigDecimal("100.00"), BigDecimal.ZERO,
                 new BigDecimal("100.00"), LocalDate.now().plusDays(30));
         SalesInvoiceDebtDto storeInvoice = new SalesInvoiceDebtDto(storeInvoiceId, ORDER_ID, CUSTOMER_ID,
-                "STORE-100", null, OffsetDateTime.now(), null, null, null, "DRAFT", new BigDecimal("100.00"),
+                "STORE-100", null, null, OffsetDateTime.now(), null, null, null, "DRAFT", new BigDecimal("100.00"),
                 BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal("100.00"), null, "STORE");
         SalesInvoiceDebtDto deliveryInvoice = new SalesInvoiceDebtDto(INVOICE_ID, ORDER_ID, CUSTOMER_ID,
-                "INV-40", "MISA-INV-40", OffsetDateTime.now(), null, 30, LocalDate.now().plusDays(30), "ISSUED", new BigDecimal("40.00"),
-                BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal("40.00"), null, "ELECTRONIC");
+                "INV-40", "MISA-INV-40", "MISA-INV-40", OffsetDateTime.now(), OffsetDateTime.now(), 30, LocalDate.now().plusDays(30), "ISSUED", new BigDecimal("40.00"),
+                BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal("40.00"), null, "STORE");
         when(salesReceivableApi.findOrdersByCustomerIds(any())).thenReturn(List.of(order100));
         when(salesReceivableApi.findInvoicesByCustomerIds(any())).thenReturn(List.of(storeInvoice, deliveryInvoice));
         when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(java.util.Optional.of(customer));
@@ -173,9 +198,9 @@ class CustomerDebtServiceImplTest {
     }
 
     @Test
-    void issuedStoreInvoiceNeverStartsInvoiceDebtOrAllocatesReceipt() {
+    void issuedStoreInvoiceWithoutElectronicIntegrationNeverStartsInvoiceDebtOrAllocatesReceipt() {
         SalesInvoiceDebtDto store = new SalesInvoiceDebtDto(INVOICE_ID, ORDER_ID, CUSTOMER_ID,
-                "STORE-1", null, OffsetDateTime.now().minusDays(100), null, null, null, "ISSUED",
+                "STORE-1", null, null, OffsetDateTime.now().minusDays(100), null, null, null, "ISSUED",
                 new BigDecimal("200.00"), BigDecimal.ZERO, BigDecimal.ZERO,
                 new BigDecimal("200.00"), null, "STORE");
         when(salesReceivableApi.findInvoicesByCustomerIds(any())).thenReturn(List.of(store));

@@ -61,6 +61,7 @@ public class OrderPaymentServiceImpl implements OrderPaymentService {
             Transaction old = previous.get();
             if (!orderId.equals(old.getOrderId()) || !actorId.equals(old.getCreatedBy())
                     || old.getAmount().compareTo(request.amount()) != 0
+                    || old.getDeliveryId() != null
                     || !request.paymentMethod().name().equals(old.getPaymentMethod())
                     || !Objects.equals(old.getReferenceNo(), request.referenceNo())
                     || !Objects.equals(old.getDescription(), request.description())) {
@@ -73,7 +74,10 @@ public class OrderPaymentServiceImpl implements OrderPaymentService {
         }
         var existing = payments(order);
         var summary = summary(order, existing);
-        if (request.amount().signum() <= 0 || request.amount().compareTo(summary.remaining()) > 0) {
+        BigDecimal pendingCod = existing.stream()
+                .filter(t -> t.getDeliveryId() != null && "COD".equals(t.getPaymentType()) && "PENDING".equals(t.getStatus()))
+                .map(Transaction::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (request.amount().signum() <= 0 || request.amount().compareTo(summary.remaining().subtract(pendingCod).max(BigDecimal.ZERO)) > 0) {
             throw new AppException(OrderPaymentErrorCode.AMOUNT_EXCEEDS_BALANCE);
         }
         UUID id = UUID.randomUUID();

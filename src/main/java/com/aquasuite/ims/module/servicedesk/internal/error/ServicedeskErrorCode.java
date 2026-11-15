@@ -19,7 +19,12 @@ public enum ServicedeskErrorCode implements BaseErrorCode {
     JOB_RESULT_REQUIRED("SVD_005", "Phải nhập kết quả thực hiện khi hoàn tất công việc kỹ thuật", HttpStatus.BAD_REQUEST),
     INVALID_TECHNICIAN("SVD_006", "Người được phân công không hợp lệ hoặc không phải nhân viên kỹ thuật: {0}", HttpStatus.BAD_REQUEST),
     JOB_NOT_ASSIGNABLE("SVD_007", "Chỉ có thể phân công công việc đang ở trạng thái chờ tiếp nhận (ASSIGNED) hoặc đã bị từ chối (REJECTED). Trạng thái hiện tại: {0}", HttpStatus.CONFLICT),
-    CUSTOMER_NOT_FOUND("SVD_008", "Không tìm thấy khách hàng: {0}", HttpStatus.BAD_REQUEST);
+    CUSTOMER_NOT_FOUND("SVD_008", "Không tìm thấy khách hàng: {0}", HttpStatus.BAD_REQUEST),
+    WARRANTY_POLICY_NOT_FOUND("WPO_001", "Không tìm thấy chính sách bảo hành: {0}", HttpStatus.NOT_FOUND),
+    WARRANTY_POLICY_BRAND_NOT_FOUND("WPO_002", "Không tìm thấy hãng đã chọn: {0}", HttpStatus.BAD_REQUEST),
+    WARRANTY_POLICY_CATEGORY_NOT_FOUND("WPO_003", "Không tìm thấy nhóm hàng đã chọn: {0}", HttpStatus.BAD_REQUEST),
+    DUPLICATE_ACTIVE_WARRANTY_POLICY("WPO_004", "Đã có chính sách đang áp dụng cho hãng và nhóm hàng này: {0}", HttpStatus.CONFLICT),
+    WARRANTY_POLICY_IN_USE("WPO_005", "Không thể xóa chính sách vì đang có {0} biến thể áp dụng", HttpStatus.CONFLICT);
 
     private final String code;
     private final String message;
