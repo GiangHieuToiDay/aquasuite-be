@@ -83,12 +83,11 @@ public class VariantServiceImpl implements VariantService {
                         PageRequest.of(pageable.getPageNumber(), pageable.getPageSize()))
                 : variantRepository.search(productId, searchKeyword, status, missingPrice, sortedPageable);
 
-        Map<UUID, StockSummaryDto> stocks = inventoryApi.getStockSummaries(
+        Map<UUID, StockSummaryDto> rawStocks = inventoryApi.getStockSummaries(
                 result.getContent().stream().map(ProductVariant::getVariantId).toList(), requestedWarehouse
         );
-        if (stocks == null) {
-            stocks = Collections.emptyMap();
-        }
+        Map<UUID, StockSummaryDto> stocks = rawStocks != null ? rawStocks : Collections.emptyMap();
+
         return result.map(variant -> response(variant, stocks.get(variant.getVariantId()), requestedWarehouse));
     }
 
