@@ -1,32 +1,44 @@
 services:
-  redis:
-    image: redis:7.2-alpine
-    container_name: aquasuite-redis
-
-    command: redis-server --requirepass ${SPRING_DATA_REDIS_PASSWORD:?SPRING_DATA_REDIS_PASSWORD must be provided}
-
+  postgres:
+    image: postgres:18-alpine
+    container_name: aquasuite-postgres
     environment:
-      REDIS_PASSWORD: ${SPRING_DATA_REDIS_PASSWORD:?SPRING_DATA_REDIS_PASSWORD must be provided}
-
+      POSTGRES_DB: ${DB_NAME:-aquasuite}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be provided}
     ports:
-      - "127.0.0.1:6379:6379"
-
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - aquasuite_pgdata:/var/lib/postgresql
     healthcheck:
-      test: [ "CMD-SHELL", "REDISCLI_AUTH=$$REDIS_PASSWORD redis-cli ping" ]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
+  redis:
+    image: redis:7.2-alpine
+    container_name: aquasuite-redis
+    command: redis-server --requirepass ${SPRING_DATA_REDIS_PASSWORD:?SPRING_DATA_REDIS_PASSWORD must be provided}
+    environment:
+      REDIS_PASSWORD: ${SPRING_DATA_REDIS_PASSWORD:?SPRING_DATA_REDIS_PASSWORD must be provided}
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=$$REDIS_PASSWORD redis-cli ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   backend:
     build:
       context: .
       dockerfile: Dockerfile
-
     environment:
-      DB_URL: ${DB_URL:?DB_URL must be provided}
-      DB_USERNAME: ${DB_USERNAME:?DB_USERNAME must be provided}
+      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-aquasuite}
+      DB_USERNAME: ${DB_USERNAME:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be provided}
 
       SPRING_DATA_REDIS_HOST: redis
@@ -40,13 +52,16 @@ services:
       MAIL_PASSWORD: ${MAIL_PASSWORD}
 
       JPA_DDL_AUTO: validate
-      AQUASUITE_DEV_SEED_ENABLED: "false"
-
+      AQUASUITE_DEV_SEED_ENABLED: "true"
     ports:
       - "8080:8080"
-
     depends_on:
-      redis:
+      postgres:
         condition: service_healthy
 
+      redis:
+        condition: service_healthy
     restart: unless-stopped
+
+volumes:
+  aquasuite_pgdata:

@@ -79,9 +79,15 @@ public class AuditLogController {
         return entityType.trim().toUpperCase(Locale.ROOT);
     }
 
-    /** ACCOUNTANT may read only UC-24 customer activity; all other audit domains remain owner-only. */
+    /**
+     * ACCOUNTANT can read the activity needed by the finance workbench: UC-24 customer
+     * debt activity and UC-63 receipt-allocation activity. Other audit domains remain
+     * owner-only.
+     */
     private void assertEntityReadAllowed(String entityType) {
-        if ("CUSTOMER".equals(entityType) || hasRole("SHOP_OWNER")) return;
+        if ("CUSTOMER".equals(entityType)
+                || "PAYMENT_RECEIPT".equals(entityType)
+                || hasRole("SHOP_OWNER")) return;
         throw new AccessDeniedException("Only the Store Owner may read this audit entity type.");
     }
 
