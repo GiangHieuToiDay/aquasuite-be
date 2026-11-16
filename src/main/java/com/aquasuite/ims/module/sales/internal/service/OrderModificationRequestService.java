@@ -2,7 +2,10 @@ package com.aquasuite.ims.module.sales.internal.service;
 
 import com.aquasuite.ims.module.sales.internal.payload.request.ReviewOrderModificationRequest;
 import com.aquasuite.ims.module.sales.internal.payload.response.OrderModificationRequestResponse;
-
+import com.aquasuite.ims.module.sales.internal.payload.request.ApproveOrderModificationRequest;
+import com.aquasuite.ims.module.sales.internal.payload.request.RecordOrderModificationTaxResultRequest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import java.util.UUID;
 
 public interface OrderModificationRequestService {
@@ -17,7 +20,4 @@ public interface OrderModificationRequestService {
 
     void sendResultEmail(UUID requestId, UUID actorId);
 }
-import com.aquasuite.ims.module.sales.internal.payload.request.ApproveOrderModificationRequest;
-import com.aquasuite.ims.module.sales.internal.payload.request.RecordOrderModificationTaxResultRequest;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+

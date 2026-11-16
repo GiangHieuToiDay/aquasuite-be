@@ -59,7 +59,7 @@ public class ProductVariant {
     @Column(name = "cost_price", precision = 15, scale = 2, nullable = false)
     private BigDecimal costPrice = BigDecimal.ZERO;
 
-    @Column(name = "selling_price", precision = 15, scale = 2, nullable = false)
+    @Column(name = "selling_price", precision = 15, scale = 2)
     private BigDecimal sellingPrice;
 
     @Column(name = "warranty_policy_id")

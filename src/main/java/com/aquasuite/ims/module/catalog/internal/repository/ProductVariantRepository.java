@@ -61,7 +61,8 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
             "AND (:keyword IS NULL " +
             "OR lower(v.sku) LIKE cast(:keyword as String) " +
             "OR lower(v.variantName) LIKE cast(:keyword as String) " +
-            "OR lower(coalesce(v.color, '')) LIKE cast(:keyword as String))")
+            "OR lower(coalesce(v.color, '')) LIKE cast(:keyword as String) " +
+            "OR lower(coalesce(v.size, '')) LIKE cast(:keyword as String))")
     Page<ProductVariant> search(
             @Param("productId") UUID productId,
             @Param("keyword") String keyword,

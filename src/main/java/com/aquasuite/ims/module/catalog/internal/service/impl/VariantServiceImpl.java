@@ -254,20 +254,20 @@ public class VariantServiceImpl implements VariantService {
 
     private ProductVariant requireVariant(UUID productId, UUID variantId) {
         requireProduct(productId);
-        return variantRepository.findById(variantId).filter(variant -> variant.getProductId().equals(productId))
+        return variantRepository.findById(variantId)
+                .filter(variant -> variant.getProductId().equals(productId) && variant.getStatus() != VariantStatus.DELETED)
                 .orElseThrow(() -> new AppException(CatalogVariantErrorCode.VARIANT_NOT_FOUND));
     }
 
     private ProductVariant requireVariantForUpdate(UUID productId, UUID variantId) {
         requireProduct(productId);
         return variantRepository.findByProductIdAndVariantIdForUpdate(productId, variantId)
+                .filter(variant -> variant.getStatus() != VariantStatus.DELETED)
                 .orElseThrow(() -> new AppException(CatalogVariantErrorCode.VARIANT_NOT_FOUND));
     }
 
     private VariantResponse response(ProductVariant value) {
-        return new VariantResponse(value.getVariantId(), value.getProductId(), value.getSku(), value.getVariantName(), value.getUnit(),
-                value.getConversionRate(), value.getColor(), value.getSize(), value.getWeight(), value.getTechnicalSpec(), value.getCostPrice(),
-                value.getSellingPrice(), value.getWarrantyPolicyId(), Boolean.TRUE.equals(value.getSerialTracking()), value.getStatus().name());
+        return variantMapper.toResponse(value);
     }
 
     private Map<String, Object> snapshot(ProductVariant value) {
@@ -310,16 +310,5 @@ public class VariantServiceImpl implements VariantService {
 
     private String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
-    }
-
-    private VariantStatus parseStatus(String value) {
-        if (value == null || value.isBlank()) return null;
-        try {
-            VariantStatus status = VariantStatus.valueOf(value.trim().toUpperCase(Locale.ROOT));
-            if (status == VariantStatus.DELETED) throw new AppException(CatalogVariantErrorCode.INVALID_STATUS);
-            return status;
-        } catch (IllegalArgumentException exception) {
-            throw new AppException(CatalogVariantErrorCode.INVALID_STATUS);
-        }
     }
 }
