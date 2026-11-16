@@ -28,6 +28,12 @@ public interface InventoryApi {
     /** Lấy thông tin tồn kho của danh sách SKU */
     Map<UUID, StockSummaryDto> getStockSummaries(Collection<UUID> variantIds);
 
+    /**
+     * Lấy thông tin tồn kho của danh sách SKU tại đúng một kho.
+     * Catalog dùng hợp đồng này để hiển thị tồn kho UC-10 mà không truy cập repository nội bộ của Inventory.
+     */
+    Map<UUID, StockSummaryDto> getStockSummaries(Collection<UUID> variantIds, String warehouseCode);
+
     /** Kiểm tra xem SKU có đủ số lượng khả dụng (availableQty) hay không */
     boolean checkAvailability(UUID variantId, BigDecimal requiredQty);
 

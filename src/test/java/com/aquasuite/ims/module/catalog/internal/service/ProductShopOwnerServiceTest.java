@@ -51,6 +51,9 @@ class ProductShopOwnerServiceTest {
     @Mock
     private BrandRepository brandRepository;
 
+    @Mock
+    private WarrantyPolicyRepository warrantyPolicyRepository;
+
     @org.mockito.Spy
     private com.aquasuite.ims.module.catalog.internal.mapper.ProductMapper productMapper = org.mapstruct.factory.Mappers.getMapper(com.aquasuite.ims.module.catalog.internal.mapper.ProductMapper.class);
 
@@ -80,6 +83,9 @@ class ProductShopOwnerServiceTest {
                 .brandName("TOTO Corporation")
                 .status(BrandStatus.ACTIVE)
                 .build();
+
+        when(warrantyPolicyRepository.findFirstByBrandIdAndCategoryIdAndStatus(any(), any(), eq("ACTIVE")))
+                .thenReturn(Optional.empty());
     }
 
     @Test

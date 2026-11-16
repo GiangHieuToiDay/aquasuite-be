@@ -1,7 +1,6 @@
 package com.aquasuite.ims.module.catalog.api;
 
 import com.aquasuite.ims.module.catalog.api.dto.CatalogWarrantyPolicyDto;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -24,5 +23,8 @@ public interface CatalogWarrantyApi {
 
     /** Lấy danh sách chính sách bảo hành đang ở trạng thái ACTIVE. */
     List<CatalogWarrantyPolicyDto> getActiveWarrantyPolicies();
+
+    /** Tra cứu chính sách ACTIVE đang áp dụng theo cặp Brand + Category của SPU. */
+    Optional<CatalogWarrantyPolicyDto> getActiveWarrantyPolicyByBrandAndCategory(UUID brandId, UUID categoryId);
 }
 

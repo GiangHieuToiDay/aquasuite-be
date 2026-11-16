@@ -79,6 +79,17 @@ public class InventoryServiceImpl implements InventoryApi, InventoryService {
 
     @Override
     @Transactional(readOnly = true)
+    public Map<UUID, StockSummaryDto> getStockSummaries(Collection<UUID> variantIds, String warehouseCode) {
+        if (variantIds == null || variantIds.isEmpty() || warehouseCode == null || warehouseCode.isBlank()) {
+            return Collections.emptyMap();
+        }
+        return inventoryRepository.findByVariantIdInAndWarehouseCode(variantIds, warehouseCode.trim()).stream()
+                .map(this::toDto)
+                .collect(Collectors.toMap(StockSummaryDto::variantId, Function.identity()));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public boolean checkAvailability(UUID variantId, BigDecimal requiredQty) {
         if (requiredQty == null || requiredQty.compareTo(BigDecimal.ZERO) <= 0) return true;
         return inventoryRepository.findByVariantId(variantId)

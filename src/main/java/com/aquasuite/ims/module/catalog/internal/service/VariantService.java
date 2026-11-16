@@ -15,7 +15,10 @@ import java.util.List;
 import java.util.UUID;
 
 public interface VariantService {
-    Page<VariantResponse> list(UUID productId, String keyword, VariantStatus status, Pageable pageable);
+    Page<VariantResponse> list(UUID productId, String keyword, VariantStatus status, boolean missingPrice,
+                               String sortBy,
+                               String sortDir,
+                               String warehouseCode, Pageable pageable);
 
     VariantStatsResponse stats(UUID productId);
 

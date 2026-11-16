@@ -1,7 +1,7 @@
 package com.aquasuite.ims.module.catalog.internal.service.impl;
 
 import com.aquasuite.ims.module.catalog.api.CatalogWarrantyApi;
-import com.aquasuite.ims.module.catalog.internal.entity.ProductVariant;
+import com.aquasuite.ims.module.catalog.api.dto.CatalogWarrantyPolicyDto;
 import com.aquasuite.ims.module.catalog.internal.entity.WarrantyPolicy;
 import com.aquasuite.ims.module.catalog.internal.repository.WarrantyPolicyRepository;
 import lombok.RequiredArgsConstructor;
@@ -33,7 +33,11 @@ public class CatalogWarrantyApiImpl implements CatalogWarrantyApi {
                             .map(com.aquasuite.ims.module.catalog.internal.entity.Product::getProductName).orElse(null);
 
             WarrantyPolicy policy = variant.getWarrantyPolicyId() == null
-                    ? null
+                    ? productRepository.findById(variant.getProductId())
+                            .filter(product -> product.getBrandId() != null)
+                            .flatMap(product -> warrantyPolicyRepository.findFirstByBrandIdAndCategoryIdAndStatus(
+                                    product.getBrandId(), product.getCategoryId(), "ACTIVE"))
+                            .orElse(null)
                     : warrantyPolicyRepository.findById(variant.getWarrantyPolicyId()).orElse(null);
 
             return com.aquasuite.ims.module.catalog.api.dto.CatalogWarrantyPolicyDto.builder()
@@ -70,6 +74,17 @@ public class CatalogWarrantyApiImpl implements CatalogWarrantyApi {
                 .toList();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<CatalogWarrantyPolicyDto> getActiveWarrantyPolicyByBrandAndCategory(UUID brandId, UUID categoryId) {
+        if (brandId == null || categoryId == null) {
+            return Optional.empty();
+        }
+        return warrantyPolicyRepository
+                .findFirstByBrandIdAndCategoryIdAndStatus(brandId, categoryId, "ACTIVE")
+                .map(this::toPolicyDto);
+    }
+
     private com.aquasuite.ims.module.catalog.api.dto.CatalogWarrantyPolicyDto toPolicyDto(WarrantyPolicy policy) {
         return com.aquasuite.ims.module.catalog.api.dto.CatalogWarrantyPolicyDto.builder()
                 .warrantyPolicyId(policy.getWarrantyPolicyId())
@@ -78,6 +93,8 @@ public class CatalogWarrantyApiImpl implements CatalogWarrantyApi {
                 .warrantyMonths(policy.getWarrantyMonths())
                 .warrantyTerms(policy.getWarrantyTerms())
                 .policyStatus(policy.getStatus())
+                .brandId(policy.getBrandId())
+                .categoryId(policy.getCategoryId())
                 .build();
     }
 }

@@ -10,7 +10,6 @@ import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingConstants;
 import org.mapstruct.ReportingPolicy;
-
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -59,6 +58,7 @@ public interface ProductMapper {
     @Mapping(target = "status", source = "product.status")
     @Mapping(target = "images", source = "images")
     @Mapping(target = "variants", source = "variants")
+    @Mapping(target = "warrantyPolicy", source = "warrantyPolicy")
     @Mapping(target = "createdAt", source = "product.createdAt")
     @Mapping(target = "updatedAt", source = "product.updatedAt")
     ProductDetailResponse toDetailResponse(
@@ -66,7 +66,8 @@ public interface ProductMapper {
             CategoryBriefResponse category,
             BrandBriefResponse brand,
             List<ProductVariantResponse> variants,
-            List<ProductImageResponse> images
+            List<ProductImageResponse> images,
+            WarrantyPolicySummaryResponse warrantyPolicy
     );
 
     ProductImageResponse toImageResponse(ProductImage img);

@@ -38,6 +38,12 @@ public class WarrantyPolicy {
     @Column(name = "policy_name", nullable = false, length = 150)
     private String policyName;
 
+    @Column(name = "brand_id", nullable = false)
+    private UUID brandId;
+
+    @Column(name = "category_id", nullable = false)
+    private UUID categoryId;
+
     @Column(name = "warranty_period_months", nullable = false)
     private Integer warrantyMonths;
 

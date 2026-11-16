@@ -3,19 +3,22 @@ package com.aquasuite.ims.module.catalog.internal.variant;
 import com.aquasuite.ims.module.catalog.api.event.ProductVariantChangedEvent;
 import com.aquasuite.ims.module.catalog.internal.entity.Product;
 import com.aquasuite.ims.module.catalog.internal.entity.ProductVariant;
+import com.aquasuite.ims.module.catalog.internal.entity.WarrantyPolicy;
 import com.aquasuite.ims.module.catalog.internal.enums.ProductStatus;
+import com.aquasuite.ims.module.catalog.internal.enums.ProductType;
 import com.aquasuite.ims.module.catalog.internal.enums.VariantStatus;
 import com.aquasuite.ims.module.catalog.internal.error.CatalogVariantErrorCode;
 import com.aquasuite.ims.module.catalog.internal.error.VariantDeleteBlockedException;
-import com.aquasuite.ims.module.catalog.internal.mapper.VariantMapper;
 import com.aquasuite.ims.module.catalog.internal.repository.ProductRepository;
 import com.aquasuite.ims.module.catalog.internal.repository.ProductVariantRepository;
+import com.aquasuite.ims.module.catalog.internal.repository.WarrantyPolicyRepository;
 import com.aquasuite.ims.module.catalog.internal.payload.req.VariantDeleteRequest;
 import com.aquasuite.ims.module.catalog.internal.payload.req.VariantUpsertRequest;
 import com.aquasuite.ims.module.catalog.internal.payload.res.VariantResponse;
 import com.aquasuite.ims.module.catalog.internal.service.impl.VariantServiceImpl;
 import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.inventory.api.InventoryApi;
+import com.aquasuite.ims.module.inventory.api.dto.StockSummaryDto;
 import com.aquasuite.ims.module.inventory.api.dto.VariantInventoryUsage;
 import com.aquasuite.ims.module.sales.api.SalesVariantUsageApi;
 import com.aquasuite.ims.module.sales.api.dto.VariantDocumentUsage;
@@ -28,6 +31,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.math.BigDecimal;
@@ -48,12 +53,12 @@ class VariantServiceImplTest {
 
     @Mock private ProductRepository productRepository;
     @Mock private ProductVariantRepository variantRepository;
+    @Mock private WarrantyPolicyRepository warrantyPolicyRepository;
     @Mock private InventoryApi inventoryApi;
     @Mock private SalesVariantUsageApi salesVariantUsageApi;
     @Mock private JdbcTemplate jdbcTemplate;
     @Mock private IamApi iamApi;
     @Mock private ApplicationEventPublisher eventPublisher;
-    @Mock private VariantMapper variantMapper;
 
     @InjectMocks
     private VariantServiceImpl service;
@@ -114,6 +119,76 @@ class VariantServiceImplTest {
                 .extracting(error -> ((AppException) error).getErrorCode())
                 .isEqualTo(CatalogVariantErrorCode.INVALID_STATUS);
         verify(variantRepository, never()).saveAndFlush(any(ProductVariant.class));
+    }
+
+    @Test
+    void create_inheritsProductSpecificationsAndTheActiveBrandCategoryPolicy() {
+        UUID brandId = UUID.randomUUID();
+        UUID categoryId = UUID.randomUUID();
+        UUID policyId = UUID.randomUUID();
+        UUID variantId = UUID.randomUUID();
+        Product product = new Product();
+        product.setProductId(productId);
+        product.setStatus(ProductStatus.ACTIVE);
+        product.setProductType(ProductType.NORMAL);
+        product.setBrandId(brandId);
+        product.setCategoryId(categoryId);
+        product.setSpecifications(Map.of("roughIn", "305 mm", "flush", "3/6 L"));
+        when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+        when(variantRepository.findBySkuIgnoreCase("SKU-NEO-WHT-305")).thenReturn(Optional.empty());
+        WarrantyPolicy policy = new WarrantyPolicy();
+        policy.setWarrantyPolicyId(policyId);
+        when(warrantyPolicyRepository.findFirstByBrandIdAndCategoryIdAndStatus(brandId, categoryId, "ACTIVE"))
+                .thenReturn(Optional.of(policy));
+        when(variantRepository.saveAndFlush(any(ProductVariant.class))).thenAnswer(invocation -> {
+            ProductVariant variant = invocation.getArgument(0);
+            variant.setVariantId(variantId);
+            return variant;
+        });
+        when(iamApi.getCurrentUserId()).thenReturn(UUID.randomUUID());
+
+        VariantResponse result = service.create(productId, request(new BigDecimal("50000000"), new BigDecimal("45000000"), false));
+
+        assertThat(result.technicalSpec()).containsEntry("roughIn", "305mm").containsEntry("flush", "3/6 L");
+        assertThat(result.warrantyPolicyId()).isEqualTo(policyId);
+    }
+
+    @Test
+    void create_rejectsPhysicalSkuForBundleProduct() {
+        Product bundle = new Product();
+        bundle.setProductId(productId);
+        bundle.setStatus(ProductStatus.ACTIVE);
+        bundle.setProductType(ProductType.BUNDLE);
+        when(productRepository.findById(productId)).thenReturn(Optional.of(bundle));
+
+        assertThatThrownBy(() -> service.create(productId, request(new BigDecimal("50000000"), new BigDecimal("45000000"), false)))
+                .isInstanceOf(AppException.class)
+                .extracting(error -> ((AppException) error).getErrorCode())
+                .isEqualTo(CatalogVariantErrorCode.BUNDLE_VARIANT_NOT_ALLOWED);
+        verify(variantRepository, never()).saveAndFlush(any(ProductVariant.class));
+    }
+
+    @Test
+    void list_returnsWarehouseSpecificStockAndSupportsMissingPriceFilter() {
+        UUID variantId = UUID.randomUUID();
+        ProductVariant variant = variant(variantId);
+        variant.setSellingPrice(null);
+        variant.setCreatedAt(java.time.Instant.now());
+        when(variantRepository.search(eq(productId), eq(null), eq(null), eq(true), any()))
+                .thenReturn(new PageImpl<>(java.util.List.of(variant), PageRequest.of(0, 10), 1));
+        StockSummaryDto stock = new StockSummaryDto(variantId, "WH_MAIN", new BigDecimal("12"),
+                new BigDecimal("3"), new BigDecimal("9"), new BigDecimal("5"));
+        when(inventoryApi.getStockSummaries(java.util.List.of(variantId), "WH_MAIN"))
+                .thenReturn(Map.of(variantId, stock));
+
+        var page = service.list(productId, null, null, true, "sku", "ASC", "WH_MAIN", PageRequest.of(0, 10));
+
+        assertThat(page.getContent()).singleElement().satisfies(result -> {
+            assertThat(result.onHandQty()).isEqualByComparingTo("12");
+            assertThat(result.reservedQty()).isEqualByComparingTo("3");
+            assertThat(result.availableQty()).isEqualByComparingTo("9");
+            assertThat(result.lowStock()).isFalse();
+        });
     }
 
     @Test

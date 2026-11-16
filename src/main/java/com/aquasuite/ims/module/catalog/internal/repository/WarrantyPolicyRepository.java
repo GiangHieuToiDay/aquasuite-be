@@ -14,5 +14,12 @@ public interface WarrantyPolicyRepository extends JpaRepository<WarrantyPolicy, 
     Optional<WarrantyPolicy> findByPolicyCodeIgnoreCase(String policyCode);
 
     List<WarrantyPolicy> findByStatusOrderByWarrantyMonthsAscPolicyNameAsc(String status);
+
+    Optional<WarrantyPolicy>
+    findFirstByBrandIdAndCategoryIdAndStatus(
+            UUID brandId,
+            UUID categoryId,
+            String status
+    );
 }
 

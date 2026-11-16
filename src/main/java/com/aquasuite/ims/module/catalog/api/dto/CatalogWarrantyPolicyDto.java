@@ -16,7 +16,9 @@ public record CatalogWarrantyPolicyDto(
         String policyName,
         Integer warrantyMonths,
         String warrantyTerms,
-        String policyStatus
+        String policyStatus,
+        UUID brandId,
+        UUID categoryId
 ) {
 }
 
