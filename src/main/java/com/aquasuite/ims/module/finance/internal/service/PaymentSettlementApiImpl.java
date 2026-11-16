@@ -3,6 +3,7 @@ package com.aquasuite.ims.module.finance.internal.service;
 import com.aquasuite.ims.module.finance.api.PaymentSettlementApi;
 import com.aquasuite.ims.module.finance.api.dto.PendingCustomerRefundCommand;
 import com.aquasuite.ims.module.finance.api.dto.VerifiedPaymentSummary;
+import com.aquasuite.ims.module.finance.api.dto.RefundSettlementView;
 import com.aquasuite.ims.module.finance.internal.entity.Transaction;
 import com.aquasuite.ims.module.finance.internal.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.UUID;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -42,5 +44,15 @@ public class PaymentSettlementApiImpl implements PaymentSettlementApi {
                 .createdBy(command.requestedBy())
                 .build();
         return transactionRepository.save(refund).getTransactionId();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<RefundSettlementView> findCustomerRefund(UUID transactionId) {
+        return transactionRepository.findById(transactionId)
+                .filter(transaction -> "EXPENSE".equalsIgnoreCase(transaction.getTransactionType())
+                        && "CUSTOMER_REFUND".equalsIgnoreCase(transaction.getCategory()))
+                .map(transaction -> new RefundSettlementView(transaction.getTransactionId(), transaction.getOrderId(),
+                        transaction.getAmount(), transaction.getStatus()));
     }
 }

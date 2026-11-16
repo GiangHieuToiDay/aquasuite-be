@@ -46,6 +46,10 @@ public interface SalesInvoiceRepository extends JpaRepository<SalesInvoice, UUID
 
     List<SalesInvoice> findByOrderIdOrderByBatchNoAscCreatedAtAsc(UUID orderId);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT si FROM SalesInvoice si WHERE si.orderId = :orderId ORDER BY si.batchNo, si.createdAt")
+    List<SalesInvoice> findByOrderIdForUpdate(@Param("orderId") UUID orderId);
+
     List<SalesInvoice> findByOrderIdAndStatusOrderByBatchNoAscCreatedAtAsc(UUID orderId, String status);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

@@ -1,7 +1,9 @@
 package com.aquasuite.ims.module.fulfillment.internal.service;
 
 import com.aquasuite.ims.module.fulfillment.api.DeliveryCodQueryApi;
+import com.aquasuite.ims.module.fulfillment.api.OrderDeliveryQueryApi;
 import com.aquasuite.ims.module.fulfillment.api.dto.DeliveryCodSnapshot;
+import com.aquasuite.ims.module.fulfillment.api.dto.OrderDeliverySnapshot;
 import com.aquasuite.ims.module.fulfillment.internal.entity.Delivery;
 import com.aquasuite.ims.module.fulfillment.internal.repository.DeliveryRepository;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +17,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-public class DeliveryCodQueryService implements DeliveryCodQueryApi {
+public class DeliveryCodQueryService implements DeliveryCodQueryApi, OrderDeliveryQueryApi {
     private final DeliveryRepository deliveries;
     private final EntityManager entityManager;
 
@@ -36,8 +38,24 @@ public class DeliveryCodQueryService implements DeliveryCodQueryApi {
         });
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.List<OrderDeliverySnapshot> findByOrderId(UUID orderId) {
+        return deliveries.findByOrderIdOrderByCreatedAtAsc(orderId).stream().map(this::orderSnapshot).toList();
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public java.util.List<OrderDeliverySnapshot> lockByOrderId(UUID orderId) {
+        return deliveries.lockByOrderId(orderId).stream().map(this::orderSnapshot).toList();
+    }
+
     private DeliveryCodSnapshot snapshot(Delivery d) {
         return new DeliveryCodSnapshot(d.getDeliveryId(), d.getOrderId(), d.getShipperId(),
                 d.getDeliveryCode(), d.getDeliveryStatus(), Boolean.TRUE.equals(d.getCodRequired()), d.getCodAmount());
+    }
+
+    private OrderDeliverySnapshot orderSnapshot(Delivery d) {
+        return new OrderDeliverySnapshot(d.getDeliveryId(), d.getOrderId(), d.getSalesInvoiceId(), d.getDeliveryStatus());
     }
 }

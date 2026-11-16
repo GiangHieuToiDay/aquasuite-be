@@ -72,7 +72,7 @@ public class VariantController {
 
     @DeleteMapping("/{variantId}")
     @PreAuthorize("hasRole('SHOP_OWNER')")
-    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID productId, @PathVariable UUID variantId, @RequestBody VariantDeleteRequest request) {
+    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID productId, @PathVariable UUID variantId, @Valid @RequestBody VariantDeleteRequest request) {
         service.delete(productId, variantId, request);
         return ResponseEntity.ok(ApiResponse.ok(null));
     }

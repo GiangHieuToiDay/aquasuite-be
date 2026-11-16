@@ -29,6 +29,7 @@ public class OrderModificationRequestResponse {
     OrderModificationRequestStatus requestStatus;
     String customerReason;
     String decisionNote;
+    String requestedDeliveryAddress;
     UUID requestedBy;
     UUID reviewedBy;
     OffsetDateTime reviewedAt;
@@ -37,6 +38,7 @@ public class OrderModificationRequestResponse {
     UUID resultingInvoiceId;
     String taxResultReference;
     BigDecimal priceDifference;
+    UUID refundTransactionId;
     OffsetDateTime createdAt;
     OffsetDateTime updatedAt;
     List<OrderModificationRequestItemResponse> items;

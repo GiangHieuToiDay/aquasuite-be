@@ -22,4 +22,8 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT oi FROM OrderItem oi WHERE oi.orderItemId = :orderItemId")
     Optional<OrderItem> findByIdForUpdate(@Param("orderItemId") UUID orderItemId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT oi FROM OrderItem oi WHERE oi.orderId = :orderId ORDER BY oi.orderItemId")
+    List<OrderItem> findByOrderIdForUpdate(@Param("orderId") UUID orderId);
 }
