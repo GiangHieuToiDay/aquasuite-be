@@ -1,5 +1,6 @@
 package com.aquasuite.ims.module.finance.internal.service;
 
+import com.aquasuite.ims.module.finance.api.dto.OrderModificationSettlementCommand;
 import com.aquasuite.ims.module.finance.internal.payload.request.CreatePaymentAllocationRequest;
 import com.aquasuite.ims.module.finance.internal.payload.request.ReversePaymentAllocationRequest;
 import com.aquasuite.ims.module.finance.internal.payload.response.PaymentAllocationBatchResponse;
@@ -37,4 +38,3 @@ public interface PaymentAllocationService {
     /** Re-runs the same settlement rule when an invoice becomes electronically integrated. */
     void autoAllocateVerifiedReceiptsForOrder(UUID orderId, UUID actorId);
 }
-import com.aquasuite.ims.module.finance.api.dto.OrderModificationSettlementCommand;
