@@ -15,7 +15,7 @@ public interface CustomerCreditProfileRequestMapper {
     CustomerCreditProfileRequestResponse toResponse(CustomerCreditProfileRequest entity);
 
     default boolean hasEvidence(CustomerCreditProfileRequest entity) {
-        return entity.getIdentityDocumentNumber() != null
+        return entity.getIdentityDocumentObjectKey() != null
                 && entity.getResidentialAddress() != null
                 && entity.getWorksiteAddress() != null;
     }

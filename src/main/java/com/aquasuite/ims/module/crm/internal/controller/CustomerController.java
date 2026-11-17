@@ -5,10 +5,12 @@ import com.aquasuite.ims.module.crm.internal.enums.CustomerType;
 import com.aquasuite.ims.module.crm.internal.payload.request.CreateCustomerRequest;
 import com.aquasuite.ims.module.crm.internal.payload.request.UpdateCustomerCreditProfileRequest;
 import com.aquasuite.ims.module.crm.internal.payload.res.CustomerCreditProfileResponse;
+import com.aquasuite.ims.module.crm.internal.payload.res.CreditEvidenceUploadResponse;
 import com.aquasuite.ims.module.crm.internal.payload.res.CustomerResponse;
 import com.aquasuite.ims.module.crm.internal.repository.CustomerRepository;
 import com.aquasuite.ims.module.crm.internal.service.CustomerCreditProfileService;
 import com.aquasuite.ims.module.crm.internal.service.CustomerCreditProfileRequestService;
+import com.aquasuite.ims.module.crm.internal.storage.CreditEvidenceStorageService;
 import com.aquasuite.ims.module.crm.internal.payload.request.SubmitCustomerCreditProfileRequest;
 import com.aquasuite.ims.module.crm.internal.payload.res.CustomerCreditProfileRequestResponse;
 import com.aquasuite.ims.module.iam.api.IamApi;
@@ -23,8 +25,10 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -42,6 +46,7 @@ public class CustomerController {
     private final CustomerRepository customerRepository;
     private final CustomerCreditProfileService customerCreditProfileService;
     private final CustomerCreditProfileRequestService customerCreditProfileRequestService;
+    private final CreditEvidenceStorageService creditEvidenceStorageService;
     private final IamApi iamApi;
 
     /**
@@ -152,6 +157,19 @@ public class CustomerController {
                 ? "Customer credit profile applied."
                 : "Credit profile request submitted for Shop Owner approval.";
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(result, message));
+    }
+
+    @PostMapping(value = "/{customerId}/credit-profile-evidence", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('SALES_STAFF','SHOP_OWNER')")
+    public ResponseEntity<ApiResponse<CreditEvidenceUploadResponse>> uploadCreditProfileEvidence(
+            @PathVariable UUID customerId, @RequestPart("file") MultipartFile file) {
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new com.aquasuite.ims.share.exception.AppException(com.aquasuite.ims.module.crm.internal.error.CrmErrorCode.CUSTOMER_NOT_FOUND));
+        if (!"ACTIVE".equalsIgnoreCase(customer.getStatus())) {
+            throw new com.aquasuite.ims.share.exception.AppException(com.aquasuite.ims.module.crm.internal.error.CrmErrorCode.CUSTOMER_NOT_ACTIVE_FOR_CREDIT);
+        }
+        String objectKey = creditEvidenceStorageService.upload(customerId, file);
+        return ResponseEntity.ok(ApiResponse.ok(new CreditEvidenceUploadResponse(objectKey), "Credit identity evidence uploaded."));
     }
 
     private CustomerResponse toResponse(Customer c) {

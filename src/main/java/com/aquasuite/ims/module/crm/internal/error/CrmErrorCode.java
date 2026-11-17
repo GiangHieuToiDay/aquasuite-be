@@ -21,7 +21,12 @@ public enum CrmErrorCode implements BaseErrorCode {
     CREDIT_PROFILE_REQUEST_ALREADY_PENDING("CRM_009", "Khách hàng đã có yêu cầu cấp hạn mức tín dụng đang chờ duyệt.", HttpStatus.CONFLICT),
     CREDIT_PROFILE_REQUEST_NOT_FOUND("CRM_010", "Không tìm thấy yêu cầu cấp hạn mức tín dụng.", HttpStatus.NOT_FOUND),
     CREDIT_PROFILE_REQUEST_NOT_PENDING("CRM_011", "Yêu cầu cấp hạn mức tín dụng không còn ở trạng thái chờ duyệt.", HttpStatus.CONFLICT),
-    CONTRACTOR_CREDIT_EVIDENCE_REQUIRED("CRM_012", "Cần cung cấp CCCD/CMND, địa chỉ nhà riêng và địa chỉ công trình để cấp tín dụng cho thợ, nhà thầu hoặc khách dự án.", HttpStatus.BAD_REQUEST);
+    CONTRACTOR_CREDIT_EVIDENCE_REQUIRED("CRM_012", "Cần tải ảnh CCCD/CMND, địa chỉ nhà riêng và địa chỉ công trình để cấp tín dụng cho thợ, nhà thầu hoặc khách dự án.", HttpStatus.BAD_REQUEST),
+    INVALID_CREDIT_EVIDENCE("CRM_013", "Ảnh CCCD/CMND phải là JPEG, PNG hoặc WEBP và không quá 5MB.", HttpStatus.BAD_REQUEST),
+    CREDIT_EVIDENCE_TOO_LARGE("CRM_014", "Ảnh CCCD/CMND phải là JPEG, PNG hoặc WEBP và không quá 5MB.", HttpStatus.PAYLOAD_TOO_LARGE),
+    CREDIT_EVIDENCE_UPLOAD_FAILED("CRM_015", "Tải ảnh CCCD/CMND thất bại. Vui lòng thử lại sau.", HttpStatus.INTERNAL_SERVER_ERROR),
+    CREDIT_EVIDENCE_NOT_FOUND("CRM_016", "Không tìm thấy ảnh CCCD/CMND đã tải lên.", HttpStatus.NOT_FOUND),
+    CREDIT_EVIDENCE_STORAGE_UNAVAILABLE("CRM_017", "Kho lưu ảnh CCCD/CMND chưa sẵn sàng. Vui lòng thử lại sau.", HttpStatus.SERVICE_UNAVAILABLE);
 
     private final String code;
     private final String message;

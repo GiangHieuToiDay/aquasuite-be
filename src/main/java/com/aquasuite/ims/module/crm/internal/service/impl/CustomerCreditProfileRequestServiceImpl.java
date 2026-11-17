@@ -16,6 +16,8 @@ import com.aquasuite.ims.module.crm.internal.payload.res.CustomerCreditProfileRe
 import com.aquasuite.ims.module.crm.internal.repository.CustomerCreditProfileRequestRepository;
 import com.aquasuite.ims.module.crm.internal.repository.CustomerRepository;
 import com.aquasuite.ims.module.crm.internal.service.CustomerCreditProfileRequestService;
+import com.aquasuite.ims.module.crm.internal.storage.CreditEvidenceDocument;
+import com.aquasuite.ims.module.crm.internal.storage.CreditEvidenceStorageService;
 import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.iam.api.dto.UserSummaryDto;
 import com.aquasuite.ims.module.sales.api.CustomerOrderHistoryApi;
@@ -46,6 +48,7 @@ public class CustomerCreditProfileRequestServiceImpl implements CustomerCreditPr
     private final CustomerCreditProfileRequestMapper requestMapper;
     private final CustomerOrderHistoryApi customerOrderHistoryApi;
     private final IamApi iamApi;
+    private final CreditEvidenceStorageService creditEvidenceStorageService;
     private final ApplicationEventPublisher eventPublisher;
 
     @Override
@@ -54,6 +57,9 @@ public class CustomerCreditProfileRequestServiceImpl implements CustomerCreditPr
         validateProfile(input);
         UserSummaryDto currentUser = iamApi.getCurrentUser();
         Customer customer = findActiveCustomerForUpdate(customerId);
+        if (nonBlank(input.getIdentityDocumentObjectKey())) {
+            creditEvidenceStorageService.requireOwnedObject(customerId, input.getIdentityDocumentObjectKey());
+        }
         long qualifiedOrderCount = customerOrderHistoryApi.countQualifiedOrders(customerId);
         boolean evidenceProvided = evidenceProvided(input);
 
@@ -70,7 +76,7 @@ public class CustomerCreditProfileRequestServiceImpl implements CustomerCreditPr
                 .requestedCreditLimit(input.getCreditLimit())
                 .requestedCreditTermDays(input.getCreditTermDays())
                 .reason(trim(input.getReason()))
-                .identityDocumentNumber(trim(input.getIdentityDocumentNumber()))
+                .identityDocumentObjectKey(trim(input.getIdentityDocumentObjectKey()))
                 .residentialAddress(trim(input.getResidentialAddress()))
                 .worksiteAddress(trim(input.getWorksiteAddress()))
                 .status(applyImmediately ? CustomerCreditProfileRequestStatus.APPROVED : CustomerCreditProfileRequestStatus.PENDING)
@@ -110,7 +116,7 @@ public class CustomerCreditProfileRequestServiceImpl implements CustomerCreditPr
                 .requestedCreditLimit(request.getRequestedCreditLimit())
                 .requestedCreditTermDays(request.getRequestedCreditTermDays())
                 .reason(request.getReason())
-                .identityDocumentNumber(request.getIdentityDocumentNumber())
+                .identityDocumentAttached(nonBlank(request.getIdentityDocumentObjectKey()))
                 .residentialAddress(request.getResidentialAddress())
                 .worksiteAddress(request.getWorksiteAddress())
                 .status(request.getStatus())
@@ -121,6 +127,13 @@ public class CustomerCreditProfileRequestServiceImpl implements CustomerCreditPr
                 .updatedAt(request.getUpdatedAt())
                 .qualifiedOrderCount(customerOrderHistoryApi.countQualifiedOrders(request.getCustomerId()))
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CreditEvidenceDocument readIdentityDocument(UUID requestId) {
+        CustomerCreditProfileRequest request = findRequest(requestId);
+        return creditEvidenceStorageService.read(request.getIdentityDocumentObjectKey());
     }
 
     @Override
@@ -239,11 +252,12 @@ public class CustomerCreditProfileRequestServiceImpl implements CustomerCreditPr
     }
 
     private boolean evidenceProvided(SubmitCustomerCreditProfileRequest request) {
-        return nonBlank(request.getIdentityDocumentNumber()) && nonBlank(request.getResidentialAddress()) && nonBlank(request.getWorksiteAddress());
+        return nonBlank(request.getIdentityDocumentObjectKey()) && nonBlank(request.getResidentialAddress()) && nonBlank(request.getWorksiteAddress());
     }
 
     private boolean evidenceProvided(CustomerCreditProfileRequest request) {
-        return nonBlank(request.getIdentityDocumentNumber()) && nonBlank(request.getResidentialAddress()) && nonBlank(request.getWorksiteAddress());
+        return nonBlank(request.getIdentityDocumentObjectKey()) && nonBlank(request.getResidentialAddress())
+                && nonBlank(request.getWorksiteAddress());
     }
 
     private boolean nonBlank(String value) {

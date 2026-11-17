@@ -13,6 +13,7 @@ import com.aquasuite.ims.module.crm.internal.payload.res.CustomerCreditProfileRe
 import com.aquasuite.ims.module.crm.internal.repository.CustomerCreditProfileRequestRepository;
 import com.aquasuite.ims.module.crm.internal.repository.CustomerRepository;
 import com.aquasuite.ims.module.crm.internal.service.impl.CustomerCreditProfileRequestServiceImpl;
+import com.aquasuite.ims.module.crm.internal.storage.CreditEvidenceStorageService;
 import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.iam.api.dto.UserSummaryDto;
 import com.aquasuite.ims.module.sales.api.CustomerOrderHistoryApi;
@@ -46,6 +47,7 @@ class CustomerCreditProfileRequestServiceImplTest {
     @Mock private CustomerCreditProfileRequestMapper requestMapper;
     @Mock private CustomerOrderHistoryApi customerOrderHistoryApi;
     @Mock private IamApi iamApi;
+    @Mock private CreditEvidenceStorageService creditEvidenceStorageService;
     @Mock private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks private CustomerCreditProfileRequestServiceImpl service;
@@ -121,7 +123,7 @@ class CustomerCreditProfileRequestServiceImplTest {
         when(iamApi.getCurrentUser()).thenReturn(user(salespersonId, "SALES_STAFF"));
         when(customerOrderHistoryApi.countQualifiedOrders(customerId)).thenReturn(3L);
         SubmitCustomerCreditProfileRequest request = submit("10000000", 30);
-        request.setIdentityDocumentNumber("012345678901");
+        request.setIdentityDocumentObjectKey("credit-profile-evidence/" + customerId + "/cccd.png");
         request.setResidentialAddress("12 Nguyễn Văn Trỗi, Bắc Ninh");
         request.setWorksiteAddress("Công trình Riverside, Bắc Ninh");
 
@@ -130,6 +132,8 @@ class CustomerCreditProfileRequestServiceImplTest {
         assertThat(result.appliedImmediately()).isTrue();
         assertThat(result.identityEvidenceProvided()).isTrue();
         assertThat(customer.getCreditLimit()).isEqualByComparingTo("10000000");
+        verify(creditEvidenceStorageService).requireOwnedObject(customerId,
+                "credit-profile-evidence/" + customerId + "/cccd.png");
     }
 
     @Test
@@ -216,7 +220,7 @@ class CustomerCreditProfileRequestServiceImplTest {
                 .reviewedAt(request.getReviewedAt())
                 .reviewNote(request.getReviewNote())
                 .createdAt(request.getCreatedAt())
-                .identityEvidenceProvided(request.getIdentityDocumentNumber() != null
+                .identityEvidenceProvided(request.getIdentityDocumentObjectKey() != null
                         && request.getResidentialAddress() != null
                         && request.getWorksiteAddress() != null)
                 .build();
