@@ -4,12 +4,15 @@ import com.aquasuite.ims.module.finance.api.event.CustomerDebtAuditEvent;
 import com.aquasuite.ims.module.finance.internal.entity.PaymentInvoiceAllocation;
 import com.aquasuite.ims.module.finance.internal.entity.Transaction;
 import com.aquasuite.ims.module.finance.internal.enums.PaymentAllocationStatus;
+import com.aquasuite.ims.module.finance.internal.enums.PaymentAllocationType;
 import com.aquasuite.ims.module.finance.internal.error.PaymentAllocationErrorCode;
 import com.aquasuite.ims.module.finance.internal.mapper.PaymentAllocationMapper;
 import com.aquasuite.ims.module.finance.internal.payload.request.CreatePaymentAllocationRequest;
 import com.aquasuite.ims.module.finance.internal.payload.request.PaymentAllocationLineRequest;
+import com.aquasuite.ims.module.finance.internal.payload.request.ReversePaymentAllocationRequest;
 import com.aquasuite.ims.module.finance.internal.payload.response.PaymentAllocationLineResponse;
 import com.aquasuite.ims.module.finance.internal.repository.PaymentInvoiceAllocationRepository;
+import com.aquasuite.ims.module.finance.internal.repository.PaymentReceiptRefundSettlementRepository;
 import com.aquasuite.ims.module.finance.internal.repository.TransactionRepository;
 import com.aquasuite.ims.module.finance.internal.service.impl.PaymentAllocationServiceImpl;
 import com.aquasuite.ims.module.sales.api.SalesOrderApi;
@@ -24,6 +27,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
@@ -45,6 +50,7 @@ import static org.mockito.Mockito.when;
 class PaymentAllocationServiceImplTest {
     @Mock TransactionRepository transactionRepository;
     @Mock PaymentInvoiceAllocationRepository allocationRepository;
+    @Mock PaymentReceiptRefundSettlementRepository refundSettlementRepository;
     @Mock SalesOrderApi salesOrderApi;
     @Mock SalesReceivableApi salesReceivableApi;
     @Mock PaymentAllocationMapper allocationMapper;
@@ -173,6 +179,101 @@ class PaymentAllocationServiceImplTest {
                 .isInstanceOfSatisfying(AppException.class, error ->
                         assertThat(error.getErrorCode()).isEqualTo(PaymentAllocationErrorCode.RECEIPT_NOT_ALLOCATABLE));
         verify(allocationRepository, never()).saveAllAndFlush(any());
+    }
+
+    @Test
+    void listsOnlyVerifiedReceiptsThatStillHaveAnAllocationBalance() {
+        PaymentInvoiceAllocation previousAllocation = PaymentInvoiceAllocation.builder()
+                .allocatedAmount(new BigDecimal("40.00"))
+                .build();
+        when(transactionRepository.findVerifiedReceiptsWithRemainingAllocation(
+                PaymentAllocationStatus.ACTIVE, PageRequest.of(0, 20)))
+                .thenReturn(new PageImpl<>(List.of(receipt)));
+        when(allocationRepository.findByTransactionIdAndAllocationStatus(receiptId, PaymentAllocationStatus.ACTIVE))
+                .thenReturn(List.of(previousAllocation));
+
+        var result = service.listUnallocatedReceipts(PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).singleElement().satisfies(row -> {
+            assertThat(row.receiptId()).isEqualTo(receiptId);
+            assertThat(row.receiptAmount()).isEqualByComparingTo("100.00");
+            assertThat(row.allocatedAmount()).isEqualByComparingTo("40.00");
+            assertThat(row.remainingAmount()).isEqualByComparingTo("60.00");
+        });
+    }
+
+    @Test
+    void automaticallyAllocatesAllVerifiedMoneyForOneStageOrder() {
+        when(salesReceivableApi.findElectronicallyIntegratedInvoicesByOrderId(orderId))
+                .thenReturn(List.of(invoiceOne, invoiceTwo));
+
+        service.autoAllocateVerifiedReceipt(receiptId, actorId);
+
+        ArgumentCaptor<List<PaymentInvoiceAllocation>> saved = ArgumentCaptor.forClass(List.class);
+        verify(allocationRepository).saveAllAndFlush(saved.capture());
+        assertThat(saved.getValue()).hasSize(2);
+        assertThat(saved.getValue()).extracting(PaymentInvoiceAllocation::getInvoiceId)
+                .containsExactly(invoiceOneId, invoiceTwoId);
+        assertThat(saved.getValue()).extracting(PaymentInvoiceAllocation::getAllocatedAmount)
+                .containsExactly(new BigDecimal("60.00"), new BigDecimal("40.00"));
+        assertThat(saved.getValue()).allSatisfy(row ->
+                assertThat(row.getAllocationType()).isEqualTo(PaymentAllocationType.AUTO_ADVANCE));
+    }
+
+    @Test
+    void automaticallyAllocatesOnlyEarliestVerifiedDepositAcrossStagedOrderReceipts() {
+        Transaction laterReceipt = Transaction.builder().transactionId(UUID.randomUUID()).transactionCode("PAY-002")
+                .transactionType("RECEIPT").status("VERIFIED").customerId(customerId).orderId(orderId)
+                .amount(new BigDecimal("100.00")).paymentMethod("BANK_TRANSFER").createdBy(actorId)
+                .transactionDate(receipt.getTransactionDate().plusMinutes(1)).build();
+        receipt.setAmount(new BigDecimal("30.00"));
+        SalesOrderPaymentInfoDto stagedOrder = SalesOrderPaymentInfoDto.builder()
+                .orderId(orderId).customerId(customerId).storeInvoiceId(storeInvoiceId)
+                .totalAmount(new BigDecimal("200.00")).depositAmount(new BigDecimal("50.00"))
+                .stagedDelivery(true).validForPayment(true).build();
+        when(salesOrderApi.lockOrderPaymentInfo(orderId)).thenReturn(Optional.of(stagedOrder));
+        when(transactionRepository.findByOrderIdAndTransactionTypeIgnoreCase(orderId, "RECEIPT"))
+                .thenReturn(List.of(receipt, laterReceipt));
+        when(transactionRepository.findByIdForUpdate(laterReceipt.getTransactionId())).thenReturn(Optional.of(laterReceipt));
+        when(allocationRepository.findByTransactionIdAndAllocationStatus(
+                laterReceipt.getTransactionId(), PaymentAllocationStatus.ACTIVE)).thenReturn(List.of());
+        when(salesReceivableApi.findElectronicallyIntegratedInvoicesByOrderId(orderId)).thenReturn(List.of(invoiceOne));
+
+        service.autoAllocateVerifiedReceipt(receiptId, actorId);
+
+        ArgumentCaptor<List<PaymentInvoiceAllocation>> saved = ArgumentCaptor.forClass(List.class);
+        verify(allocationRepository).saveAllAndFlush(saved.capture());
+        assertThat(saved.getValue()).extracting(PaymentInvoiceAllocation::getTransactionId)
+                .containsExactly(receiptId, laterReceipt.getTransactionId());
+        assertThat(saved.getValue()).extracting(PaymentInvoiceAllocation::getAllocatedAmount)
+                .containsExactly(new BigDecimal("30.00"), new BigDecimal("20.00"));
+        assertThat(saved.getValue()).allSatisfy(row -> {
+            assertThat(row.getInvoiceId()).isEqualTo(invoiceOneId);
+            assertThat(row.getReason()).isEqualTo("Tự động phân bổ FIFO phần tiền cọc");
+        });
+    }
+
+    @Test
+    void reverseKeepsReceiptImmutableAndReturnsItsMoneyToManualQueue() {
+        UUID allocationId = UUID.randomUUID();
+        PaymentInvoiceAllocation active = PaymentInvoiceAllocation.builder().allocationId(allocationId)
+                .transactionId(receiptId).orderId(orderId).invoiceId(invoiceOneId)
+                .allocatedAmount(new BigDecimal("40.00")).allocationStatus(PaymentAllocationStatus.ACTIVE)
+                .allocatedBy(actorId).allocatedAt(OffsetDateTime.now()).createdAt(OffsetDateTime.now()).build();
+        when(allocationRepository.findByIdForUpdate(allocationId)).thenReturn(Optional.of(active));
+        when(allocationRepository.findByTransactionIdAndAllocationStatus(receiptId, PaymentAllocationStatus.ACTIVE))
+                .thenReturn(List.of());
+        when(allocationRepository.saveAndFlush(active)).thenReturn(active);
+
+        service.reverse(receiptId, allocationId,
+                new ReversePaymentAllocationRequest("Phân bổ nhầm hóa đơn đợt giao"), actorId);
+
+        assertThat(active.getAllocationStatus()).isEqualTo(PaymentAllocationStatus.REVERSED);
+        assertThat(active.getReversedBy()).isEqualTo(actorId);
+        assertThat(active.getReversalReason()).isEqualTo("Phân bổ nhầm hóa đơn đợt giao");
+        assertThat(receipt.getStatus()).isEqualTo("VERIFIED");
+        verify(eventPublisher).publishEvent(org.mockito.ArgumentMatchers.argThat((CustomerDebtAuditEvent event) ->
+                "PAYMENT_ALLOCATION_REVERSED".equals(event.action()) && receiptId.equals(event.entityId())));
     }
 
     private SalesInvoiceDebtDto invoice(UUID id, String code, String total) {

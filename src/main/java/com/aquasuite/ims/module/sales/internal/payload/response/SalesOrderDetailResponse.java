@@ -35,6 +35,7 @@ public class SalesOrderDetailResponse {
     private BigDecimal vatRate;
     private BigDecimal shippingFee;
     private BigDecimal depositPercent;
+    private boolean stagedDelivery;
     private BigDecimal depositAmount;
     private Integer creditTermDays;
     private BigDecimal remainingDebtAmount;

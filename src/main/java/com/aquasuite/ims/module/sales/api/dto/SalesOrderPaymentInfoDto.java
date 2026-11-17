@@ -18,6 +18,7 @@ import java.util.UUID;
  * @param paymentStatus trạng thái thanh toán đang lưu tại Sales
  * @param totalAmount tổng tiền phải trả của đơn
  * @param depositAmount số tiền cọc theo thỏa thuận của đơn; có thể null nếu đơn không đặt cọc
+ * @param stagedDelivery true when the order is planned for multiple delivery batches
  * @param validForPayment đơn có hợp lệ để tiếp nhận thanh toán hay không
  */
 @Builder
@@ -32,6 +33,7 @@ public record SalesOrderPaymentInfoDto(
         String paymentStatus,
         BigDecimal totalAmount,
         BigDecimal depositAmount,
+        boolean stagedDelivery,
         boolean validForPayment
 ) {
 }

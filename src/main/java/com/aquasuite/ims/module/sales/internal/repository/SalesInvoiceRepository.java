@@ -31,18 +31,13 @@ public interface SalesInvoiceRepository extends JpaRepository<SalesInvoice, UUID
      */
     Optional<SalesInvoice> findByOrderIdAndInvoiceType(UUID orderId, String invoiceType);
 
-    /**
-     * Read model for Finance UC-24/UC-63. A Store invoice becomes a financial target only after the external
-     * e-invoice provider has returned its identifier and signing time. {@code status} remains the internal
-     * delivery-invoice lifecycle, not an e-invoice lifecycle.
-     */
+    /** Read model for Finance UC-24/UC-63 after external electronic-invoice integration succeeds. */
     @Query("select invoice from SalesInvoice invoice where invoice.orderId = :orderId "
-            + "and upper(invoice.invoiceType) = 'STORE' "
             + "and upper(invoice.status) in ('ISSUED', 'DISPATCHED') "
             + "and invoice.providerInvoiceId is not null and trim(invoice.providerInvoiceId) <> '' "
             + "and invoice.signedAt is not null "
             + "order by invoice.signedAt asc, invoice.invoiceId asc")
-    List<SalesInvoice> findElectronicallyIssuedStoreInvoicesByOrderId(@Param("orderId") UUID orderId);
+    List<SalesInvoice> findElectronicallyIntegratedInvoicesByOrderId(@Param("orderId") UUID orderId);
 
     List<SalesInvoice> findByOrderIdOrderByBatchNoAscCreatedAtAsc(UUID orderId);
 

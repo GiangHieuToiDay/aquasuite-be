@@ -7,6 +7,7 @@ import com.aquasuite.ims.module.crm.api.dto.CustomerDebtProfileDto;
 import com.aquasuite.ims.module.finance.api.event.CustomerDebtAuditEvent;
 import com.aquasuite.ims.module.finance.internal.error.CustomerDebtErrorCode;
 import com.aquasuite.ims.module.finance.internal.entity.PaymentInvoiceAllocation;
+import com.aquasuite.ims.module.finance.internal.entity.PaymentReceiptRefundSettlement;
 import com.aquasuite.ims.module.finance.internal.entity.Transaction;
 import com.aquasuite.ims.module.finance.internal.enums.PaymentAllocationStatus;
 import com.aquasuite.ims.module.finance.internal.payload.DebtStatus;
@@ -21,6 +22,7 @@ import com.aquasuite.ims.module.finance.internal.pdf.StatementPdfService;
 import com.aquasuite.ims.module.finance.internal.repository.TransactionRepository;
 import com.aquasuite.ims.module.finance.internal.repository.FinanceLockRepository;
 import com.aquasuite.ims.module.finance.internal.repository.PaymentInvoiceAllocationRepository;
+import com.aquasuite.ims.module.finance.internal.repository.PaymentReceiptRefundSettlementRepository;
 import com.aquasuite.ims.module.finance.internal.service.CustomerDebtService;
 import com.aquasuite.ims.module.sales.api.SalesReceivableApi;
 import com.aquasuite.ims.module.sales.api.dto.SalesInvoiceDebtDto;
@@ -49,6 +51,7 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
     private final SalesReceivableApi salesReceivableApi;
     private final TransactionRepository transactionRepository;
     private final PaymentInvoiceAllocationRepository paymentInvoiceAllocationRepository;
+    private final PaymentReceiptRefundSettlementRepository paymentReceiptRefundSettlementRepository;
     private final AuditQueryApi auditQueryApi;
     private final ApplicationEventPublisher eventPublisher;
     private final DebtEmailNotificationPort emailNotificationPort;
@@ -305,15 +308,22 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
         List<SalesOrderDebtDto> orders = documents.orders().stream()
                 .filter(order -> customer.customerId().equals(order.customerId()))
                 .filter(order -> !"CANCELLED".equalsIgnoreCase(order.orderStatus())).toList();
+        Set<UUID> activeOrderIds = orders.stream().map(SalesOrderDebtDto::orderId).collect(Collectors.toSet());
         List<SalesInvoiceDebtDto> invoices = documents.invoices().stream()
                 .filter(invoice -> customer.customerId().equals(invoice.customerId()))
-                .filter(this::isElectronicallyIssuedStoreInvoice).toList();
+                .filter(invoice -> activeOrderIds.contains(invoice.orderId()))
+                .filter(this::isElectronicallyIntegratedInvoice).toList();
         Map<UUID, UUID> invoiceOrder = invoices.stream().collect(Collectors.toMap(SalesInvoiceDebtDto::invoiceId, SalesInvoiceDebtDto::orderId));
         Map<UUID, List<PaymentInvoiceAllocation>> allocationsByTransaction = documents.transactions().isEmpty()
                 ? Map.of()
                 : paymentInvoiceAllocationRepository.findByTransactionIdInAndAllocationStatus(
                                 documents.transactions().stream().map(Transaction::getTransactionId).toList(), PaymentAllocationStatus.ACTIVE)
                         .stream().collect(Collectors.groupingBy(PaymentInvoiceAllocation::getTransactionId));
+        Map<UUID, BigDecimal> refundedByTransaction = documents.transactions().isEmpty() ? Map.of()
+                : paymentReceiptRefundSettlementRepository.findByReceiptTransactionIdIn(
+                                documents.transactions().stream().map(Transaction::getTransactionId).toList()).stream()
+                        .collect(Collectors.groupingBy(PaymentReceiptRefundSettlement::getReceiptTransactionId,
+                                Collectors.reducing(ZERO, PaymentReceiptRefundSettlement::getSettledAmount, BigDecimal::add)));
         Map<UUID, BigDecimal> orderPaid = new HashMap<>();
         Map<UUID, BigDecimal> invoicePaid = new HashMap<>();
         BigDecimal unallocated = ZERO;
@@ -322,7 +332,6 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
         for (Transaction transaction : documents.transactions()) {
             if (!customer.customerId().equals(transaction.getCustomerId())) continue;
             UUID orderId = transaction.getOrderId() != null ? transaction.getOrderId() : invoiceOrder.get(transaction.getInvoiceId());
-            if (orderId != null) orderPaid.merge(orderId, amount(transaction.getAmount()), BigDecimal::add);
             List<PaymentInvoiceAllocation> activeAllocations = allocationsByTransaction
                     .getOrDefault(transaction.getTransactionId(), List.of());
             BigDecimal allocatedToCurrentInvoices = ZERO;
@@ -331,14 +340,18 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
                 if (invoiceOrder.containsKey(allocation.getInvoiceId())) {
                     BigDecimal allocatedAmount = amount(allocation.getAllocatedAmount());
                     invoicePaid.merge(allocation.getInvoiceId(), allocatedAmount, BigDecimal::add);
+                    orderPaid.merge(invoiceOrder.get(allocation.getInvoiceId()), allocatedAmount, BigDecimal::add);
                     allocatedToCurrentInvoices = allocatedToCurrentInvoices.add(allocatedAmount);
                 }
             }
             // A receipt linked to a Store invoice is still unallocated until UC-63 creates allocation rows.
             // This keeps an advance/receipt from being silently assigned to whichever delivery invoice happens to exist.
             if (transaction.getOrderId() != null) {
-                BigDecimal receiptAmount = positive(amount(transaction.getAmount()).subtract(allocatedToCurrentInvoices));
+                BigDecimal refundedAmount = refundedByTransaction.getOrDefault(transaction.getTransactionId(), ZERO);
+                BigDecimal receiptAmount = positive(amount(transaction.getAmount())
+                        .subtract(allocatedToCurrentInvoices).subtract(refundedAmount));
                 if (receiptAmount.compareTo(ZERO) > 0) {
+                    orderPaid.merge(transaction.getOrderId(), receiptAmount, BigDecimal::add);
                     unallocated = unallocated.add(receiptAmount);
                     unallocatedReceipts.add(new UnallocatedReceiptResponse(transaction.getTransactionId(),
                             transaction.getTransactionCode(), transaction.getOrderId(), receiptAmount, transaction.getTransactionDate()));
@@ -416,11 +429,10 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
         return DebtStatus.WITHIN_TERM;
     }
 
-    private boolean isElectronicallyIssuedStoreInvoice(SalesInvoiceDebtDto invoice) {
+    private boolean isElectronicallyIntegratedInvoice(SalesInvoiceDebtDto invoice) {
         boolean operationallyLocked = "ISSUED".equalsIgnoreCase(invoice.status())
                 || "DISPATCHED".equalsIgnoreCase(invoice.status());
-        return "STORE".equalsIgnoreCase(invoice.invoiceType())
-                && operationallyLocked
+        return operationallyLocked
                 && invoice.providerInvoiceId() != null
                 && !invoice.providerInvoiceId().isBlank()
                 && invoice.signedAt() != null;

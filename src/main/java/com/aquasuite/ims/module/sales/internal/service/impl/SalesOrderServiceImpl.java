@@ -306,6 +306,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .totalAmount(finalTotal)
                 .deliveryAddress(request.getDeliveryAddress())
                 .reserveStockAfterDeposit(request.isReserveStockAfterDeposit())
+                .stagedDelivery(false)
                 .note(request.getNote())
                 .createdAt(now)
                 .updatedAt(now)
@@ -641,6 +642,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         }
 
         // 10. Khởi tạo và lưu Order kèm toàn bộ thông tin snapshot từ Báo giá
+        boolean stagedDelivery = request != null && request.getBatches() != null && request.getBatches().size() > 1;
         Order order = Order.builder()
                 .orderId(orderId)
                 .orderCode(orderCode)
@@ -654,6 +656,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .depositPercent(depositPercent)
                 .depositAmount(depositAmount)
                 .reserveStockAfterDeposit(reserveAfterDeposit)
+                .stagedDelivery(stagedDelivery)
                 .creditTermDays(quotation.getCreditTermDays())
                 .remainingDebtAmount(remainingDebtAmount)
                 .debtCondition(quotation.getDebtCondition())

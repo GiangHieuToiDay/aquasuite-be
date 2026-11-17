@@ -1,7 +1,9 @@
 package com.aquasuite.ims.module.finance.internal.service.impl;
 
 import com.aquasuite.ims.module.finance.api.event.CustomerDebtAuditEvent;
+import com.aquasuite.ims.module.finance.api.dto.OrderModificationSettlementCommand;
 import com.aquasuite.ims.module.finance.internal.entity.PaymentInvoiceAllocation;
+import com.aquasuite.ims.module.finance.internal.entity.PaymentReceiptRefundSettlement;
 import com.aquasuite.ims.module.finance.internal.entity.Transaction;
 import com.aquasuite.ims.module.finance.internal.enums.PaymentAllocationStatus;
 import com.aquasuite.ims.module.finance.internal.enums.PaymentAllocationType;
@@ -9,11 +11,14 @@ import com.aquasuite.ims.module.finance.internal.error.PaymentAllocationErrorCod
 import com.aquasuite.ims.module.finance.internal.mapper.PaymentAllocationMapper;
 import com.aquasuite.ims.module.finance.internal.payload.request.CreatePaymentAllocationRequest;
 import com.aquasuite.ims.module.finance.internal.payload.request.PaymentAllocationLineRequest;
+import com.aquasuite.ims.module.finance.internal.payload.request.ReversePaymentAllocationRequest;
 import com.aquasuite.ims.module.finance.internal.payload.response.PaymentAllocationBatchResponse;
 import com.aquasuite.ims.module.finance.internal.payload.response.PaymentAllocationLineResponse;
+import com.aquasuite.ims.module.finance.internal.payload.response.PaymentAllocationReceiptResponse;
 import com.aquasuite.ims.module.finance.internal.payload.response.PaymentAllocationTargetResponse;
 import com.aquasuite.ims.module.finance.internal.payload.response.PaymentAllocationTargetsResponse;
 import com.aquasuite.ims.module.finance.internal.repository.PaymentInvoiceAllocationRepository;
+import com.aquasuite.ims.module.finance.internal.repository.PaymentReceiptRefundSettlementRepository;
 import com.aquasuite.ims.module.finance.internal.repository.TransactionRepository;
 import com.aquasuite.ims.module.finance.internal.service.PaymentAllocationService;
 import com.aquasuite.ims.module.sales.api.SalesOrderApi;
@@ -26,15 +31,20 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -53,15 +63,22 @@ import java.util.stream.Collectors;
 public class PaymentAllocationServiceImpl implements PaymentAllocationService {
     static final String RECEIPT = "RECEIPT";
     static final String VERIFIED = "VERIFIED";
-    static final String STORE = "STORE";
     static final BigDecimal ZERO = BigDecimal.ZERO;
 
     TransactionRepository transactionRepository;
     PaymentInvoiceAllocationRepository allocationRepository;
+    PaymentReceiptRefundSettlementRepository refundSettlementRepository;
     SalesOrderApi salesOrderApi;
     SalesReceivableApi salesReceivableApi;
     PaymentAllocationMapper allocationMapper;
     ApplicationEventPublisher eventPublisher;
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<PaymentAllocationReceiptResponse> listUnallocatedReceipts(Pageable pageable) {
+        return transactionRepository.findVerifiedReceiptsWithRemainingAllocation(PaymentAllocationStatus.ACTIVE, pageable)
+                .map(this::receiptQueueResponse);
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -73,7 +90,7 @@ public class PaymentAllocationServiceImpl implements PaymentAllocationService {
         List<PaymentInvoiceAllocation> active = allocationRepository.findByTransactionIdAndAllocationStatus(
                 receiptId, PaymentAllocationStatus.ACTIVE);
         BigDecimal allocated = sum(active, PaymentInvoiceAllocation::getAllocatedAmount);
-        List<SalesInvoiceDebtDto> invoices = salesReceivableApi.findElectronicallyIssuedStoreInvoicesByOrderId(order.orderId());
+        List<SalesInvoiceDebtDto> invoices = salesReceivableApi.findElectronicallyIntegratedInvoicesByOrderId(order.orderId());
         Map<UUID, BigDecimal> paidByInvoice = currentInvoicePaid(invoices);
         List<PaymentAllocationTargetResponse> targets = invoices.stream()
                 .map(invoice -> targetResponse(invoice, paidByInvoice.getOrDefault(invoice.invoiceId(), ZERO)))
@@ -82,7 +99,7 @@ public class PaymentAllocationServiceImpl implements PaymentAllocationService {
                 .receiptId(receipt.getTransactionId()).receiptCode(receipt.getTransactionCode())
                 .orderId(order.orderId()).customerId(order.customerId())
                 .receiptAmount(amount(receipt.getAmount())).allocatedAmount(allocated)
-                .remainingAmount(positive(amount(receipt.getAmount()).subtract(allocated)))
+                .remainingAmount(remainingReceiptAmount(receipt, allocated))
                 .invoices(targets).build();
     }
 
@@ -91,6 +108,24 @@ public class PaymentAllocationServiceImpl implements PaymentAllocationService {
     public List<PaymentAllocationLineResponse> getAllocations(UUID receiptId) {
         findReceipt(receiptId);
         return allocationMapper.toResponses(allocationRepository.findByTransactionIdOrderByAllocatedAtDesc(receiptId));
+    }
+
+    @Override
+    @Transactional
+    public void autoAllocateVerifiedReceipt(UUID receiptId, UUID actorId) {
+        UUID orderId = transactionRepository.findOrderIdById(receiptId)
+                .orElseThrow(() -> new AppException(PaymentAllocationErrorCode.RECEIPT_NOT_FOUND));
+        SalesOrderPaymentInfoDto order = loadOrder(orderId, true);
+        // The first verified receipt may be a deposit. Re-evaluate every receipt in time order so the
+        // deposit cap remains stable even when electronic invoices arrive after payment collection.
+        allocateAutomatically(order, lockVerifiedReceipts(order), actorId);
+    }
+
+    @Override
+    @Transactional
+    public void autoAllocateVerifiedReceiptsForOrder(UUID orderId, UUID actorId) {
+        SalesOrderPaymentInfoDto order = loadOrder(orderId, true);
+        allocateAutomatically(order, lockVerifiedReceipts(order), actorId);
     }
 
     @Override
@@ -123,8 +158,8 @@ public class PaymentAllocationServiceImpl implements PaymentAllocationService {
         BigDecimal requested = sum(requestedByInvoice.values());
         List<PaymentInvoiceAllocation> currentReceiptAllocations = allocationRepository
                 .findByTransactionIdAndAllocationStatus(receiptId, PaymentAllocationStatus.ACTIVE);
-        BigDecimal remainingReceipt = positive(amount(receipt.getAmount())
-                .subtract(sum(currentReceiptAllocations, PaymentInvoiceAllocation::getAllocatedAmount)));
+        BigDecimal remainingReceipt = remainingReceiptAmount(receipt,
+                sum(currentReceiptAllocations, PaymentInvoiceAllocation::getAllocatedAmount));
         if (requested.compareTo(remainingReceipt) > 0) {
             throw new AppException(PaymentAllocationErrorCode.RECEIPT_BALANCE_EXCEEDED);
         }
@@ -147,8 +182,317 @@ public class PaymentAllocationServiceImpl implements PaymentAllocationService {
                 .reason(reason).allocatedBy(actorId).allocatedAt(now).createdAt(now).build()).toList();
         List<PaymentInvoiceAllocation> saved = allocationRepository.saveAllAndFlush(rows);
         BigDecimal remaining = remainingReceipt.subtract(requested);
-        publishAllocationAudit(actorId, receipt, order, saved, requested, remaining, reason);
+        publishAllocationAudit(actorId, receipt, order, saved, requested, remaining, reason,
+                "PAYMENT_ALLOCATION_CREATED");
         return batchResponse(request.getAllocationRequestId(), receipt, order, requested, remaining, saved);
+    }
+
+    @Override
+    @Transactional
+    public PaymentAllocationLineResponse reverse(
+            UUID receiptId, UUID allocationId, ReversePaymentAllocationRequest request, UUID actorId
+    ) {
+        UUID orderId = transactionRepository.findOrderIdById(receiptId)
+                .orElseThrow(() -> new AppException(PaymentAllocationErrorCode.RECEIPT_NOT_FOUND));
+        SalesOrderPaymentInfoDto order = loadOrder(orderId, true);
+        Transaction receipt = transactionRepository.findByIdForUpdate(receiptId)
+                .orElseThrow(() -> new AppException(PaymentAllocationErrorCode.RECEIPT_NOT_FOUND));
+        validateAllocatableReceipt(receipt, order);
+        PaymentInvoiceAllocation allocation = allocationRepository.findByIdForUpdate(allocationId)
+                .orElseThrow(() -> new AppException(PaymentAllocationErrorCode.ALLOCATION_NOT_FOUND));
+        if (!receiptId.equals(allocation.getTransactionId()) || !orderId.equals(allocation.getOrderId())) {
+            throw new AppException(PaymentAllocationErrorCode.ALLOCATION_NOT_FOUND);
+        }
+        if (allocation.getAllocationStatus() != PaymentAllocationStatus.ACTIVE) {
+            throw new AppException(PaymentAllocationErrorCode.ALLOCATION_ALREADY_REVERSED);
+        }
+        if (allocation.getAllocationType() == PaymentAllocationType.REPOINTED) {
+            throw new AppException(PaymentAllocationErrorCode.ALLOCATION_NOT_REVERSIBLE);
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        String reason = request.reason().trim();
+        allocation.setAllocationStatus(PaymentAllocationStatus.REVERSED);
+        allocation.setReversedBy(actorId);
+        allocation.setReversedAt(now);
+        allocation.setReversalReason(reason);
+        PaymentInvoiceAllocation saved = allocationRepository.saveAndFlush(allocation);
+        BigDecimal activeAllocated = sum(allocationRepository.findByTransactionIdAndAllocationStatus(
+                receiptId, PaymentAllocationStatus.ACTIVE), PaymentInvoiceAllocation::getAllocatedAmount);
+        eventPublisher.publishEvent(new CustomerDebtAuditEvent(UUID.randomUUID(), actorId, receiptId,
+                "PAYMENT_RECEIPT", "PAYMENT_ALLOCATION_REVERSED",
+                Map.of("allocationId", allocationId, "allocatedAmount", amount(saved.getAllocatedAmount())),
+                Map.of("orderId", orderId, "remainingReceiptAmount", remainingReceiptAmount(receipt, activeAllocated)),
+                reason, Instant.now()));
+        return allocationMapper.toResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public void reconcileOrderModification(OrderModificationSettlementCommand command) {
+        validateModificationCommand(command);
+        Map<UUID, SalesOrderPaymentInfoDto> lockedOrders = lockOrdersForModification(command);
+        SalesOrderPaymentInfoDto sourceOrder = lockedOrders.get(command.sourceOrderId());
+        SalesOrderPaymentInfoDto targetOrder = command.targetOrderId() == null ? null : lockedOrders.get(command.targetOrderId());
+        if (targetOrder == null) requireSourceInvoice(command, sourceOrder);
+        if (targetOrder != null && !Objects.equals(sourceOrder.customerId(), targetOrder.customerId())) {
+            throw new AppException(PaymentAllocationErrorCode.INVALID_REPLACEMENT_SETTLEMENT);
+        }
+
+        List<Transaction> receipts = lockVerifiedReceiptsForModification(sourceOrder);
+        List<PaymentInvoiceAllocation> sourceAllocations = allocationRepository
+                .findByOrderIdAndAllocationStatus(sourceOrder.orderId(), PaymentAllocationStatus.ACTIVE);
+        Map<UUID, BigDecimal> sourceAllocatedByReceipt = sourceAllocations.stream().collect(Collectors.groupingBy(
+                PaymentInvoiceAllocation::getTransactionId,
+                Collectors.reducing(ZERO, PaymentInvoiceAllocation::getAllocatedAmount, BigDecimal::add)));
+
+        SalesInvoiceDebtDto targetInvoice = targetOrder == null ? null : requireReplacementTarget(command, targetOrder);
+        BigDecimal targetRemaining = targetInvoice == null ? ZERO : positive(amount(targetInvoice.totalAmount())
+                .subtract(currentInvoicePaid(List.of(targetInvoice)).getOrDefault(targetInvoice.invoiceId(), ZERO)));
+        OffsetDateTime now = OffsetDateTime.now();
+        String reason = command.reason().trim();
+        for (PaymentInvoiceAllocation source : sourceAllocations) {
+            source.setAllocationStatus(PaymentAllocationStatus.REVERSED);
+            source.setReversedBy(command.actorId());
+            source.setReversedAt(now);
+            source.setReversalReason(reason);
+        }
+        if (!sourceAllocations.isEmpty()) allocationRepository.saveAllAndFlush(sourceAllocations);
+
+        List<PaymentInvoiceAllocation> repointed = new ArrayList<>();
+        List<PaymentReceiptRefundSettlement> refunded = new ArrayList<>();
+        BigDecimal refundRequired = ZERO;
+        for (Transaction receipt : receipts) {
+            BigDecimal activeBeforeSourceReverse = sum(allocationRepository.findByTransactionIdAndAllocationStatus(
+                    receipt.getTransactionId(), PaymentAllocationStatus.ACTIVE), PaymentInvoiceAllocation::getAllocatedAmount);
+            BigDecimal sourceReversed = sourceAllocatedByReceipt.getOrDefault(receipt.getTransactionId(), ZERO);
+            BigDecimal reusable = positive(amount(receipt.getAmount()).subtract(activeBeforeSourceReverse)
+                    .subtract(refundSettlementRepository.sumByReceiptTransactionId(receipt.getTransactionId()))
+                    .add(sourceReversed));
+            if (reusable.signum() <= 0) continue;
+
+            BigDecimal repointedAmount = targetInvoice == null ? ZERO : reusable.min(targetRemaining);
+            if (repointedAmount.signum() > 0) {
+                repointed.add(PaymentInvoiceAllocation.builder()
+                        .allocationRequestId(UUID.randomUUID()).transactionId(receipt.getTransactionId())
+                        .orderId(targetOrder.orderId()).invoiceId(targetInvoice.invoiceId()).allocatedAmount(repointedAmount)
+                        .allocationType(PaymentAllocationType.REPOINTED).allocationStatus(PaymentAllocationStatus.ACTIVE)
+                        .reason(reason).allocatedBy(command.actorId()).allocatedAt(now).createdAt(now).build());
+                targetRemaining = targetRemaining.subtract(repointedAmount);
+            }
+            BigDecimal remainder = reusable.subtract(repointedAmount);
+            if (remainder.signum() > 0) {
+                refundRequired = refundRequired.add(remainder);
+                refunded.add(PaymentReceiptRefundSettlement.builder().receiptTransactionId(receipt.getTransactionId())
+                        .refundTransactionId(command.refundTransactionId()).sourceOrderId(sourceOrder.orderId())
+                        .settledAmount(remainder).settledBy(command.actorId()).settledAt(now).reason(reason).build());
+            }
+        }
+        if (refundRequired.signum() > 0) validateVerifiedRefund(command, sourceOrder, refundRequired);
+        if (!repointed.isEmpty()) allocationRepository.saveAllAndFlush(repointed);
+        if (!refunded.isEmpty()) refundSettlementRepository.saveAllAndFlush(refunded);
+
+        eventPublisher.publishEvent(new CustomerDebtAuditEvent(UUID.randomUUID(), command.actorId(), sourceOrder.orderId(),
+                "PAYMENT_ALLOCATION", "PAYMENT_ALLOCATION_RECONCILED_FOR_ORDER_MODIFICATION",
+                Map.of("sourceOrderId", sourceOrder.orderId(), "sourceAllocationCount", sourceAllocations.size()),
+                Map.of("settlementMode", targetOrder == null ? "REFUND" : "REPOINT",
+                        "targetOrderId", targetOrder == null ? "NONE" : targetOrder.orderId().toString(),
+                        "repointedAmount", sum(repointed, PaymentInvoiceAllocation::getAllocatedAmount),
+                        "refundedAmount", refundRequired),
+                reason, Instant.now()));
+    }
+
+    private Map<UUID, SalesOrderPaymentInfoDto> lockOrdersForModification(OrderModificationSettlementCommand command) {
+        List<UUID> orderIds = new ArrayList<>();
+        orderIds.add(command.sourceOrderId());
+        if (command.targetOrderId() != null && !command.targetOrderId().equals(command.sourceOrderId())) {
+            orderIds.add(command.targetOrderId());
+        }
+        orderIds.sort(UUID::compareTo);
+        Map<UUID, SalesOrderPaymentInfoDto> locked = new HashMap<>();
+        for (UUID orderId : orderIds) locked.put(orderId, loadOrder(orderId, true));
+        return locked;
+    }
+
+    private List<Transaction> lockVerifiedReceiptsForModification(SalesOrderPaymentInfoDto sourceOrder) {
+        return transactionRepository.findByOrderIdAndTransactionTypeIgnoreCase(sourceOrder.orderId(), RECEIPT).stream()
+                .filter(receipt -> VERIFIED.equalsIgnoreCase(receipt.getStatus()))
+                .sorted(Comparator.comparing(Transaction::getTransactionDate).thenComparing(Transaction::getTransactionId))
+                .map(receipt -> transactionRepository.findByIdForUpdate(receipt.getTransactionId())
+                        .orElseThrow(() -> new AppException(PaymentAllocationErrorCode.RECEIPT_NOT_FOUND)))
+                .toList();
+    }
+
+    private SalesInvoiceDebtDto requireReplacementTarget(
+            OrderModificationSettlementCommand command, SalesOrderPaymentInfoDto targetOrder
+    ) {
+        if (command.targetInvoiceId() == null) {
+            throw new AppException(PaymentAllocationErrorCode.INVALID_REPLACEMENT_SETTLEMENT);
+        }
+        List<SalesInvoiceDebtDto> invoices = salesReceivableApi.findInvoicesByIds(List.of(
+                command.sourceInvoiceId(), command.targetInvoiceId()));
+        if (invoices.size() != 2) throw new AppException(PaymentAllocationErrorCode.INVOICE_NOT_FOUND);
+        Map<UUID, SalesInvoiceDebtDto> indexed = invoices.stream().collect(Collectors.toMap(
+                SalesInvoiceDebtDto::invoiceId, Function.identity()));
+        SalesInvoiceDebtDto source = indexed.get(command.sourceInvoiceId());
+        SalesInvoiceDebtDto target = indexed.get(command.targetInvoiceId());
+        if (source == null || target == null || !command.sourceOrderId().equals(source.orderId())
+                || !targetOrder.orderId().equals(target.orderId())
+                || !Objects.equals(source.customerId(), target.customerId())
+                || !isElectronicallyIntegratedInvoice(target)) {
+            throw new AppException(PaymentAllocationErrorCode.INVALID_REPLACEMENT_SETTLEMENT);
+        }
+        return target;
+    }
+
+    private void requireSourceInvoice(OrderModificationSettlementCommand command, SalesOrderPaymentInfoDto sourceOrder) {
+        SalesInvoiceDebtDto source = salesReceivableApi.findInvoicesByIds(List.of(command.sourceInvoiceId())).stream()
+                .findFirst().orElseThrow(() -> new AppException(PaymentAllocationErrorCode.INVOICE_NOT_FOUND));
+        if (!sourceOrder.orderId().equals(source.orderId()) || !sourceOrder.customerId().equals(source.customerId())) {
+            throw new AppException(PaymentAllocationErrorCode.INVALID_REPLACEMENT_SETTLEMENT);
+        }
+    }
+
+    private void validateVerifiedRefund(
+            OrderModificationSettlementCommand command, SalesOrderPaymentInfoDto sourceOrder, BigDecimal refundRequired
+    ) {
+        if (command.refundTransactionId() == null) {
+            throw new AppException(PaymentAllocationErrorCode.REFUND_NOT_VERIFIED);
+        }
+        Transaction refund = transactionRepository.findByIdForUpdate(command.refundTransactionId())
+                .orElseThrow(() -> new AppException(PaymentAllocationErrorCode.REFUND_NOT_VERIFIED));
+        boolean validRefund = "EXPENSE".equalsIgnoreCase(refund.getTransactionType())
+                && "CUSTOMER_REFUND".equalsIgnoreCase(refund.getCategory())
+                && VERIFIED.equalsIgnoreCase(refund.getStatus())
+                && Objects.equals(sourceOrder.orderId(), refund.getOrderId())
+                && Objects.equals(sourceOrder.customerId(), refund.getCustomerId());
+        BigDecimal unusedRefund = positive(amount(refund.getAmount()).subtract(
+                refundSettlementRepository.sumByRefundTransactionId(refund.getTransactionId())));
+        if (!validRefund || unusedRefund.compareTo(refundRequired) < 0) {
+            throw new AppException(PaymentAllocationErrorCode.REFUND_NOT_VERIFIED);
+        }
+    }
+
+    private void validateModificationCommand(OrderModificationSettlementCommand command) {
+        if (command == null || command.sourceOrderId() == null || command.sourceInvoiceId() == null
+                || command.actorId() == null || trimToNull(command.reason()) == null
+                || (command.targetOrderId() == null) != (command.targetInvoiceId() == null)) {
+            throw new AppException(PaymentAllocationErrorCode.INVALID_REPLACEMENT_SETTLEMENT);
+        }
+    }
+
+    /** Applies one-stage receipts in full, or only the configured deposit portion for staged orders. */
+    private void allocateAutomatically(SalesOrderPaymentInfoDto order, List<Transaction> receipts, UUID actorId) {
+        if (receipts.isEmpty() || actorId == null) return;
+        List<SalesInvoiceDebtDto> invoices = salesReceivableApi
+                .findElectronicallyIntegratedInvoicesByOrderId(order.orderId());
+        if (invoices.isEmpty()) return;
+
+        Map<UUID, BigDecimal> paidByInvoice = currentInvoicePaid(invoices);
+        Map<UUID, List<PaymentInvoiceAllocation>> rowsByReceipt = new LinkedHashMap<>();
+        Map<UUID, BigDecimal> allocatedByReceipt = new HashMap<>();
+        Map<UUID, BigDecimal> remainingByReceipt = new HashMap<>();
+        Map<UUID, BigDecimal> automaticLimitByReceipt = automaticLimitByReceipt(order, receipts);
+        OffsetDateTime now = OffsetDateTime.now();
+
+        for (Transaction receipt : receipts) {
+            BigDecimal automaticLimit = automaticLimitByReceipt.getOrDefault(receipt.getTransactionId(), ZERO);
+            if (automaticLimit.signum() <= 0) continue;
+            List<PaymentInvoiceAllocation> allocationHistory = allocationRepository
+                    .findByTransactionIdOrderByAllocatedAtDesc(receipt.getTransactionId());
+            // A corrected/manual receipt belongs to the Accountant afterwards; do not silently undo that intent.
+            if (allocationHistory.stream().anyMatch(row -> row.getAllocationStatus() == PaymentAllocationStatus.REVERSED
+                    || row.getAllocationType() == PaymentAllocationType.MANUAL
+                    || row.getAllocationType() == PaymentAllocationType.REPOINTED)) {
+                continue;
+            }
+            List<PaymentInvoiceAllocation> activeReceiptAllocations = allocationRepository
+                    .findByTransactionIdAndAllocationStatus(receipt.getTransactionId(), PaymentAllocationStatus.ACTIVE);
+            BigDecimal alreadyAllocated = sum(activeReceiptAllocations, PaymentInvoiceAllocation::getAllocatedAmount);
+            BigDecimal alreadyAutomaticallyAllocated = activeReceiptAllocations.stream()
+                    .filter(row -> PaymentAllocationType.AUTO_ADVANCE == row.getAllocationType())
+                    .map(PaymentInvoiceAllocation::getAllocatedAmount)
+                    .map(PaymentAllocationServiceImpl::amount)
+                    .reduce(ZERO, BigDecimal::add);
+            BigDecimal remainingReceipt = remainingReceiptAmount(receipt, alreadyAllocated)
+                    .min(positive(automaticLimit.subtract(alreadyAutomaticallyAllocated)));
+            if (remainingReceipt.signum() <= 0) continue;
+
+            UUID requestId = UUID.randomUUID();
+            List<PaymentInvoiceAllocation> rows = new ArrayList<>();
+            for (SalesInvoiceDebtDto invoice : invoices) {
+                BigDecimal invoiceRemaining = positive(amount(invoice.totalAmount())
+                        .subtract(paidByInvoice.getOrDefault(invoice.invoiceId(), ZERO)));
+                if (invoiceRemaining.signum() <= 0 || remainingReceipt.signum() <= 0) continue;
+                BigDecimal allocated = remainingReceipt.min(invoiceRemaining);
+                rows.add(PaymentInvoiceAllocation.builder()
+                        .allocationRequestId(requestId).transactionId(receipt.getTransactionId()).orderId(order.orderId())
+                        .invoiceId(invoice.invoiceId()).allocatedAmount(allocated)
+                        .allocationType(PaymentAllocationType.AUTO_ADVANCE).allocationStatus(PaymentAllocationStatus.ACTIVE)
+                        .reason(order.stagedDelivery()
+                                ? "Tự động phân bổ FIFO phần tiền cọc"
+                                : "Tự động phân bổ khoản thu cho đơn một đợt")
+                        .allocatedBy(actorId).allocatedAt(now).createdAt(now).build());
+                paidByInvoice.merge(invoice.invoiceId(), allocated, BigDecimal::add);
+                remainingReceipt = remainingReceipt.subtract(allocated);
+            }
+            if (!rows.isEmpty()) {
+                rowsByReceipt.put(receipt.getTransactionId(), rows);
+                allocatedByReceipt.put(receipt.getTransactionId(), sum(rows, PaymentInvoiceAllocation::getAllocatedAmount));
+                remainingByReceipt.put(receipt.getTransactionId(), remainingReceipt);
+            }
+        }
+        if (rowsByReceipt.isEmpty()) return;
+
+        List<PaymentInvoiceAllocation> saved = allocationRepository.saveAllAndFlush(
+                rowsByReceipt.values().stream().flatMap(Collection::stream).toList());
+        Map<UUID, List<PaymentInvoiceAllocation>> savedByReceipt = saved.stream()
+                .collect(Collectors.groupingBy(PaymentInvoiceAllocation::getTransactionId));
+        for (Transaction receipt : receipts) {
+            List<PaymentInvoiceAllocation> receiptRows = savedByReceipt.get(receipt.getTransactionId());
+            if (receiptRows == null) continue;
+            publishAllocationAudit(actorId, receipt, order, receiptRows,
+                    allocatedByReceipt.get(receipt.getTransactionId()), remainingByReceipt.get(receipt.getTransactionId()),
+                    order.stagedDelivery() ? "Tự động phân bổ FIFO phần tiền cọc"
+                            : "Tự động phân bổ khoản thu cho đơn một đợt",
+                    "PAYMENT_ALLOCATION_AUTO_CREATED");
+        }
+    }
+
+    /** Locks every verified receipt after the order lock, preserving the same lock order as manual allocation. */
+    private List<Transaction> lockVerifiedReceipts(SalesOrderPaymentInfoDto order) {
+        List<Transaction> lockedReceipts = transactionRepository
+                .findByOrderIdAndTransactionTypeIgnoreCase(order.orderId(), RECEIPT).stream()
+                .filter(receipt -> VERIFIED.equalsIgnoreCase(receipt.getStatus()))
+                .sorted(Comparator.comparing(Transaction::getTransactionDate)
+                        .thenComparing(Transaction::getTransactionId))
+                .map(receipt -> transactionRepository.findByIdForUpdate(receipt.getTransactionId())
+                        .orElseThrow(() -> new AppException(PaymentAllocationErrorCode.RECEIPT_NOT_FOUND)))
+                .toList();
+        for (Transaction receipt : lockedReceipts) {
+            validateAllocatableReceipt(receipt, order);
+        }
+        return lockedReceipts;
+    }
+
+    /**
+     * A one-stage order can settle all verified money automatically. A staged order may settle only
+     * its earliest verified money up to the immutable deposit amount; later money remains manual work.
+     */
+    private Map<UUID, BigDecimal> automaticLimitByReceipt(SalesOrderPaymentInfoDto order, List<Transaction> receipts) {
+        Map<UUID, BigDecimal> limits = new LinkedHashMap<>();
+        if (!order.stagedDelivery()) {
+            receipts.forEach(receipt -> limits.put(receipt.getTransactionId(), amount(receipt.getAmount())));
+            return limits;
+        }
+        BigDecimal remainingDeposit = positive(amount(order.depositAmount()));
+        for (Transaction receipt : receipts) {
+            if (remainingDeposit.signum() <= 0) break;
+            BigDecimal eligible = amount(receipt.getAmount()).min(remainingDeposit);
+            limits.put(receipt.getTransactionId(), eligible);
+            remainingDeposit = remainingDeposit.subtract(eligible);
+        }
+        return limits;
     }
 
     private PaymentAllocationBatchResponse idempotentResponseOrFail(Transaction receipt, SalesOrderPaymentInfoDto order,
@@ -166,7 +510,7 @@ public class PaymentAllocationServiceImpl implements PaymentAllocationService {
         BigDecimal totalAllocated = sum(allocationRepository.findByTransactionIdAndAllocationStatus(
                 receipt.getTransactionId(), PaymentAllocationStatus.ACTIVE), PaymentInvoiceAllocation::getAllocatedAmount);
         return batchResponse(request.getAllocationRequestId(), receipt, order, total,
-                positive(amount(receipt.getAmount()).subtract(totalAllocated)), existing);
+                remainingReceiptAmount(receipt, totalAllocated), existing);
     }
 
     private Transaction findReceipt(UUID receiptId) {
@@ -193,14 +537,8 @@ public class PaymentAllocationServiceImpl implements PaymentAllocationService {
         if (!Objects.equals(order.customerId(), receipt.getCustomerId())) {
             throw new AppException(CommonErrorCode.DATA_INTEGRITY_VIOLATION);
         }
-        // A receipt linked to any Store invoice remains an order-level receipt until UC-63 writes allocation rows.
-        // The exception is a historical direct link to an old non-STORE electronic invoice.
-        if (receipt.getInvoiceId() != null) {
-            List<SalesInvoiceDebtDto> linked = salesReceivableApi.findInvoicesByIds(List.of(receipt.getInvoiceId()));
-            if (!linked.isEmpty() && !STORE.equalsIgnoreCase(linked.getFirst().invoiceType())) {
-                throw new AppException(PaymentAllocationErrorCode.RECEIPT_ALREADY_DIRECTLY_LINKED);
-            }
-        }
+        // transaction.invoiceId is the source Store invoice recorded by UC-23/UC-70, not settlement proof.
+        // Only PaymentInvoiceAllocation rows settle a receipt to a delivery invoice.
     }
 
     private Map<UUID, BigDecimal> requestedByInvoice(List<PaymentAllocationLineRequest> lines) {
@@ -218,7 +556,7 @@ public class PaymentAllocationServiceImpl implements PaymentAllocationService {
     private void validateTargets(SalesOrderPaymentInfoDto order, List<SalesInvoiceDebtDto> targets) {
         for (SalesInvoiceDebtDto target : targets) {
             if (!Objects.equals(order.orderId(), target.orderId()) || !Objects.equals(order.customerId(), target.customerId())
-                    || !isElectronicallyIssuedStoreInvoice(target)) {
+                    || !isElectronicallyIntegratedInvoice(target)) {
                 throw new AppException(PaymentAllocationErrorCode.INVALID_ALLOCATION_TARGET);
             }
         }
@@ -230,8 +568,7 @@ public class PaymentAllocationServiceImpl implements PaymentAllocationService {
         Map<UUID, BigDecimal> paid = new HashMap<>();
         allocationRepository.findByInvoiceIdInAndAllocationStatus(invoiceIds, PaymentAllocationStatus.ACTIVE).forEach(row ->
                 paid.merge(row.getInvoiceId(), amount(row.getAllocatedAmount()), BigDecimal::add));
-        // A receipt linked to a Store invoice is not an implicit allocation. Only UC-63 allocation rows settle it.
-        // Historical non-Store direct links are not returned in the target set and remain outside this new flow.
+        // transaction.invoiceId is not an implicit allocation; only UC-63 rows settle a receipt.
         return paid;
     }
 
@@ -241,6 +578,14 @@ public class PaymentAllocationServiceImpl implements PaymentAllocationService {
                 .issueDate(invoice.signedAt() != null ? invoice.signedAt() : invoice.issueDate()).dueDate(invoice.dueDate())
                 .totalAmount(amount(invoice.totalAmount())).verifiedPaidAmount(paid)
                 .outstandingAmount(positive(amount(invoice.totalAmount()).subtract(paid))).build();
+    }
+
+    private PaymentAllocationReceiptResponse receiptQueueResponse(Transaction receipt) {
+        BigDecimal allocated = sum(allocationRepository.findByTransactionIdAndAllocationStatus(
+                receipt.getTransactionId(), PaymentAllocationStatus.ACTIVE), PaymentInvoiceAllocation::getAllocatedAmount);
+        return new PaymentAllocationReceiptResponse(receipt.getTransactionId(), receipt.getTransactionCode(), receipt.getOrderId(),
+                receipt.getCustomerId(), amount(receipt.getAmount()), allocated,
+                remainingReceiptAmount(receipt, allocated), receipt.getPaymentMethod(), receipt.getTransactionDate());
     }
 
     private PaymentAllocationBatchResponse batchResponse(UUID requestId, Transaction receipt, SalesOrderPaymentInfoDto order,
@@ -253,20 +598,19 @@ public class PaymentAllocationServiceImpl implements PaymentAllocationService {
 
     private void publishAllocationAudit(UUID actorId, Transaction receipt, SalesOrderPaymentInfoDto order,
                                         List<PaymentInvoiceAllocation> rows, BigDecimal allocated,
-                                        BigDecimal remaining, String reason) {
+                                        BigDecimal remaining, String reason, String action) {
         List<UUID> invoiceIds = rows.stream().map(PaymentInvoiceAllocation::getInvoiceId).toList();
         eventPublisher.publishEvent(new CustomerDebtAuditEvent(UUID.randomUUID(), actorId, receipt.getTransactionId(),
-                "PAYMENT_RECEIPT", "PAYMENT_ALLOCATION_CREATED",
+                "PAYMENT_RECEIPT", action,
                 Map.of("receiptAmount", amount(receipt.getAmount())),
                 Map.of("orderId", order.orderId(), "invoiceIds", invoiceIds, "allocatedAmount", allocated,
                         "remainingReceiptAmount", remaining), reason, Instant.now()));
     }
 
-    private static boolean isElectronicallyIssuedStoreInvoice(SalesInvoiceDebtDto invoice) {
+    private static boolean isElectronicallyIntegratedInvoice(SalesInvoiceDebtDto invoice) {
         boolean operationallyLocked = "ISSUED".equalsIgnoreCase(invoice.status())
                 || "DISPATCHED".equalsIgnoreCase(invoice.status());
-        return STORE.equalsIgnoreCase(invoice.invoiceType())
-                && operationallyLocked
+        return operationallyLocked
                 && invoice.providerInvoiceId() != null
                 && !invoice.providerInvoiceId().isBlank()
                 && invoice.signedAt() != null;
@@ -281,6 +625,10 @@ public class PaymentAllocationServiceImpl implements PaymentAllocationService {
     }
 
     private static BigDecimal amount(BigDecimal value) { return value == null ? ZERO : value; }
+    private BigDecimal remainingReceiptAmount(Transaction receipt, BigDecimal activeAllocated) {
+        BigDecimal refunded = amount(refundSettlementRepository.sumByReceiptTransactionId(receipt.getTransactionId()));
+        return positive(amount(receipt.getAmount()).subtract(amount(activeAllocated)).subtract(refunded));
+    }
     private static BigDecimal positive(BigDecimal value) { return value.max(ZERO); }
     private static String trimToNull(String value) { return value == null || value.isBlank() ? null : value.trim(); }
 }

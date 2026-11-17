@@ -1,6 +1,7 @@
 package com.aquasuite.ims.module.finance.internal.payload.response;
 
 import com.aquasuite.ims.module.finance.internal.enums.PaymentAllocationType;
+import com.aquasuite.ims.module.finance.internal.enums.PaymentAllocationStatus;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
 
@@ -18,6 +19,10 @@ public record PaymentAllocationLineResponse(
         UUID invoiceId,
         BigDecimal allocatedAmount,
         PaymentAllocationType allocationType,
+        PaymentAllocationStatus allocationStatus,
         UUID allocatedBy,
         OffsetDateTime allocatedAt,
-        String reason) {}
+        String reason,
+        UUID reversedBy,
+        OffsetDateTime reversedAt,
+        String reversalReason) {}

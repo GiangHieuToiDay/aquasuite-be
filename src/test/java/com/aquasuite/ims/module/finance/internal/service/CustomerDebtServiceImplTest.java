@@ -13,6 +13,7 @@ import com.aquasuite.ims.module.finance.internal.pdf.StatementDocument;
 import com.aquasuite.ims.module.finance.internal.pdf.StatementPdfService;
 import com.aquasuite.ims.module.finance.internal.repository.TransactionRepository;
 import com.aquasuite.ims.module.finance.internal.repository.PaymentInvoiceAllocationRepository;
+import com.aquasuite.ims.module.finance.internal.repository.PaymentReceiptRefundSettlementRepository;
 import com.aquasuite.ims.module.finance.internal.service.impl.CustomerDebtServiceImpl;
 import com.aquasuite.ims.module.sales.api.SalesReceivableApi;
 import com.aquasuite.ims.module.sales.api.dto.SalesInvoiceDebtDto;
@@ -52,6 +53,7 @@ class CustomerDebtServiceImplTest {
     @Mock private SalesReceivableApi salesReceivableApi;
     @Mock private TransactionRepository transactionRepository;
     @Mock private PaymentInvoiceAllocationRepository paymentInvoiceAllocationRepository;
+    @Mock private PaymentReceiptRefundSettlementRepository paymentReceiptRefundSettlementRepository;
     @Mock private AuditQueryApi auditQueryApi;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private DebtEmailNotificationPort emailNotificationPort;

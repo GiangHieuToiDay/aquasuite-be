@@ -40,11 +40,11 @@ public class SalesReceivableApiImpl implements SalesReceivableApi {
     }
 
     @Override
-    public List<SalesInvoiceDebtDto> findElectronicallyIssuedStoreInvoicesByOrderId(UUID orderId) {
+    public List<SalesInvoiceDebtDto> findElectronicallyIntegratedInvoicesByOrderId(UUID orderId) {
         if (orderId == null) {
             return List.of();
         }
-        return salesInvoiceRepository.findElectronicallyIssuedStoreInvoicesByOrderId(orderId).stream()
+        return salesInvoiceRepository.findElectronicallyIntegratedInvoicesByOrderId(orderId).stream()
                 .map(this::toInvoiceDto)
                 .toList();
     }

@@ -10,6 +10,7 @@ import com.aquasuite.ims.module.finance.internal.payload.response.OrderPaymentSu
 import com.aquasuite.ims.module.finance.internal.repository.TransactionRepository;
 import com.aquasuite.ims.module.finance.internal.repository.FinanceLockRepository;
 import com.aquasuite.ims.module.finance.internal.service.OrderPaymentService;
+import com.aquasuite.ims.module.finance.internal.service.PaymentAllocationService;
 import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.sales.api.SalesOrderApi;
 import com.aquasuite.ims.module.sales.api.dto.SalesOrderMilestoneDto;
@@ -38,6 +39,8 @@ public class OrderPaymentServiceImpl implements OrderPaymentService {
     private final IamApi iam;
     /** Giữ khóa PostgreSQL theo mã chống ghi trùng trong transaction hiện tại. */
     private final FinanceLockRepository locks;
+    /** Applies newly verified cash receipts to eligible electronic invoices in FIFO order. */
+    private final PaymentAllocationService paymentAllocationService;
 
     /**
      * Khóa đơn, kiểm tra yêu cầu gửi lại và số còn phải trả, rồi lưu một giao dịch.
@@ -94,6 +97,7 @@ public class OrderPaymentServiceImpl implements OrderPaymentService {
         if (cash) {
             BigDecimal verified = summary.verifiedPaid().add(request.amount());
             sales.updatePaymentStatus(orderId, verified.compareTo(order.totalAmount()) == 0 ? "PAID" : "PARTIALLY_PAID");
+            paymentAllocationService.autoAllocateVerifiedReceipt(transaction.getTransactionId(), actorId);
         }
         return response(transaction);
     }

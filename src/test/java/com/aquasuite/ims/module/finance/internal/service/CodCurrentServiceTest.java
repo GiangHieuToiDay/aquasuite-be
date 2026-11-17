@@ -23,13 +23,14 @@ import static org.assertj.core.api.Assertions.*;
 
 class CodCurrentServiceTest {
     TransactionRepository repo; FinanceLockRepository locks;
-    SalesOrderApi sales; DeliveryCodQueryApi deliveries; IamApi iam; CodService service;
+    SalesOrderApi sales; DeliveryCodQueryApi deliveries; IamApi iam; PaymentAllocationService allocations; CodService service;
     UUID shipper=UUID.randomUUID(), accountant=UUID.randomUUID(), order=UUID.randomUUID(), customer=UUID.randomUUID(), delivery=UUID.randomUUID(), id=UUID.randomUUID();
     Transaction t;
     @BeforeEach void setup() {
         repo=mock(TransactionRepository.class); locks=mock(FinanceLockRepository.class);
         sales=mock(SalesOrderApi.class); deliveries=mock(DeliveryCodQueryApi.class); iam=mock(IamApi.class);
-        service=new CodService(repo,locks,sales,deliveries,iam);
+        allocations=mock(PaymentAllocationService.class);
+        service=new CodService(repo,locks,sales,deliveries,iam,allocations);
         t=Transaction.builder().transactionId(id).transactionCode("COD-"+id).transactionType("RECEIPT")
                 .paymentType("COD").paymentMethod("CASH").deliveryId(delivery).orderId(order).customerId(customer)
                 .createdBy(shipper).amount(new BigDecimal("100")).status("PENDING")
@@ -74,6 +75,7 @@ class CodCurrentServiceTest {
         assertThat(result.status()).isEqualTo("VERIFIED");
         assertThat(t.getApprovedBy()).isEqualTo(accountant);
         verify(repo).saveAndFlush(t); verify(sales).updatePaymentStatus(order,"PAID");
+        verify(allocations).autoAllocateVerifiedReceipt(id, accountant);
     }
     @Test void accountantRetainsAccess() {
         as(accountant,"ACCOUNTANT"); service.review(id,new Review(0,null),true);

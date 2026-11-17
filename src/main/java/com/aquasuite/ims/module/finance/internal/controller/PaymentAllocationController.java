@@ -1,8 +1,10 @@
 package com.aquasuite.ims.module.finance.internal.controller;
 
 import com.aquasuite.ims.module.finance.internal.payload.request.CreatePaymentAllocationRequest;
+import com.aquasuite.ims.module.finance.internal.payload.request.ReversePaymentAllocationRequest;
 import com.aquasuite.ims.module.finance.internal.payload.response.PaymentAllocationBatchResponse;
 import com.aquasuite.ims.module.finance.internal.payload.response.PaymentAllocationLineResponse;
+import com.aquasuite.ims.module.finance.internal.payload.response.PaymentAllocationReceiptResponse;
 import com.aquasuite.ims.module.finance.internal.payload.response.PaymentAllocationTargetsResponse;
 import com.aquasuite.ims.module.finance.internal.service.PaymentAllocationService;
 import com.aquasuite.ims.module.iam.api.IamApi;
@@ -12,6 +14,8 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -32,6 +36,11 @@ public class PaymentAllocationController {
     PaymentAllocationService service;
     IamApi iamApi;
 
+    @GetMapping("/unallocated")
+    public ApiResponse<Page<PaymentAllocationReceiptResponse>> unallocated(Pageable pageable) {
+        return ApiResponse.ok(service.listUnallocatedReceipts(pageable));
+    }
+
     @GetMapping("/{receiptId}/allocation-targets")
     public ApiResponse<PaymentAllocationTargetsResponse> targets(@PathVariable UUID receiptId) {
         return ApiResponse.ok(service.getTargets(receiptId));
@@ -46,6 +55,16 @@ public class PaymentAllocationController {
     public ApiResponse<PaymentAllocationBatchResponse> allocate(@PathVariable UUID receiptId,
                                                                   @Valid @RequestBody CreatePaymentAllocationRequest request) {
         return ApiResponse.ok(service.allocate(receiptId, request, iamApi.getCurrentUserId()),
-                "Payment allocated to electronically issued Store invoice(s) successfully.");
+                "Payment allocated to electronically integrated invoice(s) successfully.");
+    }
+
+    @PostMapping("/{receiptId}/allocations/{allocationId}/reverse")
+    public ApiResponse<PaymentAllocationLineResponse> reverse(
+            @PathVariable UUID receiptId,
+            @PathVariable UUID allocationId,
+            @Valid @RequestBody ReversePaymentAllocationRequest request
+    ) {
+        return ApiResponse.ok(service.reverse(receiptId, allocationId, request, iamApi.getCurrentUserId()),
+                "Allocation reversed; the remaining receipt balance is ready for manual reconciliation.");
     }
 }

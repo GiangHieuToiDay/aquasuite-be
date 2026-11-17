@@ -2,6 +2,7 @@ package com.aquasuite.ims.module.sales.internal.service;
 
 import com.aquasuite.ims.module.sales.internal.payload.request.CreateDraftInvoiceRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.UpdateSalesInvoiceRequest;
+import com.aquasuite.ims.module.sales.internal.payload.request.LinkElectronicInvoiceRequest;
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesInvoiceResponse;
 
 import java.util.List;
@@ -19,6 +20,8 @@ public interface SalesInvoiceService {
     SalesInvoiceResponse updateDraftInvoice(UUID invoiceId, UpdateSalesInvoiceRequest request);
 
     SalesInvoiceResponse issueInvoice(UUID invoiceId);
+
+    SalesInvoiceResponse linkElectronicInvoice(UUID invoiceId, LinkElectronicInvoiceRequest request);
 
     void cancelDraftInvoice(UUID invoiceId);
 }

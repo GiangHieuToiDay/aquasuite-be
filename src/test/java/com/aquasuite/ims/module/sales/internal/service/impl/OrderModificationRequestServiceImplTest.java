@@ -1,6 +1,7 @@
 package com.aquasuite.ims.module.sales.internal.service.impl;
 
 import com.aquasuite.ims.module.finance.api.PaymentSettlementApi;
+import com.aquasuite.ims.module.finance.api.PaymentAllocationAdjustmentApi;
 import com.aquasuite.ims.module.finance.api.dto.VerifiedPaymentSummary;
 import com.aquasuite.ims.module.fulfillment.api.OrderDeliveryQueryApi;
 import com.aquasuite.ims.module.inventory.api.StockReservationApi;
@@ -54,6 +55,7 @@ class OrderModificationRequestServiceImplTest {
     @Mock private OrderModificationRequestMapper mapper;
     @Mock private OrderDeliveryQueryApi deliveries;
     @Mock private PaymentSettlementApi payments;
+    @Mock private PaymentAllocationAdjustmentApi paymentAllocations;
     @Mock private StockReservationApi reservations;
     @Mock private ApplicationEventPublisher events;
     @InjectMocks private OrderModificationRequestServiceImpl service;
@@ -168,7 +170,7 @@ class OrderModificationRequestServiceImplTest {
         when(orderRepository.findByIdForUpdate(orderId)).thenReturn(Optional.of(order));
         when(deliveries.lockByOrderId(orderId)).thenReturn(List.of());
         when(invoiceRepository.findByOrderIdForUpdate(orderId)).thenReturn(List.of(invoice));
-        when(invoiceRepository.findElectronicallyIssuedStoreInvoicesByOrderId(orderId)).thenReturn(List.of());
+        when(invoiceRepository.findElectronicallyIntegratedInvoicesByOrderId(orderId)).thenReturn(List.of());
         when(payments.getVerifiedPaymentSummary(orderId))
                 .thenReturn(new VerifiedPaymentSummary(orderId, new BigDecimal("100.00")));
         when(payments.createPendingCustomerRefund(any())).thenReturn(refundId);

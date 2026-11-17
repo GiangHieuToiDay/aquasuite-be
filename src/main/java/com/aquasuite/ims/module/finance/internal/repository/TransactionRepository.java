@@ -1,6 +1,7 @@
 package com.aquasuite.ims.module.finance.internal.repository;
 
 import com.aquasuite.ims.module.finance.internal.entity.Transaction;
+import com.aquasuite.ims.module.finance.internal.enums.PaymentAllocationStatus;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -80,6 +81,36 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID>,
      */
     Page<Transaction> findByOrderIdAndTransactionTypeIgnoreCaseAndPaymentMethodIgnoreCaseAndStatusIgnoreCase(
             UUID orderId, String transactionType, String paymentMethod, String status, Pageable pageable);
+
+    /** Verified order-level receipts with money still available for UC-63 allocation. */
+    @Query(value = """
+            select t from Transaction t
+            where upper(t.transactionType) = 'RECEIPT'
+              and upper(t.status) = 'VERIFIED'
+              and t.orderId is not null
+              and t.amount > 0
+              and t.amount > coalesce((select sum(a.allocatedAmount) from PaymentInvoiceAllocation a
+                                       where a.transactionId = t.transactionId
+                                         and a.allocationStatus = :activeStatus), 0)
+                              + coalesce((select sum(s.settledAmount) from PaymentReceiptRefundSettlement s
+                                          where s.receiptTransactionId = t.transactionId), 0)
+            order by t.transactionDate desc, t.transactionId desc
+            """,
+            countQuery = """
+            select count(t) from Transaction t
+            where upper(t.transactionType) = 'RECEIPT'
+              and upper(t.status) = 'VERIFIED'
+              and t.orderId is not null
+              and t.amount > 0
+              and t.amount > coalesce((select sum(a.allocatedAmount) from PaymentInvoiceAllocation a
+                                       where a.transactionId = t.transactionId
+                                         and a.allocationStatus = :activeStatus), 0)
+                              + coalesce((select sum(s.settledAmount) from PaymentReceiptRefundSettlement s
+                                          where s.receiptTransactionId = t.transactionId), 0)
+            """)
+    Page<Transaction> findVerifiedReceiptsWithRemainingAllocation(
+            @Param("activeStatus") PaymentAllocationStatus activeStatus,
+            Pageable pageable);
 
 
 

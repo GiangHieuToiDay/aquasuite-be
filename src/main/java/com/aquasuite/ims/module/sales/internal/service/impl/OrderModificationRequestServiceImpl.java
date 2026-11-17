@@ -3,6 +3,8 @@ package com.aquasuite.ims.module.sales.internal.service.impl;
 import com.aquasuite.ims.module.catalog.api.CatalogApi;
 import com.aquasuite.ims.module.catalog.api.dto.CatalogSkuSummaryDto;
 import com.aquasuite.ims.module.finance.api.PaymentSettlementApi;
+import com.aquasuite.ims.module.finance.api.PaymentAllocationAdjustmentApi;
+import com.aquasuite.ims.module.finance.api.dto.OrderModificationSettlementCommand;
 import com.aquasuite.ims.module.finance.api.dto.PendingCustomerRefundCommand;
 import com.aquasuite.ims.module.fulfillment.api.OrderDeliveryQueryApi;
 import com.aquasuite.ims.module.inventory.api.StockReservationApi;
@@ -67,6 +69,7 @@ public class OrderModificationRequestServiceImpl implements OrderModificationReq
     private final OrderModificationRequestMapper mapper;
     private final OrderDeliveryQueryApi deliveries;
     private final PaymentSettlementApi payments;
+    private final PaymentAllocationAdjustmentApi paymentAllocations;
     private final CatalogApi catalogApi;
     private final StockReservationApi reservations;
     private final ApplicationEventPublisher events;
@@ -135,7 +138,7 @@ public class OrderModificationRequestServiceImpl implements OrderModificationReq
         } else if (requiresPendingCancellation(taxLinked, verifiedAmount)) {
             request.setPriceDifference(proposedTotal(request, order.getTotalAmount()).subtract(verifiedAmount));
             request.setRequestStatus(OrderModificationRequestStatus.PENDING_CANCEL);
-            invoiceRepository.findElectronicallyIssuedStoreInvoicesByOrderId(order.getOrderId()).stream()
+            invoiceRepository.findElectronicallyIntegratedInvoicesByOrderId(order.getOrderId()).stream()
                     .findFirst().ifPresent(invoice -> request.setOriginalInvoiceId(invoice.getInvoiceId()));
             createRefundWhenRequired(request, order, verifiedAmount, actorId);
         } else if (request.getRequestType() == OrderModificationRequestType.FULL_CANCELLATION) {
@@ -180,6 +183,8 @@ public class OrderModificationRequestServiceImpl implements OrderModificationReq
             return toResponse(request);
         }
 
+        reconcileVerifiedReceiptsForTaxResult(request, resultInvoice, actorId);
+
         OrderModificationRequestStatus previous = request.getRequestStatus();
         if (request.getRequestType() == OrderModificationRequestType.FULL_CANCELLATION) {
             Order order = orderRepository.findByIdForUpdate(request.getOrderId())
@@ -189,6 +194,24 @@ public class OrderModificationRequestServiceImpl implements OrderModificationReq
         request.setRequestStatus(OrderModificationRequestStatus.APPROVED);
         audit(actorId, request, "TAX_RESULT_RECORDED", previous, request.getRequestStatus(), request.getTaxResultReference());
         return toResponse(request);
+    }
+
+    private void reconcileVerifiedReceiptsForTaxResult(
+            OrderModificationRequest request, SalesInvoice resultInvoice, UUID actorId
+    ) {
+        if (request.getOriginalInvoiceId() == null) return;
+        boolean fullCancellation = request.getRequestType() == OrderModificationRequestType.FULL_CANCELLATION;
+        // An Issued_Undelivered partial adjustment offsets its original invoice but keeps the same order.
+        // Only a full cancellation or UC-21 replacement order may move receipt value across invoice/order boundaries.
+        boolean replacementOrder = request.getReplacementOrderId() != null;
+        if (!fullCancellation && !replacementOrder) return;
+        paymentAllocations.reconcileOrderModification(new OrderModificationSettlementCommand(
+                request.getOrderId(), request.getOriginalInvoiceId(),
+                fullCancellation ? null : resultInvoice.getOrderId(),
+                fullCancellation ? null : resultInvoice.getInvoiceId(),
+                request.getRefundTransactionId(), actorId,
+                "Đối soát phân bổ theo UC-26 " + request.getModificationRequestId()
+        ));
     }
 
     @Override

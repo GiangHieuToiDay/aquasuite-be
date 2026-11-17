@@ -5,6 +5,7 @@ import com.aquasuite.ims.module.finance.internal.error.CodErrorCode;
 import com.aquasuite.ims.module.finance.internal.payload.CodPayload.*;
 import com.aquasuite.ims.module.finance.internal.repository.FinanceLockRepository;
 import com.aquasuite.ims.module.finance.internal.repository.TransactionRepository;
+import com.aquasuite.ims.module.finance.internal.service.PaymentAllocationService;
 import com.aquasuite.ims.module.fulfillment.api.DeliveryCodQueryApi;
 import com.aquasuite.ims.module.fulfillment.api.dto.DeliveryCodSnapshot;
 import com.aquasuite.ims.module.iam.api.IamApi;
@@ -39,6 +40,7 @@ public class CodService {
     private final SalesOrderApi sales;
     private final DeliveryCodQueryApi deliveries;
     private final IamApi iam;
+    private final PaymentAllocationService paymentAllocationService;
 
     @Transactional
     public Collection claim(@NotNull @Valid Claim request) {
@@ -114,6 +116,7 @@ public class CodService {
         transactions.saveAndFlush(t);
         if (accept) sales.updatePaymentStatus(orderId,
                 paid.add(t.getAmount()).compareTo(order.totalAmount()) == 0 ? "PAID" : "PARTIALLY_PAID");
+        if (accept) paymentAllocationService.autoAllocateVerifiedReceipt(t.getTransactionId(), actor);
         return response(t);
     }
 

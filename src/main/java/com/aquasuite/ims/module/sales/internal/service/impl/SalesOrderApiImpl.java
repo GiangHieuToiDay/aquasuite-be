@@ -75,6 +75,7 @@ public class SalesOrderApiImpl implements SalesOrderApi {
                     .paymentStatus(order.getPaymentStatus())
                     .totalAmount(order.getTotalAmount())
                     .depositAmount(order.getDepositAmount())
+                    .stagedDelivery(order.isStagedDelivery())
                     .validForPayment(isValid)
                     .build();
     }
