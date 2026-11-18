@@ -5,8 +5,11 @@ import com.aquasuite.ims.module.iam.api.dto.UserSummaryDto;
 import com.aquasuite.ims.module.servicedesk.internal.entity.TechnicalJob;
 import com.aquasuite.ims.module.servicedesk.internal.enums.TechnicalJobStatus;
 import com.aquasuite.ims.module.servicedesk.internal.enums.TechnicalJobType;
+import com.aquasuite.ims.module.servicedesk.internal.entity.WarrantyTicket;
+import com.aquasuite.ims.module.servicedesk.internal.enums.WarrantyTicketStatus;
 import com.aquasuite.ims.module.servicedesk.internal.payload.req.CompleteTechnicalJobRequest;
 import com.aquasuite.ims.module.servicedesk.internal.repository.TechnicalJobRepository;
+import com.aquasuite.ims.module.servicedesk.internal.repository.WarrantyTicketRepository;
 import com.aquasuite.ims.module.servicedesk.internal.service.impl.TechnicalJobServiceImpl;
 import com.aquasuite.ims.share.exception.AppException;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,6 +37,7 @@ import static org.mockito.Mockito.when;
 class TechnicalJobServiceTest {
 
     @Mock private TechnicalJobRepository repository;
+    @Mock private WarrantyTicketRepository warrantyTicketRepository;
     @Mock private IamApi iamApi;
     @Mock private com.aquasuite.ims.module.crm.api.CrmApi crmApi;
     @InjectMocks private TechnicalJobServiceImpl service;
@@ -219,5 +223,67 @@ class TechnicalJobServiceTest {
         // Không cần login: validate input xảy ra trước khi truy cập dữ liệu.
         assertThatThrownBy(() -> service.completeJob(UUID.randomUUID(), new CompleteTechnicalJobRequest("  ", null)))
                 .isInstanceOf(AppException.class);
+    }
+
+    @Test
+    @DisplayName("dispatchWarrantyRepairJob: tạo job WARRANTY_REPAIR ASSIGNED gắn ticket + record, gán KTV")
+    void dispatchWarrantyRepairJobSuccess() {
+        UUID customerId = UUID.randomUUID();
+        UUID recordId = UUID.randomUUID();
+        UUID ticketId = UUID.randomUUID();
+        when(repository.existsByWarrantyTicketId(ticketId)).thenReturn(false);
+        when(iamApi.getUserById(technicianId)).thenReturn(technicianUser(technicianId));
+        when(iamApi.getCurrentUserId()).thenReturn(otherTechId);
+
+        var res = service.dispatchWarrantyRepairJob(customerId, recordId, ticketId, technicianId,
+                "123 Trần Phú", "Máy nóng lạnh rò nước", null);
+
+        assertThat(res.jobType()).isEqualTo(TechnicalJobType.WARRANTY_REPAIR);
+        assertThat(res.status()).isEqualTo(TechnicalJobStatus.ASSIGNED);
+        assertThat(res.warrantyTicketId()).isEqualTo(ticketId);
+        assertThat(res.warrantyRecordId()).isEqualTo(recordId);
+        assertThat(res.technicianId()).isEqualTo(technicianId);
+        assertThat(res.createdBy()).isEqualTo(otherTechId);
+    }
+
+    @Test
+    @DisplayName("dispatchWarrantyRepairJob: ticket đã có job -> lỗi (idempotent)")
+    void dispatchWarrantyRepairJobIdempotent() {
+        UUID ticketId = UUID.randomUUID();
+        when(repository.existsByWarrantyTicketId(ticketId)).thenReturn(true);
+
+        assertThatThrownBy(() -> service.dispatchWarrantyRepairJob(
+                UUID.randomUUID(), UUID.randomUUID(), ticketId, technicianId, "addr", "issue", null))
+                .isInstanceOf(AppException.class);
+    }
+
+    @Test
+    @DisplayName("complete job WARRANTY_REPAIR có ticket -> đẩy ticket IN_PROGRESS sang DONE, copy result")
+    void completeWarrantyRepairFeedsTicketDone() {
+        loginAsTechnician();
+        UUID ticketId = UUID.randomUUID();
+        TechnicalJob j = job(TechnicalJobStatus.IN_PROGRESS, technicianId);
+        j.setJobType(TechnicalJobType.WARRANTY_REPAIR);
+        j.setWarrantyTicketId(ticketId);
+        when(repository.findById(j.getTechnicalJobId())).thenReturn(Optional.of(j));
+
+        WarrantyTicket ticket = WarrantyTicket.builder()
+                .ticketId(ticketId)
+                .ticketCode("TCK-WAR-202611-0001")
+                .warrantyRecordId(UUID.randomUUID())
+                .customerId(UUID.randomUUID())
+                .issueDescription("issue")
+                .siteAddress("addr")
+                .contactName("A").contactPhone("0900").status(WarrantyTicketStatus.IN_PROGRESS)
+                .technicalJobId(j.getTechnicalJobId())
+                .build();
+        when(warrantyTicketRepository.findById(ticketId)).thenReturn(Optional.of(ticket));
+
+        service.completeJob(j.getTechnicalJobId(), new CompleteTechnicalJobRequest("Đã sửa theo bảo hành", null));
+
+        assertThat(ticket.getStatus()).isEqualTo(WarrantyTicketStatus.DONE);
+        assertThat(ticket.getResult()).isEqualTo("Đã sửa theo bảo hành");
+        assertThat(ticket.getCompletedAt()).isNotNull();
+        org.mockito.Mockito.verify(warrantyTicketRepository).save(ticket);
     }
 }

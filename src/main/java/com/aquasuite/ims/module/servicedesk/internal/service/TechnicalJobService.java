@@ -62,4 +62,18 @@ public interface TechnicalJobService {
 
     /** Ghi kết quả và hoàn tất công việc: IN_PROGRESS → COMPLETED (UC-61). */
     TechnicalJobDetailResponse completeJob(UUID technicalJobId, CompleteTechnicalJobRequest request);
+
+    /**
+     * Bắn công việc kỹ thuật loại sửa chữa bảo hành (WARRANTY_REPAIR) từ một yêu cầu bảo hành (ticket, UC-47).
+     * Dùng cho luồng Chủ cửa hàng "bắn job" sang kỹ thuật viên (FE-13 Giai đoạn 2b). Job khởi tạo ở ASSIGNED,
+     * gán sẵn kỹ thuật viên (phải là TECHNICAL_STAFF), {@code createdBy} là người đang đăng nhập.
+     * Idempotent theo {@code warrantyTicketId}: mỗi ticket chỉ bắn tối đa một job.
+     */
+    TechnicalJobDetailResponse dispatchWarrantyRepairJob(UUID customerId,
+                                                         UUID warrantyRecordId,
+                                                         UUID warrantyTicketId,
+                                                         UUID technicianId,
+                                                         String serviceAddress,
+                                                         String issueDescription,
+                                                         OffsetDateTime scheduledAt);
 }

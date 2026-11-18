@@ -45,7 +45,11 @@ public enum ServicedeskErrorCode implements BaseErrorCode {
     INVALID_PREFERRED_DATE("SVD_026", "Ngày hẹn không hợp lệ (phải từ hôm nay đến tối đa 60 ngày tới).", HttpStatus.BAD_REQUEST),
     WARRANTY_TICKET_FORBIDDEN("SVD_027", "Không tìm thấy yêu cầu bảo hành: {0}", HttpStatus.NOT_FOUND),
     WARRANTY_TICKET_NOT_CANCELLABLE("SVD_028", "Chỉ có thể hủy yêu cầu bảo hành khi ở trạng thái Chờ tiếp nhận (NEW).", HttpStatus.CONFLICT),
-    MEDIA_UPLOAD_FAILED("SVD_029", "Tải file đính kèm lên Cloudinary thất bại. Vui lòng thử lại sau.", HttpStatus.BAD_GATEWAY);
+    MEDIA_UPLOAD_FAILED("SVD_029", "Tải file đính kèm lên Cloudinary thất bại. Vui lòng thử lại sau.", HttpStatus.BAD_GATEWAY),
+    WARRANTY_TICKET_NOT_DISPATCHABLE("SVD_030", "Chỉ có thể bắn công việc kỹ thuật cho yêu cầu bảo hành đang ở trạng thái Chờ tiếp nhận (NEW). Trạng thái hiện tại: {0}", HttpStatus.CONFLICT),
+    WARRANTY_TICKET_REJECT_REASON_REQUIRED("SVD_031", "Phải nhập lý do khi từ chối yêu cầu bảo hành.", HttpStatus.BAD_REQUEST),
+    WARRANTY_TICKET_NOT_REJECTABLE("SVD_032", "Chỉ có thể từ chối yêu cầu bảo hành đang ở trạng thái Chờ tiếp nhận (NEW). Trạng thái hiện tại: {0}", HttpStatus.CONFLICT),
+    WARRANTY_RECORD_EXPIRED_NOT_ACKNOWLEDGED("SVD_033", "Thẻ bảo hành đã hết hạn. Vui lòng xác nhận vẫn muốn gửi yêu cầu (có thể phát sinh chi phí).", HttpStatus.CONFLICT);
 
     private final String code;
     private final String message;

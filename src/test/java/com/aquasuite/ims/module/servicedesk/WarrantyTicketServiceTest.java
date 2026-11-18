@@ -244,6 +244,47 @@ class WarrantyTicketServiceTest {
     }
 
     @Test
+    @DisplayName("submit: Thẻ hết hạn mà không xác nhận -> từ chối SVD_033 (C+)")
+    void submit_expiredWithoutAck_rejected() {
+        WarrantyRecord rec = activeRecord(LocalDate.of(2024, 1, 1), LocalDate.of(2025, 1, 1)); // đã hết hạn
+        when(warrantyRecordRepository.findByIdForUpdate(recordId)).thenReturn(Optional.of(rec));
+
+        CreateWarrantyTicketRequest request = CreateWarrantyTicketRequest.builder()
+                .warrantyRecordId(recordId)
+                .issueDescription("Thiết bị hỏng, thẻ đã hết hạn nhưng không tích xác nhận")
+                .siteAddress("Số 15 Lê Duẩn, P. Bến Nghé, Quận 1")
+                .acknowledgeExpired(false)
+                .build();
+
+        assertThatThrownBy(() -> service.submit(request))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("hết hạn");
+    }
+
+    @Test
+    @DisplayName("submit: Thẻ hết hạn CÓ xác nhận -> tạo ticket, lưu vết expiredAcknowledged=true (C+)")
+    void submit_expiredWithAck_success() {
+        WarrantyRecord rec = activeRecord(LocalDate.of(2024, 1, 1), LocalDate.of(2025, 1, 1)); // đã hết hạn
+        when(warrantyRecordRepository.findByIdForUpdate(recordId)).thenReturn(Optional.of(rec));
+        when(warrantyTicketRepository.findFirstByWarrantyRecordIdAndStatusIn(eq(recordId), any())).thenReturn(Optional.empty());
+        when(warrantyTicketCodeGenerator.nextCode(any())).thenReturn("TCK-WAR-202611-0002");
+        when(warrantyTicketRepository.saveAndFlush(any(WarrantyTicket.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        CreateWarrantyTicketRequest request = CreateWarrantyTicketRequest.builder()
+                .warrantyRecordId(recordId)
+                .issueDescription("Thiết bị hỏng, thẻ hết hạn và khách đã xác nhận vẫn gửi")
+                .siteAddress("Số 15 Lê Duẩn, P. Bến Nghé, Quận 1")
+                .acknowledgeExpired(true)
+                .build();
+
+        WarrantyTicketDetailResponse response = service.submit(request);
+
+        assertThat(response.status()).isEqualTo(WarrantyTicketStatus.NEW);
+        assertThat(response.warrantyExpired()).isTrue();
+        assertThat(response.expiredAcknowledged()).isTrue();
+    }
+
+    @Test
     @DisplayName("submit: Thẻ VOIDED -> từ chối ném SVD_022")
     void submit_voided_rejected() {
         WarrantyRecord rec = activeRecord(LocalDate.of(2026, 1, 1), LocalDate.of(2028, 1, 1));

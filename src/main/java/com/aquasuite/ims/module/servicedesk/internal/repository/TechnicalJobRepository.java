@@ -25,6 +25,9 @@ public interface TechnicalJobRepository
     /** Kiểm tra đã tồn tại công việc kỹ thuật cho đơn hàng + loại công việc chưa (đảm bảo idempotent khi auto-sinh job). */
     boolean existsByOrderIdAndJobType(UUID orderId, TechnicalJobType jobType);
 
+    /** Kiểm tra một yêu cầu bảo hành (ticket) đã có công việc kỹ thuật được bắn hay chưa (idempotent khi dispatch). */
+    boolean existsByWarrantyTicketId(UUID warrantyTicketId);
+
     /** Lấy lịch sử công việc kỹ thuật gắn với một thẻ bảo hành (UC-45 dossier). */
     List<TechnicalJob> findByWarrantyRecordIdOrderByCreatedAtDesc(UUID warrantyRecordId);
 

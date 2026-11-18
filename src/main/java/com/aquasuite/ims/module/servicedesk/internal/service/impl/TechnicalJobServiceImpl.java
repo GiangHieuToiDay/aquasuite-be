@@ -13,6 +13,7 @@ import com.aquasuite.ims.module.servicedesk.internal.payload.res.TechnicalJobDet
 import com.aquasuite.ims.module.servicedesk.internal.payload.res.TechnicalJobListItemResponse;
 import com.aquasuite.ims.module.servicedesk.internal.repository.TechnicalJobRepository;
 import com.aquasuite.ims.module.servicedesk.internal.repository.TechnicalJobSpecifications;
+import com.aquasuite.ims.module.servicedesk.internal.repository.WarrantyTicketRepository;
 import com.aquasuite.ims.module.servicedesk.internal.service.TechnicalJobService;
 import com.aquasuite.ims.share.exception.AppException;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,7 @@ public class TechnicalJobServiceImpl implements TechnicalJobService {
     private static final String TECHNICAL_STAFF_ROLE = "TECHNICAL_STAFF";
 
     private final TechnicalJobRepository technicalJobRepository;
+    private final WarrantyTicketRepository warrantyTicketRepository;
     private final IamApi iamApi;
     private final CrmApi crmApi;
 
@@ -141,8 +143,52 @@ public class TechnicalJobServiceImpl implements TechnicalJobService {
         if (StringUtils.hasText(request.technicalNote())) {
             job.setTechnicalNote(request.technicalNote().trim());
         }
-        job.setCompletedAt(OffsetDateTime.now());
+        OffsetDateTime completedAt = OffsetDateTime.now();
+        job.setCompletedAt(completedAt);
+        TechnicalJob saved = technicalJobRepository.save(job);
+        // Phản hồi ngược sang yêu cầu bảo hành (FE-13 Giai đoạn 2b): job WARRANTY_REPAIR hoàn tất → ticket DONE.
+        feedbackWarrantyTicketOnComplete(saved, completedAt);
+        return toDetail(saved);
+    }
+
+    @Override
+    @Transactional
+    public TechnicalJobDetailResponse dispatchWarrantyRepairJob(UUID customerId,
+                                                                UUID warrantyRecordId,
+                                                                UUID warrantyTicketId,
+                                                                UUID technicianId,
+                                                                String serviceAddress,
+                                                                String issueDescription,
+                                                                OffsetDateTime scheduledAt) {
+        // Idempotent: mỗi ticket chỉ bắn tối đa một job.
+        if (warrantyTicketId != null && technicalJobRepository.existsByWarrantyTicketId(warrantyTicketId)) {
+            throw new AppException(ServicedeskErrorCode.WARRANTY_TICKET_ALREADY_OPEN, String.valueOf(warrantyTicketId));
+        }
+        requireTechnician(technicianId);
+        TechnicalJob job = TechnicalJob.builder()
+                .customerId(customerId)
+                .warrantyRecordId(warrantyRecordId)
+                .warrantyTicketId(warrantyTicketId)
+                .technicianId(technicianId)
+                .createdBy(currentUserId())
+                .jobType(TechnicalJobType.WARRANTY_REPAIR)
+                .status(TechnicalJobStatus.ASSIGNED)
+                .serviceAddress(serviceAddress.trim())
+                .issueDescription(issueDescription.trim())
+                .scheduledAt(scheduledAt)
+                .build();
         return toDetail(technicalJobRepository.save(job));
+    }
+
+    /** Khi job sửa chữa bảo hành hoàn tất, chuyển ticket nguồn sang DONE và sao chép kết quả cho Chủ cửa hàng theo dõi. */
+    private void feedbackWarrantyTicketOnComplete(TechnicalJob job, OffsetDateTime completedAt) {
+        if (job.getJobType() != TechnicalJobType.WARRANTY_REPAIR || job.getWarrantyTicketId() == null) {
+            return;
+        }
+        warrantyTicketRepository.findById(job.getWarrantyTicketId()).ifPresent(ticket -> {
+            ticket.markDone(job.getResult(), completedAt, OffsetDateTime.now());
+            warrantyTicketRepository.save(ticket);
+        });
     }
 
     // ----- helpers -----
@@ -213,6 +259,7 @@ public class TechnicalJobServiceImpl implements TechnicalJobService {
                 .customerId(j.getCustomerId())
                 .orderId(j.getOrderId())
                 .warrantyRecordId(j.getWarrantyRecordId())
+                .warrantyTicketId(j.getWarrantyTicketId())
                 .technicianId(j.getTechnicianId())
                 .createdBy(j.getCreatedBy())
                 .jobType(j.getJobType())

@@ -25,6 +25,8 @@ public record WarrantyTicketDetailResponse(
         String serialNumber,
         LocalDate warrantyStartDate,
         LocalDate warrantyEndDate,
+        boolean warrantyExpired,
+        boolean expiredAcknowledged,
         String contactName,
         String contactPhone,
         String contactEmail,

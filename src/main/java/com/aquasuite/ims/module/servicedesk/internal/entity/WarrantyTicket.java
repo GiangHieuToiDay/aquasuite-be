@@ -81,6 +81,11 @@ public class WarrantyTicket {
     @Builder.Default
     private WarrantyTicketStatus status = WarrantyTicketStatus.NEW;
 
+    /** Khách đã chủ động xác nhận vẫn gửi yêu cầu dù thẻ bảo hành đã hết hạn (C+). */
+    @Column(name = "expired_acknowledged", nullable = false)
+    @Builder.Default
+    private boolean expiredAcknowledged = false;
+
     @Column(name = "technical_job_id")
     private UUID technicalJobId;
 
@@ -141,7 +146,8 @@ public class WarrantyTicket {
             String contactName,
             String contactPhone,
             String contactEmail,
-            List<TicketMedia> mediaList
+            List<TicketMedia> mediaList,
+            boolean expiredAcknowledged
     ) {
         return WarrantyTicket.builder()
                 .ticketId(UUID.randomUUID())
@@ -157,6 +163,7 @@ public class WarrantyTicket {
                 .contactEmail(contactEmail)
                 .media(mediaList != null ? new ArrayList<>(mediaList) : new ArrayList<>())
                 .status(WarrantyTicketStatus.NEW)
+                .expiredAcknowledged(expiredAcknowledged)
                 .createdAt(OffsetDateTime.now())
                 .updatedAt(OffsetDateTime.now())
                 .build();
@@ -171,6 +178,46 @@ public class WarrantyTicket {
         }
         this.status = WarrantyTicketStatus.CANCELLED;
         this.cancelReason = reason != null && !reason.isBlank() ? reason.trim() : "Khách hàng hủy yêu cầu";
+        this.updatedAt = now != null ? now : OffsetDateTime.now();
+    }
+
+    /**
+     * Chủ cửa hàng từ chối yêu cầu bảo hành tại bàn (chỉ khi NEW) — ví dụ thẻ hết hạn, yêu cầu rác/ngoài phạm vi.
+     * Không cử kỹ thuật viên; kết luận bảo hành/không bảo hành khi đã cử người vẫn thuộc bước hiện trường (DONE).
+     */
+    public void reject(String reason, OffsetDateTime now) {
+        if (this.status != WarrantyTicketStatus.NEW) {
+            throw new AppException(ServicedeskErrorCode.WARRANTY_TICKET_NOT_REJECTABLE, this.status.name());
+        }
+        this.status = WarrantyTicketStatus.REJECTED;
+        this.rejectionReason = reason.trim();
+        this.updatedAt = now != null ? now : OffsetDateTime.now();
+    }
+
+    /**
+     * Chủ cửa hàng "bắn job": gắn công việc kỹ thuật WARRANTY_REPAIR và chuyển ticket NEW → IN_PROGRESS.
+     * Chỉ cho phép khi ticket đang chờ tiếp nhận (NEW).
+     */
+    public void markInProgress(UUID technicalJobId, OffsetDateTime now) {
+        if (this.status != WarrantyTicketStatus.NEW) {
+            throw new AppException(ServicedeskErrorCode.WARRANTY_TICKET_NOT_DISPATCHABLE, this.status.name());
+        }
+        this.technicalJobId = technicalJobId;
+        this.status = WarrantyTicketStatus.IN_PROGRESS;
+        this.updatedAt = now != null ? now : OffsetDateTime.now();
+    }
+
+    /**
+     * Phản hồi khi công việc kỹ thuật hoàn tất: chuyển ticket IN_PROGRESS → DONE, lưu kết quả cho chủ theo dõi.
+     * Lũy đẳng (idempotent): bỏ qua nếu ticket không còn ở IN_PROGRESS để không chặn việc hoàn tất job.
+     */
+    public void markDone(String result, OffsetDateTime completedAt, OffsetDateTime now) {
+        if (this.status != WarrantyTicketStatus.IN_PROGRESS) {
+            return;
+        }
+        this.status = WarrantyTicketStatus.DONE;
+        this.result = result;
+        this.completedAt = completedAt != null ? completedAt : (now != null ? now : OffsetDateTime.now());
         this.updatedAt = now != null ? now : OffsetDateTime.now();
     }
 }

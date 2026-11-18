@@ -16,6 +16,7 @@ public record TechnicalJobDetailResponse(
         UUID customerId,
         UUID orderId,
         UUID warrantyRecordId,
+        UUID warrantyTicketId,
         UUID technicianId,
         UUID createdBy,
         TechnicalJobType jobType,

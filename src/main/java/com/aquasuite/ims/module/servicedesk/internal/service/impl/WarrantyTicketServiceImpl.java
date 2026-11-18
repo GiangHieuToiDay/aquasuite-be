@@ -210,6 +210,13 @@ public class WarrantyTicketServiceImpl implements WarrantyTicketService {
             throw new AppException(ServicedeskErrorCode.WARRANTY_RECORD_VOIDED);
         }
 
+        // 3b. Thẻ đã hết hạn: cho phép gửi nhưng khách phải chủ động xác nhận (C+). Lưu vết đã xác nhận.
+        boolean expired = record.getEndDate() != null
+                && record.getEndDate().isBefore(LocalDate.now(servicedeskClock));
+        if (expired && !request.acknowledgeExpired()) {
+            throw new AppException(ServicedeskErrorCode.WARRANTY_RECORD_EXPIRED_NOT_ACKNOWLEDGED);
+        }
+
         // 4. Kiểm tra có ticket mở hoặc job bảo hành mở
         Optional<WarrantyTicket> openTicket = warrantyTicketRepository.findFirstByWarrantyRecordIdAndStatusIn(
                 record.getWarrantyRecordId(), OPEN_TICKET_STATUSES);
@@ -258,7 +265,8 @@ public class WarrantyTicketServiceImpl implements WarrantyTicketService {
                 customer.customerName(),
                 customer.phone(),
                 customer.email(),
-                request.media()
+                request.media(),
+                expired
         );
 
         WarrantyTicket saved;
@@ -412,6 +420,9 @@ public class WarrantyTicketServiceImpl implements WarrantyTicketService {
                 ? catalogApi.getSkuSummary(record.getVariantId()).orElse(null)
                 : null;
 
+        boolean expired = record != null && record.getEndDate() != null
+                && record.getEndDate().isBefore(LocalDate.now(servicedeskClock));
+
         return WarrantyTicketDetailResponse.builder()
                 .ticketId(ticket.getTicketId())
                 .ticketCode(ticket.getTicketCode())
@@ -423,6 +434,8 @@ public class WarrantyTicketServiceImpl implements WarrantyTicketService {
                 .serialNumber(record != null ? record.getSerialNumber() : null)
                 .warrantyStartDate(record != null ? record.getStartDate() : null)
                 .warrantyEndDate(record != null ? record.getEndDate() : null)
+                .warrantyExpired(expired)
+                .expiredAcknowledged(ticket.isExpiredAcknowledged())
                 .contactName(ticket.getContactName())
                 .contactPhone(ticket.getContactPhone())
                 .contactEmail(ticket.getContactEmail())

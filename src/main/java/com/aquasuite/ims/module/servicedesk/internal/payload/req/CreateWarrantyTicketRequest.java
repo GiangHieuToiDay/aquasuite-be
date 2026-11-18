@@ -28,7 +28,10 @@ public record CreateWarrantyTicketRequest(
         @NotBlank(message = "Địa chỉ xử lý là bắt buộc.")
         String siteAddress,
 
-        List<TicketMedia> media
+        List<TicketMedia> media,
+
+        /** Khách chủ động xác nhận vẫn gửi dù thẻ bảo hành đã hết hạn (C+). Bắt buộc true nếu thẻ hết hạn. */
+        boolean acknowledgeExpired
 ) {
 }
 

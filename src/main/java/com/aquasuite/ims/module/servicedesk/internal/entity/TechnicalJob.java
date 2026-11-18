@@ -26,6 +26,7 @@ import java.util.UUID;
                 @Index(name = "idx_technical_jobs_customer_id", columnList = "customer_id"),
                 @Index(name = "idx_technical_jobs_order_id", columnList = "order_id"),
                 @Index(name = "idx_technical_jobs_warranty_record_id", columnList = "warranty_record_id"),
+                @Index(name = "idx_technical_jobs_warranty_ticket_id", columnList = "warranty_ticket_id"),
                 @Index(name = "idx_technical_jobs_technician_id", columnList = "technician_id"),
                 @Index(name = "idx_technical_jobs_job_type", columnList = "job_type"),
                 @Index(name = "idx_technical_jobs_status", columnList = "status"),
@@ -51,6 +52,10 @@ public class TechnicalJob {
 
     @Column(name = "warranty_record_id")
     private UUID warrantyRecordId;
+
+    /** Yêu cầu bảo hành (ticket, UC-47) nguồn đã sinh ra job này (chỉ có với job WARRANTY_REPAIR bắn từ ticket). */
+    @Column(name = "warranty_ticket_id")
+    private UUID warrantyTicketId;
 
     @Column(name = "technician_id")
     private UUID technicianId;
