@@ -10,6 +10,7 @@ import com.aquasuite.ims.module.finance.internal.payload.response.OrderPaymentSu
 import com.aquasuite.ims.module.finance.internal.repository.TransactionRepository;
 import com.aquasuite.ims.module.finance.internal.repository.FinanceLockRepository;
 import com.aquasuite.ims.module.finance.internal.service.OrderPaymentService;
+import com.aquasuite.ims.module.finance.internal.service.PaymentAllocationService;
 import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.sales.api.SalesOrderApi;
 import com.aquasuite.ims.module.sales.api.dto.SalesOrderMilestoneDto;
@@ -38,6 +39,8 @@ public class OrderPaymentServiceImpl implements OrderPaymentService {
     private final IamApi iam;
     /** Giữ khóa PostgreSQL theo mã chống ghi trùng trong transaction hiện tại. */
     private final FinanceLockRepository locks;
+    /** Applies newly verified cash receipts to eligible electronic invoices in FIFO order. */
+    private final PaymentAllocationService paymentAllocationService;
 
     /**
      * Khóa đơn, kiểm tra yêu cầu gửi lại và số còn phải trả, rồi lưu một giao dịch.
@@ -61,6 +64,7 @@ public class OrderPaymentServiceImpl implements OrderPaymentService {
             Transaction old = previous.get();
             if (!orderId.equals(old.getOrderId()) || !actorId.equals(old.getCreatedBy())
                     || old.getAmount().compareTo(request.amount()) != 0
+                    || old.getDeliveryId() != null
                     || !request.paymentMethod().name().equals(old.getPaymentMethod())
                     || !Objects.equals(old.getReferenceNo(), request.referenceNo())
                     || !Objects.equals(old.getDescription(), request.description())) {
@@ -73,7 +77,10 @@ public class OrderPaymentServiceImpl implements OrderPaymentService {
         }
         var existing = payments(order);
         var summary = summary(order, existing);
-        if (request.amount().signum() <= 0 || request.amount().compareTo(summary.remaining()) > 0) {
+        BigDecimal pendingCod = existing.stream()
+                .filter(t -> t.getDeliveryId() != null && "COD".equals(t.getPaymentType()) && "PENDING".equals(t.getStatus()))
+                .map(Transaction::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (request.amount().signum() <= 0 || request.amount().compareTo(summary.remaining().subtract(pendingCod).max(BigDecimal.ZERO)) > 0) {
             throw new AppException(OrderPaymentErrorCode.AMOUNT_EXCEEDS_BALANCE);
         }
         UUID id = UUID.randomUUID();
@@ -90,6 +97,7 @@ public class OrderPaymentServiceImpl implements OrderPaymentService {
         if (cash) {
             BigDecimal verified = summary.verifiedPaid().add(request.amount());
             sales.updatePaymentStatus(orderId, verified.compareTo(order.totalAmount()) == 0 ? "PAID" : "PARTIALLY_PAID");
+            paymentAllocationService.autoAllocateVerifiedReceipt(transaction.getTransactionId(), actorId);
         }
         return response(transaction);
     }

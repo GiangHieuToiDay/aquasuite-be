@@ -32,6 +32,7 @@ class OrderPaymentServiceTest {
     @Mock SalesOrderApi sales;
     @Mock IamApi iam;
     @Mock FinanceLockRepository locks;
+    @Mock PaymentAllocationService paymentAllocationService;
     @InjectMocks OrderPaymentServiceImpl service;
     UUID orderId;
     UUID customerId;
@@ -54,6 +55,7 @@ class OrderPaymentServiceTest {
         verify(transactions).saveAndFlush(argThat(t -> customerId.equals(t.getCustomerId())
                 && "RECEIPT".equals(t.getTransactionType()) && actorId.equals(t.getApprovedBy())));
         verify(sales).updatePaymentStatus(orderId, "PARTIALLY_PAID");
+        verify(paymentAllocationService).autoAllocateVerifiedReceipt(result.transactionId(), actorId);
     }
 
     @Test void pendingTransferDoesNotReduceBalanceOrUpdateOrder() {

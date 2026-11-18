@@ -14,6 +14,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -42,6 +44,13 @@ public class CustomerCreditProfileRequestController {
     @GetMapping("/{requestId}")
     public ApiResponse<CustomerCreditProfileRequestDetailResponse> detail(@PathVariable UUID requestId) {
         return ApiResponse.ok(service.detail(requestId));
+    }
+
+    @GetMapping("/{requestId}/identity-document")
+    public ResponseEntity<byte[]> identityDocument(@PathVariable UUID requestId) {
+        var document = service.readIdentityDocument(requestId);
+        return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + document.fileName() + "\"")
+                .contentType(MediaType.parseMediaType(document.contentType())).body(document.content());
     }
 
     @PostMapping("/{requestId}/approve")

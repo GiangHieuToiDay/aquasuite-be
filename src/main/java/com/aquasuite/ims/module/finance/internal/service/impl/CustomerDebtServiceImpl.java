@@ -6,7 +6,10 @@ import com.aquasuite.ims.module.crm.api.CrmApi;
 import com.aquasuite.ims.module.crm.api.dto.CustomerDebtProfileDto;
 import com.aquasuite.ims.module.finance.api.event.CustomerDebtAuditEvent;
 import com.aquasuite.ims.module.finance.internal.error.CustomerDebtErrorCode;
+import com.aquasuite.ims.module.finance.internal.entity.PaymentInvoiceAllocation;
+import com.aquasuite.ims.module.finance.internal.entity.PaymentReceiptRefundSettlement;
 import com.aquasuite.ims.module.finance.internal.entity.Transaction;
+import com.aquasuite.ims.module.finance.internal.enums.PaymentAllocationStatus;
 import com.aquasuite.ims.module.finance.internal.payload.DebtStatus;
 import com.aquasuite.ims.module.finance.internal.payload.request.CreditCheckRequest;
 import com.aquasuite.ims.module.finance.internal.payload.request.DebtCallResultRequest;
@@ -18,6 +21,8 @@ import com.aquasuite.ims.module.finance.internal.pdf.StatementDocument;
 import com.aquasuite.ims.module.finance.internal.pdf.StatementPdfService;
 import com.aquasuite.ims.module.finance.internal.repository.TransactionRepository;
 import com.aquasuite.ims.module.finance.internal.repository.FinanceLockRepository;
+import com.aquasuite.ims.module.finance.internal.repository.PaymentInvoiceAllocationRepository;
+import com.aquasuite.ims.module.finance.internal.repository.PaymentReceiptRefundSettlementRepository;
 import com.aquasuite.ims.module.finance.internal.service.CustomerDebtService;
 import com.aquasuite.ims.module.sales.api.SalesReceivableApi;
 import com.aquasuite.ims.module.sales.api.dto.SalesInvoiceDebtDto;
@@ -45,6 +50,8 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
     private final CrmApi crmApi;
     private final SalesReceivableApi salesReceivableApi;
     private final TransactionRepository transactionRepository;
+    private final PaymentInvoiceAllocationRepository paymentInvoiceAllocationRepository;
+    private final PaymentReceiptRefundSettlementRepository paymentReceiptRefundSettlementRepository;
     private final AuditQueryApi auditQueryApi;
     private final ApplicationEventPublisher eventPublisher;
     private final DebtEmailNotificationPort emailNotificationPort;
@@ -96,6 +103,7 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
         DebtCalculation calculation = calculate(customer, documentsFor(Set.of(customerId)));
         List<AuditLogResponse> history = auditQueryApi.findByEntity("CUSTOMER", customerId).stream()
                 .filter(entry -> entry.getAction().startsWith("DEBT_") || entry.getAction().startsWith("CREDIT_")
+                        || entry.getAction().startsWith("PAYMENT_ALLOCATION_")
                         || entry.getAction().startsWith("STATEMENT_") || entry.getAction().startsWith("CUSTOMER_"))
                 .toList();
         return new CustomerDebtDetailResponse(customer, calculation.summary(), calculation.invoices(),
@@ -290,8 +298,8 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
     }
 
     /**
-     * Tính dư đơn, dư hóa đơn đã phát hành và khoản thu chưa gắn với hóa đơn tính nợ.
-     * Hóa đơn STORE không được dùng để tính hạn nợ; khoản thu của đơn vẫn được tính một lần.
+     * Tính dư đơn, dư hóa đơn đã tích hợp điện tử và khoản thu chưa gắn với hóa đơn tính nợ.
+     * Hóa đơn STORE chỉ phát sinh công nợ khi hệ thống ngoài đã trả providerInvoiceId và signedAt.
      * @param customer hồ sơ và điều kiện tín dụng của khách
      * @param documents đơn, hóa đơn và khoản thu đã xác minh được đọc cho khách
      * @return kết quả tổng hợp công nợ và các danh sách chi tiết
@@ -299,13 +307,24 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
     private DebtCalculation calculate(CustomerDebtProfileDto customer, Documents documents) {
         List<SalesOrderDebtDto> orders = documents.orders().stream()
                 .filter(order -> customer.customerId().equals(order.customerId()))
-                .filter(order -> !"CANCELLED".equalsIgnoreCase(order.orderStatus())).toList();
+                .filter(order -> !"CANCELLED".equalsIgnoreCase(order.orderStatus())
+                        && !"DRAFT".equalsIgnoreCase(order.orderStatus())).toList();
+        Set<UUID> activeOrderIds = orders.stream().map(SalesOrderDebtDto::orderId).collect(Collectors.toSet());
         List<SalesInvoiceDebtDto> invoices = documents.invoices().stream()
                 .filter(invoice -> customer.customerId().equals(invoice.customerId()))
-                // Hóa đơn cửa hàng không làm phát sinh hạn nợ hóa đơn điện tử, kể cả khi ISSUED.
-                .filter(invoice -> "ISSUED".equalsIgnoreCase(invoice.status()))
-                .filter(invoice -> !"STORE".equalsIgnoreCase(invoice.invoiceType())).toList();
+                .filter(invoice -> activeOrderIds.contains(invoice.orderId()))
+                .filter(this::isElectronicallyIntegratedInvoice).toList();
         Map<UUID, UUID> invoiceOrder = invoices.stream().collect(Collectors.toMap(SalesInvoiceDebtDto::invoiceId, SalesInvoiceDebtDto::orderId));
+        Map<UUID, List<PaymentInvoiceAllocation>> allocationsByTransaction = documents.transactions().isEmpty()
+                ? Map.of()
+                : paymentInvoiceAllocationRepository.findByTransactionIdInAndAllocationStatus(
+                                documents.transactions().stream().map(Transaction::getTransactionId).toList(), PaymentAllocationStatus.ACTIVE)
+                        .stream().collect(Collectors.groupingBy(PaymentInvoiceAllocation::getTransactionId));
+        Map<UUID, BigDecimal> refundedByTransaction = documents.transactions().isEmpty() ? Map.of()
+                : paymentReceiptRefundSettlementRepository.findByReceiptTransactionIdIn(
+                                documents.transactions().stream().map(Transaction::getTransactionId).toList()).stream()
+                        .collect(Collectors.groupingBy(PaymentReceiptRefundSettlement::getReceiptTransactionId,
+                                Collectors.reducing(ZERO, PaymentReceiptRefundSettlement::getSettledAmount, BigDecimal::add)));
         Map<UUID, BigDecimal> orderPaid = new HashMap<>();
         Map<UUID, BigDecimal> invoicePaid = new HashMap<>();
         BigDecimal unallocated = ZERO;
@@ -314,15 +333,30 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
         for (Transaction transaction : documents.transactions()) {
             if (!customer.customerId().equals(transaction.getCustomerId())) continue;
             UUID orderId = transaction.getOrderId() != null ? transaction.getOrderId() : invoiceOrder.get(transaction.getInvoiceId());
-            if (orderId != null) orderPaid.merge(orderId, amount(transaction.getAmount()), BigDecimal::add);
-            // Chỉ hóa đơn đã phát hành mới nhận tiền trực tiếp; hóa đơn cửa hàng còn chờ phân bổ.
-            if (transaction.getInvoiceId() != null && invoiceOrder.containsKey(transaction.getInvoiceId())) {
-                invoicePaid.merge(transaction.getInvoiceId(), amount(transaction.getAmount()), BigDecimal::add);
-            } else if (transaction.getOrderId() != null) {
-                BigDecimal receiptAmount = amount(transaction.getAmount());
-                unallocated = unallocated.add(receiptAmount);
-                unallocatedReceipts.add(new UnallocatedReceiptResponse(transaction.getTransactionId(),
-                        transaction.getTransactionCode(), transaction.getOrderId(), receiptAmount, transaction.getTransactionDate()));
+            List<PaymentInvoiceAllocation> activeAllocations = allocationsByTransaction
+                    .getOrDefault(transaction.getTransactionId(), List.of());
+            BigDecimal allocatedToCurrentInvoices = ZERO;
+            for (PaymentInvoiceAllocation allocation : activeAllocations) {
+                // A stale/replaced allocation must not silently erase debt; UC-26 will re-point it explicitly.
+                if (invoiceOrder.containsKey(allocation.getInvoiceId())) {
+                    BigDecimal allocatedAmount = amount(allocation.getAllocatedAmount());
+                    invoicePaid.merge(allocation.getInvoiceId(), allocatedAmount, BigDecimal::add);
+                    orderPaid.merge(invoiceOrder.get(allocation.getInvoiceId()), allocatedAmount, BigDecimal::add);
+                    allocatedToCurrentInvoices = allocatedToCurrentInvoices.add(allocatedAmount);
+                }
+            }
+            // A receipt linked to a Store invoice is still unallocated until UC-63 creates allocation rows.
+            // This keeps an advance/receipt from being silently assigned to whichever delivery invoice happens to exist.
+            if (transaction.getOrderId() != null) {
+                BigDecimal refundedAmount = refundedByTransaction.getOrDefault(transaction.getTransactionId(), ZERO);
+                BigDecimal receiptAmount = positive(amount(transaction.getAmount())
+                        .subtract(allocatedToCurrentInvoices).subtract(refundedAmount));
+                if (receiptAmount.compareTo(ZERO) > 0) {
+                    orderPaid.merge(transaction.getOrderId(), receiptAmount, BigDecimal::add);
+                    unallocated = unallocated.add(receiptAmount);
+                    unallocatedReceipts.add(new UnallocatedReceiptResponse(transaction.getTransactionId(),
+                            transaction.getTransactionCode(), transaction.getOrderId(), receiptAmount, transaction.getTransactionDate()));
+                }
             }
             receiptResponses.add(PaymentReceiptResponse.builder()
                     .transactionId(transaction.getTransactionId()).transactionCode(transaction.getTransactionCode())
@@ -344,16 +378,19 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
         for (SalesInvoiceDebtDto invoice : invoices) {
             BigDecimal paid = invoicePaid.getOrDefault(invoice.invoiceId(), ZERO);
             BigDecimal invoiceOutstanding = positive(amount(invoice.totalAmount()).subtract(paid));
-            // Legacy invoices have no snapshot until the issuing use case is upgraded; preserve V4 behavior for them.
+            // signedAt is the legal/electronic issuance moment. issueDate is only the internal Store-invoice creation time.
+            LocalDate electronicIssueDate = invoice.signedAt() != null
+                    ? invoice.signedAt().toLocalDate() : invoice.issueDate().toLocalDate();
             LocalDate due = invoice.dueDate() != null ? invoice.dueDate()
-                    : invoice.issueDate().toLocalDate().plusDays(customer.creditTermDays() == null ? 0 : customer.creditTermDays());
+                    : electronicIssueDate.plusDays(customer.creditTermDays() == null ? 0 : customer.creditTermDays());
             if (invoiceOutstanding.compareTo(ZERO) > 0) {
                 if (nearestDue == null || due.isBefore(nearestDue)) nearestDue = due;
                 if (due.isBefore(today)) overdue = overdue.add(invoiceOutstanding);
-                if (invoice.issueDate().toLocalDate().plusDays(60).isBefore(today)) blacklisted = true;
+                if (electronicIssueDate.plusDays(60).isBefore(today)) blacklisted = true;
             }
             invoiceResponses.add(InvoiceDebtResponse.builder().invoiceId(invoice.invoiceId()).invoiceCode(invoice.invoiceCode())
-                    .invoiceSymbol(invoice.invoiceSymbol()).orderId(invoice.orderId()).issueDate(invoice.issueDate())
+                    .invoiceSymbol(invoice.invoiceSymbol()).orderId(invoice.orderId())
+                    .issueDate(invoice.signedAt() != null ? invoice.signedAt() : invoice.issueDate())
                     .signedAt(invoice.signedAt()).dueDate(due).status(invoice.status()).totalAmount(amount(invoice.totalAmount()))
                     .verifiedPaidAmount(paid).outstandingAmount(invoiceOutstanding).build());
         }
@@ -391,6 +428,15 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
         if (limit.compareTo(ZERO) <= 0) return DebtStatus.NO_CREDIT;
         if (outstanding.compareTo(limit) > 0) return DebtStatus.CREDIT_BLOCKED;
         return DebtStatus.WITHIN_TERM;
+    }
+
+    private boolean isElectronicallyIntegratedInvoice(SalesInvoiceDebtDto invoice) {
+        boolean operationallyLocked = "ISSUED".equalsIgnoreCase(invoice.status())
+                || "DISPATCHED".equalsIgnoreCase(invoice.status());
+        return operationallyLocked
+                && invoice.providerInvoiceId() != null
+                && !invoice.providerInvoiceId().isBlank()
+                && invoice.signedAt() != null;
     }
 
     private boolean matches(CustomerDebtSummaryResponse value, String keyword, String customerType, String debtStatus) {

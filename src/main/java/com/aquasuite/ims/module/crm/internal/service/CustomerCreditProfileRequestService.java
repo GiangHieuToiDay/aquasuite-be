@@ -6,6 +6,7 @@ import com.aquasuite.ims.module.crm.internal.payload.request.RejectCustomerCredi
 import com.aquasuite.ims.module.crm.internal.payload.request.SubmitCustomerCreditProfileRequest;
 import com.aquasuite.ims.module.crm.internal.payload.res.CustomerCreditProfileRequestDetailResponse;
 import com.aquasuite.ims.module.crm.internal.payload.res.CustomerCreditProfileRequestResponse;
+import com.aquasuite.ims.module.crm.internal.storage.CreditEvidenceDocument;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -17,6 +18,8 @@ public interface CustomerCreditProfileRequestService {
     Page<CustomerCreditProfileRequestResponse> list(CustomerCreditProfileRequestStatus status, Pageable pageable);
 
     CustomerCreditProfileRequestDetailResponse detail(UUID requestId);
+
+    CreditEvidenceDocument readIdentityDocument(UUID requestId);
 
     CustomerCreditProfileRequestResponse approve(UUID requestId, ApproveCustomerCreditProfileRequest request);
 

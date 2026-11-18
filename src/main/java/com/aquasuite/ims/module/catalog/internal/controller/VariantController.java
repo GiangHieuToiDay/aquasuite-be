@@ -16,6 +16,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
@@ -31,11 +32,25 @@ public class VariantController {
     private final VariantService service;
 
     @GetMapping
-    public ApiResponse<Page<VariantResponse>> list(@PathVariable UUID productId, @RequestParam(required = false) String keyword, @RequestParam(required = false) VariantStatus status, Pageable pageable) {
-        return ApiResponse.ok(service.list(productId, keyword, status, pageable));
+    @PreAuthorize("hasAnyRole('SHOP_OWNER','ACCOUNTANT','SALES_STAFF','TECHNICAL_STAFF')")
+    public ApiResponse<Page<VariantResponse>> list(
+            @PathVariable UUID productId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) VariantStatus status,
+            @RequestParam(defaultValue = "false") boolean missingPrice,
+            @RequestParam(defaultValue = "default") String sortBy,
+            @RequestParam(defaultValue = "DESC") String sortDir,
+            @RequestParam(defaultValue = "WH_MAIN") String warehouseCode,
+            @PageableDefault(size = 10) Pageable pageable
+    ) {
+        return ApiResponse.ok(service.list(
+                productId, keyword, status, missingPrice, sortBy, sortDir, warehouseCode, pageable
+        ));
     }
 
+
     @GetMapping("/stats")
+    @PreAuthorize("hasAnyRole('SHOP_OWNER','ACCOUNTANT','SALES_STAFF','TECHNICAL_STAFF')")
     public ApiResponse<VariantStatsResponse> stats(@PathVariable UUID productId) {
         return ApiResponse.ok(service.stats(productId));
     }
@@ -72,7 +87,7 @@ public class VariantController {
 
     @DeleteMapping("/{variantId}")
     @PreAuthorize("hasRole('SHOP_OWNER')")
-    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID productId, @PathVariable UUID variantId, @RequestBody VariantDeleteRequest request) {
+    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID productId, @PathVariable UUID variantId, @Valid @RequestBody VariantDeleteRequest request) {
         service.delete(productId, variantId, request);
         return ResponseEntity.ok(ApiResponse.ok(null));
     }

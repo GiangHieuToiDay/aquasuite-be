@@ -71,13 +71,13 @@ public class CustomerDebtController {
     }
 
     @PostMapping("/{customerId}/reminders")
-    @PreAuthorize("hasAnyRole('SALES_STAFF','SHOP_OWNER')")
+    @PreAuthorize("hasAnyRole('ACCOUNTANT','SALES_STAFF','SHOP_OWNER')")
     public ApiResponse<DebtReminderResponse> sendReminder(@PathVariable UUID customerId, @Valid @RequestBody DebtReminderRequest request) {
         return ApiResponse.ok(service.sendReminder(customerId, request, iamApi.getCurrentUserId()));
     }
 
     @PostMapping("/{customerId}/reminder-calls")
-    @PreAuthorize("hasAnyRole('SALES_STAFF','SHOP_OWNER')")
+    @PreAuthorize("hasAnyRole('ACCOUNTANT','SALES_STAFF','SHOP_OWNER')")
     public ApiResponse<Void> saveCallResult(@PathVariable UUID customerId, @Valid @RequestBody DebtCallResultRequest request) {
         service.saveCallResult(customerId, request, iamApi.getCurrentUserId());
         return ApiResponse.ok(null, "Debt call result saved successfully.");

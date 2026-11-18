@@ -26,6 +26,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
@@ -152,6 +153,92 @@ class UserAccountServiceImplTest {
                 .extracting(error -> ((AppException) error).getErrorCode())
                 .isEqualTo(UserAccountErrorCode.LAST_SHOP_OWNER_PROTECTED);
         verify(userRepository, never()).saveAndFlush(any(User.class));
+    }
+
+    @Test
+    void cannotRemoveShopOwnerRoleFromSelfEvenWhenMultipleActiveOwnersExist() {
+        UUID actorId = UUID.randomUUID();
+        Role owner = role("SHOP_OWNER");
+        Role staff = role("SALES_STAFF");
+        User self = activeUser(actorId, owner);
+        when(userRepository.findWithRolesAndPermissionsById(actorId)).thenReturn(Optional.of(self));
+        when(roleRepository.findAllById(Set.of(staff.getRoleId()))).thenReturn(List.of(staff));
+
+        assertThatThrownBy(() -> service.update(actorId, UpdateUserAccountRequest.builder()
+                .username("owner").email("owner@example.com").phone("0901234567")
+                .roleIds(Set.of(staff.getRoleId())).build(), actorId))
+                .isInstanceOf(AppException.class)
+                .extracting(error -> ((AppException) error).getErrorCode())
+                .isEqualTo(UserAccountErrorCode.SELF_ROLE_DEMOTION_FORBIDDEN);
+        verify(userRepository, never()).saveAndFlush(any(User.class));
+    }
+
+    @Test
+    void create_rejectsDuplicateUsernameEmailOrPhone() {
+        when(userAccountMapper.toNewUser(any(CreateUserAccountRequest.class))).thenAnswer(invocation -> {
+            CreateUserAccountRequest request = invocation.getArgument(0);
+            User user = new User();
+            user.setUsername(request.getUsername().trim());
+            user.setEmail(request.getEmail().trim().toLowerCase(java.util.Locale.ROOT));
+            user.setPhone(request.getPhone().trim());
+            return user;
+        });
+
+        UUID actorId = UUID.randomUUID();
+        UUID roleId = UUID.randomUUID();
+
+        when(userRepository.existsByUsernameIgnoreCase("dup.user")).thenReturn(true);
+        assertThatThrownBy(() -> service.create(CreateUserAccountRequest.builder()
+                .username("dup.user").email("unique@example.com").phone("0901234567")
+                .roleIds(Set.of(roleId)).autoGenerateTemporaryPassword(true).build(), actorId))
+                .isInstanceOf(AppException.class)
+                .extracting(error -> ((AppException) error).getErrorCode())
+                .isEqualTo(UserAccountErrorCode.DUPLICATE_ACCOUNT);
+
+        when(userRepository.existsByUsernameIgnoreCase("unique.user")).thenReturn(false);
+        when(userRepository.existsByEmailIgnoreCase("dup@example.com")).thenReturn(true);
+        assertThatThrownBy(() -> service.create(CreateUserAccountRequest.builder()
+                .username("unique.user").email("dup@example.com").phone("0901234567")
+                .roleIds(Set.of(roleId)).autoGenerateTemporaryPassword(true).build(), actorId))
+                .isInstanceOf(AppException.class)
+                .extracting(error -> ((AppException) error).getErrorCode())
+                .isEqualTo(UserAccountErrorCode.DUPLICATE_ACCOUNT);
+
+        when(userRepository.existsByEmailIgnoreCase("unique@example.com")).thenReturn(false);
+        when(userRepository.existsByPhone("0909999999")).thenReturn(true);
+        assertThatThrownBy(() -> service.create(CreateUserAccountRequest.builder()
+                .username("unique.user").email("unique@example.com").phone("0909999999")
+                .roleIds(Set.of(roleId)).autoGenerateTemporaryPassword(true).build(), actorId))
+                .isInstanceOf(AppException.class)
+                .extracting(error -> ((AppException) error).getErrorCode())
+                .isEqualTo(UserAccountErrorCode.DUPLICATE_ACCOUNT);
+
+        verify(userRepository, never()).saveAndFlush(any(User.class));
+    }
+
+    @Test
+    void changeStatus_leavingActive_revokesAllRedisSessionsAfterCommit() {
+        UUID actorId = UUID.randomUUID();
+        UUID targetId = UUID.randomUUID();
+        User target = activeUser(targetId, role("SALES_STAFF"));
+        when(userRepository.findWithRolesAndPermissionsById(targetId)).thenReturn(Optional.of(target));
+        when(userAccountMapper.toResponse(any(User.class), any(UUID.class))).thenAnswer(invocation -> {
+            User user = invocation.getArgument(0);
+            return UserAccountResponse.builder()
+                    .id(user.getId())
+                    .status(user.getStatus().name())
+                    .build();
+        });
+
+        UserAccountResponse response = service.changeStatus(
+                targetId,
+                ChangeUserStatusRequest.builder().targetStatus("LOCKED").reason("Security audit").build(),
+                actorId
+        );
+
+        assertThat(response.getStatus()).isEqualTo("LOCKED");
+        TransactionSynchronizationManager.getSynchronizations().forEach(TransactionSynchronization::afterCommit);
+        verify(sessionStore).revokeAllSessions(targetId, "ACCOUNT_LOCKED");
     }
 
     private Role role(String roleName) {

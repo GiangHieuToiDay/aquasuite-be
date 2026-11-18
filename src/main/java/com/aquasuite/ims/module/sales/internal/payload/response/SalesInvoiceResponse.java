@@ -30,6 +30,10 @@ public class SalesInvoiceResponse {
     private String batchName;
     private OffsetDateTime scheduledDeliveryDate;
     private OffsetDateTime issueDate;
+    private String invoiceSymbol;
+    private String providerCode;
+    private String providerInvoiceId;
+    private OffsetDateTime signedAt;
     private Integer creditTermDays;
     private LocalDate dueDate;
     private BigDecimal subtotal;

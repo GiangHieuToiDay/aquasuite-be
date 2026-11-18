@@ -123,6 +123,11 @@ public class Order {
     @Column(name = "reserve_stock_after_deposit", nullable = false)
     private boolean reserveStockAfterDeposit;
 
+    /** UC-63 settlement mode: true when the order is planned for multiple delivery batches. */
+    @Column(name = "is_staged_delivery", nullable = false)
+    @Builder.Default
+    private boolean stagedDelivery = false;
+
     @Column(name = "credit_term_days")
     private Integer creditTermDays;
 

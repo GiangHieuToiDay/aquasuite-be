@@ -10,6 +10,7 @@ import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.inventory.api.InventoryApi;
 import com.aquasuite.ims.module.inventory.api.dto.StockSummaryDto;
 import com.aquasuite.ims.module.sales.api.dto.SalesInvoiceSummaryDto;
+import com.aquasuite.ims.module.sales.api.event.ElectronicInvoiceLinkedEvent;
 import com.aquasuite.ims.module.sales.api.event.SalesInvoiceIssuedEvent;
 import com.aquasuite.ims.module.sales.internal.entity.Order;
 import com.aquasuite.ims.module.sales.internal.entity.OrderItem;
@@ -23,6 +24,7 @@ import com.aquasuite.ims.module.sales.internal.enums.SalesInvoiceStatus;
 import com.aquasuite.ims.module.sales.internal.enums.SalesInvoiceType;
 import com.aquasuite.ims.module.sales.internal.error.SalesErrorCode;
 import com.aquasuite.ims.module.sales.internal.payload.request.CreateDraftInvoiceRequest;
+import com.aquasuite.ims.module.sales.internal.payload.request.LinkElectronicInvoiceRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.UpdateSalesInvoiceRequest;
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesInvoiceResponse;
 import com.aquasuite.ims.module.sales.internal.repository.OrderItemRepository;
@@ -251,6 +253,11 @@ public class SalesInvoiceServiceImpl implements SalesInvoiceService {
                 .createdBy(actorId)
                 .createdAt(now)
                 .build());
+        if (nextBatchNo > 1 && !order.isStagedDelivery()) {
+            order.setStagedDelivery(true);
+            order.setUpdatedAt(now);
+            orderRepository.saveAndFlush(order);
+        }
         salesInvoiceItemRepository.saveAllAndFlush(newInvoiceItems);
 
         recalculateOrderTotalsAndPaymentFloor(order);
@@ -509,7 +516,6 @@ public class SalesInvoiceServiceImpl implements SalesInvoiceService {
         invoice.setIssuedBy(actorId);
         invoice.setIssuedAt(now);
         invoice.setIssueDate(now);
-        invoice.setSignedAt(now);
         invoice.setCreditTermDays(termDays);
         invoice.setDueDate(dueDate);
         salesInvoiceRepository.saveAndFlush(invoice);
@@ -545,6 +551,41 @@ public class SalesInvoiceServiceImpl implements SalesInvoiceService {
         log.info("Issued invoice {} (type={}, batch={}, order={}) by actor {}",
                 invoice.getInvoiceCode(), invoice.getInvoiceType(), invoice.getBatchNo(), order.getOrderCode(), actorId);
 
+        return getInvoiceDetail(invoiceId);
+    }
+
+    @Override
+    @Transactional
+    public SalesInvoiceResponse linkElectronicInvoice(UUID invoiceId, LinkElectronicInvoiceRequest request) {
+        SalesInvoice invoice = salesInvoiceRepository.findByInvoiceIdForUpdate(invoiceId)
+                .orElseThrow(() -> new AppException(SalesErrorCode.INVOICE_NOT_FOUND, invoiceId));
+        Order order = orderRepository.findByIdForUpdate(invoice.getOrderId())
+                .orElseThrow(() -> new AppException(SalesErrorCode.ORDER_NOT_FOUND));
+        if (!SalesInvoiceStatus.ISSUED.name().equalsIgnoreCase(invoice.getStatus())
+                && !"DISPATCHED".equalsIgnoreCase(invoice.getStatus())) {
+            throw new AppException(SalesErrorCode.INVOICE_NOT_ISSUED);
+        }
+
+        String providerCode = request.providerCode().trim();
+        String providerInvoiceId = request.providerInvoiceId().trim();
+        UUID actorId = resolveCurrentActorId(order.getSalesStaffId());
+        if (invoice.getProviderInvoiceId() != null && !invoice.getProviderInvoiceId().isBlank()) {
+            boolean sameProviderResult = providerInvoiceId.equals(invoice.getProviderInvoiceId())
+                    && providerCode.equals(invoice.getProviderCode())
+                    && request.signedAt().equals(invoice.getSignedAt());
+            if (!sameProviderResult) {
+                throw new AppException(SalesErrorCode.ELECTRONIC_INVOICE_ALREADY_LINKED);
+            }
+            return getInvoiceDetail(invoiceId);
+        }
+
+        invoice.setProviderCode(providerCode);
+        invoice.setProviderInvoiceId(providerInvoiceId);
+        invoice.setInvoiceSymbol(trimToNull(request.invoiceSymbol()));
+        invoice.setSignedAt(request.signedAt());
+        salesInvoiceRepository.saveAndFlush(invoice);
+        eventPublisher.publishEvent(new ElectronicInvoiceLinkedEvent(
+                invoice.getInvoiceId(), order.getOrderId(), order.getCustomerId(), actorId));
         return getInvoiceDetail(invoiceId);
     }
 
@@ -993,6 +1034,10 @@ public class SalesInvoiceServiceImpl implements SalesInvoiceService {
                 .batchName(invoice.getBatchName())
                 .scheduledDeliveryDate(invoice.getScheduledDeliveryDate())
                 .issueDate(invoice.getIssueDate())
+                .invoiceSymbol(invoice.getInvoiceSymbol())
+                .providerCode(invoice.getProviderCode())
+                .providerInvoiceId(invoice.getProviderInvoiceId())
+                .signedAt(invoice.getSignedAt())
                 .creditTermDays(invoice.getCreditTermDays())
                 .dueDate(invoice.getDueDate())
                 .subtotal(invoice.getSubtotal())

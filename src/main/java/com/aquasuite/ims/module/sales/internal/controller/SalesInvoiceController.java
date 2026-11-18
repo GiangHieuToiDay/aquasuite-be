@@ -2,6 +2,7 @@ package com.aquasuite.ims.module.sales.internal.controller;
 
 import com.aquasuite.ims.module.sales.internal.payload.request.CreateDraftInvoiceRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.UpdateSalesInvoiceRequest;
+import com.aquasuite.ims.module.sales.internal.payload.request.LinkElectronicInvoiceRequest;
 import com.aquasuite.ims.module.sales.internal.payload.response.SalesInvoiceResponse;
 import com.aquasuite.ims.module.sales.internal.service.SalesInvoiceService;
 import com.aquasuite.ims.share.dto.ApiResponse;
@@ -81,6 +82,16 @@ public class SalesInvoiceController {
         log.info("API: Issue invoiceId={}", invoiceId);
         SalesInvoiceResponse issued = salesInvoiceService.issueInvoice(invoiceId);
         return ResponseEntity.ok(ApiResponse.ok(issued, "Chốt và phát hành hóa đơn thành công."));
+    }
+
+    @PostMapping("/invoices/{invoiceId}/electronic-integration")
+    @PreAuthorize("hasRole('ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<SalesInvoiceResponse>> linkElectronicInvoice(
+            @PathVariable UUID invoiceId,
+            @Valid @RequestBody LinkElectronicInvoiceRequest request
+    ) {
+        SalesInvoiceResponse linked = salesInvoiceService.linkElectronicInvoice(invoiceId, request);
+        return ResponseEntity.ok(ApiResponse.ok(linked, "Đã liên kết hóa đơn điện tử và đối soát khoản thu tự động."));
     }
 
     @DeleteMapping("/invoices/{invoiceId}")

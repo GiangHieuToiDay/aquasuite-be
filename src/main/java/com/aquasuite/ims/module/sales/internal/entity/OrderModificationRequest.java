@@ -59,6 +59,9 @@ public class OrderModificationRequest {
     @Column(name = "decision_note", columnDefinition = "TEXT")
     private String decisionNote;
 
+    @Column(name = "requested_delivery_address", columnDefinition = "TEXT")
+    private String requestedDeliveryAddress;
+
     @Column(name = "requested_by", nullable = false, updatable = false)
     private UUID requestedBy;
 
@@ -82,6 +85,9 @@ public class OrderModificationRequest {
 
     @Column(name = "price_difference", precision = 15, scale = 2)
     private BigDecimal priceDifference;
+
+    @Column(name = "refund_transaction_id")
+    private UUID refundTransactionId;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;

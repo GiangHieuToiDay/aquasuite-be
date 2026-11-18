@@ -16,7 +16,7 @@ public record CustomerCreditProfileRequestDetailResponse(
         BigDecimal requestedCreditLimit,
         Integer requestedCreditTermDays,
         String reason,
-        String identityDocumentNumber,
+        boolean identityDocumentAttached,
         String residentialAddress,
         String worksiteAddress,
         CustomerCreditProfileRequestStatus status,

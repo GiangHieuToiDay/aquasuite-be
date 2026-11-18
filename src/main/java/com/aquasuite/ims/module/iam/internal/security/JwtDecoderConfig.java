@@ -64,7 +64,9 @@ public class JwtDecoderConfig implements JwtDecoder {
                 org.springframework.security.oauth2.jwt.MappedJwtClaimSetConverter.withDefaults(
                         customConverters));
 
-        OAuth2TokenValidator<Jwt> timestampValidator = new JwtTimestampValidator(Duration.ZERO);
+        // Cho phép sai lệch đồng hồ tối đa 30 giây giữa server và thời điểm phát hành token
+        // để tránh từ chối nhầm access token hợp lệ do độ trễ mạng hoặc lệch clock.
+        OAuth2TokenValidator<Jwt> timestampValidator = new JwtTimestampValidator(Duration.ofSeconds(30));
 
         OAuth2TokenValidator<Jwt> claimsValidator =
                 token -> {

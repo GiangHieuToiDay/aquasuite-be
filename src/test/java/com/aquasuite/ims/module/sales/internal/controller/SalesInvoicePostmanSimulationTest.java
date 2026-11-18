@@ -391,7 +391,6 @@ public class SalesInvoicePostmanSimulationTest {
                                 .creditTermDays(15)
                                 .status(QuotationStatus.APPROVED)
                                 .validUntil(LocalDate.now().plusDays(15))
-                                .discountAmount(BigDecimal.ZERO)
                                 .totalAmount(new BigDecimal("66000000"))
                                 .createdAt(OffsetDateTime.now())
                                 .updatedAt(OffsetDateTime.now())
@@ -402,13 +401,13 @@ public class SalesInvoicePostmanSimulationTest {
                                                 .quotationItemId(UUID.randomUUID()).quotationId(quotationId)
                                                 .variantId(sku1Id).sku("TOTO-C884").unit("chiếc")
                                                 .quantity(new BigDecimal("10")).unitPrice(new BigDecimal("5000000"))
-                                                .discountRate(BigDecimal.ZERO).lineTotal(new BigDecimal("50000000"))
+                                                .discountRate(BigDecimal.ZERO)
                                                 .sortOrder(1).build(),
                                 QuotationItem.builder()
                                                 .quotationItemId(UUID.randomUUID()).quotationId(quotationId)
                                                 .variantId(sku2Id).sku("INAX-L284").unit("chiếc")
                                                 .quantity(new BigDecimal("5")).unitPrice(new BigDecimal("2000000"))
-                                                .discountRate(BigDecimal.ZERO).lineTotal(new BigDecimal("10000000"))
+                                                .discountRate(BigDecimal.ZERO)
                                                 .sortOrder(2).build()));
                 when(quotationRepository.findById(quotationId))
                                 .thenAnswer(inv -> Optional.ofNullable(quotationStore.get(quotationId)));

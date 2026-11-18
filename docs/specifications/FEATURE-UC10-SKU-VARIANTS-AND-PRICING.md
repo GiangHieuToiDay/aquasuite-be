@@ -3,7 +3,7 @@
 ## Metadata and Governance
 
 - **Feature ID**: `UC-10` / `FE-03`
-- **Version**: `0.1.2`
+- **Version**: `0.1.3`
 - **Owning Module**: `catalog`
 - **Repository Scope**: `BE (aquasuite-be)`
 - **Target Package**: `com.aquasuite.ims.module.catalog`
@@ -47,6 +47,9 @@ No credential or personally sensitive value is in the UC-10 payload. Audit recor
 6. Matrix creation is all-or-nothing. Duplicate SKUs inside the request and against persisted variants abort the entire transaction.
 7. `INACTIVE` variants cannot be added to new carts, quotations, or orders. Reactivation is allowed when a retail selling price exists.
 8. Only Store Owner can request deletion. Deletion is permanent, releases the SKU, and cannot be restored in UI.
+9. A SKU technical specification inherits the master product's `specifications`. Values sent for the SKU override keys of the same name; an omitted payload never discards inherited or already-saved keys.
+10. A physical SKU cannot be created or updated when its master product is a `BUNDLE`. Bundles are configured through their components rather than saleable physical SKUs.
+11. `warrantyPolicyId` is optional. When omitted, Catalog resolves the current `ACTIVE` policy for the master product's `(brandId, categoryId)` pair. A supplied policy must itself be `ACTIVE` and belong to that same pair; otherwise the request is rejected. Issued warranty records remain frozen by UC-45.
 
 ### Hard-deletion eligibility
 
@@ -88,7 +91,7 @@ All endpoints return `ApiResponse<T>`.
 
 | Method and URI | Purpose |
 |---|---|
-| `GET /api/v1/catalog/products/{productId}/variants` | Paginated/filterable variant list and summary cards |
+| `GET /api/v1/catalog/products/{productId}/variants` | Paginated/filterable variant list and summary cards; supports `missingPrice`, `sortBy`, `sortDir`, and `warehouseCode` (default `WH_MAIN`) |
 | `POST /api/v1/catalog/products/{productId}/variants` | Create one variant; returns MSG39 |
 | `POST /api/v1/catalog/products/{productId}/variants/matrix` | Atomically create Color × Size variants; returns MSG40 |
 | `PUT /api/v1/catalog/products/{productId}/variants/{variantId}` | Update editable variant/pricing fields |
@@ -100,7 +103,7 @@ Mutation endpoints require `ROLE_SHOP_OWNER`. The delete request contains `confi
 
 ### Inter-module contracts
 
-`InventoryApi` will gain public, entity-free operations to initialize a main-warehouse record and return/deallocate the inventory-side deletion usage of a variant. A new Sales/Cart public query contract will return reference counts and delete cart items in the caller transaction. Catalog only consumes those public APIs.
+`InventoryApi` exposes entity-free operations to initialize a main-warehouse record, return/deallocate inventory-side deletion usage, and return batched stock summaries for an explicit warehouse. A new Sales/Cart public query contract returns reference counts and deletes cart items in the caller transaction. Catalog only consumes those public APIs.
 
 ### Events and audit
 

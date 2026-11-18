@@ -16,7 +16,7 @@ import java.util.concurrent.*;
 
 class BundleSystemCategoryIT extends BundleCoreTestSupport {
     private UUID systemCategory() {
-        return jdbc.queryForObject("select category_id from categories where category_code='COMBO'", UUID.class);
+        return jdbc.queryForObject("select category_id from categories where category_code='709'", UUID.class);
     }
 
     @Test
@@ -70,10 +70,10 @@ class BundleSystemCategoryIT extends BundleCoreTestSupport {
 
     @Test
     void missingSeedIsNotCreatedByBundleRequests() {
-        jdbc.update("delete from categories where category_code='COMBO'");
+        jdbc.update("delete from categories where category_code='709'");
         assertThatThrownBy(() -> service.createBundle(request("MISSING-SEED")))
                 .isInstanceOf(com.aquasuite.ims.share.exception.AppException.class);
-        assertThat(jdbc.queryForObject("select count(*) from categories where category_code='COMBO'", Integer.class))
+        assertThat(jdbc.queryForObject("select count(*) from categories where category_code='709'", Integer.class))
                 .isZero();
         assertThat(jdbc.queryForObject("select count(*) from products where product_code='MISSING-SEED'", Integer.class))
                 .isZero();
@@ -81,7 +81,7 @@ class BundleSystemCategoryIT extends BundleCoreTestSupport {
 
     @Test
     void concurrentRequestsReuseSeededCategory() throws Exception {
-        assertThat(jdbc.queryForObject("select count(*) from categories where category_code='COMBO'", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from categories where category_code='709'", Integer.class)).isEqualTo(1);
         try (var pool = Executors.newFixedThreadPool(2)) {
             var ready = new CountDownLatch(2);
             var start = new CountDownLatch(1);
@@ -99,7 +99,7 @@ class BundleSystemCategoryIT extends BundleCoreTestSupport {
             var first = tasks.getFirst().get(20, TimeUnit.SECONDS);
             assertThat(tasks.get(1).get(20, TimeUnit.SECONDS)).isEqualTo(first);
         }
-        assertThat(jdbc.queryForObject("select count(*) from categories where category_code='COMBO'", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from categories where category_code='709'", Integer.class)).isEqualTo(1);
     }
 
     @Test

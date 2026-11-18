@@ -138,7 +138,7 @@ public class UserAccountServiceImpl implements UserAccountService {
         User user = findUser(id);
         Map<String, Object> oldData = accountSnapshot(user);
         Set<Role> roles = resolveRoles(request.getRoleIds());
-        assertRoleChangeAllowed(user, roles);
+        assertRoleChangeAllowed(user, roles, actorId);
         userAccountMapper.updateUser(request, user);
         assertUpdateUnique(user.getId(), user.getUsername(), user.getEmail(), user.getPhone());
         user.setRoles(roles);
@@ -200,7 +200,10 @@ public class UserAccountServiceImpl implements UserAccountService {
                 || userRepository.existsByPhoneAndIdNot(phone, id)) throw new AppException(UserAccountErrorCode.DUPLICATE_ACCOUNT);
     }
 
-    private void assertRoleChangeAllowed(User user, Collection<Role> replacementRoles) {
+    private void assertRoleChangeAllowed(User user, Collection<Role> replacementRoles, UUID actorId) {
+        if (user.getId() != null && user.getId().equals(actorId) && isShopOwner(user) && !isShopOwner(replacementRoles)) {
+            throw new AppException(UserAccountErrorCode.SELF_ROLE_DEMOTION_FORBIDDEN);
+        }
         if (user.getStatus() == UserStatus.ACTIVE && isShopOwner(user) && !isShopOwner(replacementRoles)
                 && activeShopOwnerIdsLocked().size() <= 1) {
             throw new AppException(UserAccountErrorCode.LAST_SHOP_OWNER_PROTECTED);

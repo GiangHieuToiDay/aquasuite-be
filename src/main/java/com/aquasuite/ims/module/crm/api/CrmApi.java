@@ -4,7 +4,9 @@ import com.aquasuite.ims.module.crm.api.dto.CustomerAddressDto;
 import com.aquasuite.ims.module.crm.api.dto.CustomerDebtProfileDto;
 import com.aquasuite.ims.module.crm.api.dto.CustomerSummaryDto;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -53,4 +55,10 @@ public interface CrmApi {
             Integer creditTermDays,
             String reason,
             UUID requesterId);
+
+    /** Tìm tập customerId theo từ khóa SĐT (phục vụ lọc danh sách bảo hành). */
+    List<UUID> findCustomerIdsByPhoneKeyword(String phoneKeyword);
+
+    /** Tra cứu hàng loạt khách hàng theo tập customerIds (tránh N+1 queries). */
+    Map<UUID, CustomerSummaryDto> getCustomersByIds(Collection<UUID> customerIds);
 }

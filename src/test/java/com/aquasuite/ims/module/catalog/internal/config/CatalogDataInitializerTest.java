@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -29,15 +30,43 @@ class CatalogDataInitializerTest {
 
         var saved = ArgumentCaptor.forClass(Category.class);
         verify(categories).save(saved.capture());
-        assertThat(saved.getValue().getCategoryCode()).isEqualTo("COMBO");
+        assertThat(saved.getValue().getCategoryCode()).isEqualTo("709");
         assertThat(saved.getValue().getCategoryName()).isEqualTo("Combo");
         assertThat(saved.getValue().getStatus()).isEqualTo(CategoryStatus.ACTIVE);
         verify(categories, never()).saveAll(any());
     }
 
     @Test
+    void renamesLegacyCategoryWithoutReplacingItsIdentity() {
+        Category legacy = new Category();
+        var id = java.util.UUID.randomUUID();
+        legacy.setCategoryId(id);
+        legacy.setCategoryCode("COMBO");
+        legacy.setCategoryName("Combo");
+        when(categories.findByCategoryCodeIgnoreCase("COMBO"))
+                .thenReturn(java.util.Optional.of(legacy));
+
+        initializer.run();
+
+        verify(categories).save(legacy);
+        assertThat(legacy.getCategoryId()).isEqualTo(id);
+        assertThat(legacy.getCategoryCode()).isEqualTo("709");
+        assertThat(legacy.getCategoryName()).isEqualTo("Combo");
+    }
+
+    @Test
+    void refusesToOverwriteExistingNumericCategory() {
+        when(categories.findByCategoryCodeIgnoreCase("COMBO"))
+                .thenReturn(java.util.Optional.of(new Category()));
+        when(categories.existsByCategoryCodeIgnoreCase("709")).thenReturn(true);
+
+        assertThatThrownBy(() -> initializer.run()).isInstanceOf(IllegalStateException.class);
+        verify(categories, never()).save(any());
+    }
+
+    @Test
     void leavesExistingComboUnchanged() {
-        when(categories.existsByCategoryCodeIgnoreCase("COMBO")).thenReturn(true);
+        when(categories.existsByCategoryCodeIgnoreCase("709")).thenReturn(true);
 
         initializer.run();
 
@@ -51,6 +80,6 @@ class CatalogDataInitializerTest {
         initializer.run();
 
         verify(categories).saveAll(any());
-        verify(categories).save(argThat(category -> "COMBO".equals(category.getCategoryCode())));
+        verify(categories).save(argThat(category -> "709".equals(category.getCategoryCode())));
     }
 }

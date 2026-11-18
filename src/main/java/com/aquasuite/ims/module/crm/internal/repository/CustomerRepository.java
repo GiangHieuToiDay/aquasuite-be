@@ -60,4 +60,10 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
             @Param("status") String status,
             Pageable pageable
     );
+
+    @Query("""
+        SELECT c.customerId FROM Customer c
+        WHERE c.phone IS NOT NULL AND LOWER(c.phone) LIKE LOWER(CONCAT('%', :keyword, '%'))
+    """)
+    List<UUID> findCustomerIdsByPhoneKeyword(@Param("keyword") String keyword);
 }

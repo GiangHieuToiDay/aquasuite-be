@@ -7,6 +7,7 @@ import com.aquasuite.ims.module.finance.internal.payload.response.PaymentVerific
 import com.aquasuite.ims.module.finance.internal.payload.response.PaymentVerificationResponse;
 import com.aquasuite.ims.module.finance.internal.repository.TransactionRepository;
 import com.aquasuite.ims.module.finance.internal.service.PaymentVerificationService;
+import com.aquasuite.ims.module.finance.internal.service.PaymentAllocationService;
 import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.sales.api.SalesOrderApi;
 import com.aquasuite.ims.module.sales.api.dto.SalesOrderPaymentInfoDto;
@@ -43,6 +44,7 @@ public class PaymentVerificationServiceImpl implements PaymentVerificationServic
     private final SalesOrderApi sales;
     /** Xác định kế toán đang thực hiện quyết định. */
     private final IamApi iam;
+    private final PaymentAllocationService paymentAllocationService;
 
     /**
      * Liệt kê khoản chuyển khoản đang chờ xác minh theo thứ tự ghi nhận, có thể lọc theo đơn.
@@ -122,7 +124,10 @@ public class PaymentVerificationServiceImpl implements PaymentVerificationServic
 
         // Tính lại số đã xác minh của đơn (không trừ PENDING khác) và số còn phải trả.
         BigDecimal verified = verifiedPaid(order);
-        BigDecimal remaining = order.totalAmount().subtract(verified).max(BigDecimal.ZERO);
+        BigDecimal pendingCod = transactions.findByOrderIdAndTransactionTypeIgnoreCase(orderId, TYPE_RECEIPT).stream()
+                .filter(t -> t.getDeliveryId() != null && "COD".equals(t.getPaymentType()) && STATUS_PENDING.equals(t.getStatus()))
+                .map(Transaction::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal remaining = order.totalAmount().subtract(verified).subtract(pendingCod).max(BigDecimal.ZERO);
         if (locked.getAmount().compareTo(remaining) > 0) {
             // Vượt nghĩa vụ: báo lỗi, giữ nguyên PENDING (transaction rollback), không tự hoàn/chuyển đơn.
             throw new AppException(PaymentVerificationErrorCode.OVER_OBLIGATION);
@@ -137,6 +142,7 @@ public class PaymentVerificationServiceImpl implements PaymentVerificationServic
         BigDecimal newVerified = verified.add(locked.getAmount());
         sales.updatePaymentStatus(orderId,
                 newVerified.compareTo(order.totalAmount()) == 0 ? "PAID" : "PARTIALLY_PAID");
+        paymentAllocationService.autoAllocateVerifiedReceipt(locked.getTransactionId(), actorId);
         return response(locked);
     }
 

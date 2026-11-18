@@ -37,6 +37,7 @@ public class ProductShopOwnerServiceImpl implements ProductShopOwnerService {
     private final ProductImageRepository imageRepository;
     private final CategoryRepository categoryRepository;
     private final BrandRepository brandRepository;
+    private final WarrantyPolicyRepository warrantyPolicyRepository;
     private final ProductMapper productMapper;
 
     @Override
@@ -318,7 +319,25 @@ public class ProductShopOwnerServiceImpl implements ProductShopOwnerService {
                 productMapper.toCategoryBrief(category),
                 productMapper.toBrandBrief(brand),
                 variantResponses,
-                productImages
+                productImages,
+                resolveActiveWarrantyPolicy(product)
         );
+    }
+
+    private WarrantyPolicySummaryResponse resolveActiveWarrantyPolicy(Product product) {
+        if (product.getBrandId() == null || product.getCategoryId() == null) {
+            return null;
+        }
+        return warrantyPolicyRepository
+                .findFirstByBrandIdAndCategoryIdAndStatus(product.getBrandId(), product.getCategoryId(), "ACTIVE")
+                .map(policy -> WarrantyPolicySummaryResponse.builder()
+                        .warrantyPolicyId(policy.getWarrantyPolicyId())
+                        .policyCode(policy.getPolicyCode())
+                        .policyName(policy.getPolicyName())
+                        .warrantyMonths(policy.getWarrantyMonths())
+                        .warrantyTerms(policy.getWarrantyTerms())
+                        .policyStatus(policy.getStatus())
+                        .build())
+                .orElse(null);
     }
 }

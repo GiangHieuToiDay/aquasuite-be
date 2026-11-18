@@ -48,6 +48,14 @@ public class InventoryServiceImpl implements InventoryApi, InventoryService {
     private final ApplicationEventPublisher eventPublisher;
     private final IamApi iamApi;
     private final CatalogApi catalogApi;
+    private final org.springframework.beans.factory.ObjectProvider<InventoryDispatchService> dispatchService;
+
+    @Override
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public com.aquasuite.ims.module.inventory.api.dto.StockDispatchResult issue(
+            com.aquasuite.ims.module.inventory.api.dto.StockDispatchCommand command) {
+        return dispatchService.getObject().issue(command);
+    }
 
     // =========================================================================
     // 1. CỔNG FACADE PUBLIC DÀNH CHO CÁC MODULE KHÁC
@@ -67,6 +75,17 @@ public class InventoryServiceImpl implements InventoryApi, InventoryService {
         return inventoryRepository.findByVariantIdIn(variantIds).stream()
                 .map(this::toDto)
                 .collect(Collectors.toMap(StockSummaryDto::variantId, Function.identity(), (a, b) -> a));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<UUID, StockSummaryDto> getStockSummaries(Collection<UUID> variantIds, String warehouseCode) {
+        if (variantIds == null || variantIds.isEmpty() || warehouseCode == null || warehouseCode.isBlank()) {
+            return Collections.emptyMap();
+        }
+        return inventoryRepository.findByVariantIdInAndWarehouseCode(variantIds, warehouseCode.trim()).stream()
+                .map(this::toDto)
+                .collect(Collectors.toMap(StockSummaryDto::variantId, Function.identity()));
     }
 
     @Override

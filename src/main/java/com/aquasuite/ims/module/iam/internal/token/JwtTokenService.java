@@ -329,9 +329,11 @@ public class JwtTokenService {
 
         Instant expInstant = exp.toInstant();
         Instant now = Instant.now();
-        // Check Expiration (strictly before or at now)
-        if (expInstant.isBefore(now) || expInstant.equals(now)) {
-            log.info("Refresh token expired at: {}, now: {}", expInstant, now);
+        // Cho phép sai lệch đồng hồ tối đa 30 giây khi kiểm tra hạn refresh token
+        // để tránh từ chối nhầm do clock skew hoặc độ trễ mạng.
+        Instant effectiveNow = now.minusSeconds(30);
+        if (expInstant.isBefore(effectiveNow) || expInstant.equals(effectiveNow)) {
+            log.info("Refresh token expired at: {}, now: {} (with 30s clock skew tolerance)", expInstant, now);
             throw new AppException(AuthErrorCode.EXPIRED_REFRESH_TOKEN);
         }
 
@@ -438,8 +440,10 @@ public class JwtTokenService {
 
         Instant expInstant = exp.toInstant();
         Instant now = Instant.now();
-        if (expInstant.isBefore(now) || expInstant.equals(now)) {
-            log.info("Access token expired at: {}, now: {}", expInstant, now);
+        // Cho phép sai lệch đồng hồ tối đa 30 giây khi kiểm tra hạn access token.
+        Instant effectiveNow = now.minusSeconds(30);
+        if (expInstant.isBefore(effectiveNow) || expInstant.equals(effectiveNow)) {
+            log.info("Access token expired at: {}, now: {} (with 30s clock skew tolerance)", expInstant, now);
             throw new AppException(AuthErrorCode.INVALID_CREDENTIALS);
         }
 

@@ -52,6 +52,22 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadableException(HttpMessageNotReadableException ex) {
         log.warn("Request body could not be read");
+        Throwable cause = ex.getCause();
+        if (cause instanceof com.fasterxml.jackson.databind.JsonMappingException mapping && !mapping.getPath().isEmpty()) {
+            StringBuilder path = new StringBuilder();
+            for (var reference : mapping.getPath()) {
+                if (reference.getFieldName() != null) {
+                    if (!path.isEmpty()) path.append('.');
+                    path.append(reference.getFieldName());
+                } else if (reference.getIndex() >= 0) {
+                    path.append('[').append(reference.getIndex()).append(']');
+                }
+            }
+            return ResponseEntity.badRequest().body(ApiResponse.error(
+                    CommonErrorCode.VALIDATION_ERROR.getCode(),
+                    "Thông tin không đúng định dạng; vui lòng kiểm tra trường được báo lỗi",
+                    List.of(new FieldErrorDetail(path.toString(), "Giá trị không đúng kiểu dữ liệu hoặc không thuộc danh sách lựa chọn hợp lệ"))));
+        }
         return ResponseEntity
                 .status(CommonErrorCode.VALIDATION_ERROR.getStatus())
                 .body(ApiResponse.error(

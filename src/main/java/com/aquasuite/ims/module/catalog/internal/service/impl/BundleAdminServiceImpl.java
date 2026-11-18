@@ -236,7 +236,7 @@ public class BundleAdminServiceImpl implements BundleAdminService {
 
     /** Category creation belongs to CatalogDataInitializer. */
     private UUID resolveComboCategoryId() {
-        var value = categories.findByCategoryCodeIgnoreCase("COMBO")
+        var value = categories.findByCategoryCodeIgnoreCase("709")
                 .orElseThrow(() -> new AppException(BundleErrorCode.INVALID_DEFINITION));
         if (value.getStatus() != CategoryStatus.ACTIVE)
             throw new AppException(BundleErrorCode.INVALID_DEFINITION);

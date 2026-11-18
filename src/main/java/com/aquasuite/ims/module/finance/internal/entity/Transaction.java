@@ -67,6 +67,10 @@ public class Transaction {
     @Column(name = "order_id")
     private UUID orderId;
 
+    /** Delivery linked to a COD receipt; cross-module reference is a scalar UUID. */
+    @Column(name = "delivery_id")
+    private UUID deliveryId;
+
     @Column(name = "goods_receipt_id")
     private UUID goodsReceiptId;
 

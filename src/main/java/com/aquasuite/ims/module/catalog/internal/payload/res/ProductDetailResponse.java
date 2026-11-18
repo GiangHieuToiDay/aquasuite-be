@@ -22,6 +22,7 @@ public record ProductDetailResponse(
         ProductStatus status,
         List<ProductImageResponse> images,
         List<ProductVariantResponse> variants,
+        WarrantyPolicySummaryResponse warrantyPolicy,
         Instant createdAt,
         Instant updatedAt
 ) {}

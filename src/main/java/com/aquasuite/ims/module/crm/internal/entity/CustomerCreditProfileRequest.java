@@ -54,6 +54,9 @@ public class CustomerCreditProfileRequest {
     @Column(name = "identity_document_number", length = 32)
     private String identityDocumentNumber;
 
+    @Column(name = "identity_document_object_key", length = 512)
+    private String identityDocumentObjectKey;
+
     @Column(name = "residential_address", length = 500)
     private String residentialAddress;
 

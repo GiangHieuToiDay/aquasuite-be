@@ -40,6 +40,10 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
 
     List<ProductVariant> findByProductIdIn(Collection<UUID> productIds);
 
+    List<ProductVariant> findByWarrantyPolicyId(UUID warrantyPolicyId);
+
+    long countByWarrantyPolicyId(UUID warrantyPolicyId);
+
     boolean existsBySku(String sku);
 
     boolean existsBySkuIgnoreCase(String sku);
@@ -54,14 +58,46 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
 
     @Query("SELECT v FROM ProductVariant v WHERE v.productId = :productId AND v.status <> 'DELETED' " +
             "AND (:status IS NULL OR v.status = :status) " +
+            "AND (:missingPrice = false OR v.sellingPrice IS NULL) " +
             "AND (:keyword IS NULL " +
             "OR lower(v.sku) LIKE cast(:keyword as String) " +
             "OR lower(v.variantName) LIKE cast(:keyword as String) " +
-            "OR lower(coalesce(v.color, '')) LIKE cast(:keyword as String))")
+            "OR lower(coalesce(v.color, '')) LIKE cast(:keyword as String) " +
+            "OR lower(coalesce(v.size, '')) LIKE cast(:keyword as String))")
     Page<ProductVariant> search(
             @Param("productId") UUID productId,
             @Param("keyword") String keyword,
             @Param("status") VariantStatus status,
+            @Param("missingPrice") boolean missingPrice,
+            Pageable pageable);
+
+    @Query(value = "SELECT v FROM ProductVariant v WHERE v.productId = :productId AND v.status <> 'DELETED' " +
+            "AND (:status IS NULL OR v.status = :status) " +
+            "AND (:missingPrice = false OR v.sellingPrice IS NULL) " +
+            "AND (:keyword IS NULL " +
+            "OR lower(v.sku) LIKE cast(:keyword as String) " +
+            "OR lower(v.variantName) LIKE cast(:keyword as String) " +
+            "OR lower(coalesce(v.color, '')) LIKE cast(:keyword as String) " +
+            "OR lower(coalesce(v.size, '')) LIKE cast(:keyword as String)) " +
+            "ORDER BY " +
+            "CASE WHEN v.sellingPrice IS NULL THEN 1 ELSE 0 END ASC, " +
+            "CASE WHEN :sortDir = 'ASC' THEN (v.sellingPrice - v.costPrice) END ASC, " +
+            "CASE WHEN :sortDir = 'DESC' THEN (v.sellingPrice - v.costPrice) END DESC, " +
+            "v.variantId ASC",
+            countQuery = "SELECT COUNT(v) FROM ProductVariant v WHERE v.productId = :productId AND v.status <> 'DELETED' " +
+                    "AND (:status IS NULL OR v.status = :status) " +
+                    "AND (:missingPrice = false OR v.sellingPrice IS NULL) " +
+                    "AND (:keyword IS NULL " +
+                    "OR lower(v.sku) LIKE cast(:keyword as String) " +
+                    "OR lower(v.variantName) LIKE cast(:keyword as String) " +
+                    "OR lower(coalesce(v.color, '')) LIKE cast(:keyword as String) " +
+                    "OR lower(coalesce(v.size, '')) LIKE cast(:keyword as String))")
+    Page<ProductVariant> searchByProfit(
+            @Param("productId") UUID productId,
+            @Param("keyword") String keyword,
+            @Param("status") VariantStatus status,
+            @Param("missingPrice") boolean missingPrice,
+            @Param("sortDir") String sortDir,
             Pageable pageable);
 
     long countByProductIdAndStatusNot(UUID productId, VariantStatus status);

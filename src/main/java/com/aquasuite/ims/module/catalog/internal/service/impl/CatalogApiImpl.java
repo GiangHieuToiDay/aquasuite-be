@@ -3,12 +3,19 @@ package com.aquasuite.ims.module.catalog.internal.service.impl;
 import com.aquasuite.ims.module.catalog.api.CatalogApi;
 import com.aquasuite.ims.module.catalog.api.dto.CatalogBundleSummaryDto;
 import com.aquasuite.ims.module.catalog.api.dto.CatalogSkuSummaryDto;
+import com.aquasuite.ims.module.catalog.api.dto.CatalogBrandSummaryDto;
+import com.aquasuite.ims.module.catalog.api.dto.CatalogCategorySummaryDto;
+import com.aquasuite.ims.module.catalog.api.dto.CatalogVariantWarrantyReferenceDto;
+import com.aquasuite.ims.module.catalog.internal.entity.Brand;
+import com.aquasuite.ims.module.catalog.internal.entity.Category;
 import com.aquasuite.ims.module.catalog.internal.entity.Product;
 import com.aquasuite.ims.module.catalog.internal.entity.ProductVariant;
 import com.aquasuite.ims.module.catalog.internal.enums.VariantStatus;
 import com.aquasuite.ims.module.catalog.internal.payload.res.BundleResponse;
 import com.aquasuite.ims.module.catalog.internal.repository.ProductRepository;
 import com.aquasuite.ims.module.catalog.internal.repository.ProductVariantRepository;
+import com.aquasuite.ims.module.catalog.internal.repository.BrandRepository;
+import com.aquasuite.ims.module.catalog.internal.repository.CategoryRepository;
 import com.aquasuite.ims.module.catalog.internal.service.BundleQueryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +37,8 @@ public class CatalogApiImpl implements CatalogApi {
 
     private final ProductVariantRepository productVariantRepository;
     private final ProductRepository productRepository;
+    private final BrandRepository brandRepository;
+    private final CategoryRepository categoryRepository;
     private final BundleQueryService bundleQueryService;
 
     @Override
@@ -113,6 +122,54 @@ public class CatalogApiImpl implements CatalogApi {
         return productVariantRepository.findByStatus(VariantStatus.ACTIVE).stream()
                 .map(this::toDto)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<CatalogBrandSummaryDto> getBrandSummary(UUID brandId) {
+        if (brandId == null) return Optional.empty();
+        return brandRepository.findById(brandId).map(this::toBrandDto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<CatalogCategorySummaryDto> getCategorySummary(UUID categoryId) {
+        if (categoryId == null) return Optional.empty();
+        return categoryRepository.findById(categoryId).map(this::toCategoryDto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CatalogBrandSummaryDto> getActiveBrands() {
+        return brandRepository.findAllActive().stream().map(this::toBrandDto).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CatalogCategorySummaryDto> getActiveCategories() {
+        return categoryRepository.findAllActive().stream().map(this::toCategoryDto).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CatalogVariantWarrantyReferenceDto> getVariantsByWarrantyPolicyId(UUID warrantyPolicyId) {
+        if (warrantyPolicyId == null) return Collections.emptyList();
+        return productVariantRepository.findByWarrantyPolicyId(warrantyPolicyId).stream()
+                .map(variant -> CatalogVariantWarrantyReferenceDto.builder()
+                        .variantId(variant.getVariantId()).sku(variant.getSku())
+                        .variantName(variant.getVariantName()).build())
+                .toList();
+    }
+
+    private CatalogBrandSummaryDto toBrandDto(Brand brand) {
+        return CatalogBrandSummaryDto.builder().brandId(brand.getBrandId()).brandCode(brand.getBrandCode())
+                .brandName(brand.getBrandName()).status(brand.getStatus().name()).build();
+    }
+
+    private CatalogCategorySummaryDto toCategoryDto(Category category) {
+        return CatalogCategorySummaryDto.builder().categoryId(category.getCategoryId())
+                .categoryCode(category.getCategoryCode()).categoryName(category.getCategoryName())
+                .status(category.getStatus().name()).build();
     }
 
     private CatalogSkuSummaryDto toDto(ProductVariant variant) {

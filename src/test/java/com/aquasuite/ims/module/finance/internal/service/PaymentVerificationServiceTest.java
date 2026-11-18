@@ -29,6 +29,7 @@ class PaymentVerificationServiceTest {
     @Mock TransactionRepository transactions;
     @Mock SalesOrderApi sales;
     @Mock IamApi iam;
+    @Mock PaymentAllocationService paymentAllocationService;
     @InjectMocks PaymentVerificationServiceImpl service;
 
     UUID orderId;
@@ -69,6 +70,7 @@ class PaymentVerificationServiceTest {
         assertThat(result.approvedBy()).isEqualTo(actorId);
         verify(transactions).saveAndFlush(argThat(t -> "VERIFIED".equals(t.getStatus())));
         verify(sales).updatePaymentStatus(orderId, "PAID");
+        verify(paymentAllocationService).autoAllocateVerifiedReceipt(paymentId, actorId);
     }
 
     @Test void verifyExceedingRemainingKeepsPendingAndDoesNotUpdateOrder() {

@@ -27,6 +27,8 @@ public interface InventoryRepository extends JpaRepository<Inventory, UUID> {
 
     List<Inventory> findByVariantIdIn(Collection<UUID> variantIds);
 
+    List<Inventory> findByVariantIdInAndWarehouseCode(Collection<UUID> variantIds, String warehouseCode);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT i FROM Inventory i WHERE i.variantId = :variantId")
     Optional<Inventory> findByVariantIdForUpdate(@Param("variantId") UUID variantId);

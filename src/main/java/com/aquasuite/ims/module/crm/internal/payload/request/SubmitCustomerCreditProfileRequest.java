@@ -31,8 +31,8 @@ public class SubmitCustomerCreditProfileRequest {
     @Size(max = 500)
     String reason;
 
-    @Size(max = 32)
-    String identityDocumentNumber;
+    @Size(max = 512)
+    String identityDocumentObjectKey;
 
     @Size(max = 500)
     String residentialAddress;
