@@ -15,7 +15,6 @@ import org.springframework.context.annotation.*;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
-import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.orm.jpa.*;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
@@ -27,6 +26,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.*;
 import javax.sql.DataSource;
 import jakarta.persistence.EntityManagerFactory;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.*;
 import static org.mockito.Mockito.*;
@@ -47,7 +47,13 @@ class DeliveryPostgresTest {
                 c.createStatement().execute("CREATE TABLE deliveries (delivery_id UUID PRIMARY KEY, delivery_code VARCHAR(100) NOT NULL UNIQUE, order_id UUID NOT NULL, warehouse_code VARCHAR(50) NOT NULL, shipper_id UUID, batch_no INTEGER, delivery_status VARCHAR(32) NOT NULL DEFAULT 'DRAFT', dispatch_date TIMESTAMPTZ, scheduled_date TIMESTAMPTZ, delivered_at TIMESTAMPTZ, recipient_name VARCHAR(255) NOT NULL, recipient_phone VARCHAR(32) NOT NULL, delivery_address TEXT NOT NULL, cod_required BOOLEAN NOT NULL DEFAULT FALSE, cod_amount NUMERIC(15,2) NOT NULL DEFAULT 0, created_by UUID NOT NULL, confirmed_by UUID, confirmed_at TIMESTAMPTZ, note TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now())");
                 c.createStatement().execute("CREATE TABLE delivery_items (delivery_item_id UUID PRIMARY KEY, delivery_id UUID NOT NULL, order_item_id UUID NOT NULL, inventory_id UUID NOT NULL, variant_id UUID NOT NULL, quantity NUMERIC(12,2) NOT NULL, serial_numbers JSONB)");
                 c.createStatement().execute("INSERT INTO deliveries(delivery_id,delivery_code,order_id,warehouse_code,recipient_name,recipient_phone,delivery_address,created_by,delivery_status) VALUES ('00000000-0000-0000-0000-000000000001','legacy','00000000-0000-0000-0000-000000000002','MAIN','Test','000','Test','00000000-0000-0000-0000-000000000003','DELIVERED')");
-                ScriptUtils.executeSqlScript(c, new ClassPathResource("db/migration/V41__add_delivery_assignment_and_photos.sql"));
+                // Send the complete PostgreSQL script so semicolons inside DO $$ ... $$ stay intact.
+                var migration = new ClassPathResource("db/migration/V41__add_delivery_assignment_and_photos.sql");
+                try (var statement = c.createStatement()) {
+                    statement.execute(migration.getContentAsString(StandardCharsets.UTF_8));
+                    // The current Delivery entity also maps the invoice link, outside this V41 migration test.
+                    statement.execute("ALTER TABLE deliveries ADD COLUMN sales_invoice_id UUID");
+                }
             }
             return ds;
         }
@@ -101,7 +107,11 @@ class DeliveryPostgresTest {
         try {
             Callable<java.time.OffsetDateTime> start = () -> { gate.await(5, TimeUnit.SECONDS); return service.start(d.getDeliveryId()).startedAt(); };
             var a = pool.submit(start); var b = pool.submit(start);
-            assertThat(a.get(15, TimeUnit.SECONDS)).isEqualTo(b.get(15, TimeUnit.SECONDS));
+            // Match PostgreSQL/JDBC rounding to microseconds, including results near the next second.
+            var first = a.get(15, TimeUnit.SECONDS).toInstant().plusNanos(500).truncatedTo(java.time.temporal.ChronoUnit.MICROS);
+            var second = b.get(15, TimeUnit.SECONDS).toInstant().plusNanos(500).truncatedTo(java.time.temporal.ChronoUnit.MICROS);
+            assertThat(first).isEqualTo(second);
+            assertThat(repo.findById(d.getDeliveryId()).orElseThrow().getStartedAt().toInstant()).isEqualTo(first);
         } finally { pool.shutdownNow(); }
     }
     @Test void invalidBulkAssignmentRollsBackAllRows() {

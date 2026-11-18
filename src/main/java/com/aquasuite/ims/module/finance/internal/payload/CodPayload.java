@@ -19,4 +19,6 @@ public final class CodPayload {
     public record Page<T>(List<T> items, int page, int size, long totalElements, int totalPages) {}
     public record Balance(UUID orderId, BigDecimal storeOutstanding, BigDecimal shipperHeld,
                           BigDecimal customerCollectible, BigDecimal pendingClaimAmount) {}
+    public record ClaimCapacity(UUID deliveryId, UUID orderId, BigDecimal orderRemaining,
+                                BigDecimal deliveryRemaining, BigDecimal maxClaimAmount, boolean claimable) {}
 }

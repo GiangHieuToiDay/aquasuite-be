@@ -37,6 +37,39 @@ class DeliveryIssueSecurityTest {
     @Autowired DeliveryIssueService service;
     MockMvc mvc;
     String id=UUID.randomUUID().toString();
+    String draftBody() {
+        return """
+                {"deliveryId":"%s","warehouseCode":"WH_MAIN","recipientName":"Recipient",
+                 "recipientPhone":"0900000000","deliveryAddress":"Address","codAmount":0,
+                 "items":[{"orderItemId":"%s","quantity":1}]}
+                """.formatted(id, UUID.randomUUID());
+    }
+    @Test @WithMockUser(roles="ACCOUNTANT") void accountantCanEditDraft() throws Exception {
+        mvc.perform(put("/api/v1/fulfillment/deliveries/"+id+"/draft").contentType("application/json")
+                .content(draftBody())).andExpect(status().isOk());
+        verify(service).update(eq(UUID.fromString(id)), any());
+    }
+    @Test @WithMockUser(roles="SHOP_OWNER") void ownerCanEditDraft() throws Exception {
+        mvc.perform(put("/api/v1/fulfillment/deliveries/"+id+"/draft").contentType("application/json")
+                .content(draftBody())).andExpect(status().isOk());
+        verify(service).update(eq(UUID.fromString(id)), any());
+    }
+    @Test @WithMockUser(roles="SHIPPER") void shipperCannotEditDraft() throws Exception {
+        mvc.perform(put("/api/v1/fulfillment/deliveries/"+id+"/draft").contentType("application/json")
+                .content(draftBody())).andExpect(status().isForbidden());
+        verifyNoInteractions(service);
+    }
+    @Test @WithMockUser(roles="SALES_STAFF") void salesCannotEditDraft() throws Exception {
+        mvc.perform(put("/api/v1/fulfillment/deliveries/"+id+"/draft").contentType("application/json")
+                .content(draftBody())).andExpect(status().isForbidden());
+        verifyNoInteractions(service);
+    }
+    @Test @WithMockUser(roles="ACCOUNTANT") void malformedCodReturnsItsFieldName() throws Exception {
+        mvc.perform(put("/api/v1/fulfillment/deliveries/"+id+"/draft").contentType("application/json")
+                .content(draftBody().replace("\"codAmount\":0", "\"codAmount\":\"abc\"")))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors[0].field").value("codAmount"));
+        verifyNoInteractions(service);
+    }
     @BeforeEach void setup() {
         reset(service);
         mvc=org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();

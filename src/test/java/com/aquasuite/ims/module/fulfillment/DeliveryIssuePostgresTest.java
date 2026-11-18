@@ -91,6 +91,81 @@ class DeliveryIssuePostgresTest extends PostgreSqlIntegrationTestSupport {
     BigDecimal number(String column) { return jdbc.queryForObject("select "+column+" from inventories where inventory_id=?",BigDecimal.class,inventory); }
     int movements() { return jdbc.queryForObject("select count(*) from stock_movements where variant_id=?",Integer.class,variant); }
 
+    @Test void creationAndEditRespectCurrentCodCapacity() {
+        assertThat(service.candidates(order).maxCodAmount()).isEqualByComparingTo("100");
+        assertThatThrownBy(() -> draft("1", "101")).isInstanceOfSatisfying(AppException.class,
+                e -> assertThat(e.getErrorCode().getCode()).isEqualTo("FUL_007"));
+        UUID id = draft("2", "80");
+        assertThatThrownBy(() -> service.update(id, request(id, "3", "101"))).isInstanceOf(AppException.class);
+        assertThat(jdbc.queryForObject("select quantity from delivery_items where delivery_id=?", BigDecimal.class, id))
+                .isEqualByComparingTo("2");
+        service.update(id, new DeliveryIssueRequest(id, "WH_MAIN", "New recipient", "0911111111", "New address",
+                null, new BigDecimal("50"), "edited", List.of(new DeliveryIssueRequest.Line(item, new BigDecimal("3")))));
+        assertThat(jdbc.queryForObject("select recipient_name from deliveries where delivery_id=?", String.class, id)).isEqualTo("New recipient");
+        assertThat(number("on_hand_qty")).isEqualByComparingTo("20");
+        assertThat(movements()).isZero();
+        service.confirm(id);
+        assertThat(number("on_hand_qty")).isEqualByComparingTo("17");
+        assertThatThrownBy(() -> service.update(id, request(id, "2", "20"))).isInstanceOfSatisfying(AppException.class,
+                e -> assertThat(e.getErrorCode().getCode()).isEqualTo("FUL_008"));
+    }
+
+    @Test void paidOrderAllowsOnlyZeroCodAndPaymentAfterDraftIsRechecked() {
+        UUID id = draft("2", "100");
+        UUID receipt = UUID.randomUUID();
+        jdbc.update("insert into transactions(transaction_id,transaction_code,transaction_type,category,customer_id,order_id,amount,payment_method,status,transaction_date,created_by)"
+                + " values(?,?,'RECEIPT','CUSTOMER_PAYMENT',?,?,100,'CASH','VERIFIED',current_timestamp,?)",
+                receipt, "T-"+receipt, customer, order, actor);
+        assertThat(service.candidates(order).maxCodAmount()).isZero();
+        assertThatThrownBy(() -> draft("1", "1")).isInstanceOf(AppException.class);
+        assertThatThrownBy(() -> service.confirm(id)).isInstanceOfSatisfying(AppException.class,
+                e -> assertThat(e.getErrorCode().getCode()).isEqualTo("FUL_007"));
+        service.update(id, request(id, "2", "0"));
+        service.confirm(id);
+        assertThat(number("on_hand_qty")).isEqualByComparingTo("18");
+    }
+
+    @Test void candidateShowsExactOwnHoldAndEditDoesNotConsumeIt() {
+        reservations.reserveForDeposit(new StockReservationApi.Reserve(UUID.randomUUID(),order,item,variant,"WH_MAIN",new BigDecimal("10"),actor));
+        assertThat(service.candidates(order).items().getFirst().heldQty()).isEqualByComparingTo("10");
+        UUID id = draft("2", "0");
+        service.update(id, request(id, "4", "0"));
+        assertThat(reservations.findByOrder(order).getFirst().heldQty()).isEqualByComparingTo("10");
+        service.confirm(id);
+        assertThat(service.candidates(order).items().getFirst().heldQty()).isEqualByComparingTo("6");
+        assertThat(number("reserved_qty")).isEqualByComparingTo("6");
+        assertThat(number("on_hand_qty")).isEqualByComparingTo("16");
+    }
+
+    @Test void editRacingConfirmationNeverChangesIssuedQuantity() throws Exception {
+        UUID id = draft("2", "0");
+        var pool = Executors.newFixedThreadPool(2);
+        var gate = new CountDownLatch(1);
+        try {
+            var edit = pool.submit(() -> {
+                gate.await();
+                try { service.update(id, request(id, "4", "0")); return true; }
+                catch (AppException ex) { return false; }
+            });
+            var confirm = pool.submit(() -> { gate.await(); return service.confirm(id); });
+            gate.countDown();
+            boolean edited = edit.get(20, TimeUnit.SECONDS);
+            assertThat(confirm.get(20, TimeUnit.SECONDS).deliveryStatus()).isEqualTo("DISPATCHED");
+            assertThat(number("on_hand_qty")).isEqualByComparingTo(edited ? "16" : "18");
+            assertThat(movements()).isEqualTo(1);
+        } finally { pool.shutdownNow(); }
+    }
+
+    @Test void incompatibleReservationTargetHasSpecificErrorAndRollsBack() {
+        reservations.reserveForDeposit(new StockReservationApi.Reserve(UUID.randomUUID(),order,item,variant,"WH_MAIN",new BigDecimal("2"),actor));
+        UUID id = draft("4", "0");
+        assertThatThrownBy(() -> service.confirm(id)).isInstanceOfSatisfying(AppException.class,
+                e -> assertThat(e.getErrorCode().getCode()).isEqualTo("INV_DISPATCH_004"));
+        assertThat(number("on_hand_qty")).isEqualByComparingTo("20");
+        assertThat(number("reserved_qty")).isEqualByComparingTo("2");
+        assertThat(movements()).isZero();
+    }
+
     @Test void draftAndCancelNeverChangeStockAndReplayIsStable() {
         UUID id=UUID.randomUUID(); var r=request(id,"5","40");
         assertThat(service.create(order,r).batchNo()).isEqualTo(1);

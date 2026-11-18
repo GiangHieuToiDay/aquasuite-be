@@ -54,6 +54,27 @@ class CodCurrentServiceTest {
     }
     @AfterEach void clear() { SecurityContextHolder.clearContext(); }
     Claim claim() { return new Claim(delivery,new BigDecimal("100"),t.getTransactionDate(),null,t.getIdempotencyKey()); }
+    @Test void acceptedPartialReceiptLeavesOnlyRemainingAmountClaimable() {
+        t.setStatus("VERIFIED"); t.setAmount(new BigDecimal("40"));
+        when(repo.findByOrderIdAndTransactionTypeIgnoreCase(order,"RECEIPT")).thenReturn(List.of(t));
+        assertThat(service.claimCapacity(delivery).maxClaimAmount()).isEqualByComparingTo("60");
+        assertThatThrownBy(() -> service.claim(new Claim(delivery,new BigDecimal("61"),t.getTransactionDate(),null,UUID.randomUUID())))
+                .isInstanceOfSatisfying(AppException.class, e -> assertThat(e.getErrorCode().getCode()).isEqualTo("COD_005"));
+        assertThat(service.claim(new Claim(delivery,new BigDecimal("60"),t.getTransactionDate(),null,UUID.randomUUID())).amount())
+                .isEqualByComparingTo("60");
+    }
+    @Test void paidOrderHasNoClaimCapacityAndRejectsFurtherClaims() {
+        t.setStatus("VERIFIED");
+        when(repo.findByOrderIdAndTransactionTypeIgnoreCase(order,"RECEIPT")).thenReturn(List.of(t));
+        assertThat(service.claimCapacity(delivery).claimable()).isFalse();
+        assertThat(service.claimCapacity(delivery).maxClaimAmount()).isZero();
+        assertThatThrownBy(() -> service.claim(new Claim(delivery,BigDecimal.ONE,t.getTransactionDate(),null,UUID.randomUUID())))
+                .isInstanceOfSatisfying(AppException.class, e -> assertThat(e.getErrorCode().getCode()).isEqualTo("COD_006"));
+    }
+    @Test void anotherShipperCannotReadClaimCapacity() {
+        as(UUID.randomUUID(), "SHIPPER");
+        assertThatThrownBy(() -> service.claimCapacity(delivery)).isInstanceOf(AppException.class);
+    }
     @Test void declarationCreatesPendingTransactionWithoutPayingOrder() {
         var result=service.claim(claim());
         assertThat(result.status()).isEqualTo("PENDING");

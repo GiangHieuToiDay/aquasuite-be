@@ -74,7 +74,8 @@ public class InventoryDispatchService {
         var own = source.stream().filter(r -> r.warehouseCode().equals(c.warehouseCode())).findFirst().orElse(null);
         BigDecimal consumed = own == null ? BigDecimal.ZERO : own.heldQty().min(c.quantity());
         if (own != null && (source.size()!=1 || own.heldQty().subtract(consumed).add(own.consumedQty())
-                .add(c.quantity()).add(own.releasedQty()).compareTo(own.requestedQty())>0)) throw conflict();
+                .add(c.quantity()).add(own.releasedQty()).compareTo(own.requestedQty())>0))
+            throw new AppException(StockDispatchErrorCode.RESERVATION_TARGET_CONFLICT);
         if (stock.getOnHandQty().compareTo(c.quantity()) < 0
                 || stock.getAvailableQty().compareTo(c.quantity().subtract(consumed)) < 0) {
             throw new AppException(StockDispatchErrorCode.INSUFFICIENT_STOCK);
