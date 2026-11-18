@@ -1,6 +1,7 @@
 package com.aquasuite.ims.module.fulfillment.internal.service;
 
 import com.aquasuite.ims.module.fulfillment.internal.entity.*;
+import com.aquasuite.ims.module.fulfillment.internal.error.FulfillmentErrorCode;
 import com.aquasuite.ims.module.fulfillment.internal.payload.request.DeliveryIssueRequest;
 import com.aquasuite.ims.module.fulfillment.internal.repository.*;
 import com.aquasuite.ims.module.sales.api.OrderDispatchApi;
@@ -32,9 +33,13 @@ public class DeliveryIssueService {
 
     public record Candidate(UUID orderItemId, UUID variantId, String sku, String productName,
                             BigDecimal orderedQty, BigDecimal issuedQty, BigDecimal remainingQty,
-                            BigDecimal heldQty, BigDecimal availableQty, boolean serialTracking) {}
+                            BigDecimal heldQty, BigDecimal availableQty, boolean serialTracking) {
+        public BigDecimal getDispatchableQty() {
+            return serialTracking ? BigDecimal.ZERO : remainingQty.min(heldQty.add(availableQty.max(BigDecimal.ZERO)));
+        }
+    }
     public record Candidates(UUID orderId, String orderCode, String deliveryAddress, boolean eligible,
-                             List<Candidate> items, UUID salesInvoiceId, String invoiceCode) {}
+                             List<Candidate> items, UUID salesInvoiceId, String invoiceCode, BigDecimal maxCodAmount) {}
     public record Result(UUID deliveryId, String deliveryCode, UUID orderId, Integer batchNo,
                          String deliveryStatus, OffsetDateTime confirmedAt, UUID salesInvoiceId) {}
 
@@ -45,13 +50,13 @@ public class DeliveryIssueService {
         return sales.issuedInvoices(orderId);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public Candidates candidates(UUID orderId) {
         actor();
         return invoiceCandidatesView(sales.invoiceForOrder(orderId));
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public Candidates invoiceCandidates(UUID invoiceId) {
         actor();
         return invoiceCandidatesView(sales.invoice(invoiceId));
@@ -59,7 +64,7 @@ public class DeliveryIssueService {
 
     private Candidates invoiceCandidatesView(OrderDispatchApi.Invoice invoice) {
         UUID orderId=invoice.orderId();
-        var order = sales.read(orderId);
+        var order = sales.lock(orderId);
         var invoiceQty=invoiceQuantities(invoice,order);
         var invoiceIssued=store.issuedForInvoice(invoice.invoiceId());
         var issued = store.issued(orderId);
@@ -69,7 +74,7 @@ public class DeliveryIssueService {
             var sku = catalog.getSkuSummary(l.variantId()).orElseThrow(() -> new AppException(CommonErrorCode.RESOURCE_NOT_FOUND));
             var inv = stock.getStockSummary(l.variantId());
             BigDecimal own = held.stream().filter(r -> r.orderItemId().equals(l.orderItemId())
-                    && "WH_MAIN".equals(r.warehouseCode())).map(StockReservationApi.Reservation::heldQty)
+                    && l.variantId().equals(r.variantId()) && "WH_MAIN".equals(r.warehouseCode())).map(StockReservationApi.Reservation::heldQty)
                     .reduce(BigDecimal.ZERO,BigDecimal::add);
             return new Candidate(l.orderItemId(),l.variantId(),l.sku(),l.productName(),l.quantity(),out,
                     l.quantity().subtract(out).min(invoiceQty.get(l.orderItemId())
@@ -79,7 +84,7 @@ public class DeliveryIssueService {
         }).toList();
         return new Candidates(orderId,order.orderCode(),order.deliveryAddress(),
                 "PROCESSING".equals(order.status()) && !order.modificationPending()
-                        && !store.hasAmbiguousLegacy(orderId),lines,invoice.invoiceId(),invoice.invoiceCode());
+                        && !store.hasAmbiguousLegacy(orderId),lines,invoice.invoiceId(),invoice.invoiceCode(),finance.available(orderId,store.commitments(orderId)));
     }
 
     @Transactional
@@ -99,31 +104,15 @@ public class DeliveryIssueService {
         store.lockRequest(request.deliveryId());
         var order = sales.lock(orderId);
         var invoice=sales.lockInvoice(invoiceId);
-        var invoiceQty=invoiceQuantities(invoice,order);
-        var invoiceIssued=store.issuedForInvoice(invoiceId);
+        invoiceQuantities(invoice,order);
         var prior = deliveries.findById(request.deliveryId());
         if (prior.isPresent()) {
             if (!invoiceId.equals(prior.get().getSalesInvoiceId()) || !same(prior.get(),orderId,actor,request)) throw conflict();
             return result(prior.get());
         }
         eligible(order);
-        if (request.items().stream().map(DeliveryIssueRequest.Line::orderItemId).distinct().count() != request.items().size()) throw invalid();
-        var ordered = order.lines().stream().collect(java.util.stream.Collectors.toMap(OrderDispatchApi.Line::orderItemId,l -> l));
-        var out = store.issued(orderId);
-        List<DeliveryItem> details = new ArrayList<>();
-        for (var l : request.items()) {
-            var source = ordered.get(l.orderItemId());
-            if (!invoiceQty.containsKey(l.orderItemId()) || l.quantity().compareTo(invoiceQty.get(l.orderItemId())
-                    .subtract(invoiceIssued.getOrDefault(l.orderItemId(),BigDecimal.ZERO)))>0) throw conflict();
-            if (source == null || l.quantity().compareTo(source.quantity().subtract(out.getOrDefault(l.orderItemId(),BigDecimal.ZERO))) > 0) throw conflict();
-            var sku = catalog.getSkuSummary(source.variantId()).orElseThrow(() -> new AppException(CommonErrorCode.RESOURCE_NOT_FOUND));
-            if (Boolean.TRUE.equals(sku.serialTracking())) throw new AppException(
-                    com.aquasuite.ims.module.fulfillment.internal.error.FulfillmentErrorCode.SERIAL_DISPATCH_UNSUPPORTED);
-            var inv = stock.getStockSummary(source.variantId()).filter(i -> "WH_MAIN".equals(i.warehouseCode()))
-                    .orElseThrow(() -> new AppException(CommonErrorCode.RESOURCE_NOT_FOUND));
-            details.add(DeliveryItem.builder().deliveryId(request.deliveryId()).orderItemId(l.orderItemId())
-                    .variantId(source.variantId()).inventoryId(inv.inventoryId()).quantity(l.quantity()).serialNumbers(List.of()).build());
-        }
+        validateCod(orderId, request.codAmount());
+        List<DeliveryItem> details = prepareItems(order, invoice, request);
         var d = Delivery.builder().deliveryId(request.deliveryId()).deliveryCode("DL-"+request.deliveryId())
                 .orderId(orderId).salesInvoiceId(invoiceId).warehouseCode(request.warehouseCode()).batchNo(store.nextBatch(orderId))
                 .recipientName(request.recipientName()).recipientPhone(request.recipientPhone())
@@ -132,6 +121,66 @@ public class DeliveryIssueService {
                 .note(request.note()).createdBy(actor).build();
         deliveries.saveAndFlush(d);
         items.saveAllAndFlush(details);
+        return result(d);
+    }
+
+    private List<DeliveryItem> prepareItems(OrderDispatchApi.Snapshot order, OrderDispatchApi.Invoice invoice,
+                                            DeliveryIssueRequest request) {
+        UUID orderId = order.orderId();
+        var invoiceQty = invoiceQuantities(invoice, order);
+        var invoiceIssued = store.issuedForInvoice(invoice.invoiceId());
+        if (request.items().stream().map(DeliveryIssueRequest.Line::orderItemId).distinct().count() != request.items().size()) throw invalid();
+        var ordered = order.lines().stream().collect(java.util.stream.Collectors.toMap(OrderDispatchApi.Line::orderItemId,l -> l));
+        var out = store.issued(orderId);
+        List<DeliveryItem> details = new ArrayList<>();
+        for (var l : request.items()) {
+            var source = ordered.get(l.orderItemId());
+            if (!invoiceQty.containsKey(l.orderItemId()) || l.quantity().compareTo(invoiceQty.get(l.orderItemId())
+                    .subtract(invoiceIssued.getOrDefault(l.orderItemId(),BigDecimal.ZERO)))>0) throw new AppException(FulfillmentErrorCode.INVALID_SOURCE_QUANTITY);
+            if (source == null || l.quantity().compareTo(source.quantity().subtract(out.getOrDefault(l.orderItemId(),BigDecimal.ZERO))) > 0) throw new AppException(FulfillmentErrorCode.INVALID_SOURCE_QUANTITY);
+            var sku = catalog.getSkuSummary(source.variantId()).orElseThrow(() -> new AppException(CommonErrorCode.RESOURCE_NOT_FOUND));
+            if (Boolean.TRUE.equals(sku.serialTracking())) throw new AppException(
+                    com.aquasuite.ims.module.fulfillment.internal.error.FulfillmentErrorCode.SERIAL_DISPATCH_UNSUPPORTED);
+            var inv = stock.getStockSummary(source.variantId()).filter(i -> "WH_MAIN".equals(i.warehouseCode()))
+                    .orElseThrow(() -> new AppException(CommonErrorCode.RESOURCE_NOT_FOUND));
+            details.add(DeliveryItem.builder().deliveryId(request.deliveryId()).orderItemId(l.orderItemId())
+                    .variantId(source.variantId()).inventoryId(inv.inventoryId()).quantity(l.quantity()).serialNumbers(List.of()).build());
+        }
+        return details;
+    }
+
+    private void validateCod(UUID orderId, BigDecimal amount) {
+        if (amount.compareTo(finance.available(orderId, store.commitments(orderId))) > 0)
+            throw new AppException(FulfillmentErrorCode.COD_LIMIT_EXCEEDED);
+    }
+
+    @Transactional
+    public Result update(UUID id, DeliveryIssueRequest request) {
+        actor();
+        if (!id.equals(request.deliveryId())) throw invalid();
+        var order = sales.lock(requiredOrder(id));
+        var d = locked(id);
+        if (!"DRAFT".equals(d.getDeliveryStatus()) || d.getConfirmedAt() != null)
+            throw new AppException(FulfillmentErrorCode.DRAFT_NOT_EDITABLE);
+        if (!d.getWarehouseCode().equals(request.warehouseCode())) throw invalid();
+        eligible(order);
+        UUID invoiceId = d.getSalesInvoiceId() != null ? d.getSalesInvoiceId() : sales.invoiceForOrder(order.orderId()).invoiceId();
+        var invoice = sales.lockInvoice(invoiceId);
+        validateCod(order.orderId(), request.codAmount());
+        var details = prepareItems(order, invoice, request);
+        // Validation finishes before replacing lines; the transaction rolls back the complete edit on failure.
+        items.deleteAll(items.findByDeliveryIdOrderByDeliveryItemId(id));
+        items.flush();
+        items.saveAllAndFlush(details);
+        d.setSalesInvoiceId(invoiceId);
+        d.setRecipientName(request.recipientName());
+        d.setRecipientPhone(request.recipientPhone());
+        d.setDeliveryAddress(request.deliveryAddress());
+        d.setScheduledDate(request.scheduledDate());
+        d.setCodAmount(request.codAmount());
+        d.setCodRequired(request.codAmount().signum() > 0);
+        d.setNote(request.note());
+        deliveries.saveAndFlush(d);
         return result(d);
     }
 
@@ -155,18 +204,21 @@ public class DeliveryIssueService {
         var out = store.issued(orderId);
         var lines = items.findByDeliveryIdOrderByDeliveryItemId(id).stream()
                 .sorted(Comparator.comparing(DeliveryItem::getVariantId).thenComparing(DeliveryItem::getOrderItemId)).toList();
-        if (lines.isEmpty() || lines.stream().map(DeliveryItem::getOrderItemId).distinct().count()!=lines.size()) throw conflict();
+        if (lines.isEmpty() || lines.stream().map(DeliveryItem::getOrderItemId).distinct().count()!=lines.size())
+            throw new AppException(FulfillmentErrorCode.INVALID_SOURCE_QUANTITY);
         for (var l : lines) {
             if (!invoiceQty.containsKey(l.getOrderItemId()) || l.getQuantity().compareTo(invoiceQty.get(l.getOrderItemId())
-                    .subtract(invoiceIssued.getOrDefault(l.getOrderItemId(),BigDecimal.ZERO)))>0) throw conflict();
+                    .subtract(invoiceIssued.getOrDefault(l.getOrderItemId(),BigDecimal.ZERO)))>0)
+                throw new AppException(FulfillmentErrorCode.INVALID_SOURCE_QUANTITY);
             var s = source.get(l.getOrderItemId());
             if (s==null || !s.variantId().equals(l.getVariantId()) || l.getQuantity().signum()<=0
                     || l.getQuantity().compareTo(s.quantity().subtract(out.getOrDefault(l.getOrderItemId(),BigDecimal.ZERO)))>0
-                    || (l.getSerialNumbers()!=null && !l.getSerialNumbers().isEmpty())) throw conflict();
+                    || (l.getSerialNumbers()!=null && !l.getSerialNumbers().isEmpty()))
+                throw new AppException(FulfillmentErrorCode.INVALID_SOURCE_QUANTITY);
         }
         if (d.getCodAmount().signum()<0 || d.getCodAmount().stripTrailingZeros().scale()>0
                 || !Objects.equals(d.getCodRequired(),d.getCodAmount().signum()>0)) throw conflict();
-        if (d.getCodAmount().compareTo(finance.available(orderId,store.commitments(orderId)))>0) throw conflict();
+        validateCod(orderId, d.getCodAmount());
         for (var l : lines) {
             checkReservationAvailability(d, l);
             var r = stock.issue(new com.aquasuite.ims.module.inventory.api.dto.StockDispatchCommand(l.getDeliveryItemId(),id,orderId,l.getOrderItemId(),
@@ -212,7 +264,8 @@ public class DeliveryIssueService {
             throw new AppException(com.aquasuite.ims.module.fulfillment.internal.error.FulfillmentErrorCode.RESERVATION_REVIEW_REQUIRED);
     }
     private void eligible(OrderDispatchApi.Snapshot o) {
-        if (!"PROCESSING".equals(o.status()) || o.modificationPending() || store.hasAmbiguousLegacy(o.orderId())) throw conflict();
+        if (!"PROCESSING".equals(o.status()) || o.modificationPending() || store.hasAmbiguousLegacy(o.orderId()))
+            throw new AppException(FulfillmentErrorCode.ORDER_NOT_ELIGIBLE);
     }
     private UUID requiredOrder(UUID id) {
         UUID result = store.orderId(id);

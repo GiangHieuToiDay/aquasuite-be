@@ -31,6 +31,11 @@ public class CodController {
     @GetMapping("/collections/{id}")
     public ApiResponse<Collection> detail(@PathVariable UUID id) { return ApiResponse.ok(service.detail(id)); }
 
+    @GetMapping("/deliveries/{deliveryId}/claim-capacity")
+    public ApiResponse<ClaimCapacity> claimCapacity(@PathVariable UUID deliveryId) {
+        return ApiResponse.ok(service.claimCapacity(deliveryId));
+    }
+
     @PostMapping("/collections/{id}/accept")
     @PreAuthorize("hasAnyRole('ACCOUNTANT','SHOP_OWNER')")
     public ApiResponse<Collection> accept(@PathVariable UUID id,@RequestBody @Valid Review data) {

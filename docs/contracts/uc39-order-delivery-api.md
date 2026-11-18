@@ -146,3 +146,48 @@ coordinate. Retry uses the same delivery. No hold is created by this check.
 Owned holds and unreserved free-stock dispatch remain supported. Inventory's locked
 validation remains authoritative for concurrent stock changes and integrity failures.
 No Order, Inventory or reservation implementation changes and no migration required.
+
+## COD limits and draft editing — 2026-11-17
+
+Supersedes immutable-draft guidance above. ACCOUNTANT/SHOP_OWNER can use
+`PUT /api/v1/fulfillment/deliveries/{id}/draft` with the same JSON shape as creation;
+body.deliveryId must match the path. Replace recipient details, schedule, note, COD and selected
+lines/quantities atomically. Only DRAFT with confirmedAt null is editable. The original order,
+invoice, warehouse, code, creator and batch number are preserved. An exact PUT retry has the
+same business effect; POST creation retains its original conflict/replay semantics.
+
+Create, edit and confirm all validate COD against current Finance capacity under the order lock.
+Amounts from zero through the maximum are allowed. Fully paid orders require zero COD.
+Drafts do not commit money or stock; another confirmed batch or a later payment can reduce the
+maximum, so confirmation rechecks it. Cancelled/confirmed deliveries cannot be edited.
+
+Both delivery-candidates endpoints add `maxCodAmount`. Default the form's COD input to this value,
+allow reducing it (including zero), and use it as the inclusive maximum. Each candidate also exposes
+`dispatchableQty` = min(remainingQty, heldQty + max(availableQty, 0)), or zero for serial-managed SKUs.
+Display `heldQty` as this order line's held stock and `availableQty` as free stock, not the entire
+warehouse's reserved quantity. Confirmation's locked checks remain authoritative.
+
+Errors: FUL_007 COD above capacity; FUL_008 draft not editable; FUL_009 invalid source/quantity;
+FUL_010 order not eligible. INV_DISPATCH_004 identifies a reservation target incompatible with the
+requested shipment; it does not silently increase/reassign/release that target. Existing errors
+for inconsistent holds, insufficient free stock and unsupported serial dispatch remain distinct.
+
+### Shipper COD form integration
+
+`GET /api/v1/finance/cod/deliveries/{deliveryId}/claim-capacity` returns:
+`deliveryId`, `orderId`, `orderRemaining`, `deliveryRemaining`, `maxClaimAmount`, `claimable`.
+Staff viewers keep their existing access; SHIPPER can inspect only deliveries assigned to that user.
+The maximum is zero unless the delivery is DELIVERED, requires COD and its order accepts payment.
+Both remaining balances deduct PENDING and VERIFIED claims without double counting.
+
+Owner decision: accepted partial COD receipts allow further claims only for the remaining amount.
+Before offering a delivery for claim, use this endpoint and omit/disable claimable=false records;
+refresh it when the dialog opens and after every claim/receipt. Limit the input to maxClaimAmount.
+The POST claim still rechecks everything under order/delivery locks: COD_005 means amount exceeds
+remaining capacity; COD_006 means no COD remains. Identical idempotent retries return the stored result.
+No mutation of stored planned COD or order totals is implied by this advisory endpoint.
+
+Delivery validation returns Vietnamese field messages through `errors[].field/message`;
+unreadable mapped JSON identifies the offending field without exposing raw values or SQL.
+Sales order creation validation is outside this change and remains owned by the Sales developer.
+Frontend must display these details and implement the new default/edit controls separately.

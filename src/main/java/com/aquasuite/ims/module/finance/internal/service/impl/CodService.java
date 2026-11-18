@@ -72,8 +72,11 @@ public class CodService {
                 .filter(t -> request.deliveryId().equals(t.getDeliveryId()))
                 .filter(t -> List.of("PENDING","VERIFIED").contains(t.getStatus()))
                 .map(Transaction::getAmount).reduce(BigDecimal.ZERO,BigDecimal::add);
+        if (available.signum() <= 0 || declared.compareTo(delivery.codAmount()) >= 0)
+            throw new AppException(CodErrorCode.NOTHING_TO_COLLECT);
         if (request.amount().compareTo(available) > 0
-                || declared.add(request.amount()).compareTo(delivery.codAmount()) > 0) conflict();
+                || declared.add(request.amount()).compareTo(delivery.codAmount()) > 0)
+            throw new AppException(CodErrorCode.AMOUNT_EXCEEDS_BALANCE);
         UUID id = UUID.randomUUID();
         Transaction t = Transaction.builder().transactionId(id).transactionCode("COD-"+id)
                 .transactionType("RECEIPT").paymentType("COD").paymentMethod("CASH").category("CUSTOMER_PAYMENT")
@@ -161,6 +164,26 @@ public class CodService {
         BigDecimal outstanding = order.totalAmount().subtract(sum(receipts,"VERIFIED")).max(BigDecimal.ZERO);
         BigDecimal pending = pendingCod(receipts);
         return new Balance(orderId,outstanding,pending,outstanding.subtract(pending).max(BigDecimal.ZERO),pending);
+    }
+
+    @Transactional(readOnly=true, isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public ClaimCapacity claimCapacity(UUID deliveryId) {
+        requireViewer();
+        var delivery = deliveries.find(deliveryId).orElseThrow(CodService::notFound);
+        if (!staff() && !actor().equals(delivery.shipperId())) denied();
+        var order = sales.getOrderPaymentInfo(delivery.orderId()).orElseThrow(CodService::notFound);
+        var receipts = receipts(order);
+        BigDecimal remaining = order.totalAmount().subtract(sum(receipts, "VERIFIED"))
+                .subtract(pendingCod(receipts)).max(BigDecimal.ZERO);
+        BigDecimal declared = receipts.stream().filter(CodService::isCod)
+                .filter(t -> deliveryId.equals(t.getDeliveryId()))
+                .filter(t -> List.of("PENDING", "VERIFIED").contains(t.getStatus()))
+                .map(Transaction::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal deliveryRemaining = (delivery.codAmount() == null ? BigDecimal.ZERO : delivery.codAmount())
+                .subtract(declared).max(BigDecimal.ZERO);
+        boolean eligible = order.validForPayment() && "DELIVERED".equals(delivery.status()) && delivery.codRequired();
+        BigDecimal maximum = eligible ? remaining.min(deliveryRemaining) : BigDecimal.ZERO;
+        return new ClaimCapacity(deliveryId, order.orderId(), remaining, deliveryRemaining, maximum, maximum.signum() > 0);
     }
 
     private SalesOrderPaymentInfoDto lockOrder(UUID id) {

@@ -1,0 +1,218 @@
+@startuml UC39_43_Fulfillment_Sequence
+title UC-39–43 — User to database flows in the current backend
+autonumber
+hide footbox
+skinparam ParticipantPadding 18
+skinparam BoxPadding 8
+
+actor "Accountant / Shop Owner / Shipper" as User
+participant "Frontend\nBrowser / Mobile UI" as UI
+participant "Spring Security\nJWT resource-server filters" as Sec
+participant "Fulfillment Controller\n(UC-specific REST endpoint)" as Ctrl
+participant "DeliveryIssueService" as Issue
+participant "DeliveryService" as DeliverySvc
+participant "IAM API\ncurrent user / shipper lookup" as IAM
+participant "Sales OrderDispatchApi" as Sales
+participant "CatalogApi" as Catalog
+participant "Stock APIs\nInventoryApi + Reservation API" as Stock
+participant "Finance API\nDeliveryCodCapacityApi" as Finance
+participant "Repositories / stores\nJPA + JdbcTemplate" as Repo
+database "PostgreSQL\ndeliveries, delivery_items,\nstock/reservation/payment tables" as DB
+participant "DeliveryPhotoStorage\nlocal filesystem adapter" as Photos
+
+== UC-39: choose an issued invoice, inspect candidates, create draft ==
+User -> UI: Select order and delivery action
+UI -> Sec: GET /api/v1/fulfillment/orders/{orderId}/delivery-invoices\nAuthorization: Bearer JWT
+Sec -> Sec: Validate JWT, role ACCOUNTANT or SHOP_OWNER
+Sec -> Ctrl: Authorized request
+Ctrl -> Issue: issuedInvoices(orderId)
+Issue -> IAM: getCurrentUser()
+IAM --> Issue: authenticated actor ID / roles
+Issue -> Sales: read(orderId); issuedInvoices(orderId)
+Sales -> DB: Read order and ISSUED invoice summaries
+DB --> Sales: order + invoice rows
+Sales --> Issue: invoice summaries
+Issue --> Ctrl: summaries
+Ctrl --> UI: ApiResponse<List<InvoiceSummary>>
+UI --> User: Show issued invoices
+
+User -> UI: Select invoice; open delivery candidates
+UI -> Sec: GET /sales-invoices/{invoiceId}/delivery-candidates
+Sec -> Ctrl: Authorized request
+Ctrl -> Issue: invoiceCandidates(invoiceId)
+Issue -> IAM: getCurrentUser()
+Issue -> Sales: invoice(invoiceId); read(orderId)
+Issue -> Repo: issuedForInvoice(invoiceId); issued(orderId)
+Repo -> DB: SELECT delivery_items JOIN deliveries\nconfirmed_at IS NOT NULL
+DB --> Repo: already issued quantities
+Issue -> Stock: findByOrder(orderId); getStockSummary(variantId)
+Stock -> DB: Read reservation and stock snapshots
+DB --> Stock: held / available quantity
+Issue -> Catalog: getSkuSummary(variantId)
+Catalog -> DB: Read SKU serial-tracking metadata
+DB --> Catalog: SKU summary
+Issue --> Ctrl: Candidate quantities, stock, serial flag, eligibility
+Ctrl --> UI: ApiResponse<Candidates>
+UI --> User: Show invoice-bound candidate lines
+
+User -> UI: Submit draft (client-generated deliveryId)
+UI -> Sec: POST /sales-invoices/{invoiceId}/deliveries
+Sec -> Ctrl: Authorized request
+Ctrl -> Issue: createFromInvoice(invoiceId, request)
+Issue -> IAM: getCurrentUser()
+Issue -> Repo: lockRequest(deliveryId)
+Repo -> DB: pg_advisory_xact_lock(...)
+Issue -> Sales: lock(orderId); lockInvoice(invoiceId)
+Sales -> DB: Lock/read order and invoice rows
+DB --> Sales: PROCESSING order + ISSUED invoice
+Issue -> Repo: Check replay, issued totals, next batch number
+Repo -> DB: SELECT deliveries/delivery_items; calculate next batch_no
+DB --> Repo: prior state and issued quantities
+Issue -> Stock: getStockSummary(variantId)
+Stock -> DB: Read WH_MAIN inventory
+DB --> Stock: inventoryId
+Issue -> Catalog: getSkuSummary(variantId)
+Catalog -> DB: Read serial tracking flag
+DB --> Catalog: not serial-tracked
+Issue -> Repo: save Delivery(DRAFT) + DeliveryItem rows
+Repo -> DB: INSERT deliveries; INSERT delivery_items\n(transaction; draft does not consume stock)
+DB --> Repo: generated/accepted rows
+Issue --> Ctrl: Result(deliveryId, batchNo, DRAFT)
+Ctrl --> UI: ApiResponse<Result>
+UI --> User: Show saved draft
+
+== UC-39: confirm issue atomically ==
+User -> UI: Confirm issue
+UI -> Sec: POST /deliveries/{id}/confirm-issue
+Sec -> Ctrl: Authorized request
+Ctrl -> Issue: confirm(deliveryId)
+Issue -> IAM: getCurrentUser()
+Issue -> Repo: Read delivery scalar orderId; lock order then delivery
+Repo -> DB: SELECT orderId; lock Sales order; SELECT delivery FOR UPDATE
+DB --> Repo: Locked order + delivery
+Issue -> Sales: lockInvoice(invoiceId); revalidate PROCESSING order and issued totals
+Sales -> DB: Read/lock invoice and order lines
+DB --> Sales: current invoice/order quantities
+Issue -> Finance: available(orderId, existing COD commitments)
+Finance -> DB: Read verified receipts, pending COD and commitments\nunder Finance consistency rules
+DB --> Finance: available COD amount
+Issue -> Stock: Validate own held + free stock; issue(command per DeliveryItemId)
+Stock -> DB: Lock inventory/reservations; consume only this order's hold/free units;\nwrite stock movement idempotently by deliveryItemId
+DB --> Stock: inventory movement results
+Issue -> Repo: Set confirmedBy/confirmedAt/dispatchDate; status DISPATCHED
+Repo -> DB: UPDATE deliveries; commit transaction
+DB --> Repo: Commit
+Issue --> Ctrl: confirmed Result
+Ctrl --> UI: ApiResponse<Result>
+UI --> User: Show DISPATCHED / issue note available
+note over Issue,DB
+Any line, quantity, reservation, COD, or stock error rolls back the transaction.
+No invoice issuance, order/payment completion, or automatic restock occurs here.
+end note
+
+== UC-40: list and assign/reassign one delivery per order batch ==
+User -> UI: Filter deliveries / assign selected delivery IDs to active shipper
+UI -> Sec: GET /deliveries or PUT /delivery-assignments
+Sec -> Ctrl: ACCOUNTANT / SHOP_OWNER authorized
+Ctrl -> DeliverySvc: search(...) or assign(request)
+DeliverySvc -> IAM: getCurrentUser(); getUserById(shipperId)
+IAM --> DeliverySvc: role/actor and active SHIPPER summary
+DeliverySvc -> Repo: Lock selected Delivery rows in sorted ID order
+Repo -> DB: SELECT deliveries FOR UPDATE
+DB --> Repo: DISPATCHED / ASSIGNED / eligible RESCHEDULED rows
+DeliverySvc -> Repo: Update shipperId, assignedBy, assignedAt, status
+Repo -> DB: UPDATE deliveries; flush; commit assignment transaction
+DB --> Repo: Updated rows
+DeliverySvc --> Ctrl: Summary list
+Ctrl --> UI: ApiResponse<List<Summary>>
+UI --> User: Show assignments
+note over DeliverySvc,DB
+Assignment acts on individual delivery records. No trip, vehicle, route, or stop table is created.
+end note
+
+== UC-41: shipper starts, reschedules, fails, or completes delivery ==
+User -> UI: Open assigned-delivery action
+UI -> Sec: POST /deliveries/{id}/start | reschedule | fail | complete
+Sec -> Ctrl: SHIPPER role authorized; JWT user bound to request
+Ctrl -> DeliverySvc: start/reschedule/fail/complete(id, payload)
+DeliverySvc -> IAM: getCurrentUser()
+IAM --> DeliverySvc: authenticated shipper UUID
+DeliverySvc -> Repo: lockById(deliveryId); verify delivery.shipperId == actor
+Repo -> DB: SELECT delivery FOR UPDATE
+DB --> Repo: current state and assignment
+alt Start or resume
+  DeliverySvc -> Repo: ASSIGNED/RESCHEDULED -> IN_TRANSIT; preserve first startedAt
+  Repo -> DB: UPDATE deliveries; commit
+else Temporary obstacle
+  DeliverySvc -> Repo: append reason/date; status RESCHEDULED
+  Repo -> DB: UPDATE deliveries; commit
+else Confirmed cancellation/refusal
+  DeliverySvc -> Repo: require explicit confirmation + reason; status FAILED
+  Repo -> DB: UPDATE deliveries; commit (no inventory restock)
+else Successful handover with photos
+  DeliverySvc -> DeliverySvc: Validate 1..5 image files (type, bytes, decoder)
+  DeliverySvc -> Photos: store image bytes
+  Photos --> DeliverySvc: private storage keys
+  DeliverySvc -> Repo: lockById + recheck ownership/state
+  Repo -> DB: SELECT delivery FOR UPDATE
+  DB --> Repo: IN_TRANSIT delivery
+  DeliverySvc -> Repo: store photo metadata JSONB; set deliveredAt; status DELIVERED
+  Repo -> DB: UPDATE deliveries; commit
+  alt Database update fails or race lost
+    DeliverySvc -> Photos: delete staged files (compensating cleanup)
+  end
+end
+DeliverySvc --> Ctrl: Delivery Summary
+Ctrl --> UI: ApiResponse<Summary>
+UI --> User: Show updated status
+note over DeliverySvc,DB
+Delivery outcome does not complete/pay the sales order, settle COD, or alter inventory.
+COD settlement belongs to UC-30; returned-goods receipt/restock belongs to UC-37.
+end note
+
+== UC-42: authorized detail, status, timestamps, items and photo ==
+User -> UI: Open delivery or order delivery history
+UI -> Sec: GET /deliveries/{id} or GET /orders/{orderId}/deliveries
+Sec -> Ctrl: JWT role authorized
+Ctrl -> DeliverySvc: detail(id) or byOrder(orderId)
+DeliverySvc -> Repo: Read delivery + DeliveryItem rows
+Repo -> DB: SELECT deliveries; SELECT delivery_items\n(paginated for byOrder)
+DB --> Repo: delivery records and item IDs
+DeliverySvc -> IAM: getCurrentUser(); assigned shipper lookup when needed
+IAM --> DeliverySvc: role/ownership and shipper summary
+DeliverySvc -> Catalog: getSkuSummaries(variantIds)
+Catalog -> DB: Read SKU display fields
+DB --> Catalog: SKU summaries
+DeliverySvc -> DeliverySvc: Authorize ACCOUNTANT/SHOP_OWNER\nor only the currently assigned SHIPPER
+DeliverySvc --> Ctrl: Detail/Summary projection
+Ctrl --> UI: ApiResponse<Detail/Page<Summary>>
+UI --> User: Render state, timestamps, items, photos
+opt Read photo content URL
+  User -> UI: Open photo
+  UI -> Sec: GET /deliveries/{id}/photos/{photoId}
+  Sec -> Ctrl: JWT role authorized
+  Ctrl -> DeliverySvc: readPhoto(id, photoId)
+  DeliverySvc -> Repo: Read delivery JSONB photo metadata; check object ownership
+  Repo -> DB: SELECT deliveries.proof_photos
+  DB --> Repo: photoId + private storage key
+  DeliverySvc -> Photos: read(private storage key)
+  Photos --> DeliverySvc: image bytes + MIME
+  DeliverySvc --> Ctrl: bytes (no-store, nosniff)
+  Ctrl --> UI: Image response
+end
+
+== UC-43: shipper reads only own assigned deliveries ==
+User -> UI: Open My Deliveries; optionally filter status/date/page
+UI -> Sec: GET /me/deliveries
+Sec -> Ctrl: SHIPPER role authorized
+Ctrl -> DeliverySvc: mine(status, scheduledFrom, scheduledTo, pageable)
+DeliverySvc -> IAM: getCurrentUser()
+IAM --> DeliverySvc: authenticated shipper UUID
+DeliverySvc -> Repo: Query by shipperId = current actor (never client-supplied)
+Repo -> DB: SELECT deliveries WHERE shipper_id = actor\n+filters + pagination
+DB --> Repo: Assigned Delivery summaries
+DeliverySvc --> Ctrl: Page<Summary>
+Ctrl --> UI: ApiResponse<Page<Summary>>
+UI --> User: Show assigned deliveries
+
+@enduml

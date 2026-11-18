@@ -31,6 +31,10 @@ public class DeliveryIssueController {
     public ApiResponse<DeliveryIssueService.Result> create(@PathVariable UUID orderId, @Valid @RequestBody DeliveryIssueRequest request) { return ApiResponse.ok(service.create(orderId,request)); }
     @PostMapping("/deliveries/{id}/confirm-issue")
     public ApiResponse<DeliveryIssueService.Result> confirm(@PathVariable UUID id) { return ApiResponse.ok(service.confirm(id)); }
+    @PutMapping("/deliveries/{id}/draft")
+    public ApiResponse<DeliveryIssueService.Result> update(@PathVariable UUID id, @Valid @RequestBody DeliveryIssueRequest request) {
+        return ApiResponse.ok(service.update(id, request));
+    }
     @PostMapping("/deliveries/{id}/cancel-draft")
     public ApiResponse<DeliveryIssueService.Result> cancel(@PathVariable UUID id) { return ApiResponse.ok(service.cancel(id)); }
 }
