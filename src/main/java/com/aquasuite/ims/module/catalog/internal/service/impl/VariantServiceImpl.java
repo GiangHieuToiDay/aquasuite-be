@@ -27,7 +27,9 @@ import com.aquasuite.ims.module.inventory.api.dto.StockSummaryDto;
 import com.aquasuite.ims.module.sales.api.SalesVariantUsageApi;
 import com.aquasuite.ims.module.sales.api.dto.VariantDocumentUsage;
 import com.aquasuite.ims.module.iam.api.IamApi;
+import com.aquasuite.ims.module.iam.api.dto.UserSummaryDto;
 import com.aquasuite.ims.share.exception.AppException;
+import com.aquasuite.ims.share.exception.CommonErrorCode;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -76,6 +78,10 @@ public class VariantServiceImpl implements VariantService {
         VariantSortBy requestedSort = parseSortBy(sortBy);
         Sort.Direction direction = parseSortDirection(sortDir);
         String requestedWarehouse = normalizeWarehouseCode(warehouseCode);
+        boolean canViewCost = canViewCostAndProfit();
+        if (!canViewCost && (requestedSort == VariantSortBy.PROFIT || requestedSort == VariantSortBy.COST_PRICE)) {
+            throw new AppException(CommonErrorCode.ACCESS_DENIED);
+        }
         Pageable sortedPageable = pageRequest(pageable, requestedSort, direction);
 
         Page<ProductVariant> result = requestedSort == VariantSortBy.PROFIT
@@ -88,7 +94,7 @@ public class VariantServiceImpl implements VariantService {
         );
         Map<UUID, StockSummaryDto> stocks = rawStocks != null ? rawStocks : Collections.emptyMap();
 
-        return result.map(variant -> response(variant, stocks.get(variant.getVariantId()), requestedWarehouse));
+        return result.map(variant -> response(variant, stocks.get(variant.getVariantId()), requestedWarehouse, canViewCost));
     }
 
     @Override
@@ -299,16 +305,32 @@ public class VariantServiceImpl implements VariantService {
                 .orElseThrow(() -> new AppException(CatalogVariantErrorCode.VARIANT_NOT_FOUND));
     }
 
-    private VariantResponse response(ProductVariant value) {
-        Optional<StockSummaryDto> stock = inventoryApi.getStockSummary(value.getVariantId());
-        return response(value, stock == null ? null : stock.orElse(null), null);
+    private boolean canViewCostAndProfit() {
+        UserSummaryDto currentUser = iamApi.getCurrentUser();
+        if (currentUser == null || currentUser.roles() == null) {
+            return true;
+        }
+        return currentUser.roles().stream()
+                .filter(Objects::nonNull)
+                .map(role -> role.trim().toUpperCase(Locale.ROOT))
+                .anyMatch(role -> role.equals("SHOP_OWNER")
+                        || role.equals("ROLE_SHOP_OWNER")
+                        || role.equals("ACCOUNTANT")
+                        || role.equals("ROLE_ACCOUNTANT"));
     }
 
-    private VariantResponse response(ProductVariant value, StockSummaryDto stock, String requestedWarehouse) {
+    private VariantResponse response(ProductVariant value) {
+        Optional<StockSummaryDto> stock = inventoryApi.getStockSummary(value.getVariantId());
+        return response(value, stock == null ? null : stock.orElse(null), null, true);
+    }
+
+    private VariantResponse response(ProductVariant value, StockSummaryDto stock, String requestedWarehouse, boolean includeCostPrice) {
         boolean warehouseMatched = stock != null && (requestedWarehouse == null || requestedWarehouse.equalsIgnoreCase(stock.warehouseCode()));
         return new VariantResponse(
                 value.getVariantId(), value.getProductId(), value.getSku(), value.getVariantName(), value.getUnit(), value.getConversionRate(),
-                value.getColor(), value.getSize(), value.getWeight(), value.getTechnicalSpec(), value.getCostPrice(), value.getSellingPrice(),
+                value.getColor(), value.getSize(), value.getWeight(), value.getTechnicalSpec(),
+                includeCostPrice ? value.getCostPrice() : null,
+                value.getSellingPrice(),
                 value.getWarrantyPolicyId(), Boolean.TRUE.equals(value.getSerialTracking()), value.getStatus().name(),
                 warehouseMatched ? stock.warehouseCode() : requestedWarehouse,
                 warehouseMatched ? stock.onHandQty() : BigDecimal.ZERO,

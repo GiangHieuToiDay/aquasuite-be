@@ -24,6 +24,7 @@ import com.aquasuite.ims.module.sales.internal.enums.SalesInvoiceStatus;
 import com.aquasuite.ims.module.sales.internal.error.OrderModificationErrorCode;
 import com.aquasuite.ims.module.sales.internal.mapper.OrderModificationRequestMapper;
 import com.aquasuite.ims.module.sales.internal.payload.request.ApproveOrderModificationRequest;
+import com.aquasuite.ims.module.sales.internal.payload.request.CreateOrderModificationRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.RecordOrderModificationTaxResultRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.ReviewOrderModificationRequest;
 import com.aquasuite.ims.module.sales.internal.payload.response.OrderModificationRequestResponse;
@@ -35,6 +36,7 @@ import com.aquasuite.ims.module.sales.internal.repository.SalesInvoiceItemReposi
 import com.aquasuite.ims.module.sales.internal.repository.SalesInvoiceRepository;
 import com.aquasuite.ims.module.sales.internal.service.OrderModificationRequestService;
 import com.aquasuite.ims.share.exception.AppException;
+import com.aquasuite.ims.share.exception.CommonErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -85,8 +87,152 @@ public class OrderModificationRequestServiceImpl implements OrderModificationReq
 
     @Override
     @Transactional(readOnly = true)
-    public OrderModificationRequestResponse detail(UUID id) {
-        return toResponse(find(id));
+    public OrderModificationRequestResponse detail(UUID id, boolean accountantOnly) {
+        OrderModificationRequest request = find(id);
+        if (accountantOnly && request.getRequestStatus() != OrderModificationRequestStatus.PENDING_CANCEL) {
+            throw new AppException(CommonErrorCode.ACCESS_DENIED);
+        }
+        return toResponse(request);
+    }
+
+    @Override
+    @Transactional
+    public OrderModificationRequestResponse create(CreateOrderModificationRequest body, UUID actorId) {
+        OrderModificationRequestType requestType = parseRequestType(body.getRequestType());
+
+        Order order = orderRepository.findByIdForUpdate(body.getOrderId())
+                .orElseThrow(() -> new AppException(OrderModificationErrorCode.ORDER_NOT_ELIGIBLE));
+
+        // Check order eligibility: PROCESSING and no dispatched deliveries
+        boolean dispatched = deliveries.lockByOrderId(order.getOrderId()).stream()
+                .map(delivery -> delivery.status() == null ? "" : delivery.status().toUpperCase())
+                .anyMatch(status -> List.of("DISPATCHED", "IN_TRANSIT", "DELIVERED").contains(status));
+        if (!OrderStatus.PROCESSING.name().equalsIgnoreCase(order.getOrderStatus()) || dispatched) {
+            throw new AppException(OrderModificationErrorCode.ORDER_NOT_ELIGIBLE);
+        }
+
+        // Block duplicate active requests
+        if (requestRepository.existsByOrderIdAndRequestStatusIn(order.getOrderId(),
+                List.of(OrderModificationRequestStatus.PENDING_REVIEW, OrderModificationRequestStatus.PENDING_CANCEL))) {
+            throw new AppException(OrderModificationErrorCode.DUPLICATE_ACTIVE_REQUEST);
+        }
+
+        // Validate per request type
+        if (requestType == OrderModificationRequestType.ADDRESS_CHANGE) {
+            if (body.getRequestedDeliveryAddress() == null || body.getRequestedDeliveryAddress().isBlank()) {
+                throw new AppException(OrderModificationErrorCode.ADDRESS_REQUIRED);
+            }
+        }
+
+        BigDecimal priceDifference = BigDecimal.ZERO;
+        List<OrderModificationRequestItem> savedItems = new ArrayList<>();
+
+        if (requestType == OrderModificationRequestType.ITEM_CHANGE) {
+            if (body.getItems() == null || body.getItems().isEmpty()) {
+                throw new AppException(OrderModificationErrorCode.ITEMS_REQUIRED_FOR_ITEM_CHANGE);
+            }
+
+            Map<UUID, OrderItem> currentItems = orderItemRepository.findByOrderIdForUpdate(order.getOrderId()).stream()
+                    .collect(Collectors.toMap(OrderItem::getOrderItemId, item -> item));
+
+            // Build request first to get its ID
+            OrderModificationRequest request = OrderModificationRequest.builder()
+                    .modificationRequestId(UUID.randomUUID())
+                    .orderId(order.getOrderId())
+                    .customerId(order.getCustomerId())
+                    .requestType(requestType)
+                    .requestStatus(OrderModificationRequestStatus.PENDING_REVIEW)
+                    .customerReason(body.getCustomerReason().trim())
+                    .requestedDeliveryAddress(trimToNull(body.getRequestedDeliveryAddress()))
+                    .requestedBy(actorId)
+                    .priceDifference(BigDecimal.ZERO)
+                    .createdAt(OffsetDateTime.now())
+                    .updatedAt(OffsetDateTime.now())
+                    .build();
+            request = requestRepository.save(request);
+
+            BigDecimal delta = BigDecimal.ZERO;
+            HashSet<UUID> seen = new HashSet<>();
+            for (CreateOrderModificationRequest.CreateOrderModificationItemRequest itemReq : body.getItems()) {
+                OrderItem current = currentItems.get(itemReq.getOrderItemId());
+                OrderModificationItemAction action = parseItemAction(itemReq.getChangeAction());
+
+                if (!seen.add(itemReq.getOrderItemId()) || current == null
+                        || !order.getOrderId().equals(current.getOrderId())) {
+                    throw new AppException(OrderModificationErrorCode.INVALID_REQUESTED_ITEM);
+                }
+
+                // Validate action-specific constraints
+                if (action == OrderModificationItemAction.REDUCE) {
+                    if (itemReq.getRequestedQuantity() == null || itemReq.getRequestedQuantity().signum() <= 0
+                            || itemReq.getRequestedQuantity().compareTo(current.getQuantity()) >= 0) {
+                        throw new AppException(OrderModificationErrorCode.INVALID_REQUESTED_ITEM);
+                    }
+                }
+                if (action == OrderModificationItemAction.REMOVE) {
+                    if (itemReq.getRequestedQuantity() != null && itemReq.getRequestedQuantity().signum() != 0) {
+                        throw new AppException(OrderModificationErrorCode.INVALID_REQUESTED_ITEM);
+                    }
+                }
+                if (action == OrderModificationItemAction.SWAP) {
+                    if (itemReq.getRequestedVariantId() == null
+                            || itemReq.getRequestedVariantId().equals(current.getVariantId())) {
+                        throw new AppException(OrderModificationErrorCode.INVALID_REQUESTED_ITEM);
+                    }
+                    CatalogSkuSummaryDto sku = catalogApi.getSkuSummary(itemReq.getRequestedVariantId())
+                            .filter(s -> s.status() == null || "ACTIVE".equalsIgnoreCase(s.status()))
+                            .orElseThrow(() -> new AppException(OrderModificationErrorCode.REPLACEMENT_SKU_NOT_FOUND));
+                    delta = delta.add(amount(sku.sellingPrice()).subtract(current.getUnitPrice())
+                            .multiply(current.getQuantity()));
+                }
+
+                if (action == OrderModificationItemAction.REMOVE) {
+                    delta = delta.subtract(current.getUnitPrice().multiply(current.getQuantity()));
+                } else if (action == OrderModificationItemAction.REDUCE) {
+                    delta = delta.subtract(current.getUnitPrice()
+                            .multiply(current.getQuantity().subtract(itemReq.getRequestedQuantity())));
+                }
+
+                OrderModificationRequestItem item = OrderModificationRequestItem.builder()
+                        .modificationRequestItemId(UUID.randomUUID())
+                        .modificationRequestId(request.getModificationRequestId())
+                        .orderItemId(current.getOrderItemId())
+                        .originalVariantId(current.getVariantId())
+                        .requestedVariantId(action == OrderModificationItemAction.SWAP ? itemReq.getRequestedVariantId() : null)
+                        .changeAction(action)
+                        .originalQuantity(current.getQuantity())
+                        .requestedQuantity(itemReq.getRequestedQuantity())
+                        .unitPriceSnapshot(current.getUnitPrice())
+                        .createdAt(OffsetDateTime.now())
+                        .build();
+                savedItems.add(requestItemRepository.save(item));
+            }
+
+            priceDifference = delta;
+            request.setPriceDifference(priceDifference);
+
+            audit(actorId, request, "CREATED", request.getRequestStatus(), request.getRequestStatus(), request.getCustomerReason());
+            return toResponseWithItems(request, savedItems);
+        }
+
+        // ADDRESS_CHANGE or FULL_CANCELLATION without items
+        OrderModificationRequest request = OrderModificationRequest.builder()
+                .modificationRequestId(UUID.randomUUID())
+                .orderId(order.getOrderId())
+                .customerId(order.getCustomerId())
+                .requestType(requestType)
+                .requestStatus(OrderModificationRequestStatus.PENDING_REVIEW)
+                .customerReason(body.getCustomerReason().trim())
+                .requestedDeliveryAddress(trimToNull(body.getRequestedDeliveryAddress()))
+                .requestedBy(actorId)
+                .priceDifference(priceDifference)
+                .createdAt(OffsetDateTime.now())
+                .updatedAt(OffsetDateTime.now())
+                .build();
+        request = requestRepository.save(request);
+
+        audit(actorId, request, "CREATED", request.getRequestStatus(), request.getRequestStatus(), request.getCustomerReason());
+        return toResponse(request);
     }
 
     @Override
@@ -127,7 +273,12 @@ public class OrderModificationRequestServiceImpl implements OrderModificationReq
                 .allMatch(invoice -> SalesInvoiceStatus.DRAFT.name().equalsIgnoreCase(invoice.getStatus()));
         OrderModificationRequestStatus previous = request.getRequestStatus();
 
-        if (request.getRequestType() == OrderModificationRequestType.ITEM_CHANGE
+        // FIX: ADDRESS_CHANGE is handled first regardless of verifiedAmount or taxLinked
+        if (request.getRequestType() == OrderModificationRequestType.ADDRESS_CHANGE) {
+            order.setDeliveryAddress(request.getRequestedDeliveryAddress());
+            request.setPriceDifference(BigDecimal.ZERO);
+            request.setRequestStatus(OrderModificationRequestStatus.APPROVED);
+        } else if (request.getRequestType() == OrderModificationRequestType.ITEM_CHANGE
                 && !taxLinked && verifiedAmount.signum() == 0) {
             if (invoices.isEmpty() || !onlyDraftInvoices) {
                 throw new AppException(OrderModificationErrorCode.DRAFT_INVOICE_REQUIRED);
@@ -186,7 +337,9 @@ public class OrderModificationRequestServiceImpl implements OrderModificationReq
         reconcileVerifiedReceiptsForTaxResult(request, resultInvoice, actorId);
 
         OrderModificationRequestStatus previous = request.getRequestStatus();
-        if (request.getRequestType() == OrderModificationRequestType.FULL_CANCELLATION) {
+        // FIX: Cancel original order when this is a FULL_CANCELLATION or has a replacement order
+        if (request.getRequestType() == OrderModificationRequestType.FULL_CANCELLATION
+                || request.getReplacementOrderId() != null) {
             Order order = orderRepository.findByIdForUpdate(request.getOrderId())
                     .orElseThrow(() -> new AppException(OrderModificationErrorCode.ORDER_NOT_ELIGIBLE));
             cancelOrder(order, request, actorId);
@@ -557,12 +710,35 @@ public class OrderModificationRequestServiceImpl implements OrderModificationReq
         return response;
     }
 
+    private OrderModificationRequestResponse toResponseWithItems(OrderModificationRequest request,
+                                                                  List<OrderModificationRequestItem> items) {
+        OrderModificationRequestResponse response = mapper.toResponse(request);
+        response.setItems(mapper.toItemResponses(items));
+        return response;
+    }
+
     private void audit(UUID actorId, OrderModificationRequest request, String action,
                        OrderModificationRequestStatus oldStatus, OrderModificationRequestStatus newStatus, String reason) {
         events.publishEvent(new OrderModificationRequestReviewedEvent(
                 UUID.randomUUID(), actorId, request.getModificationRequestId(), request.getOrderId(), action,
                 Map.of("status", oldStatus.name()),
                 Map.of("status", newStatus.name(), "requestType", request.getRequestType().name()), reason, Instant.now()));
+    }
+
+    private static OrderModificationRequestType parseRequestType(String value) {
+        try {
+            return OrderModificationRequestType.valueOf(value);
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new AppException(OrderModificationErrorCode.INVALID_REQUESTED_ITEM);
+        }
+    }
+
+    private static OrderModificationItemAction parseItemAction(String value) {
+        try {
+            return OrderModificationItemAction.valueOf(value);
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new AppException(OrderModificationErrorCode.INVALID_REQUESTED_ITEM);
+        }
     }
 
     private static UUID deterministicId(OrderModificationRequest request, String operation, UUID resourceId) {

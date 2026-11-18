@@ -307,7 +307,8 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
     private DebtCalculation calculate(CustomerDebtProfileDto customer, Documents documents) {
         List<SalesOrderDebtDto> orders = documents.orders().stream()
                 .filter(order -> customer.customerId().equals(order.customerId()))
-                .filter(order -> !"CANCELLED".equalsIgnoreCase(order.orderStatus())).toList();
+                .filter(order -> !"CANCELLED".equalsIgnoreCase(order.orderStatus())
+                        && !"DRAFT".equalsIgnoreCase(order.orderStatus())).toList();
         Set<UUID> activeOrderIds = orders.stream().map(SalesOrderDebtDto::orderId).collect(Collectors.toSet());
         List<SalesInvoiceDebtDto> invoices = documents.invoices().stream()
                 .filter(invoice -> customer.customerId().equals(invoice.customerId()))

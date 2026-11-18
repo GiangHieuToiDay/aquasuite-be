@@ -1,21 +1,25 @@
 package com.aquasuite.ims.module.finance.internal.controller;
 
-import com.aquasuite.ims.module.finance.internal.payload.request.ReasonRequest;
 import com.aquasuite.ims.module.finance.internal.payload.DebtStatus;
+import com.aquasuite.ims.module.finance.internal.payload.request.DebtCallResultRequest;
+import com.aquasuite.ims.module.finance.internal.payload.request.DebtReminderRequest;
+import com.aquasuite.ims.module.finance.internal.payload.request.ReasonRequest;
 import com.aquasuite.ims.module.finance.internal.payload.response.CustomerCreditSummaryResponse;
 import com.aquasuite.ims.module.finance.internal.payload.response.CustomerDebtPageResponse;
+import com.aquasuite.ims.module.finance.internal.payload.response.DebtReminderResponse;
 import com.aquasuite.ims.module.finance.internal.service.CustomerDebtService;
 import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.iam.internal.security.AccessAuthenticationConverter;
 import com.aquasuite.ims.module.iam.internal.security.AuthSecurityConfig;
 import com.aquasuite.ims.share.exception.GlobalExceptionHandler;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -24,16 +28,18 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.beans.factory.annotation.Autowired;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -99,9 +105,9 @@ class CustomerDebtControllerSecurityTest {
     void salesStaffCanReadOnlyMinimalCreditSummaryForPos() throws Exception {
         when(customerDebtService.creditSummary(CUSTOMER_ID)).thenReturn(CustomerCreditSummaryResponse.builder()
                 .customerId(CUSTOMER_ID).customerCode("KH-001").customerName("Khách POS")
-                .customerStatus("ACTIVE").creditLimit(java.math.BigDecimal.TEN)
-                .outstandingBalance(java.math.BigDecimal.ONE).overdueBalance(java.math.BigDecimal.ZERO)
-                .availableCredit(java.math.BigDecimal.valueOf(9)).debtStatus(DebtStatus.WITHIN_TERM).build());
+                .customerStatus("ACTIVE").creditLimit(BigDecimal.TEN)
+                .outstandingBalance(BigDecimal.ONE).overdueBalance(BigDecimal.ZERO)
+                .availableCredit(BigDecimal.valueOf(9)).debtStatus(DebtStatus.WITHIN_TERM).build());
 
         mockMvc.perform(get("/api/v1/finance/credit-control/customers/{customerId}/summary", CUSTOMER_ID))
                 .andExpect(status().isOk())
@@ -149,6 +155,125 @@ class CustomerDebtControllerSecurityTest {
                 .andExpect(jsonPath("$.success").value(true));
 
         verify(customerDebtService).approveOverride(eq(ORDER_ID), any(ReasonRequest.class), eq(actorId));
+    }
+
+    @Test
+    @WithMockUser(roles = "ACCOUNTANT")
+    void accountantCanSendReminderAndRecordCallResult() throws Exception {
+        UUID actorId = UUID.fromString("10000000-0000-4000-8000-000000000004");
+        when(iamApi.getCurrentUserId()).thenReturn(actorId);
+        when(customerDebtService.sendReminder(eq(CUSTOMER_ID), any(DebtReminderRequest.class), eq(actorId)))
+                .thenReturn(new DebtReminderResponse(BigDecimal.TEN, "SENT", "NOT_CONFIGURED", "Dispatched"));
+
+        mockMvc.perform(post("/api/v1/finance/customer-debts/{customerId}/reminders", CUSTOMER_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reminderType\":\"OVERDUE\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.emailResult").value("SENT"));
+
+        mockMvc.perform(post("/api/v1/finance/customer-debts/{customerId}/reminder-calls", CUSTOMER_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"callResult\":\"PROMISED_TO_PAY\",\"promisedPaymentDate\":\"2026-12-01\",\"note\":\"Khách hẹn thanh toán\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(customerDebtService).sendReminder(eq(CUSTOMER_ID), any(DebtReminderRequest.class), eq(actorId));
+        verify(customerDebtService).saveCallResult(eq(CUSTOMER_ID), any(DebtCallResultRequest.class), eq(actorId));
+    }
+
+    @Test
+    @WithMockUser(roles = "SALES_STAFF")
+    void salesStaffCanSendReminderAndRecordCallResult() throws Exception {
+        UUID actorId = UUID.fromString("10000000-0000-4000-8000-000000000005");
+        when(iamApi.getCurrentUserId()).thenReturn(actorId);
+        when(customerDebtService.sendReminder(eq(CUSTOMER_ID), any(DebtReminderRequest.class), eq(actorId)))
+                .thenReturn(new DebtReminderResponse(BigDecimal.TEN, "SENT", "NOT_CONFIGURED", "Dispatched"));
+
+        mockMvc.perform(post("/api/v1/finance/customer-debts/{customerId}/reminders", CUSTOMER_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reminderType\":\"UPCOMING\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        mockMvc.perform(post("/api/v1/finance/customer-debts/{customerId}/reminder-calls", CUSTOMER_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"callResult\":\"NO_ANSWER\",\"note\":\"Không nghe máy\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(customerDebtService).sendReminder(eq(CUSTOMER_ID), any(DebtReminderRequest.class), eq(actorId));
+        verify(customerDebtService).saveCallResult(eq(CUSTOMER_ID), any(DebtCallResultRequest.class), eq(actorId));
+    }
+
+    @Test
+    @WithMockUser(roles = "SHOP_OWNER")
+    void shopOwnerCanSendReminderAndRecordCallResult() throws Exception {
+        UUID actorId = UUID.fromString("10000000-0000-4000-8000-000000000006");
+        when(iamApi.getCurrentUserId()).thenReturn(actorId);
+        when(customerDebtService.sendReminder(eq(CUSTOMER_ID), any(DebtReminderRequest.class), eq(actorId)))
+                .thenReturn(new DebtReminderResponse(BigDecimal.TEN, "SENT", "NOT_CONFIGURED", "Dispatched"));
+
+        mockMvc.perform(post("/api/v1/finance/customer-debts/{customerId}/reminders", CUSTOMER_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reminderType\":\"FINAL\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        mockMvc.perform(post("/api/v1/finance/customer-debts/{customerId}/reminder-calls", CUSTOMER_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"callResult\":\"NEEDS_REVIEW\",\"note\":\"Cần rà soát đối chiếu\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(customerDebtService).sendReminder(eq(CUSTOMER_ID), any(DebtReminderRequest.class), eq(actorId));
+        verify(customerDebtService).saveCallResult(eq(CUSTOMER_ID), any(DebtCallResultRequest.class), eq(actorId));
+    }
+
+    @Test
+    @WithMockUser(roles = "CUSTOMER")
+    void customerRoleCannotSendReminderOrRecordCallResult() throws Exception {
+        mockMvc.perform(post("/api/v1/finance/customer-debts/{customerId}/reminders", CUSTOMER_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reminderType\":\"OVERDUE\"}"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/api/v1/finance/customer-debts/{customerId}/reminder-calls", CUSTOMER_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"callResult\":\"PROMISED_TO_PAY\"}"))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(customerDebtService);
+    }
+
+    @Test
+    @WithMockUser(roles = "SHIPPER")
+    void shipperRoleCannotSendReminderOrRecordCallResult() throws Exception {
+        mockMvc.perform(post("/api/v1/finance/customer-debts/{customerId}/reminders", CUSTOMER_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reminderType\":\"OVERDUE\"}"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/api/v1/finance/customer-debts/{customerId}/reminder-calls", CUSTOMER_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"callResult\":\"NO_ANSWER\"}"))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(customerDebtService);
+    }
+
+    @Test
+    @WithMockUser(roles = "ACCOUNTANT")
+    void accountantCannotBlockOrRestoreCustomer() throws Exception {
+        mockMvc.perform(patch("/api/v1/finance/customer-debts/{customerId}/block", CUSTOMER_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"Overdue debt\"}"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(patch("/api/v1/finance/customer-debts/{customerId}/restore", CUSTOMER_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"Paid in full\"}"))
+                .andExpect(status().isForbidden());
     }
 
     @TestConfiguration

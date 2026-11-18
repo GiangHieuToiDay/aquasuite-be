@@ -7,6 +7,7 @@ import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.sales.api.SalesOrderApi;
 import com.aquasuite.ims.module.sales.api.dto.SalesOrderItemSummaryDto;
 import com.aquasuite.ims.module.servicedesk.internal.entity.WarrantyRecord;
+import com.aquasuite.ims.module.servicedesk.internal.enums.WarrantyStatus;
 import com.aquasuite.ims.module.servicedesk.internal.payload.res.WarrantyLookupResponse;
 import com.aquasuite.ims.module.servicedesk.internal.repository.WarrantyRecordRepository;
 import com.aquasuite.ims.module.servicedesk.internal.service.WarrantyLookupService;
@@ -54,17 +55,21 @@ public class WarrantyLookupServiceImpl implements WarrantyLookupService {
 
     private WarrantyLookupResponse toResponse(WarrantyRecord record, LocalDate today) {
         CatalogSkuSummaryDto sku = catalogApi.getSkuSummary(record.getVariantId()).orElse(null);
-        SalesOrderItemSummaryDto orderItem = salesOrderApi.getOrderItemSummary(record.getOrderItemId()).orElse(null);
+        SalesOrderItemSummaryDto orderItem = record.getOrderItemId() == null
+                ? null
+                : salesOrderApi.getOrderItemSummary(record.getOrderItemId()).orElse(null);
         String productName = firstText(orderItem == null ? null : orderItem.productName(), sku == null ? null : sku.productName(), "Sản phẩm");
         String variantName = firstText(orderItem == null ? null : orderItem.variantName(), sku == null ? null : sku.variantName(), null);
         String skuCode = firstText(orderItem == null ? null : orderItem.sku(), sku == null ? null : sku.sku(), null);
-        boolean active = record.getEndDate() != null && !today.isAfter(record.getEndDate());
+        boolean voided = record.getStatus() == WarrantyStatus.VOIDED;
+        boolean active = !voided && record.getEndDate() != null && !today.isAfter(record.getEndDate());
         long remainingDays = active ? Math.max(0, ChronoUnit.DAYS.between(today, record.getEndDate())) : 0;
+        String status = voided ? "VOIDED" : (active ? "ACTIVE" : "EXPIRED");
         return WarrantyLookupResponse.builder().warrantyRecordId(record.getWarrantyRecordId())
                 .productName(productName).variantName(variantName).sku(skuCode).serialNumber(record.getSerialNumber())
                 .orderCode(orderItem == null ? null : orderItem.orderCode()).warrantyTerms(record.getWarrantyTerms())
                 .startDate(record.getStartDate()).endDate(record.getEndDate()).remainingDays(remainingDays)
-                .status(active ? "ACTIVE" : "EXPIRED").claimAllowed(active).build();
+                .status(status).claimAllowed(active).build();
     }
 
     private boolean matches(WarrantyLookupResponse record, String keyword) {

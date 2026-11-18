@@ -1,7 +1,9 @@
 package com.aquasuite.ims.module.finance.internal.service;
 
+import com.aquasuite.ims.module.finance.api.dto.OrderModificationSettlementCommand;
 import com.aquasuite.ims.module.finance.api.event.CustomerDebtAuditEvent;
 import com.aquasuite.ims.module.finance.internal.entity.PaymentInvoiceAllocation;
+import com.aquasuite.ims.module.finance.internal.entity.PaymentReceiptRefundSettlement;
 import com.aquasuite.ims.module.finance.internal.entity.Transaction;
 import com.aquasuite.ims.module.finance.internal.enums.PaymentAllocationStatus;
 import com.aquasuite.ims.module.finance.internal.enums.PaymentAllocationType;
@@ -43,6 +45,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -274,6 +277,313 @@ class PaymentAllocationServiceImplTest {
         assertThat(receipt.getStatus()).isEqualTo("VERIFIED");
         verify(eventPublisher).publishEvent(org.mockito.ArgumentMatchers.argThat((CustomerDebtAuditEvent event) ->
                 "PAYMENT_ALLOCATION_REVERSED".equals(event.action()) && receiptId.equals(event.entityId())));
+    }
+
+    @Test
+    void allocateReplaysIdempotentBatchWhenSameAllocationRequestIdAndPayloadAreSent() {
+        UUID requestId = UUID.randomUUID();
+        PaymentInvoiceAllocation existing = PaymentInvoiceAllocation.builder()
+                .allocationId(UUID.randomUUID())
+                .allocationRequestId(requestId)
+                .transactionId(receiptId)
+                .orderId(orderId)
+                .invoiceId(invoiceOneId)
+                .allocatedAmount(new BigDecimal("40.00"))
+                .allocationType(PaymentAllocationType.MANUAL)
+                .allocationStatus(PaymentAllocationStatus.ACTIVE)
+                .reason("Reconcile issued invoices")
+                .allocatedBy(actorId)
+                .allocatedAt(OffsetDateTime.now())
+                .createdAt(OffsetDateTime.now())
+                .build();
+        when(allocationRepository.findByTransactionIdAndAllocationRequestId(receiptId, requestId))
+                .thenReturn(List.of(existing));
+        when(allocationRepository.findByTransactionIdAndAllocationStatus(receiptId, PaymentAllocationStatus.ACTIVE))
+                .thenReturn(List.of(existing));
+
+        CreatePaymentAllocationRequest replayRequest = CreatePaymentAllocationRequest.builder()
+                .allocationRequestId(requestId)
+                .allocations(List.of(line(invoiceOneId, "40.00")))
+                .reason("Reconcile issued invoices")
+                .build();
+
+        var result = service.allocate(receiptId, replayRequest, actorId);
+
+        assertThat(result.allocationRequestId()).isEqualTo(requestId);
+        assertThat(result.allocatedAmount()).isEqualByComparingTo("40.00");
+        assertThat(result.remainingReceiptAmount()).isEqualByComparingTo("60.00");
+        assertThat(result.allocations()).hasSize(1);
+        verify(allocationRepository, never()).saveAllAndFlush(any());
+    }
+
+    @Test
+    void allocateRejectsConflictingPayloadOnExistingAllocationRequestId() {
+        UUID requestId = UUID.randomUUID();
+        PaymentInvoiceAllocation existing = PaymentInvoiceAllocation.builder()
+                .allocationId(UUID.randomUUID())
+                .allocationRequestId(requestId)
+                .transactionId(receiptId)
+                .orderId(orderId)
+                .invoiceId(invoiceOneId)
+                .allocatedAmount(new BigDecimal("40.00"))
+                .allocationType(PaymentAllocationType.MANUAL)
+                .allocationStatus(PaymentAllocationStatus.ACTIVE)
+                .reason("Reconcile issued invoices")
+                .allocatedBy(actorId)
+                .allocatedAt(OffsetDateTime.now())
+                .createdAt(OffsetDateTime.now())
+                .build();
+        when(allocationRepository.findByTransactionIdAndAllocationRequestId(receiptId, requestId))
+                .thenReturn(List.of(existing));
+
+        CreatePaymentAllocationRequest conflictingRequest = CreatePaymentAllocationRequest.builder()
+                .allocationRequestId(requestId)
+                .allocations(List.of(line(invoiceOneId, "50.00")))
+                .reason("Reconcile issued invoices")
+                .build();
+
+        assertThatThrownBy(() -> service.allocate(receiptId, conflictingRequest, actorId))
+                .isInstanceOfSatisfying(AppException.class, error ->
+                        assertThat(error.getErrorCode()).isEqualTo(PaymentAllocationErrorCode.ALLOCATION_REQUEST_CONFLICT));
+        verify(allocationRepository, never()).saveAllAndFlush(any());
+    }
+
+    @Test
+    void allocateRejectsAmountBeyondInvoiceRemainingBalance() {
+        PaymentInvoiceAllocation existingInvoiceAllocation = PaymentInvoiceAllocation.builder()
+                .allocationId(UUID.randomUUID())
+                .transactionId(UUID.randomUUID())
+                .orderId(orderId)
+                .invoiceId(invoiceOneId)
+                .allocatedAmount(new BigDecimal("30.00"))
+                .allocationStatus(PaymentAllocationStatus.ACTIVE)
+                .build();
+        when(salesReceivableApi.findInvoicesByIds(any())).thenReturn(List.of(invoiceOne));
+        when(allocationRepository.findByInvoiceIdInAndAllocationStatus(any(), eq(PaymentAllocationStatus.ACTIVE)))
+                .thenReturn(List.of(existingInvoiceAllocation));
+
+        assertThatThrownBy(() -> service.allocate(receiptId, request(line(invoiceOneId, "40.00")), actorId))
+                .isInstanceOfSatisfying(AppException.class, error ->
+                        assertThat(error.getErrorCode()).isEqualTo(PaymentAllocationErrorCode.INVOICE_BALANCE_EXCEEDED));
+        verify(allocationRepository, never()).saveAllAndFlush(any());
+    }
+
+    @Test
+    void reverseRejectsAllocationThatIsAlreadyReversed() {
+        UUID allocationId = UUID.randomUUID();
+        PaymentInvoiceAllocation alreadyReversed = PaymentInvoiceAllocation.builder()
+                .allocationId(allocationId)
+                .transactionId(receiptId)
+                .orderId(orderId)
+                .invoiceId(invoiceOneId)
+                .allocatedAmount(new BigDecimal("40.00"))
+                .allocationType(PaymentAllocationType.MANUAL)
+                .allocationStatus(PaymentAllocationStatus.REVERSED)
+                .build();
+        when(allocationRepository.findByIdForUpdate(allocationId)).thenReturn(Optional.of(alreadyReversed));
+
+        assertThatThrownBy(() -> service.reverse(
+                receiptId, allocationId, new ReversePaymentAllocationRequest("Thu hồi lần hai"), actorId))
+                .isInstanceOfSatisfying(AppException.class, error ->
+                        assertThat(error.getErrorCode()).isEqualTo(PaymentAllocationErrorCode.ALLOCATION_ALREADY_REVERSED));
+        verify(allocationRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void reverseRejectsRepointedAllocation() {
+        UUID allocationId = UUID.randomUUID();
+        PaymentInvoiceAllocation repointed = PaymentInvoiceAllocation.builder()
+                .allocationId(allocationId)
+                .transactionId(receiptId)
+                .orderId(orderId)
+                .invoiceId(invoiceOneId)
+                .allocatedAmount(new BigDecimal("40.00"))
+                .allocationType(PaymentAllocationType.REPOINTED)
+                .allocationStatus(PaymentAllocationStatus.ACTIVE)
+                .build();
+        when(allocationRepository.findByIdForUpdate(allocationId)).thenReturn(Optional.of(repointed));
+
+        assertThatThrownBy(() -> service.reverse(
+                receiptId, allocationId, new ReversePaymentAllocationRequest("Thử thu hồi dòng điều chuyển"), actorId))
+                .isInstanceOfSatisfying(AppException.class, error ->
+                        assertThat(error.getErrorCode()).isEqualTo(PaymentAllocationErrorCode.ALLOCATION_NOT_REVERSIBLE));
+        verify(allocationRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void autoAllocateSkipsReceiptAfterManualReversal() {
+        PaymentInvoiceAllocation reversedHistory = PaymentInvoiceAllocation.builder()
+                .allocationId(UUID.randomUUID())
+                .transactionId(receiptId)
+                .orderId(orderId)
+                .invoiceId(invoiceOneId)
+                .allocatedAmount(new BigDecimal("40.00"))
+                .allocationType(PaymentAllocationType.AUTO_ADVANCE)
+                .allocationStatus(PaymentAllocationStatus.REVERSED)
+                .build();
+        when(salesReceivableApi.findElectronicallyIntegratedInvoicesByOrderId(orderId))
+                .thenReturn(List.of(invoiceOne));
+        when(allocationRepository.findByTransactionIdOrderByAllocatedAtDesc(receiptId))
+                .thenReturn(List.of(reversedHistory));
+
+        service.autoAllocateVerifiedReceiptsForOrder(orderId, actorId);
+
+        verify(allocationRepository, never()).saveAllAndFlush(any());
+    }
+
+    @Test
+    void reconcileOrderModificationFullCancellationReversesSourceAndCreatesRefundSettlement() {
+        UUID refundTxId = UUID.randomUUID();
+        PaymentInvoiceAllocation sourceAllocation = PaymentInvoiceAllocation.builder()
+                .allocationId(UUID.randomUUID())
+                .transactionId(receiptId)
+                .orderId(orderId)
+                .invoiceId(invoiceOneId)
+                .allocatedAmount(new BigDecimal("60.00"))
+                .allocationType(PaymentAllocationType.AUTO_ADVANCE)
+                .allocationStatus(PaymentAllocationStatus.ACTIVE)
+                .build();
+        Transaction refundTx = Transaction.builder()
+                .transactionId(refundTxId)
+                .transactionCode("REF-001")
+                .transactionType("EXPENSE")
+                .category("CUSTOMER_REFUND")
+                .status("VERIFIED")
+                .orderId(orderId)
+                .customerId(customerId)
+                .amount(new BigDecimal("100.00"))
+                .paymentMethod("BANK_TRANSFER")
+                .createdBy(actorId)
+                .transactionDate(OffsetDateTime.now())
+                .build();
+        when(salesReceivableApi.findInvoicesByIds(List.of(invoiceOneId))).thenReturn(List.of(invoiceOne));
+        when(allocationRepository.findByOrderIdAndAllocationStatus(orderId, PaymentAllocationStatus.ACTIVE))
+                .thenReturn(List.of(sourceAllocation));
+        when(transactionRepository.findByIdForUpdate(refundTxId)).thenReturn(Optional.of(refundTx));
+
+        service.reconcileOrderModification(new OrderModificationSettlementCommand(
+                orderId, invoiceOneId, null, null, refundTxId, actorId, "Hủy toàn bộ đơn hàng"));
+
+        assertThat(sourceAllocation.getAllocationStatus()).isEqualTo(PaymentAllocationStatus.REVERSED);
+        assertThat(sourceAllocation.getReversedBy()).isEqualTo(actorId);
+        assertThat(sourceAllocation.getReversalReason()).isEqualTo("Hủy toàn bộ đơn hàng");
+
+        ArgumentCaptor<List<PaymentReceiptRefundSettlement>> settlementCaptor = ArgumentCaptor.forClass(List.class);
+        verify(refundSettlementRepository).saveAllAndFlush(settlementCaptor.capture());
+        assertThat(settlementCaptor.getValue()).singleElement().satisfies(settlement -> {
+            assertThat(settlement.getReceiptTransactionId()).isEqualTo(receiptId);
+            assertThat(settlement.getRefundTransactionId()).isEqualTo(refundTxId);
+            assertThat(settlement.getSourceOrderId()).isEqualTo(orderId);
+            assertThat(settlement.getSettledAmount()).isEqualByComparingTo("100.00");
+            assertThat(settlement.getSettledBy()).isEqualTo(actorId);
+            assertThat(settlement.getReason()).isEqualTo("Hủy toàn bộ đơn hàng");
+        });
+    }
+
+    @Test
+    void reconcileOrderModificationReplacementOrderCreatesRepointedAllocationAndSettlesExcessRefund() {
+        UUID targetOrderId = UUID.randomUUID();
+        UUID targetInvoiceId = UUID.randomUUID();
+        UUID refundTxId = UUID.randomUUID();
+        SalesOrderPaymentInfoDto targetOrder = SalesOrderPaymentInfoDto.builder()
+                .orderId(targetOrderId)
+                .customerId(customerId)
+                .totalAmount(new BigDecimal("70.00"))
+                .validForPayment(true)
+                .build();
+        SalesInvoiceDebtDto targetInvoice = new SalesInvoiceDebtDto(
+                targetInvoiceId, targetOrderId, customerId, "INV-REPL", null, "MISA-REPL",
+                OffsetDateTime.now(), OffsetDateTime.now(), 30, null, "ISSUED",
+                new BigDecimal("70.00"), BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal("70.00"),
+                invoiceOneId, "STORE");
+        PaymentInvoiceAllocation sourceAllocation = PaymentInvoiceAllocation.builder()
+                .allocationId(UUID.randomUUID())
+                .transactionId(receiptId)
+                .orderId(orderId)
+                .invoiceId(invoiceOneId)
+                .allocatedAmount(new BigDecimal("60.00"))
+                .allocationType(PaymentAllocationType.AUTO_ADVANCE)
+                .allocationStatus(PaymentAllocationStatus.ACTIVE)
+                .build();
+        Transaction refundTx = Transaction.builder()
+                .transactionId(refundTxId)
+                .transactionCode("REF-002")
+                .transactionType("EXPENSE")
+                .category("CUSTOMER_REFUND")
+                .status("VERIFIED")
+                .orderId(orderId)
+                .customerId(customerId)
+                .amount(new BigDecimal("30.00"))
+                .paymentMethod("BANK_TRANSFER")
+                .createdBy(actorId)
+                .transactionDate(OffsetDateTime.now())
+                .build();
+
+        when(salesOrderApi.lockOrderPaymentInfo(targetOrderId)).thenReturn(Optional.of(targetOrder));
+        when(allocationRepository.findByOrderIdAndAllocationStatus(orderId, PaymentAllocationStatus.ACTIVE))
+                .thenReturn(List.of(sourceAllocation));
+        when(salesReceivableApi.findInvoicesByIds(List.of(invoiceOneId, targetInvoiceId)))
+                .thenReturn(List.of(invoiceOne, targetInvoice));
+        when(transactionRepository.findByIdForUpdate(refundTxId)).thenReturn(Optional.of(refundTx));
+
+        service.reconcileOrderModification(new OrderModificationSettlementCommand(
+                orderId, invoiceOneId, targetOrderId, targetInvoiceId, refundTxId, actorId,
+                "Đổi sang đơn thay thế có giá trị thấp hơn"));
+
+        assertThat(sourceAllocation.getAllocationStatus()).isEqualTo(PaymentAllocationStatus.REVERSED);
+
+        ArgumentCaptor<List<PaymentInvoiceAllocation>> allocationCaptor = ArgumentCaptor.forClass(List.class);
+        verify(allocationRepository, times(2)).saveAllAndFlush(allocationCaptor.capture());
+        List<PaymentInvoiceAllocation> repointedRows = allocationCaptor.getAllValues().get(1);
+        assertThat(repointedRows).singleElement().satisfies(repointed -> {
+            assertThat(repointed.getTransactionId()).isEqualTo(receiptId);
+            assertThat(repointed.getOrderId()).isEqualTo(targetOrderId);
+            assertThat(repointed.getInvoiceId()).isEqualTo(targetInvoiceId);
+            assertThat(repointed.getAllocatedAmount()).isEqualByComparingTo("70.00");
+            assertThat(repointed.getAllocationType()).isEqualTo(PaymentAllocationType.REPOINTED);
+            assertThat(repointed.getAllocationStatus()).isEqualTo(PaymentAllocationStatus.ACTIVE);
+        });
+
+        ArgumentCaptor<List<PaymentReceiptRefundSettlement>> settlementCaptor = ArgumentCaptor.forClass(List.class);
+        verify(refundSettlementRepository).saveAllAndFlush(settlementCaptor.capture());
+        assertThat(settlementCaptor.getValue()).singleElement().satisfies(settlement -> {
+            assertThat(settlement.getReceiptTransactionId()).isEqualTo(receiptId);
+            assertThat(settlement.getRefundTransactionId()).isEqualTo(refundTxId);
+            assertThat(settlement.getSettledAmount()).isEqualByComparingTo("30.00");
+        });
+    }
+
+    @Test
+    void reconcileOrderModificationRejectsReplacementOrderForDifferentCustomer() {
+        UUID targetOrderId = UUID.randomUUID();
+        UUID targetInvoiceId = UUID.randomUUID();
+        SalesOrderPaymentInfoDto differentCustomerOrder = SalesOrderPaymentInfoDto.builder()
+                .orderId(targetOrderId)
+                .customerId(UUID.randomUUID())
+                .totalAmount(new BigDecimal("100.00"))
+                .validForPayment(true)
+                .build();
+        when(salesOrderApi.lockOrderPaymentInfo(targetOrderId)).thenReturn(Optional.of(differentCustomerOrder));
+
+        assertThatThrownBy(() -> service.reconcileOrderModification(new OrderModificationSettlementCommand(
+                orderId, invoiceOneId, targetOrderId, targetInvoiceId, null, actorId, "Đổi sang đơn khác khách hàng")))
+                .isInstanceOfSatisfying(AppException.class, error ->
+                        assertThat(error.getErrorCode()).isEqualTo(PaymentAllocationErrorCode.INVALID_REPLACEMENT_SETTLEMENT));
+        verify(allocationRepository, never()).saveAllAndFlush(any());
+        verify(refundSettlementRepository, never()).saveAllAndFlush(any());
+    }
+
+    @Test
+    void reconcileOrderModificationRejectsWhenRequiredRefundIsNotVerified() {
+        when(salesReceivableApi.findInvoicesByIds(List.of(invoiceOneId))).thenReturn(List.of(invoiceOne));
+        when(allocationRepository.findByOrderIdAndAllocationStatus(orderId, PaymentAllocationStatus.ACTIVE))
+                .thenReturn(List.of());
+
+        assertThatThrownBy(() -> service.reconcileOrderModification(new OrderModificationSettlementCommand(
+                orderId, invoiceOneId, null, null, null, actorId, "Hủy đơn nhưng chưa có phiếu hoàn tiền xác minh")))
+                .isInstanceOfSatisfying(AppException.class, error ->
+                        assertThat(error.getErrorCode()).isEqualTo(PaymentAllocationErrorCode.REFUND_NOT_VERIFIED));
+        verify(refundSettlementRepository, never()).saveAllAndFlush(any());
     }
 
     private SalesInvoiceDebtDto invoice(UUID id, String code, String total) {

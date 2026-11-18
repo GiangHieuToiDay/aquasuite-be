@@ -29,6 +29,15 @@ public class CreditEvidenceStorageService {
     @Value("${minio.secret-key:}") private String secretKey;
     @Value("${minio.bucket:aquasuite-private}") private String bucket;
 
+    private MinioClient minioClientOverride;
+
+    static CreditEvidenceStorageService forTesting(MinioClient minioClient, String bucket) {
+        CreditEvidenceStorageService service = new CreditEvidenceStorageService();
+        service.minioClientOverride = minioClient;
+        service.bucket = bucket;
+        return service;
+    }
+
     public String upload(UUID customerId, MultipartFile file) {
         validateImage(file);
         String objectKey = "credit-profile-evidence/" + customerId + "/" + UUID.randomUUID() + extensionFor(file.getContentType());
@@ -76,6 +85,9 @@ public class CreditEvidenceStorageService {
     }
 
     private MinioClient client() {
+        if (minioClientOverride != null) {
+            return minioClientOverride;
+        }
         if (blank(endpoint) || blank(accessKey) || blank(secretKey)) throw new AppException(CrmErrorCode.CREDIT_EVIDENCE_STORAGE_UNAVAILABLE);
         return MinioClient.builder().endpoint(endpoint.trim()).credentials(accessKey.trim(), secretKey.trim()).build();
     }

@@ -32,6 +32,7 @@ public class VariantController {
     private final VariantService service;
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('SHOP_OWNER','ACCOUNTANT','SALES_STAFF','TECHNICAL_STAFF')")
     public ApiResponse<Page<VariantResponse>> list(
             @PathVariable UUID productId,
             @RequestParam(required = false) String keyword,
@@ -49,6 +50,7 @@ public class VariantController {
 
 
     @GetMapping("/stats")
+    @PreAuthorize("hasAnyRole('SHOP_OWNER','ACCOUNTANT','SALES_STAFF','TECHNICAL_STAFF')")
     public ApiResponse<VariantStatsResponse> stats(@PathVariable UUID productId) {
         return ApiResponse.ok(service.stats(productId));
     }

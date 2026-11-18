@@ -2,6 +2,7 @@ package com.aquasuite.ims.module.sales.internal.controller;
 
 import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.sales.internal.payload.request.ApproveOrderModificationRequest;
+import com.aquasuite.ims.module.sales.internal.payload.request.CreateOrderModificationRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.RecordOrderModificationTaxResultRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.ReviewOrderModificationRequest;
 import com.aquasuite.ims.module.sales.internal.payload.response.OrderModificationRequestResponse;
@@ -11,6 +12,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -37,7 +40,17 @@ public class OrderModificationRequestController {
     @GetMapping("/{requestId}")
     @PreAuthorize("hasAnyRole('SALES_STAFF','ACCOUNTANT','SHOP_OWNER')")
     public ApiResponse<OrderModificationRequestResponse> detail(@PathVariable UUID requestId) {
-        return ApiResponse.ok(service.detail(requestId));
+        boolean accountantOnly = hasRole("ACCOUNTANT") && !hasRole("SHOP_OWNER") && !hasRole("SALES_STAFF");
+        return ApiResponse.ok(service.detail(requestId, accountantOnly));
+    }
+
+    @PostMapping
+    @PreAuthorize("hasAnyRole('SALES_STAFF','SHOP_OWNER')")
+    public ResponseEntity<ApiResponse<OrderModificationRequestResponse>> create(
+            @Valid @RequestBody CreateOrderModificationRequest request) {
+        OrderModificationRequestResponse response = service.create(request, iamApi.getCurrentUserId());
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok(response, "Order modification request created successfully."));
     }
 
     @PostMapping("/{requestId}/reject")

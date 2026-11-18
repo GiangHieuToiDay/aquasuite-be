@@ -65,10 +65,9 @@ public class OrderDispatchApiImpl implements OrderDispatchApi {
     }
 
     private Snapshot snapshot(Order o) {
-        // Approved modifications are not considered applied until UC26 owns a completion contract.
+        // Only block dispatch when there is an active review or pending cancellation; APPROVED is terminal.
         boolean pending = modifications.existsByOrderIdAndRequestStatusIn(o.getOrderId(), List.of(
-                OrderModificationRequestStatus.PENDING_REVIEW, OrderModificationRequestStatus.PENDING_CANCEL,
-                OrderModificationRequestStatus.APPROVED));
+                OrderModificationRequestStatus.PENDING_REVIEW, OrderModificationRequestStatus.PENDING_CANCEL));
         var lines = items.findByOrderId(o.getOrderId()).stream().map(i -> new Line(i.getOrderItemId(),
                 i.getVariantId(), i.getQuantity(), i.getSku(), i.getProductName())).toList();
         return new Snapshot(o.getOrderId(), o.getOrderCode(), o.getOrderStatus(), o.getDeliveryAddress(), pending, lines,o.getTotalAmount());

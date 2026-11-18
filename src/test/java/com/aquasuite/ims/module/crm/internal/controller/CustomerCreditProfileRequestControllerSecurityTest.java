@@ -5,6 +5,7 @@ import com.aquasuite.ims.module.crm.internal.payload.res.CustomerCreditProfileRe
 import com.aquasuite.ims.module.crm.internal.repository.CustomerRepository;
 import com.aquasuite.ims.module.crm.internal.service.CustomerCreditProfileRequestService;
 import com.aquasuite.ims.module.crm.internal.service.CustomerCreditProfileService;
+import com.aquasuite.ims.module.crm.internal.storage.CreditEvidenceStorageService;
 import com.aquasuite.ims.module.iam.api.IamApi;
 import com.aquasuite.ims.module.iam.internal.security.AccessAuthenticationConverter;
 import com.aquasuite.ims.module.iam.internal.security.AuthSecurityConfig;
@@ -53,6 +54,7 @@ class CustomerCreditProfileRequestControllerSecurityTest {
     @MockBean private CustomerRepository customerRepository;
     @MockBean private CustomerCreditProfileService customerCreditProfileService;
     @MockBean private CustomerCreditProfileRequestService customerCreditProfileRequestService;
+    @MockBean private CreditEvidenceStorageService creditEvidenceStorageService;
     @MockBean private IamApi iamApi;
 
     @Test

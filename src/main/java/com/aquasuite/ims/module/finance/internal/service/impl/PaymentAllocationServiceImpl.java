@@ -242,9 +242,6 @@ public class PaymentAllocationServiceImpl implements PaymentAllocationService {
         List<Transaction> receipts = lockVerifiedReceiptsForModification(sourceOrder);
         List<PaymentInvoiceAllocation> sourceAllocations = allocationRepository
                 .findByOrderIdAndAllocationStatus(sourceOrder.orderId(), PaymentAllocationStatus.ACTIVE);
-        Map<UUID, BigDecimal> sourceAllocatedByReceipt = sourceAllocations.stream().collect(Collectors.groupingBy(
-                PaymentInvoiceAllocation::getTransactionId,
-                Collectors.reducing(ZERO, PaymentInvoiceAllocation::getAllocatedAmount, BigDecimal::add)));
 
         SalesInvoiceDebtDto targetInvoice = targetOrder == null ? null : requireReplacementTarget(command, targetOrder);
         BigDecimal targetRemaining = targetInvoice == null ? ZERO : positive(amount(targetInvoice.totalAmount())
@@ -263,12 +260,15 @@ public class PaymentAllocationServiceImpl implements PaymentAllocationService {
         List<PaymentReceiptRefundSettlement> refunded = new ArrayList<>();
         BigDecimal refundRequired = ZERO;
         for (Transaction receipt : receipts) {
-            BigDecimal activeBeforeSourceReverse = sum(allocationRepository.findByTransactionIdAndAllocationStatus(
-                    receipt.getTransactionId(), PaymentAllocationStatus.ACTIVE), PaymentInvoiceAllocation::getAllocatedAmount);
-            BigDecimal sourceReversed = sourceAllocatedByReceipt.getOrDefault(receipt.getTransactionId(), ZERO);
-            BigDecimal reusable = positive(amount(receipt.getAmount()).subtract(activeBeforeSourceReverse)
-                    .subtract(refundSettlementRepository.sumByReceiptTransactionId(receipt.getTransactionId()))
-                    .add(sourceReversed));
+            BigDecimal remainingActive = allocationRepository.findByTransactionIdAndAllocationStatus(
+                    receipt.getTransactionId(), PaymentAllocationStatus.ACTIVE).stream()
+                    .filter(row -> row.getAllocationStatus() == PaymentAllocationStatus.ACTIVE
+                            && !Objects.equals(sourceOrder.orderId(), row.getOrderId()))
+                    .map(PaymentInvoiceAllocation::getAllocatedAmount)
+                    .map(PaymentAllocationServiceImpl::amount)
+                    .reduce(ZERO, BigDecimal::add);
+            BigDecimal reusable = positive(amount(receipt.getAmount()).subtract(remainingActive)
+                    .subtract(amount(refundSettlementRepository.sumByReceiptTransactionId(receipt.getTransactionId()))));
             if (reusable.signum() <= 0) continue;
 
             BigDecimal repointedAmount = targetInvoice == null ? ZERO : reusable.min(targetRemaining);
@@ -367,7 +367,7 @@ public class PaymentAllocationServiceImpl implements PaymentAllocationService {
                 && Objects.equals(sourceOrder.orderId(), refund.getOrderId())
                 && Objects.equals(sourceOrder.customerId(), refund.getCustomerId());
         BigDecimal unusedRefund = positive(amount(refund.getAmount()).subtract(
-                refundSettlementRepository.sumByRefundTransactionId(refund.getTransactionId())));
+                amount(refundSettlementRepository.sumByRefundTransactionId(refund.getTransactionId()))));
         if (!validRefund || unusedRefund.compareTo(refundRequired) < 0) {
             throw new AppException(PaymentAllocationErrorCode.REFUND_NOT_VERIFIED);
         }

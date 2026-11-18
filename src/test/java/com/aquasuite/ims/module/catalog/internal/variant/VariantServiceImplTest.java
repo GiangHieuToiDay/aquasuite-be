@@ -17,12 +17,14 @@ import com.aquasuite.ims.module.catalog.internal.payload.req.VariantUpsertReques
 import com.aquasuite.ims.module.catalog.internal.payload.res.VariantResponse;
 import com.aquasuite.ims.module.catalog.internal.service.impl.VariantServiceImpl;
 import com.aquasuite.ims.module.iam.api.IamApi;
+import com.aquasuite.ims.module.iam.api.dto.UserSummaryDto;
 import com.aquasuite.ims.module.inventory.api.InventoryApi;
 import com.aquasuite.ims.module.inventory.api.dto.StockSummaryDto;
 import com.aquasuite.ims.module.inventory.api.dto.VariantInventoryUsage;
 import com.aquasuite.ims.module.sales.api.SalesVariantUsageApi;
 import com.aquasuite.ims.module.sales.api.dto.VariantDocumentUsage;
 import com.aquasuite.ims.share.exception.AppException;
+import com.aquasuite.ims.share.exception.CommonErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,6 +38,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -188,6 +191,60 @@ class VariantServiceImplTest {
             assertThat(result.reservedQty()).isEqualByComparingTo("3");
             assertThat(result.availableQty()).isEqualByComparingTo("9");
             assertThat(result.lowStock()).isFalse();
+        });
+    }
+
+    @Test
+    void list_masksCostPriceAndRejectsProfitOrCostSortForSalesStaff() {
+        UUID variantId = UUID.randomUUID();
+        ProductVariant variant = variant(variantId);
+        variant.setCostPrice(new BigDecimal("30000000"));
+        variant.setSellingPrice(new BigDecimal("45000000"));
+        when(iamApi.getCurrentUser()).thenReturn(UserSummaryDto.builder()
+                .id(UUID.randomUUID())
+                .username("sales.staff")
+                .roles(List.of("SALES_STAFF"))
+                .build());
+        when(variantRepository.search(eq(productId), eq(null), eq(null), eq(false), any()))
+                .thenReturn(new PageImpl<>(List.of(variant), PageRequest.of(0, 10), 1));
+
+        var page = service.list(productId, null, null, false, "sku", "ASC", "WH_MAIN", PageRequest.of(0, 10));
+
+        assertThat(page.getContent()).singleElement().satisfies(result -> {
+            assertThat(result.costPrice()).isNull();
+            assertThat(result.sellingPrice()).isEqualByComparingTo("45000000");
+        });
+
+        assertThatThrownBy(() -> service.list(productId, null, null, false, "profit", "DESC", "WH_MAIN", PageRequest.of(0, 10)))
+                .isInstanceOf(AppException.class)
+                .extracting(error -> ((AppException) error).getErrorCode())
+                .isEqualTo(CommonErrorCode.ACCESS_DENIED);
+
+        assertThatThrownBy(() -> service.list(productId, null, null, false, "costPrice", "ASC", "WH_MAIN", PageRequest.of(0, 10)))
+                .isInstanceOf(AppException.class)
+                .extracting(error -> ((AppException) error).getErrorCode())
+                .isEqualTo(CommonErrorCode.ACCESS_DENIED);
+    }
+
+    @Test
+    void list_includesCostPriceAndAllowsProfitSortForAccountantAndShopOwner() {
+        UUID variantId = UUID.randomUUID();
+        ProductVariant variant = variant(variantId);
+        variant.setCostPrice(new BigDecimal("30000000"));
+        variant.setSellingPrice(new BigDecimal("45000000"));
+        when(iamApi.getCurrentUser()).thenReturn(UserSummaryDto.builder()
+                .id(UUID.randomUUID())
+                .username("accountant")
+                .roles(List.of("ACCOUNTANT"))
+                .build());
+        when(variantRepository.searchByProfit(eq(productId), eq(null), eq(null), eq(false), eq("DESC"), any()))
+                .thenReturn(new PageImpl<>(List.of(variant), PageRequest.of(0, 10), 1));
+
+        var page = service.list(productId, null, null, false, "profit", "DESC", "WH_MAIN", PageRequest.of(0, 10));
+
+        assertThat(page.getContent()).singleElement().satisfies(result -> {
+            assertThat(result.costPrice()).isEqualByComparingTo("30000000");
+            assertThat(result.sellingPrice()).isEqualByComparingTo("45000000");
         });
     }
 

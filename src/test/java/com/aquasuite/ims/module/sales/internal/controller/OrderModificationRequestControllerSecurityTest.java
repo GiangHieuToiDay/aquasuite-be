@@ -1,11 +1,16 @@
 package com.aquasuite.ims.module.sales.internal.controller;
 
 import com.aquasuite.ims.module.iam.api.IamApi;
+import com.aquasuite.ims.module.iam.api.dto.UserSummaryDto;
 import com.aquasuite.ims.module.iam.internal.security.AccessAuthenticationConverter;
 import com.aquasuite.ims.module.iam.internal.security.AuthSecurityConfig;
+import com.aquasuite.ims.module.sales.internal.payload.request.CreateOrderModificationRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.ReviewOrderModificationRequest;
 import com.aquasuite.ims.module.sales.internal.payload.response.OrderModificationRequestResponse;
+import com.aquasuite.ims.module.sales.internal.enums.OrderModificationRequestStatus;
 import com.aquasuite.ims.module.sales.internal.service.OrderModificationRequestService;
+import com.aquasuite.ims.share.exception.AppException;
+import com.aquasuite.ims.share.exception.CommonErrorCode;
 import com.aquasuite.ims.share.exception.GlobalExceptionHandler;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,9 +29,11 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -55,7 +62,10 @@ class OrderModificationRequestControllerSecurityTest {
     @Test
     @WithMockUser(roles = "ACCOUNTANT")
     void accountantCanReadRequest() throws Exception {
-        when(service.detail(REQUEST_ID)).thenReturn(OrderModificationRequestResponse.builder().id(REQUEST_ID).build());
+        when(iamApi.getCurrentUser()).thenReturn(UserSummaryDto.builder()
+                .id(UUID.randomUUID()).roles(List.of("ACCOUNTANT")).build());
+        when(service.detail(eq(REQUEST_ID), eq(true)))
+                .thenReturn(OrderModificationRequestResponse.builder().id(REQUEST_ID).build());
         mockMvc.perform(get("/api/v1/sales/order-modification-requests/{requestId}", REQUEST_ID))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.id").value(REQUEST_ID.toString()));
     }
@@ -79,6 +89,149 @@ class OrderModificationRequestControllerSecurityTest {
                         .contentType(MediaType.APPLICATION_JSON).content("{\"decisionNote\":\"Rejected\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true));
         verify(service).reject(eq(REQUEST_ID), any(ReviewOrderModificationRequest.class), eq(actorId));
+    }
+
+    // =============================== ACCOUNTANT detail restriction ===============================
+
+    @Test
+    @WithMockUser(roles = "ACCOUNTANT")
+    void accountantBlockedFromViewingPendingReviewDetail() throws Exception {
+        when(iamApi.getCurrentUser()).thenReturn(UserSummaryDto.builder()
+                .id(UUID.randomUUID()).roles(List.of("ACCOUNTANT")).build());
+        when(service.detail(eq(REQUEST_ID), eq(true)))
+                .thenThrow(new AppException(CommonErrorCode.ACCESS_DENIED));
+        mockMvc.perform(get("/api/v1/sales/order-modification-requests/{requestId}", REQUEST_ID))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "SHOP_OWNER")
+    void shopOwnerCanViewAnyRequestDetail() throws Exception {
+        when(iamApi.getCurrentUser()).thenReturn(UserSummaryDto.builder()
+                .id(UUID.randomUUID()).roles(List.of("SHOP_OWNER")).build());
+        when(service.detail(eq(REQUEST_ID), eq(false)))
+                .thenReturn(OrderModificationRequestResponse.builder().id(REQUEST_ID).build());
+        mockMvc.perform(get("/api/v1/sales/order-modification-requests/{requestId}", REQUEST_ID))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(roles = "SALES_STAFF")
+    void salesStaffCanViewAnyRequestDetail() throws Exception {
+        when(iamApi.getCurrentUser()).thenReturn(UserSummaryDto.builder()
+                .id(UUID.randomUUID()).roles(List.of("SALES_STAFF")).build());
+        when(service.detail(eq(REQUEST_ID), eq(false)))
+                .thenReturn(OrderModificationRequestResponse.builder().id(REQUEST_ID).build());
+        mockMvc.perform(get("/api/v1/sales/order-modification-requests/{requestId}", REQUEST_ID))
+                .andExpect(status().isOk());
+    }
+
+    // =============================== CREATE endpoint ===============================
+
+    @Test
+    @WithMockUser(roles = "SALES_STAFF")
+    void salesStaffCanCreateRequest() throws Exception {
+        UUID actorId = UUID.randomUUID();
+        when(iamApi.getCurrentUserId()).thenReturn(actorId);
+        when(service.create(any(CreateOrderModificationRequest.class), eq(actorId)))
+                .thenReturn(OrderModificationRequestResponse.builder().id(UUID.randomUUID()).build());
+        mockMvc.perform(post("/api/v1/sales/order-modification-requests")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"orderId\":\"10000000-0000-4000-8000-000000000001\","
+                                + "\"requestType\":\"ADDRESS_CHANGE\","
+                                + "\"customerReason\":\"Change delivery address\","
+                                + "\"requestedDeliveryAddress\":\"New Address\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    @WithMockUser(roles = "SHOP_OWNER")
+    void shopOwnerCanCreateRequest() throws Exception {
+        UUID actorId = UUID.randomUUID();
+        when(iamApi.getCurrentUserId()).thenReturn(actorId);
+        when(service.create(any(CreateOrderModificationRequest.class), eq(actorId)))
+                .thenReturn(OrderModificationRequestResponse.builder().id(UUID.randomUUID()).build());
+        mockMvc.perform(post("/api/v1/sales/order-modification-requests")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"orderId\":\"10000000-0000-4000-8000-000000000001\","
+                                + "\"requestType\":\"FULL_CANCELLATION\","
+                                + "\"customerReason\":\"Cancel order\"}"))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    @WithMockUser(roles = "ACCOUNTANT")
+    void accountantCannotCreateRequest() throws Exception {
+        mockMvc.perform(post("/api/v1/sales/order-modification-requests")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"orderId\":\"10000000-0000-4000-8000-000000000001\","
+                                + "\"requestType\":\"ADDRESS_CHANGE\","
+                                + "\"customerReason\":\"Change delivery address\","
+                                + "\"requestedDeliveryAddress\":\"New Address\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "CUSTOMER")
+    void customerCannotCreateRequest() throws Exception {
+        mockMvc.perform(post("/api/v1/sales/order-modification-requests")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"orderId\":\"10000000-0000-4000-8000-000000000001\","
+                                + "\"requestType\":\"ADDRESS_CHANGE\","
+                                + "\"customerReason\":\"Change delivery address\","
+                                + "\"requestedDeliveryAddress\":\"New Address\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "SALES_STAFF")
+    void createValidatesRequiredFields() throws Exception {
+        mockMvc.perform(post("/api/v1/sales/order-modification-requests")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"orderId\":null,\"requestType\":null,\"customerReason\":\"\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    // =============================== Tax result / send-result-email ===============================
+
+    @Test
+    @WithMockUser(roles = "ACCOUNTANT")
+    void accountantCanRecordTaxResult() throws Exception {
+        UUID actorId = UUID.randomUUID();
+        when(iamApi.getCurrentUserId()).thenReturn(actorId);
+        when(service.recordTaxResult(eq(REQUEST_ID), any(), eq(actorId)))
+                .thenReturn(OrderModificationRequestResponse.builder().id(REQUEST_ID).build());
+        mockMvc.perform(post("/api/v1/sales/order-modification-requests/{requestId}/tax-result", REQUEST_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"taxResultReference\":\"REF-001\","
+                                + "\"resultingInvoiceId\":\"10000000-0000-4000-8000-000000000099\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(roles = "SALES_STAFF")
+    void salesStaffCannotRecordTaxResult() throws Exception {
+        mockMvc.perform(post("/api/v1/sales/order-modification-requests/{requestId}/tax-result", REQUEST_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"taxResultReference\":\"REF-001\","
+                                + "\"resultingInvoiceId\":\"10000000-0000-4000-8000-000000000099\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "SALES_STAFF")
+    void salesStaffCanSendResultEmail() throws Exception {
+        when(iamApi.getCurrentUserId()).thenReturn(UUID.randomUUID());
+        mockMvc.perform(post("/api/v1/sales/order-modification-requests/{requestId}/send-result-email", REQUEST_ID))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(roles = "ACCOUNTANT")
+    void accountantCannotSendResultEmail() throws Exception {
+        mockMvc.perform(post("/api/v1/sales/order-modification-requests/{requestId}/send-result-email", REQUEST_ID))
+                .andExpect(status().isForbidden());
     }
 
     @TestConfiguration

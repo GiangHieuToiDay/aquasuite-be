@@ -19,7 +19,10 @@ public enum OrderModificationErrorCode implements BaseErrorCode {
     REFUND_NOT_FOUND("ORDER_MOD_008", "The pending customer refund was not found.", HttpStatus.CONFLICT),
     REPLACEMENT_SKU_NOT_FOUND("ORDER_MOD_009", "The requested replacement SKU was not found.", HttpStatus.NOT_FOUND),
     DRAFT_INVOICE_REQUIRED("ORDER_MOD_010", "A store-only item change requires only Draft store invoices.", HttpStatus.CONFLICT),
-    INVALID_ITEM_CHANGE("ORDER_MOD_011", "The requested item change no longer matches the current order lines.", HttpStatus.CONFLICT);
+    INVALID_ITEM_CHANGE("ORDER_MOD_011", "The requested item change no longer matches the current order lines.", HttpStatus.CONFLICT),
+    DUPLICATE_ACTIVE_REQUEST("ORDER_MOD_012", "An active modification request already exists for this order.", HttpStatus.CONFLICT),
+    ITEMS_REQUIRED_FOR_ITEM_CHANGE("ORDER_MOD_013", "Items are required for an item-change request.", HttpStatus.BAD_REQUEST),
+    INVALID_REQUESTED_ITEM("ORDER_MOD_014", "One or more requested item changes are invalid.", HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String message;

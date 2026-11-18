@@ -4,20 +4,27 @@ import com.aquasuite.ims.module.audit.api.AuditQueryApi;
 import com.aquasuite.ims.module.crm.api.CrmApi;
 import com.aquasuite.ims.module.crm.api.dto.CustomerDebtProfileDto;
 import com.aquasuite.ims.module.finance.api.event.CustomerDebtAuditEvent;
-import com.aquasuite.ims.module.finance.internal.entity.Transaction;
 import com.aquasuite.ims.module.finance.internal.entity.PaymentInvoiceAllocation;
+import com.aquasuite.ims.module.finance.internal.entity.Transaction;
 import com.aquasuite.ims.module.finance.internal.enums.PaymentAllocationStatus;
+import com.aquasuite.ims.module.finance.internal.error.CustomerDebtErrorCode;
 import com.aquasuite.ims.module.finance.internal.notification.DebtEmailNotificationPort;
+import com.aquasuite.ims.module.finance.internal.payload.DebtStatus;
 import com.aquasuite.ims.module.finance.internal.payload.request.CreditCheckRequest;
+import com.aquasuite.ims.module.finance.internal.payload.request.DebtCallResultRequest;
+import com.aquasuite.ims.module.finance.internal.payload.request.DebtReminderRequest;
+import com.aquasuite.ims.module.finance.internal.payload.request.ReasonRequest;
 import com.aquasuite.ims.module.finance.internal.pdf.StatementDocument;
 import com.aquasuite.ims.module.finance.internal.pdf.StatementPdfService;
-import com.aquasuite.ims.module.finance.internal.repository.TransactionRepository;
+import com.aquasuite.ims.module.finance.internal.repository.FinanceLockRepository;
 import com.aquasuite.ims.module.finance.internal.repository.PaymentInvoiceAllocationRepository;
 import com.aquasuite.ims.module.finance.internal.repository.PaymentReceiptRefundSettlementRepository;
+import com.aquasuite.ims.module.finance.internal.repository.TransactionRepository;
 import com.aquasuite.ims.module.finance.internal.service.impl.CustomerDebtServiceImpl;
 import com.aquasuite.ims.module.sales.api.SalesReceivableApi;
 import com.aquasuite.ims.module.sales.api.dto.SalesInvoiceDebtDto;
 import com.aquasuite.ims.module.sales.api.dto.SalesOrderDebtDto;
+import com.aquasuite.ims.share.exception.AppException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,21 +32,25 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
-import com.aquasuite.ims.module.finance.internal.repository.FinanceLockRepository;
-import com.aquasuite.ims.module.finance.internal.payload.DebtStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -48,6 +59,7 @@ class CustomerDebtServiceImplTest {
     private static final UUID CUSTOMER_ID = UUID.fromString("10000000-0000-4000-8000-000000000001");
     private static final UUID ORDER_ID = UUID.fromString("10000000-0000-4000-8000-000000000002");
     private static final UUID INVOICE_ID = UUID.fromString("10000000-0000-4000-8000-000000000003");
+    private static final UUID ACTOR_ID = UUID.fromString("10000000-0000-4000-8000-000000000009");
 
     @Mock private CrmApi crmApi;
     @Mock private SalesReceivableApi salesReceivableApi;
@@ -76,8 +88,8 @@ class CustomerDebtServiceImplTest {
         invoice = new SalesInvoiceDebtDto(INVOICE_ID, ORDER_ID, CUSTOMER_ID, "INV-100", "MISA-INV-100",
                 "MISA-INV-100", OffsetDateTime.now(), OffsetDateTime.now(), 30, LocalDate.now().plusDays(30), "ISSUED", new BigDecimal("200.00"), BigDecimal.ZERO, BigDecimal.ZERO,
                 new BigDecimal("200.00"), null, "STORE");
-        when(salesReceivableApi.findOrdersByCustomerIds(any())).thenReturn(List.of(order));
-        when(salesReceivableApi.findInvoicesByCustomerIds(any())).thenReturn(List.of(invoice));
+        lenient().when(salesReceivableApi.findOrdersByCustomerIds(any())).thenReturn(List.of(order));
+        lenient().when(salesReceivableApi.findInvoicesByCustomerIds(any())).thenReturn(List.of(invoice));
     }
 
     @Test
@@ -89,7 +101,7 @@ class CustomerDebtServiceImplTest {
             CustomerDebtProfileDto profile = new CustomerDebtProfileDto(CUSTOMER_ID, "KH-001", "An Khang",
                     "0903118240", "ketoan@example.com", "CONTRACTOR", "0312456789", "An Khang Co.",
                     List.of(), List.of(), new BigDecimal("500.00"), term, "ACTIVE");
-            when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(java.util.Optional.of(profile));
+            when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(Optional.of(profile));
 
             var result = service.checkCredit(CUSTOMER_ID, request);
             boolean expected = term != null && term >= 1 && term <= 30;
@@ -120,7 +132,7 @@ class CustomerDebtServiceImplTest {
     @Test
     void detailLeavesOrderOnlyReceiptUnallocatedFromItsInvoice() {
         Transaction orderOnlyReceipt = receipt(null, ORDER_ID, new BigDecimal("50.00"));
-        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(java.util.Optional.of(customer));
+        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(Optional.of(customer));
         when(transactionRepository.findByCustomerIdInAndStatusIgnoreCase(any(), eq("VERIFIED")))
                 .thenReturn(List.of(orderOnlyReceipt));
         when(auditQueryApi.findByEntity(any(), any())).thenReturn(List.of());
@@ -143,7 +155,7 @@ class CustomerDebtServiceImplTest {
         PaymentInvoiceAllocation allocation = PaymentInvoiceAllocation.builder().transactionId(orderOnlyReceipt.getTransactionId())
                 .orderId(ORDER_ID).invoiceId(INVOICE_ID).allocatedAmount(new BigDecimal("50.00"))
                 .allocationStatus(PaymentAllocationStatus.ACTIVE).build();
-        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(java.util.Optional.of(customer));
+        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(Optional.of(customer));
         when(transactionRepository.findByCustomerIdInAndStatusIgnoreCase(any(), eq("VERIFIED")))
                 .thenReturn(List.of(orderOnlyReceipt));
         when(paymentInvoiceAllocationRepository.findByTransactionIdInAndAllocationStatus(any(), eq(PaymentAllocationStatus.ACTIVE)))
@@ -161,7 +173,7 @@ class CustomerDebtServiceImplTest {
     @Test
     void receiptLinkedToStoreInvoiceIsUnallocatedToIssuedDeliveryInvoice() {
         Transaction receipt = receipt(UUID.randomUUID(), ORDER_ID, new BigDecimal("50.00"));
-        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(java.util.Optional.of(customer));
+        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(Optional.of(customer));
         when(transactionRepository.findByCustomerIdInAndStatusIgnoreCase(any(), eq("VERIFIED")))
                 .thenReturn(List.of(receipt));
         when(auditQueryApi.findByEntity(any(), any())).thenReturn(List.of());
@@ -185,7 +197,7 @@ class CustomerDebtServiceImplTest {
                 BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal("40.00"), null, "STORE");
         when(salesReceivableApi.findOrdersByCustomerIds(any())).thenReturn(List.of(order100));
         when(salesReceivableApi.findInvoicesByCustomerIds(any())).thenReturn(List.of(storeInvoice, deliveryInvoice));
-        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(java.util.Optional.of(customer));
+        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(Optional.of(customer));
         when(transactionRepository.findByCustomerIdInAndStatusIgnoreCase(any(), eq("VERIFIED")))
                 .thenReturn(List.of(receipt(storeInvoiceId, ORDER_ID, new BigDecimal("30.00"))));
         when(auditQueryApi.findByEntity(any(), any())).thenReturn(List.of());
@@ -206,7 +218,7 @@ class CustomerDebtServiceImplTest {
                 new BigDecimal("200.00"), BigDecimal.ZERO, BigDecimal.ZERO,
                 new BigDecimal("200.00"), null, "STORE");
         when(salesReceivableApi.findInvoicesByCustomerIds(any())).thenReturn(List.of(store));
-        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(java.util.Optional.of(customer));
+        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(Optional.of(customer));
         when(transactionRepository.findByCustomerIdInAndStatusIgnoreCase(any(), eq("VERIFIED")))
                 .thenReturn(List.of(receipt(INVOICE_ID, ORDER_ID, new BigDecimal("50.00"))));
         when(auditQueryApi.findByEntity(any(), any())).thenReturn(List.of());
@@ -221,7 +233,7 @@ class CustomerDebtServiceImplTest {
 
     @Test
     void creditCheckAcceptsLegacyCounterAliases() {
-        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(java.util.Optional.of(customer));
+        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(Optional.of(customer));
         when(transactionRepository.findByCustomerIdInAndStatusIgnoreCase(any(), eq("VERIFIED")))
                 .thenReturn(List.of());
         when(salesReceivableApi.findInvoicesByCustomerIds(any())).thenReturn(List.of());
@@ -241,7 +253,7 @@ class CustomerDebtServiceImplTest {
         CustomerDebtProfileDto noCreditProfile = new CustomerDebtProfileDto(CUSTOMER_ID, "KH-001", "An Khang",
                 "0903118240", "ketoan@example.com", "RETAIL", null, null,
                 List.of(), List.of(), BigDecimal.ZERO, null, "ACTIVE");
-        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(java.util.Optional.of(noCreditProfile));
+        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(Optional.of(noCreditProfile));
         when(salesReceivableApi.findOrdersByCustomerIds(any())).thenReturn(List.of(paidInSalesOnly));
         when(salesReceivableApi.findInvoicesByCustomerIds(any())).thenReturn(List.of());
         when(transactionRepository.findByCustomerIdInAndStatusIgnoreCase(any(), eq("VERIFIED"))).thenReturn(List.of());
@@ -255,8 +267,204 @@ class CustomerDebtServiceImplTest {
     }
 
     @Test
+    void draftOrderWaitingForCreditApprovalDoesNotSelfConsumeAvailableCredit() {
+        SalesOrderDebtDto draftOrder = new SalesOrderDebtDto(ORDER_ID, CUSTOMER_ID, "ORD-DRAFT", "DIRECT_SALES",
+                "DRAFT", "UNPAID", new BigDecimal("500.00"), BigDecimal.ZERO,
+                new BigDecimal("500.00"), LocalDate.now().plusDays(30));
+        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(Optional.of(customer));
+        when(salesReceivableApi.findOrdersByCustomerIds(any())).thenReturn(List.of(draftOrder));
+        when(salesReceivableApi.findInvoicesByCustomerIds(any())).thenReturn(List.of());
+        when(transactionRepository.findByCustomerIdInAndStatusIgnoreCase(any(), eq("VERIFIED"))).thenReturn(List.of());
+
+        var check = service.checkCredit(CUSTOMER_ID,
+                new CreditCheckRequest(ORDER_ID, "DIRECT_SALES", new BigDecimal("500.00")));
+
+        assertTrue(check.approved());
+        assertMoney("0.00", check.outstandingBalance());
+        assertMoney("500.00", check.availableCredit());
+    }
+
+    @Test
+    void blockLocksCustomerUpdatesStatusToBlockedAndPublishesAuditEvent() {
+        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(Optional.of(customer));
+
+        service.block(CUSTOMER_ID, new ReasonRequest("Khách chây ì nợ quá hạn trên 60 ngày"), ACTOR_ID);
+
+        verify(financeLocks).lockCreditKey("customer-credit:" + CUSTOMER_ID);
+        verify(crmApi).updateCustomerStatus(CUSTOMER_ID, "BLOCKED");
+        verify(eventPublisher).publishEvent(argThat((CustomerDebtAuditEvent event) ->
+                event != null
+                        && "CUSTOMER_BLOCKED".equals(event.action())
+                        && CUSTOMER_ID.equals(event.entityId())
+                        && ACTOR_ID.equals(event.actorId())
+                        && "ACTIVE".equals(event.oldData().get("status"))
+                        && "BLOCKED".equals(event.newData().get("status"))
+                        && "Khách chây ì nợ quá hạn trên 60 ngày".equals(event.reason())));
+    }
+
+    @Test
+    void requireCustomerOrderAllowedRejectsBlockedCustomer() {
+        CustomerDebtProfileDto blockedCustomer = new CustomerDebtProfileDto(CUSTOMER_ID, "KH-001", "An Khang",
+                "0903118240", "ketoan@example.com", "CONTRACTOR", "0312456789", "An Khang Co.",
+                List.of(), List.of(), new BigDecimal("500.00"), 30, "BLOCKED");
+        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(Optional.of(blockedCustomer));
+
+        AppException ex = assertThrows(AppException.class, () -> service.requireCustomerOrderAllowed(CUSTOMER_ID));
+        assertEquals(CustomerDebtErrorCode.CUSTOMER_BLOCKED, ex.getErrorCode());
+    }
+
+    @Test
+    void restoreLocksCustomerUpdatesStatusToActiveAndPublishesAuditEvent() {
+        CustomerDebtProfileDto blockedCustomer = new CustomerDebtProfileDto(CUSTOMER_ID, "KH-001", "An Khang",
+                "0903118240", "ketoan@example.com", "CONTRACTOR", "0312456789", "An Khang Co.",
+                List.of(), List.of(), new BigDecimal("500.00"), 30, "BLOCKED");
+        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(Optional.of(blockedCustomer));
+
+        service.restore(CUSTOMER_ID, new ReasonRequest("Khách đã thanh toán đủ toàn bộ công nợ"), ACTOR_ID);
+
+        verify(financeLocks).lockCreditKey("customer-credit:" + CUSTOMER_ID);
+        verify(crmApi).updateCustomerStatus(CUSTOMER_ID, "ACTIVE");
+        verify(eventPublisher).publishEvent(argThat((CustomerDebtAuditEvent event) ->
+                event != null
+                        && "CUSTOMER_RESTORED".equals(event.action())
+                        && CUSTOMER_ID.equals(event.entityId())
+                        && ACTOR_ID.equals(event.actorId())
+                        && "BLOCKED".equals(event.oldData().get("status"))
+                        && "ACTIVE".equals(event.newData().get("status"))
+                        && "Khách đã thanh toán đủ toàn bộ công nợ".equals(event.reason())));
+    }
+
+    @Test
+    void sendReminderDispatchesEmailWhenOutstandingPositiveAndPublishesSentAudit() {
+        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(Optional.of(customer));
+        when(transactionRepository.findByCustomerIdInAndStatusIgnoreCase(any(), eq("VERIFIED"))).thenReturn(List.of());
+        when(auditQueryApi.findByEntity(any(), any())).thenReturn(List.of());
+
+        var response = service.sendReminder(
+                CUSTOMER_ID,
+                new DebtReminderRequest(DebtReminderRequest.ReminderType.OVERDUE),
+                ACTOR_ID);
+
+        assertEquals("SENT", response.emailResult());
+        assertEquals("NOT_CONFIGURED", response.smsResult());
+        assertMoney("200.00", response.outstandingBalance());
+        verify(emailNotificationPort).send(
+                eq("ketoan@example.com"),
+                eq("[AquaSuite] Debt reminder"),
+                any(),
+                isNull(),
+                isNull());
+        verify(eventPublisher).publishEvent(argThat((CustomerDebtAuditEvent event) ->
+                event != null
+                        && "DEBT_REMINDER_SENT".equals(event.action())
+                        && CUSTOMER_ID.equals(event.entityId())
+                        && "OVERDUE".equals(event.newData().get("reminderType"))));
+    }
+
+    @Test
+    void sendReminderSkipsEmailAndAuditWhenCustomerHasPaidInFull() {
+        Transaction fullOrderReceipt = receipt(null, ORDER_ID, new BigDecimal("200.00"));
+        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(Optional.of(customer));
+        when(transactionRepository.findByCustomerIdInAndStatusIgnoreCase(any(), eq("VERIFIED")))
+                .thenReturn(List.of(fullOrderReceipt));
+        when(auditQueryApi.findByEntity(any(), any())).thenReturn(List.of());
+
+        var response = service.sendReminder(
+                CUSTOMER_ID,
+                new DebtReminderRequest(DebtReminderRequest.ReminderType.UPCOMING),
+                ACTOR_ID);
+
+        assertEquals("SKIPPED", response.emailResult());
+        assertEquals("NOT_CONFIGURED", response.smsResult());
+        assertMoney("0.00", response.outstandingBalance());
+        verify(emailNotificationPort, never()).send(any(), any(), any(), any(), any());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    void saveCallResultPublishesAuditEventWithPromisedDateAndNote() {
+        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(Optional.of(customer));
+        LocalDate promisedDate = LocalDate.of(2026, 12, 5);
+        DebtCallResultRequest request = new DebtCallResultRequest(
+                DebtCallResultRequest.CallResult.PROMISED_TO_PAY,
+                promisedDate,
+                "Khách hẹn chuyển khoản thứ Sáu");
+
+        service.saveCallResult(CUSTOMER_ID, request, ACTOR_ID);
+
+        verify(eventPublisher).publishEvent(argThat((CustomerDebtAuditEvent event) ->
+                event != null
+                        && "DEBT_CALL_RECORDED".equals(event.action())
+                        && CUSTOMER_ID.equals(event.entityId())
+                        && ACTOR_ID.equals(event.actorId())
+                        && "PHONE_CALL".equals(event.newData().get("channel"))
+                        && "PROMISED_TO_PAY".equals(event.newData().get("callResult"))
+                        && "2026-12-05".equals(event.newData().get("promisedPaymentDate"))
+                        && "Khách hẹn chuyển khoản thứ Sáu".equals(event.reason())));
+    }
+
+    @Test
+    void exportStatementGeneratesPdfAndPublishesExportAuditEvent() {
+        byte[] pdfBytes = new byte[] {'%', 'P', 'D', 'F', '-', '1'};
+        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(Optional.of(customer));
+        when(transactionRepository.findByCustomerIdInAndStatusIgnoreCase(any(), eq("VERIFIED"))).thenReturn(List.of());
+        when(auditQueryApi.findByEntity(any(), any())).thenReturn(List.of());
+        when(statementPdfService.generate(any()))
+                .thenReturn(new StatementDocument("sao-ke-cong-no-KH-001.pdf", pdfBytes));
+
+        StatementDocument exported = service.exportStatement(CUSTOMER_ID, ACTOR_ID);
+
+        assertEquals("sao-ke-cong-no-KH-001.pdf", exported.fileName());
+        assertArrayEquals(pdfBytes, exported.bytes());
+        verify(eventPublisher).publishEvent(argThat((CustomerDebtAuditEvent event) ->
+                event != null
+                        && "STATEMENT_EXPORTED".equals(event.action())
+                        && CUSTOMER_ID.equals(event.entityId())
+                        && "sao-ke-cong-no-KH-001.pdf".equals(event.newData().get("fileName"))));
+    }
+
+    @Test
+    void emailStatementSendsPdfAttachmentAndPublishesSentAuditEvent() {
+        byte[] pdfBytes = new byte[] {'%', 'P', 'D', 'F'};
+        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(Optional.of(customer));
+        when(transactionRepository.findByCustomerIdInAndStatusIgnoreCase(any(), eq("VERIFIED"))).thenReturn(List.of());
+        when(auditQueryApi.findByEntity(any(), any())).thenReturn(List.of());
+        when(statementPdfService.generate(any()))
+                .thenReturn(new StatementDocument("sao-ke-cong-no-KH-001.pdf", pdfBytes));
+
+        var result = service.emailStatement(CUSTOMER_ID, ACTOR_ID);
+
+        assertEquals("SENT", result.emailResult());
+        verify(emailNotificationPort).send(
+                eq("ketoan@example.com"),
+                eq("[AquaSuite] Statement of account"),
+                any(),
+                eq(pdfBytes),
+                eq("sao-ke-cong-no-KH-001.pdf"));
+        verify(eventPublisher).publishEvent(argThat((CustomerDebtAuditEvent event) ->
+                event != null
+                        && "STATEMENT_EMAILED".equals(event.action())
+                        && CUSTOMER_ID.equals(event.entityId())
+                        && "sao-ke-cong-no-KH-001.pdf".equals(event.newData().get("fileName"))));
+    }
+
+    @Test
+    void emailStatementWithoutCustomerEmailThrowsInvalidCreditRequest() {
+        CustomerDebtProfileDto customerWithoutEmail = new CustomerDebtProfileDto(CUSTOMER_ID, "KH-001", "An Khang",
+                "0903118240", " ", "CONTRACTOR", "0312456789", "An Khang Co.",
+                List.of(), List.of(), new BigDecimal("500.00"), 30, "ACTIVE");
+        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(Optional.of(customerWithoutEmail));
+        when(transactionRepository.findByCustomerIdInAndStatusIgnoreCase(any(), eq("VERIFIED"))).thenReturn(List.of());
+        when(auditQueryApi.findByEntity(any(), any())).thenReturn(List.of());
+
+        AppException ex = assertThrows(AppException.class, () -> service.emailStatement(CUSTOMER_ID, ACTOR_ID));
+        assertEquals(CustomerDebtErrorCode.INVALID_CREDIT_REQUEST, ex.getErrorCode());
+        verify(statementPdfService, never()).generate(any());
+    }
+
+    @Test
     void statementEmailFailureReturnsARecoverableResultAndPublishesAuditEvent() {
-        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(java.util.Optional.of(customer));
+        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(Optional.of(customer));
         when(transactionRepository.findByCustomerIdInAndStatusIgnoreCase(any(), eq("VERIFIED"))).thenReturn(List.of());
         when(auditQueryApi.findByEntity(any(), any())).thenReturn(List.of());
         when(statementPdfService.generate(any())).thenReturn(new StatementDocument("statement-KH-001.pdf", new byte[] {1}));
@@ -267,7 +475,7 @@ class CustomerDebtServiceImplTest {
 
         assertEquals("FAILED", result.emailResult());
         verify(eventPublisher).publishEvent(argThat((CustomerDebtAuditEvent event) ->
-                "STATEMENT_EMAIL_FAILED".equals(event.action()) && CUSTOMER_ID.equals(event.entityId())));
+                event != null && "STATEMENT_EMAIL_FAILED".equals(event.action()) && CUSTOMER_ID.equals(event.entityId())));
     }
 
     private Transaction receipt(UUID invoiceId, UUID orderId, BigDecimal amount) {
