@@ -4,6 +4,7 @@ import com.aquasuite.ims.module.sales.internal.payload.request.PlaceOnlineOrderR
 import com.aquasuite.ims.module.sales.internal.payload.response.OnlineCheckoutPreviewResponse;
 import com.aquasuite.ims.module.sales.internal.payload.response.OnlineOrderCheckoutResponse;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -14,6 +15,8 @@ public interface OnlineCheckoutService {
     OnlineCheckoutPreviewResponse getCheckoutPreview();
 
     OnlineOrderCheckoutResponse placeOnlineOrder(PlaceOnlineOrderRequest request);
+
+    List<OnlineOrderCheckoutResponse> getMyOnlineOrders();
 
     OnlineOrderCheckoutResponse getOnlineOrderDetail(UUID orderId);
 

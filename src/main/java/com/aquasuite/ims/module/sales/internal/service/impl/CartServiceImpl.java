@@ -11,6 +11,7 @@ import com.aquasuite.ims.module.sales.internal.entity.CartItem;
 import com.aquasuite.ims.module.sales.internal.error.SalesErrorCode;
 import com.aquasuite.ims.module.sales.internal.mapper.CartMapper;
 import com.aquasuite.ims.module.sales.internal.payload.request.AddCartItemRequest;
+import com.aquasuite.ims.module.sales.internal.payload.request.MergeCartItemsRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.UpdateCartItemQuantityRequest;
 import com.aquasuite.ims.module.sales.internal.payload.response.CartItemResponse;
 import com.aquasuite.ims.module.sales.internal.payload.response.CartResponse;
@@ -19,6 +20,7 @@ import com.aquasuite.ims.module.sales.internal.service.CartService;
 import com.aquasuite.ims.share.exception.AppException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +28,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -68,32 +71,70 @@ public class CartServiceImpl implements CartService {
         CatalogSkuSummaryDto skuSummary = catalogApi.getSkuSummary(variantId)
                 .orElseThrow(() -> new AppException(SalesErrorCode.SKU_NOT_FOUND, variantId));
 
-        if (!ACTIVE_STATUS.equalsIgnoreCase(skuSummary.status())) {
-            throw new AppException(SalesErrorCode.SKU_NOT_ACTIVE, skuSummary.sku());
-        }
+        ensureSkuActive(skuSummary);
 
-        Optional<CartItem> existingOpt = cartItemRepository.findByCustomerIdAndVariantId(customerId, variantId);
-        BigDecimal targetQuantity = existingOpt
-                .map(existing -> existing.getQuantity().add(request.getQuantity()))
-                .orElse(request.getQuantity());
-
-        validateStockAvailability(variantId, skuSummary.sku(), targetQuantity);
-
-        BigDecimal currentPrice = defaultAmount(skuSummary.sellingPrice());
-
-        CartItem cartItem = existingOpt.orElseGet(() -> CartItem.builder()
-                .customerId(customerId)
-                .variantId(variantId)
-                .quantity(BigDecimal.ZERO)
-                .unitPrice(currentPrice)
-                .build());
-
-        cartItem.setQuantity(targetQuantity);
-        cartItem.setUnitPrice(currentPrice);
-        cartItemRepository.save(cartItem);
+        BigDecimal targetQuantity = saveOrAccumulateCartItem(customerId, skuSummary, request.getQuantity());
 
         log.info("Updated cart item for customerId={}, variantId={}, quantity={}",
                 customerId, variantId, targetQuantity);
+        return buildCartResponse(customerId);
+    }
+
+    @Override
+    @Transactional
+    public CartResponse mergeGuestItems(MergeCartItemsRequest request) {
+        UUID customerId = resolveCurrentCustomerId();
+        Map<UUID, BigDecimal> aggregated = new LinkedHashMap<>();
+        for (AddCartItemRequest reqItem : request.getItems()) {
+            if (reqItem == null || reqItem.getVariantId() == null || reqItem.getQuantity() == null
+                    || reqItem.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            aggregated.merge(reqItem.getVariantId(), reqItem.getQuantity(), BigDecimal::add);
+        }
+
+        if (aggregated.isEmpty()) {
+            return buildCartResponse(customerId);
+        }
+
+        Map<UUID, CatalogSkuSummaryDto> skuMap = catalogApi.getSkuSummaries(aggregated.keySet());
+        Map<UUID, StockSummaryDto> stockMap = inventoryApi.getStockSummaries(aggregated.keySet());
+
+        for (Map.Entry<UUID, BigDecimal> entry : aggregated.entrySet()) {
+            UUID variantId = entry.getKey();
+            CatalogSkuSummaryDto skuSummary = skuMap.get(variantId);
+            if (!isSkuAndProductActive(skuSummary)) {
+                continue;
+            }
+
+            BigDecimal availableQty = Optional.ofNullable(stockMap.get(variantId))
+                    .map(StockSummaryDto::availableQty)
+                    .orElse(BigDecimal.ZERO);
+            if (availableQty.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+
+            Optional<CartItem> existingOpt = cartItemRepository.findByCustomerIdAndVariantId(customerId, variantId);
+            BigDecimal currentQty = existingOpt.map(CartItem::getQuantity).orElse(BigDecimal.ZERO);
+            BigDecimal desiredTotal = currentQty.add(entry.getValue());
+            BigDecimal cappedQty = desiredTotal.min(availableQty);
+            if (cappedQty.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+
+            BigDecimal currentPrice = defaultAmount(skuSummary.sellingPrice());
+            CartItem cartItem = existingOpt.orElseGet(() -> CartItem.builder()
+                    .customerId(customerId)
+                    .variantId(variantId)
+                    .quantity(BigDecimal.ZERO)
+                    .unitPrice(currentPrice)
+                    .build());
+            cartItem.setQuantity(cappedQty);
+            cartItem.setUnitPrice(currentPrice);
+            cartItemRepository.save(cartItem);
+        }
+
+        log.info("Merged {} distinct guest cart items for customerId={}", aggregated.size(), customerId);
         return buildCartResponse(customerId);
     }
 
@@ -110,9 +151,7 @@ public class CartServiceImpl implements CartService {
         CatalogSkuSummaryDto skuSummary = catalogApi.getSkuSummary(variantId)
                 .orElseThrow(() -> new AppException(SalesErrorCode.SKU_NOT_FOUND, variantId));
 
-        if (!ACTIVE_STATUS.equalsIgnoreCase(skuSummary.status())) {
-            throw new AppException(SalesErrorCode.SKU_NOT_ACTIVE, skuSummary.sku());
-        }
+        ensureSkuActive(skuSummary);
 
         validateStockAvailability(variantId, skuSummary.sku(), request.getQuantity());
 
@@ -160,12 +199,69 @@ public class CartServiceImpl implements CartService {
         }
     }
 
+    private BigDecimal saveOrAccumulateCartItem(
+            UUID customerId,
+            CatalogSkuSummaryDto skuSummary,
+            BigDecimal addQuantity
+    ) {
+        UUID variantId = skuSummary.variantId();
+        BigDecimal currentPrice = defaultAmount(skuSummary.sellingPrice());
+
+        Optional<CartItem> existingOpt = cartItemRepository.findByCustomerIdAndVariantId(customerId, variantId);
+        BigDecimal targetQuantity = existingOpt
+                .map(existing -> existing.getQuantity().add(addQuantity))
+                .orElse(addQuantity);
+
+        validateStockAvailability(variantId, skuSummary.sku(), targetQuantity);
+
+        CartItem cartItem = existingOpt.orElseGet(() -> CartItem.builder()
+                .customerId(customerId)
+                .variantId(variantId)
+                .quantity(BigDecimal.ZERO)
+                .unitPrice(currentPrice)
+                .build());
+        cartItem.setQuantity(targetQuantity);
+        cartItem.setUnitPrice(currentPrice);
+
+        try {
+            cartItemRepository.save(cartItem);
+            return targetQuantity;
+        } catch (DataIntegrityViolationException ex) {
+            // Xử lý an toàn khi 2 request song song chèn cùng (customer_id, variant_id)
+            CartItem concurrentExisting = cartItemRepository.findByCustomerIdAndVariantId(customerId, variantId)
+                    .orElseThrow(() -> ex);
+            BigDecimal retryTarget = concurrentExisting.getQuantity().add(addQuantity);
+            validateStockAvailability(variantId, skuSummary.sku(), retryTarget);
+            concurrentExisting.setQuantity(retryTarget);
+            concurrentExisting.setUnitPrice(currentPrice);
+            cartItemRepository.save(concurrentExisting);
+            return retryTarget;
+        }
+    }
+
+    private void ensureSkuActive(CatalogSkuSummaryDto skuSummary) {
+        if (!isSkuAndProductActive(skuSummary)) {
+            throw new AppException(SalesErrorCode.SKU_NOT_ACTIVE,
+                    skuSummary != null ? skuSummary.sku() : "");
+        }
+    }
+
+    private boolean isSkuAndProductActive(CatalogSkuSummaryDto skuSummary) {
+        if (skuSummary == null || !ACTIVE_STATUS.equalsIgnoreCase(skuSummary.status())) {
+            return false;
+        }
+        return skuSummary.productStatus() == null || ACTIVE_STATUS.equalsIgnoreCase(skuSummary.productStatus());
+    }
+
     private void validateStockAvailability(UUID variantId, String sku, BigDecimal requiredQty) {
         BigDecimal availableQty = inventoryApi.getStockSummary(variantId)
                 .map(StockSummaryDto::availableQty)
                 .orElse(BigDecimal.ZERO);
         if (availableQty.compareTo(requiredQty) < 0) {
-            throw new AppException(SalesErrorCode.INSUFFICIENT_STOCK, sku);
+            throw new AppException(
+                    SalesErrorCode.INSUFFICIENT_STOCK,
+                    sku + " (tồn khả dụng: " + availableQty.stripTrailingZeros().toPlainString() + ")"
+            );
         }
     }
 
@@ -202,6 +298,7 @@ public class CartServiceImpl implements CartService {
             String skuCode = sku != null ? sku.sku() : "N/A";
             String productName = sku != null ? sku.productName() : "Sản phẩm không còn tồn tại";
             String variantName = sku != null ? sku.variantName() : "";
+            String imageUrl = sku != null ? sku.imageUrl() : null;
             String unit = sku != null ? sku.unit() : "";
             String variantStatus = sku != null && sku.status() != null ? sku.status() : "INACTIVE";
 
@@ -216,7 +313,7 @@ public class CartServiceImpl implements CartService {
                     ? stock.availableQty()
                     : BigDecimal.ZERO;
 
-            boolean isVariantActive = ACTIVE_STATUS.equalsIgnoreCase(variantStatus);
+            boolean isVariantActive = isSkuAndProductActive(sku);
             boolean inStock = isVariantActive && availableQty.compareTo(quantity) >= 0;
             boolean priceChanged = currentSellingPrice.compareTo(storedUnitPrice) != 0;
 
@@ -233,11 +330,12 @@ public class CartServiceImpl implements CartService {
                     skuCode,
                     productName,
                     variantName,
+                    imageUrl,
                     unit,
                     currentSellingPrice,
                     lineTotal,
                     availableQty,
-                    variantStatus,
+                    isVariantActive ? variantStatus : "INACTIVE",
                     inStock,
                     priceChanged
             ));

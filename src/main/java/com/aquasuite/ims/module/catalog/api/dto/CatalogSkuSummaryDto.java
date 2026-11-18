@@ -16,5 +16,7 @@ public record CatalogSkuSummaryDto(
         BigDecimal sellingPrice,
         BigDecimal costPrice,
         Boolean serialTracking,
-        String status
+        String status,
+        String productStatus,
+        String imageUrl
 ) {}

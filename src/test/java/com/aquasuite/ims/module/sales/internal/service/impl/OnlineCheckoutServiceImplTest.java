@@ -468,4 +468,46 @@ class OnlineCheckoutServiceImplTest {
         assertThat(res.getPayosPayment().getPaymentLinkId()).isEqualTo("new-link-002");
         assertThat(res.getPayosPayment().getStatus()).isEqualTo("PENDING");
     }
+
+    @Test
+    void getMyOnlineOrders_returnsOrdersWithItemsAndPayosPayment() {
+        mockAuthenticatedCustomer();
+        UUID orderId = UUID.randomUUID();
+        Order order = Order.builder()
+                .orderId(orderId)
+                .orderCode("SO-20261118-0099")
+                .customerId(customerId)
+                .orderChannel(OrderChannel.ONLINE.name())
+                .orderType(OrderType.RETAIL.name())
+                .orderStatus(OrderStatus.PENDING_CONFIRMATION.name())
+                .paymentStatus(PaymentStatus.UNPAID.name())
+                .paymentMethod(PaymentMethod.BANK_TRANSFER.name())
+                .subtotal(new BigDecimal("4000"))
+                .shippingFee(BigDecimal.ZERO)
+                .totalAmount(new BigDecimal("4000"))
+                .deliveryAddress("123 Lê Lợi")
+                .createdAt(OffsetDateTime.now())
+                .build();
+        OrderItem item = OrderItem.builder()
+                .orderItemId(UUID.randomUUID())
+                .orderId(orderId)
+                .variantId(variantId)
+                .sku("PK-GIOANG-SI21")
+                .productName("Gioăng silicon")
+                .quantity(new BigDecimal("2"))
+                .unitPrice(new BigDecimal("2000"))
+                .lineTotal(new BigDecimal("4000"))
+                .build();
+
+        when(orderRepository.findByCustomerIdAndOrderChannelOrderByCreatedAtDesc(
+                customerId, OrderChannel.ONLINE.name())).thenReturn(List.of(order));
+        when(orderItemRepository.findByOrderIdIn(List.of(orderId))).thenReturn(List.of(item));
+        when(onlinePayosPaymentRepository.findByOrderIdIn(List.of(orderId))).thenReturn(List.of());
+
+        List<OnlineOrderCheckoutResponse> result = onlineCheckoutService.getMyOnlineOrders();
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getOrderCode()).isEqualTo("SO-20261118-0099");
+        assertThat(result.get(0).getItems()).hasSize(1);
+    }
 }

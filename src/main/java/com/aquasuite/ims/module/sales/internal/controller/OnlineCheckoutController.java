@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -26,6 +27,12 @@ import java.util.UUID;
 public class OnlineCheckoutController {
 
     private final OnlineCheckoutService onlineCheckoutService;
+
+    @GetMapping
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ApiResponse<List<OnlineOrderCheckoutResponse>> getMyOnlineOrders() {
+        return ApiResponse.ok(onlineCheckoutService.getMyOnlineOrders());
+    }
 
     @GetMapping("/checkout-preview")
     @PreAuthorize("hasRole('CUSTOMER')")

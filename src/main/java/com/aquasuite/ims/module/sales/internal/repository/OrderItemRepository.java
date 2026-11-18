@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -16,6 +17,8 @@ import java.util.UUID;
 public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
 
     List<OrderItem> findByOrderId(UUID orderId);
+
+    List<OrderItem> findByOrderIdIn(Collection<UUID> orderIds);
 
     void deleteByOrderId(UUID orderId);
 

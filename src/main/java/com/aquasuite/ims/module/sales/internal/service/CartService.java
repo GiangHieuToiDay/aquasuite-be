@@ -1,6 +1,7 @@
 package com.aquasuite.ims.module.sales.internal.service;
 
 import com.aquasuite.ims.module.sales.internal.payload.request.AddCartItemRequest;
+import com.aquasuite.ims.module.sales.internal.payload.request.MergeCartItemsRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.UpdateCartItemQuantityRequest;
 import com.aquasuite.ims.module.sales.internal.payload.response.CartResponse;
 
@@ -14,6 +15,8 @@ public interface CartService {
     CartResponse getCurrentCart();
 
     CartResponse addItem(AddCartItemRequest request);
+
+    CartResponse mergeGuestItems(MergeCartItemsRequest request);
 
     CartResponse updateItemQuantity(UUID cartItemId, UpdateCartItemQuantityRequest request);
 

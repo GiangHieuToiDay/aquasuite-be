@@ -1,0 +1,383 @@
+ 	 	
+
+
+
+
+
+
+
+
+CAPSTONE PROJECT REPORT
+Report 1 - Project Introduction
+
+
+
+
+
+
+
+
+
+- Hanoi, Aug 2026 -
+Table of Contents
+I. Record of Changes	3
+II. Definition and Acronyms	4
+III. Project Introduction	4
+1. Overview	4
+1.1 Project Information	4
+1.2 Project Purpose	4
+1.3 Project Stakeholders	4
+2. Product Background	4
+3. Existing Solutions	5
+1.  Excel combines record-keeping and messaging.	5
+2. KiotViet	5
+3. Sapo	6
+4. Section Summary	6
+4. Proposed Solution	6
+5. Project Scope & Limitations	7
+5.1 Major Features	7
+5.2 Limitations & Exclusions	8
+
+
+Change Log
+Date
+A*
+M, D
+In charge
+Change Description
+17/09/2026
+A*
+Nguyen Quang Hao
+Updated information in a Definition and Acronyms, Project Information
+17/09/2026
+A*
+Nguyen Ba Lam
+Updated initial information and revised related project details and existing solutions 
+17/09/2026
+A*
+Giang Trung Hieu
+Updated initial information about project purpose, product background
+17/09/2026
+A*
+Phạm Văn Nam
+Updated initial information about existing solutions (analysis and GAP) and proposed solution (product overview and purpose) 
+19/09/2026
+A*
+Giang Trung Hieu
+Updated initial information about major Features
+19/09/2026
+A*
+Nguyen Ba Lam
+Updated initial information about major Features
+19/09/2026
+A*
+Phạm Văn Nam 
+Updated initial information about Limitations (Project Scope & Limitations) 
+19/09/2026
+A*
+Nguyen Quang Hao
+Updated Project Background information and Updated initial information about major Features
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+*A - Added M - Modified D - Deleted
+
+
+Definition and Acronyms 
+
+Acronym
+Definition
+AQS
+ AquaSuite
+    
+
+
+
+I. Project Overview
+1. Project Information
+English name: AquaSuite - Integrated E-commerce and Store Operations Management Platform for Sanitary Ware Retailers.
+Vietnamese name: Nền tảng tích hợp bán hàng trực tuyến và vận hành cửa hàng dành cho các nhà bán lẻ thiết bị vệ sinh.
+Project code: AQS
+Group name: SEP490-G118
+Software type: Web Application
+
+2. Project Purpose
+
+The purpose of this project is to develop the AquaSuite (AQS) system for Thám Vân Home, a sanitary ware retail store. AquaSuite is designed as an online sales and store management platform for sanitary ware retailers. It integrates core business operations such as product, order, inventory, and warranty management. The system also supports product consultation and selection based on individual customer needs. AQS aims to establish a seamless end-to-end operational process, reduce repetitive data entry and manual reconciliation, make business operations more convenient for users, and ensure a smooth customer service process. This document defines the purpose and direction of the project, serving as a basis for alignment among stakeholders throughout the analysis, design, and implementation of the AquaSuite system. 
+
+3. Project Stakeholders
+Full Name
+Role
+Email
+  Mobile
+Bui Thanh Hoa
+Lecturer
+ hoabt13@fe.edu.vn
+ 
+Phạm Văn Nam
+Member
+nampvhe180988@fpt.edu.vn
+0868202662
+Giang Trung Hieu
+Member
+hieugthe181161@fpt.edu.vn
+0966875204
+Nguyen Ba Lam
+Member
+lamnbhe181873@fpt.edu.vn
+0344888204
+Nguyen Quang Hao
+Member
+haonqhe181952@fpt.edu.vn
+0369335908
+Nguyen Ba Quang
+Member
+quangnbhe180069@fpt.edu.vn
+097406768 
+Thám Vân Home
+Business
+Owner 
+
+
+
+
+
+
+
+
+II. Product Background.
+Thám Vân Home is a sanitary ware retail store located in Thuận Thành, Bắc Ninh, and has been operating since 2019. The store provides toilets, washbasins, faucets, showers, and accessories to two main customer groups: individual customers and customers purchasing equipment for construction projects. The store does not distribute products to resellers or agents. Currently, the store operates one retail location, one warehouse, and has eight staff members responsible for sales, inventory management, and daily operations. Its product catalog contains approximately 595 SKUs across 10 product categories, with a single product model potentially having multiple variants in terms of size, color, or installation specifications.
+Current operational information was collected through an on-site survey at the store, discussions with the store owner, Mr. Nguyễn Bá Thám, and cross-referencing survey forms, Google Meet meeting records, direct discussions, and the Excel files currently used in daily operations.
+Current Operational Problems
+Management activities at Thám Vân Home currently rely heavily on Excel, physical records, PDF files, and messages. Data is scattered across multiple sources, resulting in the following key difficulties:
+Product Search and SKU Identification: Staff primarily search for and record product codes using Excel. Among 100 orders reviewed from September 23, 2026, to September 28, 2026, 11 orders contained incorrect SKUs or variants (11%).
+Consultation and Online Inquiry Handling: The store receives an average of 15–18 online consultation inquiries per week, with approximately 32% converting into orders. Selecting suitable products based on budget, dimensions, space, and technical requirements still relies heavily on staff experience.
+Coordination Between Sales and Warehouse: Order and inventory information is reconciled through physical records, Excel, and messages. Among 40 orders reviewed, 5 had delayed or inconsistent updates between the sales and warehouse teams (12.5%). The history of price changes, order modifications or cancellations, and inventory adjustments is also not maintained in a centralized data source.
+Report Consolidation and Retrieval: Sales data, payments received, purchase prices, and inventory information are stored across multiple sources. The store owner spends an average of approximately 45 minutes per week consolidating and reconciling revenue and inventory reports. When the owner is not present at the store, accessing operational data still requires communication with staff.
+Warranty Information Retrieval: Purchase and warranty information is not linked. Among 12 warranty requests surveyed, 3 cases were missing invoices or warranty cards (25%).
+Construction Orders and Multi-Delivery Tracking: Quotations, changes to project items, and delivery information are stored across Excel, PDF files, Zalo, and delivery notes. Among 12 delivery batches reviewed, 2 involved missing items or incorrect product models (16.7%). This indicates the need to link approved quotations with orders, delivery batches, and change history.
+Rationale for Developing AquaSuite
+Based on the issues identified above, AquaSuite is proposed as a centralized management system for Thám Vân Home to connect data and processes that are currently managed separately. The system aims to support:
+Centralized management of product and SKU/variant information;
+Synchronization of order and inventory information between sales and warehouse operations;
+Management of customers, income, expenses, and outstanding balances;
+Storage and retrieval of purchase information for warranty purposes;
+Management of quotations, construction orders, and delivery batches;
+Maintenance of data change history;
+Consolidation and retrieval of operational reports.
+By integrating these activities into a unified system, AquaSuite aims to reduce manual reconciliation, minimize data inconsistencies between departments, improve information traceability, and enable the store owner to monitor operations more conveniently.
+
+
+
+III. Existing Solutions
+
+1.  Excel  kết hợp ghi chép và tin nhắn
+This is how Thám Vân Home currently operates - using Excel to record products, orders, and inventory, while using Zalo, messages, and phone calls to communicate between sales staff, warehouse staff, and customers. 
+Website / Link
+Excel
+Target Users
+Store owners and staff who create their own templates based on personal experience, without following a standardized process. 
+Core Features
+Tabular data storage, calculations, filtering, information summarization, and shared viewing/editing permissions. 
+Strengths
+Low cost, flexible customization of columns and templates, and no training required because staff are already familiar with Excel. 
+Weaknesses
+With approximately 595 products across 10 product categories, searching with Ctrl+F in Excel does not distinguish between variants with similar specifications. This contributes to the product code error rate of 11% among the 100 orders reviewed, as reported in the Background section..
+Excel does not provide a built-in inventory management workflow specifically designed for sales, such as checking the quantity available for sale, reserving stock for orders being processed, and confirming stock deductions when orders are completed. When multiple staff members process orders, inventory updates depend heavily on individual actions and may result in discrepancies between recorded quantities and actual stock. 
+Excel provides a change history, but tracing business actions remains inconvenient. When errors occur, the store has difficulty quickly identifying who changed a price, adjusted stock, or cancelled an order, and the reason for the change. 
+Customer communications, including product consultations, quotations, order confirmations, and warranty confirmations, are often recorded through Zalo, phone calls, text messages, or other channels, separately from the data stored in Excel. To review a previous order, staff must retrieve both the Excel records and the relevant message history. 
+GAP for this project
+GAP-01: Excel and messaging channels can meet basic management needs, but information about products, inventory, customers, orders, and customer communications remains scattered across different sources. Staff must therefore check and reconcile information manually, increasing the risk of errors when multiple orders are processed simultaneously and the time required to retrieve an order’s history. AquaSuite brings product management, inventory, quotations, orders, deliveries, and warranties together in a unified system, helping the store manage and retrieve information more easily. 
+
+
+2. KiotViet
+KiotViet is sales management software provided by KiotViet, serving various business sectors, including building materials. In addition to in-store management, the provider offers solutions for e-commerce websites, online channel synchronization, and delivery. 
+Website / Link
+KiotViet
+Target Users
+Store owners, sales staff, and managers of wholesale businesses, retail stores, online shops, and store chains. 
+Core Features
+Product management, sales, inventory, receivables and payables, supplier management, reporting, and online sales.  
+Strengths
+Easy to use, supports multiple business sectors, and accommodates both in-store and online sales.  
+Weaknesses
+KiotViet does not yet support product consultation based on each customer’s profile and specific requirements, such as budget, intended use, available space, and construction project characteristics. Customers need to contact staff and wait for direct consultation rather than receive suitable product recommendations based on the information they have provided. 
+GAP for this project
+GAP-02: KiotViet is general-purpose sales management software that does not specifically focus on product consultation and recommendations based on each customer’s requirements, budget, and individual circumstances. 
+
+
+3.  Sapo
+Sapo is a sales management platform provided by Sapo that supports business operations across multiple channels. It offers tools for sales management, inventory management, and reporting, enabling stores to monitor their business operations centrally.  Nguồn: Sapo
+Website / Link
+Sapo
+Target Users
+Retailers and businesses operating across multiple sales channels. 
+Core Features
+Sales management, inventory updates, business reporting, and data synchronization across multiple devices.
+Strengths
+Addresses a wide range of retail management needs and supports centralized data monitoring. It is a solution worth considering for connecting sales and operational activities in AQS. 
+Weaknesses
+Limitations in construction project order management: Sapo is suitable for retail operations and standard order management, but does not specifically focus on managing a single order or project involving multiple shipments aligned with construction progress, while centrally tracking delivered quantities, remaining quantities to be delivered, and the history of each shipment .
+GAP for this project
+GAP-03: Sapo is a multichannel sales management platform, but is not specifically tailored to selling sanitary equipment for construction projects, particularly linking quotations to multiple shipments and centrally tracking delivered quantities, remaining quantities to be delivered, and delivery progress within a single business record. 
+
+
+
+4. Section Summary
+Existing solutions address part of the store’s needs but still leave three main gaps. GAP-01: The management approach using Excel combined with handwritten records and messaging is low-cost and flexible, but product, inventory, customer, order, and customer communication data are stored across multiple places. This requires staff to cross-check information manually, increasing the risk of product code errors and inventory discrepancies when handling multiple orders simultaneously. GAP-02: KiotViet is a general-purpose sales management software that supports product, inventory, debt, and reporting management, but within the scope of the survey, it does not specifically focus on consulting and recommending products based on each customer’s budget, space, and project characteristics. GAP-03: Sapo supports omnichannel sales and centralized reporting management, but within the scope of the survey, it does not clearly demonstrate a dedicated workflow for project orders involving multiple delivery phases, particularly the ability to link approved quotations to individual deliveries and centrally track the quantities already delivered and the quantities remaining to be delivered.
+The above gaps are not intended to imply that KiotViet or Sapo cannot meet the corresponding needs of Thám Vân Home; the suitability of each solution should be further validated based on actual usage and requirements. Based on the identified needs and gaps, AquaSuite aims to establish a unified management process covering products, inventory, consultation, quotations, orders, delivery, and warranty services, with the final functional scope to be determined based on the store’s actual needs and the gaps that are confirmed through further validation.
+IV. Proposed Solution
+AquaSuite is a management and sales platform for sanitary equipment, specifically designed for a store model that combines in-store sales with an expanding online channel. It centralizes product, inventory, order, and warranty data on a single platform instead of having them scattered across paper records and spreadsheets. The system provides each user group-customers, sales staff, warehouse staff, and the store owner-with a dedicated interface tailored to their roles and responsibilities. Customers can browse products on their own, receive recommendations based on their space, style, and budget, and track their order status; sales staff can identify the correct product codes and check real-time inventory before preparing quotations; warehouse staff receive confirmed order information for preparation and handover; and the store owner has a timely, consolidated view of revenue, inventory, and orders in progress to support operational decision-making.
+For sales staff, the most direct benefit is eliminating the need to look up information across multiple sources: prices, inventory levels, and product details are available within the same system and updated whenever changes occur, helping reduce incorrect quotations and orders that exceed the available stock. For warehouse staff, orders are transferred with complete and consistent information, reducing the risk of preparing products based on outdated data when customers change their selection or cancel an order. For customers, the system provides a seamless shopping experience across both in-store and online channels, while storing warranty information for each product ensures that their warranty eligibility can still be verified even if the paper invoice is lost. For the store owner, automatically consolidated data reduces the time required for cross-checking and helps identify issues such as abnormal inventory levels or delayed order processing at an early stage.
+The store is currently expanding its online sales channel alongside in-store sales. If records, Excel files, and messages continue to be managed separately, the risk of data inconsistencies will increase as the number of orders grows. Therefore, a shared system is needed to manage all information and operations in one place. Since the system is specifically designed for a sanitary equipment store, it can also support business processes such as project-based quotations, multi-phase deliveries, and serial-number-based warranty management, which may not be fully supported by general-purpose sales management software.
+V. Project Scope & Limitations
+
+1. Major Features
+
+
+ID
+Feature Name
+Description
+Addressed Gaps
+FE-01
+Account and Access Control Management 
+The system supports customer registration, login/logout, password change and reset, personal profile management, and delivery address management. Authorized users can create, update, lock/unlock staff and customer accounts, assign or change staff roles, create or deactivate roles, and search/filter employee accounts by role and status. Access to system functions and data is controlled according to the assigned role so that each actor can only access permitted functions and information. 
+GAP-01
+FE-02
+Audit Trail and Activity History 
+The system automatically records audit logs for important operations such as product price changes, inventory adjustments, order modifications/cancellations, transaction adjustments, and other sensitive actions. Each log records the user, action, time, affected object, and relevant before/after values. Authorized users can search, filter, and view detailed audit records to support traceability and accountability. 
+GAP-01
+FE-03
+Product, Category and Variant Management 
+The system centrally manages product categories, products, brands/manufacturers, units of measure, product images, and product variants. Each variant can have its own SKU, price, color, size, technical specifications, images, warranty policy, and serial-tracking configuration. Users can create, update, activate/deactivate, soft-delete, search/filter, import, and export product information. The centralized catalog becomes the common product data source for in-store sales, online sales, quotations, inventory, warranty, and AI consultation. 
+GAP-01
+FE-04
+AI-Powered Product Consultation and Recommendation 
+Customers can interact with the AI Advisor to describe their needs, including budget, bathroom space, preferred style, intended use, dimensions, installation conditions, and technical requirements. Based on the product data available in AquaSuite, the AI recommends suitable products and allows customers to continue browsing or submit a request for direct consultation from Sales Staff. Customers can review their AI consultation history and track submitted consultation requests, while Sales Staff can receive, process, and convert consultation requests into quotations or orders. 
+GAP-02
+FE-05
+Online Shopping and Order Tracking 
+Customers can browse and search products, view product details, add variants to the cart, manage quantities, select delivery addresses, and place online orders. Supported payment scenarios include COD and bank transfer/VietQR. Customers can view their order list, monitor order, payment, and delivery progress, cancel orders that have not yet been confirmed, and submit cancellation/change requests for confirmed orders. 
+GAP-01
+FE-06
+Sales Order, Payment, Quotation Management 
+Sales Staff can create in-store orders, receive and confirm online orders, edit or cancel orders with reasons, apply discounts and promotions, print sales invoices, and manage project quotations. Accepted quotations can be converted into Sales Orders and later fulfilled through multiple delivery batches. The system supports full payments, partial payments, and debt payments, while automatically maintaining payment status as Unpaid, Partially Paid, or Paid based on the amount received. Payments that require reconciliation can be verified before being recognized. The module also supports returns, refunds, customer debt reminders, product reservations/layaway, project delivery schedules, sales shifts, petty-cash transactions, shift handover, and personal sales reporting. 
+GAP-01, GAP-03 
+FE-07
+Inventory, Purchasing and Supplier Management 
+Inventory is managed at product-variant/SKU level, including physical stock, reserved quantity, available quantity, minimum stock level, and stock movement history. The system supports stock reservation and release, stock counting, reason-based inventory adjustments, low-stock alerts, supplier management, purchase orders, goods receipts, confirmation of received goods, supplier returns, purchase history, inventory import/export, and restock requests. Inventory quantities are automatically updated based on confirmed goods receipts, stock-out activities, returns, cancellations, and approved adjustments. 
+GAP-01
+FE-08
+Stock Outbound and Multi-Phase Delivery Management 
+A Sales Order is managed separately from its stock-out and delivery records. Warehouse Staff can create one or multiple stock-out/delivery notes for the same confirmed order, with each note representing one delivery batch. For each SKU, the system tracks ordered quantity, delivered quantity, and remaining quantity. Serial numbers can be recorded for serial-controlled products. The system supports delivery-note printing, additional delivery batches, failed-delivery handling, delivery-result updates, delivery history, assigned deliveries for Shippers, goods handover confirmation, and COD information. This allows the store to centrally track multi-phase deliveries for construction projects instead of manually crossing out delivered items on paper orders. 
+GAP-03
+FE-09
+Warranty Policy and Warranty Request Management 
+The system manages warranty policies, including creation, update, activation/deactivation, and assignment to products. Warranty information is linked to the customer, product, Sales Order, purchase information, and serial number where applicable. Staff can search warranty records, verify warranty eligibility, create warranty requests, update request status, and review processing history. Customers can view their warranty information, submit warranty requests online, and track their processing progress. 
+GAP-01 
+FE-10
+Customer, Project and Interaction History Management 
+The system maintains centralized customer profiles containing contact information, addresses, customer type, related construction projects, purchase history, quotations, warranty records, and debt information. Customer records can be created automatically from transactions or manually by staff, and website accounts can be linked to existing customer profiles. Staff can classify retail customers, contractors, or installers, record consultation and follow-up interactions, and retrieve a customer’s complete history without searching through separate Excel files and message conversations. 
+GAP-01
+FE-11
+Business Reporting and Management Dashboard 
+The system provides dashboards and reports covering revenue, expenses, profit/loss, order status, sales channels, best-selling products, inventory, customer debt, receivables, payables, cash flow, and operational alerts. Reports can be filtered by day, week, month, or custom periods and exported to supported file formats. This reduces the need to manually compile information from multiple Excel sheets and helps the store owner identify delayed orders, inventory issues, and business performance more quickly. 
+GAP-01
+FE-12
+AI Business Assistant via Telegram 
+The store owner can securely link a Telegram account to AquaSuite and ask natural-language questions about business data such as revenue, orders, inventory, and other supported indicators. The system verifies that requests originate from the authorized linked Telegram account before returning information. The assistant is read-only, so requests to create, modify, or delete operational data through Telegram are rejected. This allows the owner to access centralized business information more conveniently without asking staff to manually consolidate data. 
+GAP-01 
+FE-13
+Installation and Repair Job Management 
+Technical Staff can view assigned installation or repair jobs, customer information, related products, service locations, technical requirements, and scheduled appointments. They can update job status, record technical notes, record installation or repair results, and confirm job completion. Technical jobs can also be linked to warranty requests where applicable so that installation, repair, and warranty service history remain associated with the relevant customer and product records. 
+GAP-01 
+FE-14 
+Accounting, Receivables, Payables and Financial Reconciliation 
+The accounting module manages receipts, payment vouchers, income and expense transactions, customer receivables, supplier payables, debt reconciliation, refunds, overpayments, financial adjustments, and accounting reports. Accountants can view and search transactions, inspect transaction details and audit history, identify the related Sales Order or receivable, verify payments that require reconciliation, create official receipts, and monitor pending payments. The system tracks Order Total, Paid Amount, Outstanding Amount, Payment Status, and Due Date. Payment status is automatically determined as Unpaid when Paid Amount = 0, Partially Paid when 0 < Paid Amount < Order Total, and Paid when Paid Amount >= Order Total. Customer and supplier balances are updated from confirmed financial transactions. 
+GAP-01 
+
+
+
+
+
+
+2. Limitations & Exclusions
+
+ID
+Excluded Item
+Reason
+LI-01
+Advanced Accounting   
+AQS provides reports for store management, such as revenue, expenses, and profit and loss. The system does not maintain a general ledger, process payroll, file taxes, or replace dedicated accounting software.  
+LI-02 
+Synchronization with E-Commerce Marketplaces and Social Media 
+This version only manages in-store sales and sales through the AQS website. Products, orders, and inventory are not synchronized with external marketplaces or sales channels. 
+LI-03 
+Construction Project Management 
+AQS supports equipment quotations for construction projects and tracks deliveries across multiple shipments. The system does not manage construction labor, construction schedules, or on-site construction progress.  
+LI-04 
+Sales through Dealer Networks 
+AQS serves stores that sell directly to customers in-store and through the website. This version does not support wholesale sales or supplying smaller dealers for resale, including dealer-specific pricing, discounts, and reconciliation. 
+LI-05 
+Automatic Ordering from Suppliers  
+When inventory is low, AQS can notify the store to consider replenishment. The system does not automatically determine order quantities or send purchase orders to suppliers. 
+LI-06 
+Integration with External Delivery Providers i 
+Store staff arrange deliveries and update their status on AQS. This version does not connect to delivery providers’ systems to create delivery orders or synchronize delivery statuses.  
+LI-07 
+AI Modification of Business Data 
+AI supports product consultation or retrieves and summarizes information for the store owner. AI does not autonomously create, modify, or cancel orders, change prices, or adjust inventory.  
+LI-08 
+Customer Return Restocking
+
+
+The system does not support restocking customer-returned goods through a goods receipt workflow due to tax-related considerations.
+
+
+

@@ -1,6 +1,7 @@
 package com.aquasuite.ims.module.sales.internal.controller;
 
 import com.aquasuite.ims.module.sales.internal.payload.request.AddCartItemRequest;
+import com.aquasuite.ims.module.sales.internal.payload.request.MergeCartItemsRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.UpdateCartItemQuantityRequest;
 import com.aquasuite.ims.module.sales.internal.payload.response.CartResponse;
 import com.aquasuite.ims.module.sales.internal.service.CartService;
@@ -41,6 +42,15 @@ public class CartController {
         return ApiResponse.ok(
                 cartService.addItem(request),
                 "Đã thêm sản phẩm vào giỏ hàng"
+        );
+    }
+
+    @PostMapping("/items/merge")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'SALES_STAFF', 'SHOP_OWNER')")
+    public ApiResponse<CartResponse> mergeGuestItems(@Valid @RequestBody MergeCartItemsRequest request) {
+        return ApiResponse.ok(
+                cartService.mergeGuestItems(request),
+                "Đã đồng bộ sản phẩm từ giỏ hàng tạm vào tài khoản"
         );
     }
 

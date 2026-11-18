@@ -172,6 +172,37 @@ public class OnlineCheckoutServiceImpl implements OnlineCheckoutService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<OnlineOrderCheckoutResponse> getMyOnlineOrders() {
+        UUID customerId = resolveCurrentCustomer().customerId();
+        List<Order> orders = orderRepository.findByCustomerIdAndOrderChannelOrderByCreatedAtDesc(
+                customerId,
+                OrderChannel.ONLINE.name()
+        );
+        if (orders.isEmpty()) {
+            return List.of();
+        }
+
+        List<UUID> orderIds = orders.stream().map(Order::getOrderId).toList();
+        Map<UUID, List<OrderItem>> itemsByOrder = orderItemRepository.findByOrderIdIn(orderIds).stream()
+                .collect(Collectors.groupingBy(OrderItem::getOrderId));
+        Map<UUID, OnlinePayosPayment> payosByOrder = onlinePayosPaymentRepository.findByOrderIdIn(orderIds).stream()
+                .collect(Collectors.toMap(
+                        OnlinePayosPayment::getOrderId,
+                        p -> p,
+                        (existing, replacement) -> existing
+                ));
+
+        return orders.stream()
+                .map(order -> buildCheckoutResponse(
+                        order,
+                        itemsByOrder.getOrDefault(order.getOrderId(), List.of()),
+                        payosByOrder.get(order.getOrderId())
+                ))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public OnlineOrderCheckoutResponse getOnlineOrderDetail(UUID orderId) {
         UUID customerId = resolveCurrentCustomer().customerId();
         Order order = findOwnedOrder(orderId, customerId);
