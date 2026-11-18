@@ -9,9 +9,11 @@ import com.aquasuite.ims.module.catalog.api.dto.CatalogVariantWarrantyReferenceD
 import com.aquasuite.ims.module.catalog.internal.entity.Brand;
 import com.aquasuite.ims.module.catalog.internal.entity.Category;
 import com.aquasuite.ims.module.catalog.internal.entity.Product;
+import com.aquasuite.ims.module.catalog.internal.entity.ProductImage;
 import com.aquasuite.ims.module.catalog.internal.entity.ProductVariant;
 import com.aquasuite.ims.module.catalog.internal.enums.VariantStatus;
 import com.aquasuite.ims.module.catalog.internal.payload.res.BundleResponse;
+import com.aquasuite.ims.module.catalog.internal.repository.ProductImageRepository;
 import com.aquasuite.ims.module.catalog.internal.repository.ProductRepository;
 import com.aquasuite.ims.module.catalog.internal.repository.ProductVariantRepository;
 import com.aquasuite.ims.module.catalog.internal.repository.BrandRepository;
@@ -24,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -37,6 +40,7 @@ public class CatalogApiImpl implements CatalogApi {
 
     private final ProductVariantRepository productVariantRepository;
     private final ProductRepository productRepository;
+    private final ProductImageRepository productImageRepository;
     private final BrandRepository brandRepository;
     private final CategoryRepository categoryRepository;
     private final BundleQueryService bundleQueryService;
@@ -174,11 +178,17 @@ public class CatalogApiImpl implements CatalogApi {
 
     private CatalogSkuSummaryDto toDto(ProductVariant variant) {
         String productName = null;
+        String productStatus = null;
         if (variant.getProductId() != null) {
-            productName = productRepository.findById(variant.getProductId())
-                    .map(Product::getProductName)
-                    .orElse(null);
+            Optional<Product> productOpt = productRepository.findById(variant.getProductId());
+            if (productOpt.isPresent()) {
+                Product product = productOpt.get();
+                productName = product.getProductName();
+                productStatus = product.getStatus() != null ? product.getStatus().name() : null;
+            }
         }
+
+        String imageUrl = resolvePrimaryImageUrl(variant);
 
         return CatalogSkuSummaryDto.builder()
                 .variantId(variant.getVariantId())
@@ -191,6 +201,36 @@ public class CatalogApiImpl implements CatalogApi {
                 .costPrice(variant.getCostPrice())
                 .serialTracking(variant.getSerialTracking())
                 .status(variant.getStatus() != null ? variant.getStatus().name() : null)
+                .productStatus(productStatus)
+                .imageUrl(imageUrl)
                 .build();
+    }
+
+    private String resolvePrimaryImageUrl(ProductVariant variant) {
+        if (variant.getVariantId() != null) {
+            Optional<String> variantImage = pickPrimaryImageUrl(
+                    productImageRepository.findByVariantId(variant.getVariantId()));
+            if (variantImage.isPresent()) {
+                return variantImage.get();
+            }
+        }
+        if (variant.getProductId() != null) {
+            return pickPrimaryImageUrl(productImageRepository.findByProductId(variant.getProductId()))
+                    .orElse(null);
+        }
+        return null;
+    }
+
+    private Optional<String> pickPrimaryImageUrl(List<ProductImage> images) {
+        if (images == null || images.isEmpty()) {
+            return Optional.empty();
+        }
+        return images.stream()
+                .sorted(Comparator
+                        .comparing(ProductImage::getIsPrimary, Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(ProductImage::getSortOrder, Comparator.nullsLast(Comparator.naturalOrder())))
+                .map(ProductImage::getImageUrl)
+                .filter(url -> url != null && !url.isBlank())
+                .findFirst();
     }
 }

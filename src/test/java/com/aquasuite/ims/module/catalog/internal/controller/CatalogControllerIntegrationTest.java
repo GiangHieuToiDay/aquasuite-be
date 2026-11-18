@@ -34,6 +34,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -812,5 +813,83 @@ class CatalogControllerIntegrationTest extends AuthIntegrationTestSupport {
                         .param("status", "INVALID_STATUS"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code", is("SYS_002")));
+    }
+
+    @Test
+    @DisplayName("Product CRUD & status lifecycle: DRAFT -> ACTIVE -> DISCONTINUED succeeds on PostgreSQL and stays hidden on Storefront when not ACTIVE")
+    void testProductStatusLifecycleSupportsDraftAndDiscontinued() throws Exception {
+        CreateCategoryRequest createCat = CreateCategoryRequest.builder()
+                .code("CAT_DRAFT_TEST")
+                .name("Danh mục test bản nháp")
+                .status("ACTIVE")
+                .build();
+
+        MvcResult catRes = mockMvc.perform(post("/api/v1/catalog/categories")
+                        .header("Authorization", "Bearer " + shopOwnerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createCat)))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        String categoryId = objectMapper.readTree(catRes.getResponse().getContentAsString())
+                .path("data").path("id").asText();
+
+        String createDraftProductJson = "{" +
+                "\"productCode\": \"SP-DRAFT-TEST-01\", " +
+                "\"productName\": \"Sản phẩm bản nháp test\", " +
+                "\"categoryId\": \"" + categoryId + "\", " +
+                "\"productType\": \"NORMAL\", " +
+                "\"status\": \"DRAFT\"" +
+                "}";
+
+        MvcResult productRes = mockMvc.perform(post("/api/v1/catalog/products")
+                        .header("Authorization", "Bearer " + shopOwnerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createDraftProductJson))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.productCode", is("SP-DRAFT-TEST-01")))
+                .andExpect(jsonPath("$.data.status", is("DRAFT")))
+                .andReturn();
+
+        String productId = objectMapper.readTree(productRes.getResponse().getContentAsString())
+                .path("data").path("productId").asText();
+
+        // Storefront must NOT expose DRAFT products
+        mockMvc.perform(get("/api/v1/catalog/storefront/products")
+                        .header("Authorization", "Bearer " + shopOwnerToken)
+                        .param("keyword", "SP-DRAFT-TEST-01"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.products.content", hasSize(0)));
+
+        // Transition DRAFT -> ACTIVE
+        mockMvc.perform(patch("/api/v1/catalog/products/{id}/status", productId)
+                        .header("Authorization", "Bearer " + shopOwnerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\": \"ACTIVE\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status", is("ACTIVE")));
+
+        // Storefront DOES expose ACTIVE products
+        mockMvc.perform(get("/api/v1/catalog/storefront/products")
+                        .header("Authorization", "Bearer " + shopOwnerToken)
+                        .param("keyword", "SP-DRAFT-TEST-01"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.products.content", hasSize(1)))
+                .andExpect(jsonPath("$.data.products.content[0].productCode", is("SP-DRAFT-TEST-01")));
+
+        // Transition ACTIVE -> DISCONTINUED
+        mockMvc.perform(patch("/api/v1/catalog/products/{id}/status", productId)
+                        .header("Authorization", "Bearer " + shopOwnerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\": \"DISCONTINUED\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status", is("DISCONTINUED")));
+
+        // Storefront must NOT expose DISCONTINUED products
+        mockMvc.perform(get("/api/v1/catalog/storefront/products")
+                        .header("Authorization", "Bearer " + shopOwnerToken)
+                        .param("keyword", "SP-DRAFT-TEST-01"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.products.content", hasSize(0)));
     }
 }

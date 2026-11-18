@@ -28,6 +28,7 @@ public interface CartMapper {
     @Mapping(target = "sku", source = "sku")
     @Mapping(target = "productName", source = "productName")
     @Mapping(target = "variantName", source = "variantName")
+    @Mapping(target = "imageUrl", source = "imageUrl")
     @Mapping(target = "unit", source = "unit")
     @Mapping(target = "quantity", source = "cartItem.quantity")
     @Mapping(target = "unitPrice", source = "cartItem.unitPrice")
@@ -44,6 +45,7 @@ public interface CartMapper {
             String sku,
             String productName,
             String variantName,
+            String imageUrl,
             String unit,
             BigDecimal currentSellingPrice,
             BigDecimal lineTotal,

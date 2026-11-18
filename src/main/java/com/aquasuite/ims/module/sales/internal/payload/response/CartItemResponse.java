@@ -24,6 +24,7 @@ public class CartItemResponse {
     private String sku;
     private String productName;
     private String variantName;
+    private String imageUrl;
     private String unit;
     private BigDecimal quantity;
     private BigDecimal unitPrice;

@@ -11,6 +11,7 @@ import com.aquasuite.ims.module.sales.internal.entity.CartItem;
 import com.aquasuite.ims.module.sales.internal.error.SalesErrorCode;
 import com.aquasuite.ims.module.sales.internal.mapper.CartMapper;
 import com.aquasuite.ims.module.sales.internal.payload.request.AddCartItemRequest;
+import com.aquasuite.ims.module.sales.internal.payload.request.MergeCartItemsRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.UpdateCartItemQuantityRequest;
 import com.aquasuite.ims.module.sales.internal.payload.response.CartResponse;
 import com.aquasuite.ims.module.sales.internal.repository.CartItemRepository;
@@ -102,6 +103,8 @@ class CartServiceImplTest {
                 .unit("Bộ")
                 .sellingPrice(sellingPrice)
                 .status("ACTIVE")
+                .productStatus("ACTIVE")
+                .imageUrl("https://images.unsplash.com/photo-1507652313519-d4e9174996dd?w=600")
                 .build();
     }
 
@@ -151,6 +154,8 @@ class CartServiceImplTest {
         assertThat(response.getSubtotal()).isEqualByComparingTo("5000000.00");
         assertThat(response.isHasInvalidItems()).isFalse();
         assertThat(response.getItems().get(0).getSku()).isEqualTo("SEN-TOTO-01");
+        assertThat(response.getItems().get(0).getImageUrl())
+                .isEqualTo("https://images.unsplash.com/photo-1507652313519-d4e9174996dd?w=600");
     }
 
     @Test
@@ -230,6 +235,66 @@ class CartServiceImplTest {
         assertThat(response.getTotalItems()).isZero();
         assertThat(response.getItems()).isEmpty();
         assertThat(response.getSubtotal()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    void addItem_inactiveParentProduct_throwsSkuNotActive() {
+        mockAuthenticatedCustomer();
+        CatalogSkuSummaryDto discontinuedParent = CatalogSkuSummaryDto.builder()
+                .variantId(variantId)
+                .productId(productId)
+                .sku("SEN-TOTO-01")
+                .productName("Sen cây TOTO")
+                .variantName("Mạ Crom")
+                .unit("Bộ")
+                .sellingPrice(new BigDecimal("2500000"))
+                .status("ACTIVE")
+                .productStatus("DISCONTINUED")
+                .build();
+
+        when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.of(discontinuedParent));
+
+        assertThatThrownBy(() -> cartService.addItem(AddCartItemRequest.builder()
+                .variantId(variantId)
+                .quantity(new BigDecimal("1"))
+                .build()))
+                .isInstanceOf(AppException.class)
+                .extracting(ex -> ((AppException) ex).getErrorCode())
+                .isEqualTo(SalesErrorCode.SKU_NOT_ACTIVE);
+    }
+
+    @Test
+    void mergeGuestItems_capsQuantityAtAvailableStockAndSkipsInactiveItems() {
+        mockAuthenticatedCustomer();
+        UUID inactiveVariantId = UUID.randomUUID();
+        CatalogSkuSummaryDto activeSku = buildActiveSku(new BigDecimal("2000"));
+        CatalogSkuSummaryDto inactiveSku = CatalogSkuSummaryDto.builder()
+                .variantId(inactiveVariantId)
+                .productId(UUID.randomUUID())
+                .sku("OLD-SKU")
+                .status("INACTIVE")
+                .build();
+        StockSummaryDto stock = buildStock(new BigDecimal("4"));
+
+        when(catalogApi.getSkuSummaries(any())).thenReturn(Map.of(
+                variantId, activeSku,
+                inactiveVariantId, inactiveSku
+        ));
+        when(inventoryApi.getStockSummaries(any())).thenReturn(Map.of(variantId, stock));
+        when(cartItemRepository.findByCustomerIdAndVariantId(customerId, variantId)).thenReturn(Optional.empty());
+        when(cartItemRepository.findAllByCustomerIdOrderByUpdatedAtDesc(customerId)).thenReturn(List.of());
+
+        cartService.mergeGuestItems(MergeCartItemsRequest.builder()
+                .items(List.of(
+                        AddCartItemRequest.builder().variantId(variantId).quantity(new BigDecimal("10")).build(),
+                        AddCartItemRequest.builder().variantId(inactiveVariantId).quantity(new BigDecimal("2")).build()
+                ))
+                .build());
+
+        ArgumentCaptor<CartItem> captor = ArgumentCaptor.forClass(CartItem.class);
+        verify(cartItemRepository).save(captor.capture());
+        assertThat(captor.getValue().getVariantId()).isEqualTo(variantId);
+        assertThat(captor.getValue().getQuantity()).isEqualByComparingTo("4");
     }
 }
 

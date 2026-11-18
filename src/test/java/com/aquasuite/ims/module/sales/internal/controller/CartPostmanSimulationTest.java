@@ -10,6 +10,7 @@ import com.aquasuite.ims.module.inventory.api.dto.StockSummaryDto;
 import com.aquasuite.ims.module.sales.internal.entity.CartItem;
 import com.aquasuite.ims.module.sales.internal.mapper.CartMapper;
 import com.aquasuite.ims.module.sales.internal.payload.request.AddCartItemRequest;
+import com.aquasuite.ims.module.sales.internal.payload.request.MergeCartItemsRequest;
 import com.aquasuite.ims.module.sales.internal.payload.request.UpdateCartItemQuantityRequest;
 import com.aquasuite.ims.module.sales.internal.repository.CartItemRepository;
 import com.aquasuite.ims.module.sales.internal.service.CartService;
@@ -423,6 +424,29 @@ public class CartPostmanSimulationTest {
                 .andReturn();
 
         printHttpResult("9. DELETE /api/v1/sales/cart (Làm trống toàn bộ giỏ hàng)", null, result);
+    }
+
+    @Test
+    @Order(10)
+    @DisplayName("10. [POST /api/v1/sales/cart/items/merge] Gộp Guest Cart sau đăng nhập -> 200 OK")
+    void step10_MergeGuestItems_Success() throws Exception {
+        MergeCartItemsRequest request = MergeCartItemsRequest.builder()
+                .items(List.of(
+                        AddCartItemRequest.builder().variantId(skuToiletId).quantity(new BigDecimal("1")).build(),
+                        AddCartItemRequest.builder().variantId(skuBasinId).quantity(new BigDecimal("2")).build()
+                ))
+                .build();
+        String reqJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(request);
+
+        MvcResult result = mockMvc.perform(post("/api/v1/sales/cart/items/merge")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(reqJson))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.totalItems").value(2))
+                .andReturn();
+
+        printHttpResult("10. POST /api/v1/sales/cart/items/merge (Gộp Guest Cart)", reqJson, result);
     }
 
     private void printHttpResult(String stepTitle, String reqJson, MvcResult result) throws Exception {
