@@ -112,6 +112,53 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID>,
             @Param("activeStatus") PaymentAllocationStatus activeStatus,
             Pageable pageable);
 
+    /** Fully allocated/refunded verified receipts remain available as an Accountant audit ledger. */
+    @Query(value = """
+            select t from Transaction t
+            where upper(t.transactionType) = 'RECEIPT'
+              and upper(t.status) = 'VERIFIED'
+              and t.orderId is not null
+              and t.amount > 0
+              and t.amount <= coalesce((select sum(a.allocatedAmount) from PaymentInvoiceAllocation a
+                                        where a.transactionId = t.transactionId
+                                          and a.allocationStatus = :activeStatus), 0)
+                               + coalesce((select sum(s.settledAmount) from PaymentReceiptRefundSettlement s
+                                           where s.receiptTransactionId = t.transactionId), 0)
+            order by t.transactionDate desc, t.transactionId desc
+            """,
+            countQuery = """
+            select count(t) from Transaction t
+            where upper(t.transactionType) = 'RECEIPT'
+              and upper(t.status) = 'VERIFIED'
+              and t.orderId is not null
+              and t.amount > 0
+              and t.amount <= coalesce((select sum(a.allocatedAmount) from PaymentInvoiceAllocation a
+                                        where a.transactionId = t.transactionId
+                                          and a.allocationStatus = :activeStatus), 0)
+                               + coalesce((select sum(s.settledAmount) from PaymentReceiptRefundSettlement s
+                                           where s.receiptTransactionId = t.transactionId), 0)
+            """)
+    Page<Transaction> findFullyAllocatedVerifiedReceipts(
+            @Param("activeStatus") PaymentAllocationStatus activeStatus,
+            Pageable pageable);
+
+    @Query(value = """
+            select t from Transaction t
+            where upper(t.transactionType) = 'RECEIPT'
+              and upper(t.status) = 'VERIFIED'
+              and t.orderId is not null
+              and t.amount > 0
+            order by t.transactionDate desc, t.transactionId desc
+            """,
+            countQuery = """
+            select count(t) from Transaction t
+            where upper(t.transactionType) = 'RECEIPT'
+              and upper(t.status) = 'VERIFIED'
+              and t.orderId is not null
+              and t.amount > 0
+            """)
+    Page<Transaction> findAllVerifiedOrderReceipts(Pageable pageable);
+
 
 
     @Query("select coalesce(sum(transaction.amount), 0) from Transaction transaction "

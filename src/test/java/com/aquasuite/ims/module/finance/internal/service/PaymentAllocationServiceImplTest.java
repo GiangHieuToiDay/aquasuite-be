@@ -12,6 +12,7 @@ import com.aquasuite.ims.module.finance.internal.mapper.PaymentAllocationMapper;
 import com.aquasuite.ims.module.finance.internal.payload.request.CreatePaymentAllocationRequest;
 import com.aquasuite.ims.module.finance.internal.payload.request.PaymentAllocationLineRequest;
 import com.aquasuite.ims.module.finance.internal.payload.request.ReversePaymentAllocationRequest;
+import com.aquasuite.ims.module.finance.internal.payload.PaymentAllocationReceiptView;
 import com.aquasuite.ims.module.finance.internal.payload.response.PaymentAllocationLineResponse;
 import com.aquasuite.ims.module.finance.internal.repository.PaymentInvoiceAllocationRepository;
 import com.aquasuite.ims.module.finance.internal.repository.PaymentReceiptRefundSettlementRepository;
@@ -203,6 +204,28 @@ class PaymentAllocationServiceImplTest {
             assertThat(row.allocatedAmount()).isEqualByComparingTo("40.00");
             assertThat(row.remainingAmount()).isEqualByComparingTo("60.00");
         });
+    }
+
+    @Test
+    void listsFullyAllocatedVerifiedReceiptsForTheAllocatedLedgerView() {
+        PaymentInvoiceAllocation previousAllocation = PaymentInvoiceAllocation.builder()
+                .allocatedAmount(new BigDecimal("100.00"))
+                .build();
+        when(transactionRepository.findFullyAllocatedVerifiedReceipts(
+                PaymentAllocationStatus.ACTIVE, PageRequest.of(0, 20)))
+                .thenReturn(new PageImpl<>(List.of(receipt)));
+        when(allocationRepository.findByTransactionIdAndAllocationStatus(receiptId, PaymentAllocationStatus.ACTIVE))
+                .thenReturn(List.of(previousAllocation));
+
+        var result = service.listReceipts(PaymentAllocationReceiptView.ALLOCATED, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).singleElement().satisfies(row -> {
+            assertThat(row.receiptId()).isEqualTo(receiptId);
+            assertThat(row.allocatedAmount()).isEqualByComparingTo("100.00");
+            assertThat(row.remainingAmount()).isZero();
+        });
+        verify(transactionRepository).findFullyAllocatedVerifiedReceipts(
+                PaymentAllocationStatus.ACTIVE, PageRequest.of(0, 20));
     }
 
     @Test

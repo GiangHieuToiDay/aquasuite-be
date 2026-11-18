@@ -12,6 +12,7 @@ import com.aquasuite.ims.module.finance.internal.mapper.PaymentAllocationMapper;
 import com.aquasuite.ims.module.finance.internal.payload.request.CreatePaymentAllocationRequest;
 import com.aquasuite.ims.module.finance.internal.payload.request.PaymentAllocationLineRequest;
 import com.aquasuite.ims.module.finance.internal.payload.request.ReversePaymentAllocationRequest;
+import com.aquasuite.ims.module.finance.internal.payload.PaymentAllocationReceiptView;
 import com.aquasuite.ims.module.finance.internal.payload.response.PaymentAllocationBatchResponse;
 import com.aquasuite.ims.module.finance.internal.payload.response.PaymentAllocationLineResponse;
 import com.aquasuite.ims.module.finance.internal.payload.response.PaymentAllocationReceiptResponse;
@@ -76,8 +77,21 @@ public class PaymentAllocationServiceImpl implements PaymentAllocationService {
     @Override
     @Transactional(readOnly = true)
     public Page<PaymentAllocationReceiptResponse> listUnallocatedReceipts(Pageable pageable) {
-        return transactionRepository.findVerifiedReceiptsWithRemainingAllocation(PaymentAllocationStatus.ACTIVE, pageable)
-                .map(this::receiptQueueResponse);
+        return listReceipts(PaymentAllocationReceiptView.UNALLOCATED, pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<PaymentAllocationReceiptResponse> listReceipts(PaymentAllocationReceiptView view, Pageable pageable) {
+        PaymentAllocationReceiptView resolved = view == null ? PaymentAllocationReceiptView.UNALLOCATED : view;
+        Page<Transaction> receipts = switch (resolved) {
+            case UNALLOCATED -> transactionRepository.findVerifiedReceiptsWithRemainingAllocation(
+                    PaymentAllocationStatus.ACTIVE, pageable);
+            case ALLOCATED -> transactionRepository.findFullyAllocatedVerifiedReceipts(
+                    PaymentAllocationStatus.ACTIVE, pageable);
+            case ALL -> transactionRepository.findAllVerifiedOrderReceipts(pageable);
+        };
+        return receipts.map(this::receiptQueueResponse);
     }
 
     @Override

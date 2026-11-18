@@ -19,7 +19,7 @@ Only `ACCOUNTANT` may view or mutate UC-63 manually. A queue row is a positive `
 
 | Method/Path | Authorization | Result |
 |---|---|---|
-| `GET /api/v1/finance/receipts/unallocated` | ACCOUNTANT | Paginated verified receipt queue with remaining balance |
+| `GET /api/v1/finance/receipts/unallocated?view=UNALLOCATED\|ALLOCATED\|ALL` | ACCOUNTANT | Paginated verified-receipt ledger. Defaults to `UNALLOCATED`; `ALLOCATED` shows rows fully consumed by allocations or verified refunds; `ALL` shows both. |
 | Existing `GET/POST /api/v1/finance/receipts/{receiptId}/…` | ACCOUNTANT | Targets/history and idempotent allocation batch |
 | `POST /api/v1/finance/receipts/{receiptId}/allocations/{allocationId}/reverse` | ACCOUNTANT | Marks an active allocation `REVERSED`, stores the mandatory reason, and returns the non-refunded balance to the manual queue |
 

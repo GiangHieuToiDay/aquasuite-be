@@ -21,10 +21,12 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.UUID;
+import com.aquasuite.ims.module.finance.internal.payload.PaymentAllocationReceiptView;
 
 /** Accountant-only boundary for UC-63. Transaction creation/verification remain in UC-23 and UC-70. */
 @RestController
@@ -37,8 +39,11 @@ public class PaymentAllocationController {
     IamApi iamApi;
 
     @GetMapping("/unallocated")
-    public ApiResponse<Page<PaymentAllocationReceiptResponse>> unallocated(Pageable pageable) {
-        return ApiResponse.ok(service.listUnallocatedReceipts(pageable));
+    public ApiResponse<Page<PaymentAllocationReceiptResponse>> receipts(
+            @RequestParam(defaultValue = "UNALLOCATED") PaymentAllocationReceiptView view,
+            Pageable pageable
+    ) {
+        return ApiResponse.ok(service.listReceipts(view, pageable));
     }
 
     @GetMapping("/{receiptId}/allocation-targets")

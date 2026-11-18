@@ -3,6 +3,7 @@ package com.aquasuite.ims.module.finance.internal.service;
 import com.aquasuite.ims.module.finance.api.dto.OrderModificationSettlementCommand;
 import com.aquasuite.ims.module.finance.internal.payload.request.CreatePaymentAllocationRequest;
 import com.aquasuite.ims.module.finance.internal.payload.request.ReversePaymentAllocationRequest;
+import com.aquasuite.ims.module.finance.internal.payload.PaymentAllocationReceiptView;
 import com.aquasuite.ims.module.finance.internal.payload.response.PaymentAllocationBatchResponse;
 import com.aquasuite.ims.module.finance.internal.payload.response.PaymentAllocationLineResponse;
 import com.aquasuite.ims.module.finance.internal.payload.response.PaymentAllocationReceiptResponse;
@@ -16,6 +17,8 @@ import java.util.UUID;
 /** UC-63 operations; payment recording and verification remain owned by UC-23 and UC-70. */
 public interface PaymentAllocationService {
     Page<PaymentAllocationReceiptResponse> listUnallocatedReceipts(Pageable pageable);
+
+    Page<PaymentAllocationReceiptResponse> listReceipts(PaymentAllocationReceiptView view, Pageable pageable);
 
     PaymentAllocationTargetsResponse getTargets(UUID receiptId);
 
