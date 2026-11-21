@@ -2,12 +2,10 @@ package com.aquasuite.ims.controller.iam;
 
 import com.aquasuite.ims.service.iam.IamQueryService;
 import com.aquasuite.ims.dto.iam.request.ChangeUserStatusRequest;
-import com.aquasuite.ims.dto.iam.request.CreateCreditApprovalGrantRequest;
 import com.aquasuite.ims.dto.iam.request.CreateUserAccountRequest;
 import com.aquasuite.ims.dto.iam.request.UpdateUserAccountRequest;
 import com.aquasuite.ims.dto.iam.response.AccountPageResponse;
 import com.aquasuite.ims.dto.iam.response.AccountStatsResponse;
-import com.aquasuite.ims.dto.iam.response.CreditApprovalGrantResponse;
 import com.aquasuite.ims.dto.iam.response.UserAccountResponse;
 import com.aquasuite.ims.service.iam.UserAccountService;
 import com.aquasuite.ims.common.ApiResponse;
@@ -93,16 +91,5 @@ public class UserAccountController {
             @PathVariable UUID id,
             @Valid @RequestBody ChangeUserStatusRequest request) {
         return ApiResponse.ok(service.changeStatus(id, request, iamApi.getCurrentUserId()));
-    }
-
-    // ── CreditApprovalGrant (from CreditApprovalGrantController) ─────────────
-
-    @Deprecated(since = "UC-24 credit profile approval workflow")
-    @PostMapping("/api/v1/iam/credit-approval-grants")
-    @PreAuthorize("hasRole('SHOP_OWNER')")
-    public ApiResponse<CreditApprovalGrantResponse> issueCreditApproval(
-            @Valid @RequestBody CreateCreditApprovalGrantRequest request) {
-        return ApiResponse.ok(service.issue(iamApi.getCurrentUserId(), request),
-                "Store Owner credit approval granted.");
     }
 }
