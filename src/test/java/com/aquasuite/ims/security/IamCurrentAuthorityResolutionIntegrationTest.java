@@ -7,8 +7,7 @@ import com.aquasuite.ims.enums.iam.UserStatus;
 import com.aquasuite.ims.repository.iam.PermissionRepository;
 import com.aquasuite.ims.repository.iam.RoleRepository;
 import com.aquasuite.ims.repository.iam.UserRepository;
-import com.aquasuite.ims.service.iam.IamPermissionService;
-import com.aquasuite.ims.service.iam.IamRoleService;
+import com.aquasuite.ims.service.iam.RolePermissionService;
 import com.aquasuite.ims.service.iam.impl.CurrentAuthoritiesService;
 import com.aquasuite.ims.testsupport.PostgreSqlIntegrationTestSupport;
 import org.junit.jupiter.api.AfterEach;
@@ -36,10 +35,7 @@ class IamCurrentAuthorityResolutionIntegrationTest extends PostgreSqlIntegration
     private CurrentAuthoritiesService currentAuthoritiesService;
 
     @Autowired
-    private IamRoleService roleService;
-
-    @Autowired
-    private IamPermissionService permissionService;
+    private RolePermissionService roleService;
 
     @Autowired
     private RoleRepository roleRepository;

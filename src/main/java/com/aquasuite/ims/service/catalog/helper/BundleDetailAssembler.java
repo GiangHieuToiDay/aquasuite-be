@@ -1,5 +1,4 @@
 package com.aquasuite.ims.service.catalog.helper;
-import com.aquasuite.ims.service.catalog.VariantService;
 
 import com.aquasuite.ims.entity.catalog.*;
 import com.aquasuite.ims.enums.catalog.ProductStatus;

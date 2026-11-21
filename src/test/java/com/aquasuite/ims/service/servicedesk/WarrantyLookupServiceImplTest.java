@@ -5,13 +5,13 @@ import com.aquasuite.ims.dto.catalog.response.CatalogSkuSummaryDto;
 import com.aquasuite.ims.service.crm.CustomerService;
 import com.aquasuite.ims.dto.crm.response.CustomerSummaryDto;
 import com.aquasuite.ims.service.iam.IamQueryService;
-import com.aquasuite.ims.service.sales.SalesOrderService;
+import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.dto.sales.response.SalesOrderItemSummaryDto;
 import com.aquasuite.ims.entity.servicedesk.WarrantyRecord;
 import com.aquasuite.ims.enums.servicedesk.WarrantyStatus;
 import com.aquasuite.ims.dto.servicedesk.response.WarrantyLookupResponse;
 import com.aquasuite.ims.repository.servicedesk.WarrantyRecordRepository;
-import com.aquasuite.ims.service.servicedesk.impl.WarrantyLookupServiceImpl;
+import com.aquasuite.ims.service.servicedesk.impl.WarrantyRecordServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -33,13 +33,13 @@ class WarrantyLookupServiceImplTest {
     private final IamQueryService iamApi = mock(IamQueryService.class);
     private final CustomerService crmApi = mock(CustomerService.class);
     private final CatalogLookupService catalogApi = mock(CatalogLookupService.class);
-    private final SalesOrderService salesOrderApi = mock(SalesOrderService.class);
-    private WarrantyLookupService service;
+    private final SalesQueryService salesQueryService = mock(SalesQueryService.class);
+    private WarrantyRecordService service;
 
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(Instant.parse("2026-11-15T00:00:00Z"), ZoneOffset.UTC);
-        service = new WarrantyLookupServiceImpl(warrantyRecords, iamApi, crmApi, catalogApi, salesOrderApi, clock);
+        service = new WarrantyRecordServiceImpl(warrantyRecords, iamApi, crmApi, catalogApi, salesQueryService, clock);
     }
 
     @Test
@@ -54,7 +54,7 @@ class WarrantyLookupServiceImplTest {
         when(crmApi.getCustomerByUserId(userId)).thenReturn(Optional.of(CustomerSummaryDto.builder().customerId(customerId).build()));
         when(warrantyRecords.findByCustomerIdOrderByStartDateDesc(customerId)).thenReturn(List.of(record));
         when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.of(CatalogSkuSummaryDto.builder().productName("Bồn cầu TOTO").variantName("CS886").sku("CS886").build()));
-        when(salesOrderApi.getOrderItemSummary(orderItemId)).thenReturn(Optional.of(SalesOrderItemSummaryDto.builder().orderCode("ORD-202611-001").build()));
+        when(salesQueryService.getOrderItemSummary(orderItemId)).thenReturn(Optional.of(SalesOrderItemSummaryDto.builder().orderCode("ORD-202611-001").build()));
 
         List<WarrantyLookupResponse> result = service.findMine("cs886-2601");
 
@@ -80,7 +80,7 @@ class WarrantyLookupServiceImplTest {
         when(crmApi.getCustomerByUserId(userId)).thenReturn(Optional.of(CustomerSummaryDto.builder().customerId(customerId).build()));
         when(warrantyRecords.findByCustomerIdOrderByStartDateDesc(customerId)).thenReturn(List.of(record));
         when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.empty());
-        when(salesOrderApi.getOrderItemSummary(orderItemId)).thenReturn(Optional.empty());
+        when(salesQueryService.getOrderItemSummary(orderItemId)).thenReturn(Optional.empty());
 
         WarrantyLookupResponse response = service.findMine(null).getFirst();
 
@@ -102,7 +102,7 @@ class WarrantyLookupServiceImplTest {
         when(warrantyRecords.findByCustomerIdOrderByStartDateDesc(customerId)).thenReturn(List.of(voidedRecord));
         when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.of(CatalogSkuSummaryDto.builder()
                 .productName("Sen tắm TOTO").variantName("TBG04302V").sku("TBG04302V").build()));
-        when(salesOrderApi.getOrderItemSummary(orderItemId)).thenReturn(Optional.of(SalesOrderItemSummaryDto.builder()
+        when(salesQueryService.getOrderItemSummary(orderItemId)).thenReturn(Optional.of(SalesOrderItemSummaryDto.builder()
                 .orderCode("ORD-202611-009").build()));
 
         WarrantyLookupResponse response = service.findMine(null).getFirst();
@@ -125,7 +125,7 @@ class WarrantyLookupServiceImplTest {
         when(crmApi.getCustomerByUserId(userId)).thenReturn(Optional.of(CustomerSummaryDto.builder().customerId(customerId).build()));
         when(warrantyRecords.findByCustomerIdOrderByStartDateDesc(customerId)).thenReturn(List.of(lastDayRecord));
         when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.empty());
-        when(salesOrderApi.getOrderItemSummary(orderItemId)).thenReturn(Optional.of(SalesOrderItemSummaryDto.builder()
+        when(salesQueryService.getOrderItemSummary(orderItemId)).thenReturn(Optional.of(SalesOrderItemSummaryDto.builder()
                 .orderCode("ORD-202511-777").productName("Vòi chậu INAX").variantName("LFV-1402S").sku("LFV-1402S").build()));
 
         List<WarrantyLookupResponse> matched = service.findMine("  ord-202511-777 ");

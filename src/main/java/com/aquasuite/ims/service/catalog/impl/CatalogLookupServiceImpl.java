@@ -1,5 +1,6 @@
 package com.aquasuite.ims.service.catalog.impl;
 
+import com.aquasuite.ims.service.catalog.BundleService;
 import com.aquasuite.ims.service.catalog.CatalogLookupService;
 import com.aquasuite.ims.dto.catalog.response.CatalogBundleSummaryDto;
 import com.aquasuite.ims.dto.catalog.response.CatalogSkuSummaryDto;
@@ -18,7 +19,6 @@ import com.aquasuite.ims.repository.catalog.ProductRepository;
 import com.aquasuite.ims.repository.catalog.ProductVariantRepository;
 import com.aquasuite.ims.repository.catalog.BrandRepository;
 import com.aquasuite.ims.repository.catalog.CategoryRepository;
-import com.aquasuite.ims.service.catalog.BundleQueryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -43,7 +43,7 @@ public class CatalogLookupServiceImpl implements CatalogLookupService {
     private final ProductImageRepository productImageRepository;
     private final BrandRepository brandRepository;
     private final CategoryRepository categoryRepository;
-    private final BundleQueryService bundleQueryService;
+    private final BundleService bundleService;
 
     @Override
     @Transactional(readOnly = true)
@@ -73,7 +73,7 @@ public class CatalogLookupServiceImpl implements CatalogLookupService {
     public Optional<CatalogBundleSummaryDto> getBundleSummary(UUID bundleId) {
         if (bundleId == null) return Optional.empty();
         try {
-            BundleResponse bundle = bundleQueryService.getBundleDetails(bundleId);
+            BundleResponse bundle = bundleService.getBundleDetails(bundleId);
             if (bundle == null) return Optional.empty();
 
             List<CatalogBundleSummaryDto.CatalogBundleItemDto> items = bundle.items() == null ? List.of() :

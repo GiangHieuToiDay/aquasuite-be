@@ -8,12 +8,15 @@ import com.aquasuite.ims.entity.crm.Customer;
 import com.aquasuite.ims.entity.crm.DeliveryAddressItem;
 import com.aquasuite.ims.enums.crm.CustomerType;
 import com.aquasuite.ims.repository.crm.CustomerRepository;
+import com.aquasuite.ims.dto.crm.request.CustomerRegistrationRequest;
+import com.aquasuite.ims.dto.crm.response.CustomerRegistrationResponse;
 import com.aquasuite.ims.dto.crm.request.SubmitCustomerCreditProfileRequest;
-import com.aquasuite.ims.service.crm.CustomerCreditProfileRequestService;
+import com.aquasuite.ims.service.crm.CustomerCreditProfileService;
 import com.aquasuite.ims.exception.AppException;
 import com.aquasuite.ims.exception.CommonErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -32,7 +35,32 @@ import java.util.stream.Collectors;
 public class CustomerServiceImpl implements CustomerService {
 
     private final CustomerRepository customerRepository;
-    private final CustomerCreditProfileRequestService creditProfileRequestService;
+    private final CustomerCreditProfileService creditProfileService;
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public CustomerRegistrationResponse createProfile(CustomerRegistrationRequest request) {
+        var existing = customerRepository.findByUserId(request.userId());
+        if (existing.isPresent()) {
+            Customer profile = existing.get();
+            if (!profile.getPhone().equals(request.phone())
+                    || !"ACTIVE".equalsIgnoreCase(profile.getStatus())) {
+                throw new AppException(CommonErrorCode.DATA_INTEGRITY_VIOLATION);
+            }
+            return new CustomerRegistrationResponse(profile.getCustomerId(), profile.getCustomerCode());
+        }
+        UUID id = UUID.randomUUID();
+        customerRepository.insertUnlinkedCustomer(id, "CUS-" + id, request.fullName(), request.phone(), request.email());
+        // Lock the same row used by POS. Never move historical orders or overwrite CRM details.
+        Customer profile = customerRepository.findByPhoneForUpdate(request.phone())
+                .orElseThrow(() -> new AppException(CommonErrorCode.DATA_INTEGRITY_VIOLATION));
+        if (profile.getUserId() != null || !"ACTIVE".equalsIgnoreCase(profile.getStatus())) {
+            throw new AppException(CommonErrorCode.DATA_INTEGRITY_VIOLATION);
+        }
+        profile.setUserId(request.userId());
+        customerRepository.saveAndFlush(profile);
+        return new CustomerRegistrationResponse(profile.getCustomerId(), profile.getCustomerCode());
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -301,7 +329,7 @@ public class CustomerServiceImpl implements CustomerService {
         req.setCreditLimit(requestedLimit);
         req.setCreditTermDays(creditTermDays != null ? creditTermDays : 30);
         req.setReason(reason != null && !reason.isBlank() ? reason.trim() : "Yêu cầu cấp/tăng hạn mức cho đơn hàng dự án.");
-        var response = creditProfileRequestService.submit(customerId, req);
+        var response = creditProfileService.submit(customerId, req);
         return response.requestId();
     }
 

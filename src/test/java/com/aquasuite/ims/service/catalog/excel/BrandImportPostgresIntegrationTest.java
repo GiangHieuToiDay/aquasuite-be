@@ -18,7 +18,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.access.AccessDeniedException;
-import com.aquasuite.ims.controller.catalog.BrandImportController;
+import com.aquasuite.ims.controller.catalog.BrandController;
 
 import javax.sql.DataSource;
 import java.io.ByteArrayOutputStream;
@@ -36,7 +36,7 @@ class BrandImportPostgresIntegrationTest extends PostgreSqlIntegrationTestSuppor
     @Autowired JdbcTemplate jdbc;
     @Autowired PlatformTransactionManager tx;
     @Autowired DataSource dataSource;
-    @Autowired BrandImportController controller;
+    @Autowired BrandController controller;
 
     @Test
     void methodSecurityRechecksCreateAuthority() {

@@ -3,7 +3,7 @@ import com.aquasuite.ims.service.fulfillment.DeliveryService;
 import com.aquasuite.ims.service.fulfillment.DeliveryIssueService;
 
 import com.aquasuite.ims.exception.fulfillment.FulfillmentErrorCode;
-import com.aquasuite.ims.service.sales.OrderDispatchService;
+import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.exception.AppException;
 import lombok.RequiredArgsConstructor;
 import org.openpdf.text.*;
@@ -27,7 +27,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class DeliveryIssueNotePdfService {
     private final DeliveryService deliveries;
-    private final OrderDispatchService orders;
+    private final SalesQueryService orders;
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
             .withZone(ZoneId.of("Asia/Ho_Chi_Minh"));
 

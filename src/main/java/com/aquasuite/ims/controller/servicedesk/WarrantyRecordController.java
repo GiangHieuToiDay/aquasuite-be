@@ -5,6 +5,7 @@ import com.aquasuite.ims.dto.servicedesk.request.CreateAdHocWarrantyRequest;
 import com.aquasuite.ims.dto.servicedesk.request.CreateWarrantyFromOrderRequest;
 import com.aquasuite.ims.dto.servicedesk.request.VoidWarrantyRecordRequest;
 import com.aquasuite.ims.dto.servicedesk.request.WarrantyRecordFilterRequest;
+import com.aquasuite.ims.dto.servicedesk.response.WarrantyLookupResponse;
 import com.aquasuite.ims.dto.servicedesk.response.WarrantyPolicySummaryResponse;
 import com.aquasuite.ims.dto.servicedesk.response.WarrantyRecordDetailResponse;
 import com.aquasuite.ims.dto.servicedesk.response.WarrantyRecordListItemResponse;
@@ -16,27 +17,23 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
 
 /**
- * Controller Quản lý thẻ bảo hành điện tử (UC-45) dành cho nhân viên và chủ cửa hàng.
+ * Controller Quản lý thẻ bảo hành điện tử (UC-45) dành cho nhân viên, chủ cửa hàng và khách hàng.
  */
 @RestController
-@RequestMapping("/api/v1/warranty-records")
 @RequiredArgsConstructor
 public class WarrantyRecordController {
 
     private final WarrantyRecordService warrantyRecordService;
 
-    @GetMapping
+    // ── Staff & Shop Owner endpoints ─────────────────────────────────────────
+
+    @GetMapping("/api/v1/warranty-records")
     @PreAuthorize("hasAnyRole('SHOP_OWNER', 'SALES_STAFF', 'TECHNICAL_STAFF')")
     public ResponseEntity<ApiResponse<PageResponse<WarrantyRecordListItemResponse>>> searchRecords(
             WarrantyRecordFilterRequest filter
@@ -44,13 +41,13 @@ public class WarrantyRecordController {
         return ResponseEntity.ok(ApiResponse.ok(warrantyRecordService.searchRecords(filter)));
     }
 
-    @GetMapping("/policies")
+    @GetMapping("/api/v1/warranty-records/policies")
     @PreAuthorize("hasAnyRole('SHOP_OWNER', 'SALES_STAFF', 'TECHNICAL_STAFF')")
     public ResponseEntity<ApiResponse<List<WarrantyPolicySummaryResponse>>> getActivePolicies() {
         return ResponseEntity.ok(ApiResponse.ok(warrantyRecordService.getActivePolicies()));
     }
 
-    @GetMapping("/variants/{variantId}/policy")
+    @GetMapping("/api/v1/warranty-records/variants/{variantId}/policy")
     @PreAuthorize("hasAnyRole('SHOP_OWNER', 'SALES_STAFF', 'TECHNICAL_STAFF')")
     public ResponseEntity<ApiResponse<CatalogWarrantyPolicyDto>> getVariantWarrantyInfo(
             @PathVariable UUID variantId
@@ -58,13 +55,13 @@ public class WarrantyRecordController {
         return ResponseEntity.ok(ApiResponse.ok(warrantyRecordService.getVariantWarrantyInfo(variantId)));
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/api/v1/warranty-records/{id}")
     @PreAuthorize("hasAnyRole('SHOP_OWNER', 'SALES_STAFF', 'TECHNICAL_STAFF')")
     public ResponseEntity<ApiResponse<WarrantyRecordDetailResponse>> getRecordDetail(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(warrantyRecordService.getRecordDetail(id)));
     }
 
-    @PostMapping("/from-order")
+    @PostMapping("/api/v1/warranty-records/from-order")
     @PreAuthorize("hasAnyRole('SHOP_OWNER', 'SALES_STAFF')")
     public ResponseEntity<ApiResponse<WarrantyRecordDetailResponse>> createFromOrder(
             @Valid @RequestBody CreateWarrantyFromOrderRequest request
@@ -74,7 +71,7 @@ public class WarrantyRecordController {
                 .body(ApiResponse.ok(created, "Đã cấp thẻ bảo hành từ đơn hàng."));
     }
 
-    @PostMapping("/ad-hoc")
+    @PostMapping("/api/v1/warranty-records/ad-hoc")
     @PreAuthorize("hasAnyRole('SHOP_OWNER', 'SALES_STAFF')")
     public ResponseEntity<ApiResponse<WarrantyRecordDetailResponse>> createAdHoc(
             @Valid @RequestBody CreateAdHocWarrantyRequest request
@@ -84,7 +81,7 @@ public class WarrantyRecordController {
                 .body(ApiResponse.ok(created, "Đã cấp thẻ bảo hành điện tử."));
     }
 
-    @PostMapping("/{id}/void")
+    @PostMapping("/api/v1/warranty-records/{id}/void")
     @PreAuthorize("hasRole('SHOP_OWNER')")
     public ResponseEntity<ApiResponse<WarrantyRecordDetailResponse>> voidRecord(
             @PathVariable UUID id,
@@ -93,5 +90,29 @@ public class WarrantyRecordController {
         return ResponseEntity.ok(ApiResponse.ok(
                 warrantyRecordService.voidRecord(id, request.reason()),
                 "Đã hủy thẻ bảo hành."));
+    }
+
+    // ── Storefront Customer records (from CustomerWarrantyController) ────────
+
+    @GetMapping("/api/v1/storefront/warranty-records")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<ApiResponse<PageResponse<WarrantyRecordListItemResponse>>> listMyWarranties(
+            WarrantyRecordFilterRequest filter
+    ) {
+        return ResponseEntity.ok(ApiResponse.ok(warrantyRecordService.getMyRecords(filter)));
+    }
+
+    @GetMapping("/api/v1/storefront/warranty-records/{id}")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<ApiResponse<WarrantyRecordDetailResponse>> getMyWarrantyDetail(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(warrantyRecordService.getMyRecordDetail(id)));
+    }
+
+    // ── Customer Warranty Lookup (from WarrantyLookupController) ─────────────
+
+    @GetMapping("/api/v1/customer/warranties")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ApiResponse<List<WarrantyLookupResponse>> findMine(@RequestParam(required = false) String keyword) {
+        return ApiResponse.ok(warrantyRecordService.findMine(keyword));
     }
 }

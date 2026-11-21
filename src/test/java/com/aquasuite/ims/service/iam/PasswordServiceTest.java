@@ -10,7 +10,7 @@ import com.aquasuite.ims.enums.iam.RecoveryChannel;
 import com.aquasuite.ims.dto.iam.request.ResetPasswordWithOtpRequest;
 import com.aquasuite.ims.dto.iam.response.PasswordActionResponse;
 import com.aquasuite.ims.repository.iam.UserRepository;
-import com.aquasuite.ims.service.iam.impl.PasswordServiceImpl;
+import com.aquasuite.ims.service.iam.impl.AuthServiceImpl;
 import com.aquasuite.ims.integration.iam.EmailOtpSender;
 import com.aquasuite.ims.integration.iam.OtpSenderStrategy;
 import com.aquasuite.ims.integration.iam.SmsOtpSender;
@@ -56,7 +56,7 @@ class PasswordServiceTest {
     private EmailOtpSender emailOtpSender;
 
     private PasswordEncoder passwordEncoder;
-    private PasswordServiceImpl passwordService;
+    private AuthServiceImpl passwordService;
 
     private final String RAW_OLD_PWD = "OldPassword@123";
     private final String RAW_NEW_PWD = "NewPassword@456";
@@ -68,7 +68,7 @@ class PasswordServiceTest {
         SmsOtpSender smsOtpSender = new SmsOtpSender();
         List<OtpSenderStrategy> strategies = List.of(emailOtpSender, smsOtpSender);
 
-        passwordService = new PasswordServiceImpl(
+        passwordService = new AuthServiceImpl(
                 userRepository,
                 passwordEncoder,
                 strategies,

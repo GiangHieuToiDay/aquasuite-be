@@ -1,38 +1,35 @@
 package com.aquasuite.ims.service.iam;
 
-import com.aquasuite.ims.dto.iam.request.LoginRequest;
-import com.aquasuite.ims.dto.iam.request.RefreshRequest;
-import com.aquasuite.ims.dto.iam.response.CurrentUserResponse;
-import com.aquasuite.ims.dto.iam.response.LoginResponse;
-import com.aquasuite.ims.dto.iam.response.TokenResponse;
+import com.aquasuite.ims.dto.iam.request.*;
+import com.aquasuite.ims.dto.iam.response.*;
 import org.springframework.security.oauth2.jwt.Jwt;
 
+import java.util.UUID;
+
+/**
+ * Service xác thực và ủy quyền người dùng hợp nhất (gộp đăng nhập, đăng ký OTP và đổi/quên mật khẩu).
+ */
 public interface AuthService {
 
-    /**
-     * Kiểm tra email/mật khẩu và trạng thái tài khoản, sau đó tạo phiên Redis
-     * cùng access token và refresh token cho người dùng hợp lệ.
-     */
     LoginResponse login(LoginRequest request);
 
-    /**
-     * Tạo phiên đăng nhập cho tài khoản vừa kích hoạt sau khi giao dịch đăng ký
-     * đã hoàn tất; không xác thực lại mật khẩu.
-     */
-    LoginResponse loginRegisteredUser(java.util.UUID userId);
+    LoginResponse loginRegisteredUser(UUID userId);
 
-    /**
-     * Xác minh refresh token, kiểm tra phiên hiện hành, chống tái sử dụng token
-     * và cấp cặp token kế tiếp bằng cơ chế xoay vòng nguyên tử.
-     */
     TokenResponse refresh(RefreshRequest request);
 
-    /** Thu hồi phiên Redis được xác định từ subject và session ID trong access JWT. */
     void logout(Jwt jwt);
 
-    /**
-     * Đọc lại hồ sơ và vai trò đang hoạt động của chủ thể access JWT từ database
-     * để phản ánh thay đổi quyền ngay ở request kế tiếp.
-     */
     CurrentUserResponse getCurrentUser(Jwt jwt);
+
+    RegisterResponse register(RegisterRequest request);
+
+    void resend(ResendRegistrationOtpRequest request);
+
+    LoginResponse verify(VerifyRegistrationRequest request);
+
+    PasswordActionResponse changePassword(ChangePasswordRequest req);
+
+    PasswordActionResponse requestPasswordRecovery(ForgotPasswordRequest req);
+
+    PasswordActionResponse resetPasswordWithOtp(ResetPasswordWithOtpRequest req);
 }

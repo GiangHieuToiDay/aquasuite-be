@@ -4,7 +4,7 @@ import com.aquasuite.ims.service.catalog.CatalogLookupService;
 import com.aquasuite.ims.dto.catalog.response.CatalogSkuSummaryDto;
 import com.aquasuite.ims.service.crm.CustomerService;
 import com.aquasuite.ims.service.finance.CreditControlService;
-import com.aquasuite.ims.service.finance.OrderReceivableService;
+import com.aquasuite.ims.service.finance.PaymentService;
 import com.aquasuite.ims.dto.finance.response.OrderReceivableView;
 import com.aquasuite.ims.service.iam.IamQueryService;
 import com.aquasuite.ims.service.inventory.InventoryService;
@@ -58,18 +58,18 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Triển khai vòng đời Hóa đơn bán hàng (DRAFT -> ISSUED / CANCELLED) cho cả đơn lẻ (STORE)
- * và đơn công trình theo đợt (PROJECT), tự động đồng bộ OrderItem, tồn kho giữ chỗ và tổng đơn.
+ * Triển khai vòng đời Hóa đơn bán hàng (DRAFT -> ISSUED / CANCELLED) cho cả đơn
+ * lẻ (STORE)
+ * và đơn công trình theo đợt (PROJECT), tự động đồng bộ OrderItem, tồn kho giữ
+ * chỗ và tổng đơn.
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class SalesInvoiceServiceImpl implements SalesInvoiceService {
 
     private static final List<OrderModificationRequestStatus> ACTIVE_UC26_STATUSES = List.of(
             OrderModificationRequestStatus.PENDING_REVIEW,
-            OrderModificationRequestStatus.PENDING_CANCEL
-    );
+            OrderModificationRequestStatus.PENDING_CANCEL);
 
     private final SalesInvoiceRepository salesInvoiceRepository;
     private final SalesInvoiceItemRepository salesInvoiceItemRepository;
@@ -78,16 +78,45 @@ public class SalesInvoiceServiceImpl implements SalesInvoiceService {
     private final OrderModificationRequestRepository orderModificationRequestRepository;
     private final CatalogLookupService catalogApi;
     private final InventoryService inventoryApi;
-    private final OrderReceivableService orderReceivableApi;
+    private final PaymentService orderReceivableApi;
     private final CreditControlService creditControlApi;
     private final CustomerService crmApi;
     private final IamQueryService iamApi;
     private final ApplicationEventPublisher eventPublisher;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    public SalesInvoiceServiceImpl(
+            SalesInvoiceRepository salesInvoiceRepository,
+            SalesInvoiceItemRepository salesInvoiceItemRepository,
+            OrderRepository orderRepository,
+            OrderItemRepository orderItemRepository,
+            OrderModificationRequestRepository orderModificationRequestRepository,
+            CatalogLookupService catalogApi,
+            InventoryService inventoryApi,
+            PaymentService orderReceivableApi,
+            CreditControlService creditControlApi,
+            CustomerService crmApi,
+            IamQueryService iamApi,
+            ApplicationEventPublisher eventPublisher) {
+        this.salesInvoiceRepository = salesInvoiceRepository;
+        this.salesInvoiceItemRepository = salesInvoiceItemRepository;
+        this.orderRepository = orderRepository;
+        this.orderItemRepository = orderItemRepository;
+        this.orderModificationRequestRepository = orderModificationRequestRepository;
+        this.catalogApi = catalogApi;
+        this.inventoryApi = inventoryApi;
+        this.orderReceivableApi = orderReceivableApi;
+        this.creditControlApi = creditControlApi;
+        this.crmApi = crmApi;
+        this.iamApi = iamApi;
+        this.eventPublisher = eventPublisher;
+    }
+
     public SalesInvoiceServiceImpl(SalesInvoiceRepository salesInvoiceRepository,
-                                  SalesInvoiceItemRepository salesInvoiceItemRepository,
-                                  OrderRepository orderRepository) {
-        this(salesInvoiceRepository, salesInvoiceItemRepository, orderRepository, null, null, null, null, null, null, null, null, null);
+            SalesInvoiceItemRepository salesInvoiceItemRepository,
+            OrderRepository orderRepository) {
+        this(salesInvoiceRepository, salesInvoiceItemRepository, orderRepository, null, null, null, null, null, null,
+                null, null, null);
     }
 
     @Override
@@ -139,7 +168,8 @@ public class SalesInvoiceServiceImpl implements SalesInvoiceService {
         ensureNotBlockedByUc26(orderId);
 
         if (OrderType.RETAIL.name().equalsIgnoreCase(order.getOrderType())
-                && salesInvoiceRepository.findByOrderIdAndInvoiceType(orderId, SalesInvoiceType.STORE.name()).isPresent()) {
+                && salesInvoiceRepository.findByOrderIdAndInvoiceType(orderId, SalesInvoiceType.STORE.name())
+                        .isPresent()) {
             throw new AppException(SalesErrorCode.INVOICE_SPLIT_INVALID,
                     "Đơn bán lẻ tại quầy chỉ sử dụng 1 hóa đơn duy nhất, vui lòng chỉnh sửa trực tiếp trên hóa đơn hiện tại");
         }
@@ -149,7 +179,8 @@ public class SalesInvoiceServiceImpl implements SalesInvoiceService {
         }
 
         Map<UUID, MergedLine> mergedLines = mergeCreateLines(request.getItems());
-        List<SalesInvoice> existingInvoices = salesInvoiceRepository.findByOrderIdOrderByBatchNoAscCreatedAtAsc(orderId);
+        List<SalesInvoice> existingInvoices = salesInvoiceRepository
+                .findByOrderIdOrderByBatchNoAscCreatedAtAsc(orderId);
         int nextBatchNo = existingInvoices.stream()
                 .map(SalesInvoice::getBatchNo)
                 .filter(b -> b != null)
@@ -286,7 +317,8 @@ public class SalesInvoiceServiceImpl implements SalesInvoiceService {
         }
 
         Map<UUID, MergedLine> newLines = mergeUpdateLines(request.getItems());
-        List<SalesInvoiceItem> oldInvoiceItems = salesInvoiceItemRepository.findByInvoiceIdOrderByInvoiceItemIdAsc(invoiceId);
+        List<SalesInvoiceItem> oldInvoiceItems = salesInvoiceItemRepository
+                .findByInvoiceIdOrderByInvoiceItemIdAsc(invoiceId);
 
         // Gom số lượng cũ trên hóa đơn này theo SKU
         Map<UUID, BigDecimal> oldQtyByVariant = new LinkedHashMap<>();
@@ -299,7 +331,8 @@ public class SalesInvoiceServiceImpl implements SalesInvoiceService {
         }
 
         // Tìm tất cả các hóa đơn còn hiệu lực khác của cùng đơn hàng
-        List<SalesInvoice> allOrderInvoices = salesInvoiceRepository.findByOrderIdOrderByBatchNoAscCreatedAtAsc(order.getOrderId());
+        List<SalesInvoice> allOrderInvoices = salesInvoiceRepository
+                .findByOrderIdOrderByBatchNoAscCreatedAtAsc(order.getOrderId());
         List<UUID> otherActiveInvoiceIds = allOrderInvoices.stream()
                 .filter(inv -> !inv.getInvoiceId().equals(invoiceId))
                 .filter(inv -> !SalesInvoiceStatus.CANCELLED.name().equalsIgnoreCase(inv.getStatus()))
@@ -349,7 +382,8 @@ public class SalesInvoiceServiceImpl implements SalesInvoiceService {
             orderItemByVariant.putIfAbsent(oi.getVariantId(), oi);
         }
 
-        // Xóa SalesInvoiceItem cũ của hóa đơn này trước để tránh vướng FK ON DELETE RESTRICT nếu có OrderItem bị gỡ
+        // Xóa SalesInvoiceItem cũ của hóa đơn này trước để tránh vướng FK ON DELETE
+        // RESTRICT nếu có OrderItem bị gỡ
         salesInvoiceItemRepository.deleteByInvoiceId(invoiceId);
         salesInvoiceItemRepository.flush();
 
@@ -373,13 +407,15 @@ public class SalesInvoiceServiceImpl implements SalesInvoiceService {
                 }
             }
 
-            // Giữ nguyên đơn giá thỏa thuận của đơn nếu SKU đã có trong đơn; SKU mới lấy giá từ Catalog
+            // Giữ nguyên đơn giá thỏa thuận của đơn nếu SKU đã có trong đơn; SKU mới lấy
+            // giá từ Catalog
             BigDecimal unitPrice = targetOrderItem != null && targetOrderItem.getUnitPrice() != null
                     ? targetOrderItem.getUnitPrice()
                     : oldUnitPriceByVariant.getOrDefault(variantId,
                             sku != null ? safeAmount(sku.sellingPrice()) : BigDecimal.ZERO);
 
-            BigDecimal newTotalVariantQty = otherQtyByVariant.getOrDefault(variantId, BigDecimal.ZERO).add(line.quantity());
+            BigDecimal newTotalVariantQty = otherQtyByVariant.getOrDefault(variantId, BigDecimal.ZERO)
+                    .add(line.quantity());
             BigDecimal newTotalVariantDiscount = otherDiscountByVariant.getOrDefault(variantId, BigDecimal.ZERO)
                     .add(line.discountAmount());
             BigDecimal newOrderItemTotal = unitPrice.multiply(newTotalVariantQty).subtract(newTotalVariantDiscount)
@@ -433,7 +469,8 @@ public class SalesInvoiceServiceImpl implements SalesInvoiceService {
 
         salesInvoiceItemRepository.saveAllAndFlush(savedInvoiceItems);
 
-        // Xử lý các OrderItem bị gỡ khỏi hóa đơn này (nếu không còn ở đợt khác -> xóa an toàn)
+        // Xử lý các OrderItem bị gỡ khỏi hóa đơn này (nếu không còn ở đợt khác -> xóa
+        // an toàn)
         List<UUID> allNonThisInvoiceIds = allOrderInvoices.stream()
                 .map(SalesInvoice::getInvoiceId)
                 .filter(id -> !id.equals(invoiceId))
@@ -526,7 +563,8 @@ public class SalesInvoiceServiceImpl implements SalesInvoiceService {
         invoice.setDueDate(dueDate);
         salesInvoiceRepository.saveAndFlush(invoice);
 
-        // Chụp nhanh danh sách item cho sự kiện phát hành (Fulfillment lắng nghe để lập phiếu xuất kho)
+        // Chụp nhanh danh sách item cho sự kiện phát hành (Fulfillment lắng nghe để lập
+        // phiếu xuất kho)
         List<SalesInvoiceSummaryDto.SalesInvoiceItemSummaryDto> itemDtos = items.stream()
                 .map(it -> new SalesInvoiceSummaryDto.SalesInvoiceItemSummaryDto(
                         it.getInvoiceItemId(),
@@ -551,11 +589,11 @@ public class SalesInvoiceServiceImpl implements SalesInvoiceService {
                 invoice.getTotalAmount(),
                 invoice.getDueDate(),
                 actorId,
-                itemDtos
-        ));
+                itemDtos));
 
         log.info("Issued invoice {} (type={}, batch={}, order={}) by actor {}",
-                invoice.getInvoiceCode(), invoice.getInvoiceType(), invoice.getBatchNo(), order.getOrderCode(), actorId);
+                invoice.getInvoiceCode(), invoice.getInvoiceType(), invoice.getBatchNo(), order.getOrderCode(),
+                actorId);
 
         return getInvoiceDetail(invoiceId);
     }
@@ -612,7 +650,8 @@ public class SalesInvoiceServiceImpl implements SalesInvoiceService {
             throw new AppException(SalesErrorCode.INVOICE_CANNOT_DELETE_ONLY_BATCH);
         }
 
-        List<SalesInvoiceItem> batchItems = salesInvoiceItemRepository.findByInvoiceIdOrderByInvoiceItemIdAsc(invoiceId);
+        List<SalesInvoiceItem> batchItems = salesInvoiceItemRepository
+                .findByInvoiceIdOrderByInvoiceItemIdAsc(invoiceId);
         Map<UUID, BigDecimal> batchQtyByVariant = new LinkedHashMap<>();
         Map<UUID, BigDecimal> batchDiscountByVariant = new LinkedHashMap<>();
         for (SalesInvoiceItem item : batchItems) {
@@ -632,7 +671,8 @@ public class SalesInvoiceServiceImpl implements SalesInvoiceService {
         salesInvoiceRepository.saveAndFlush(invoice);
 
         // Đồng bộ lại số lượng OrderItem theo các hóa đơn active còn lại
-        List<UUID> remainingInvoiceIds = salesInvoiceRepository.findByOrderIdOrderByBatchNoAscCreatedAtAsc(order.getOrderId())
+        List<UUID> remainingInvoiceIds = salesInvoiceRepository
+                .findByOrderIdOrderByBatchNoAscCreatedAtAsc(order.getOrderId())
                 .stream()
                 .filter(inv -> !SalesInvoiceStatus.CANCELLED.name().equalsIgnoreCase(inv.getStatus()))
                 .map(SalesInvoice::getInvoiceId)
@@ -645,7 +685,8 @@ public class SalesInvoiceServiceImpl implements SalesInvoiceService {
         Map<UUID, BigDecimal> remainingDiscountByVariant = new LinkedHashMap<>();
         for (SalesInvoiceItem item : remainingItems) {
             remainingQtyByVariant.merge(item.getVariantId(), safeAmount(item.getQuantity()), BigDecimal::add);
-            remainingDiscountByVariant.merge(item.getVariantId(), safeAmount(item.getDiscountAmount()), BigDecimal::add);
+            remainingDiscountByVariant.merge(item.getVariantId(), safeAmount(item.getDiscountAmount()),
+                    BigDecimal::add);
         }
 
         List<OrderItem> orderItems = orderItemRepository.findByOrderId(order.getOrderId());
@@ -663,7 +704,8 @@ public class SalesInvoiceServiceImpl implements SalesInvoiceService {
                 orderItemRepository.saveAndFlush(oi);
             } else {
                 boolean stillReferenced = !remainingInvoiceIds.isEmpty()
-                        && salesInvoiceItemRepository.existsByOrderItemIdAndInvoiceIdIn(oi.getOrderItemId(), remainingInvoiceIds);
+                        && salesInvoiceItemRepository.existsByOrderItemIdAndInvoiceIdIn(oi.getOrderItemId(),
+                                remainingInvoiceIds);
                 if (!stillReferenced) {
                     orderItemRepository.delete(oi);
                     orderItemRepository.flush();
@@ -687,8 +729,7 @@ public class SalesInvoiceServiceImpl implements SalesInvoiceService {
             BigDecimal vatRate,
             OffsetDateTime now,
             UUID actorId,
-            UUID newInvoiceId
-    ) {
+            UUID newInvoiceId) {
         SalesInvoice sourceInvoice = salesInvoiceRepository.findByInvoiceIdForUpdate(request.getSplitFromInvoiceId())
                 .orElseThrow(() -> new AppException(SalesErrorCode.INVOICE_NOT_FOUND, request.getSplitFromInvoiceId()));
         if (!sourceInvoice.getOrderId().equals(order.getOrderId())) {
@@ -712,7 +753,8 @@ public class SalesInvoiceServiceImpl implements SalesInvoiceService {
             SalesInvoiceItem src = sourceByVariant.get(splitLine.variantId());
             if (src == null || safeAmount(src.getQuantity()).compareTo(splitLine.quantity()) < 0) {
                 throw new AppException(SalesErrorCode.INVOICE_SPLIT_INVALID,
-                        "Số lượng tách cho SKU " + splitLine.variantId() + " vượt quá số lượng đang có trên hóa đơn nguồn");
+                        "Số lượng tách cho SKU " + splitLine.variantId()
+                                + " vượt quá số lượng đang có trên hóa đơn nguồn");
             }
             BigDecimal origQty = src.getQuantity();
             BigDecimal remainQty = origQty.subtract(splitLine.quantity());
@@ -775,8 +817,10 @@ public class SalesInvoiceServiceImpl implements SalesInvoiceService {
                 .map(SalesInvoiceItem::getLineTotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal srcVat = SalesInvoiceType.PROJECT.name().equalsIgnoreCase(sourceInvoice.getInvoiceType())
-                ? vatRate : BigDecimal.ZERO;
-        BigDecimal srcTaxBase = srcSubtotal.subtract(safeAmount(sourceInvoice.getDiscountAmount())).max(BigDecimal.ZERO);
+                ? vatRate
+                : BigDecimal.ZERO;
+        BigDecimal srcTaxBase = srcSubtotal.subtract(safeAmount(sourceInvoice.getDiscountAmount()))
+                .max(BigDecimal.ZERO);
         BigDecimal srcTax = calculateTax(srcTaxBase, srcVat);
         sourceInvoice.setSubtotal(srcSubtotal);
         sourceInvoice.setTaxAmount(srcTax);
@@ -813,7 +857,8 @@ public class SalesInvoiceServiceImpl implements SalesInvoiceService {
     }
 
     private void recalculateOrderTotalsAndPaymentFloor(Order order) {
-        List<SalesInvoice> activeInvoices = salesInvoiceRepository.findByOrderIdOrderByBatchNoAscCreatedAtAsc(order.getOrderId())
+        List<SalesInvoice> activeInvoices = salesInvoiceRepository
+                .findByOrderIdOrderByBatchNoAscCreatedAtAsc(order.getOrderId())
                 .stream()
                 .filter(inv -> !SalesInvoiceStatus.CANCELLED.name().equalsIgnoreCase(inv.getStatus()))
                 .toList();
@@ -847,7 +892,8 @@ public class SalesInvoiceServiceImpl implements SalesInvoiceService {
             order.setDiscountAmount(sumItemDiscounts.add(sumInvoiceDiscounts));
         }
 
-        // Chặn giảm tổng đơn xuống thấp hơn số tiền khách đã thanh toán xác minh (VERIFIED)
+        // Chặn giảm tổng đơn xuống thấp hơn số tiền khách đã thanh toán xác minh
+        // (VERIFIED)
         Optional<OrderReceivableView> receivableOpt = orderReceivableApi.getOrderReceivable(order.getOrderId());
         if (receivableOpt.isPresent()) {
             BigDecimal verifiedPaid = safeAmount(receivableOpt.get().verifiedPaid());
@@ -912,7 +958,8 @@ public class SalesInvoiceServiceImpl implements SalesInvoiceService {
     }
 
     private void releaseReservedSafely(Order order, UUID variantId, BigDecimal qtyToRelease) {
-        if (order.isReserveStockAfterDeposit() || qtyToRelease == null || qtyToRelease.compareTo(BigDecimal.ZERO) <= 0) {
+        if (order.isReserveStockAfterDeposit() || qtyToRelease == null
+                || qtyToRelease.compareTo(BigDecimal.ZERO) <= 0) {
             return;
         }
         try {
@@ -997,8 +1044,7 @@ public class SalesInvoiceServiceImpl implements SalesInvoiceService {
             Order order,
             List<SalesInvoiceItem> items,
             Map<UUID, OrderItem> orderItemMap,
-            boolean lockedByUc26
-    ) {
+            boolean lockedByUc26) {
         boolean orderMutable = !OrderStatus.CANCELLED.name().equalsIgnoreCase(order.getOrderStatus())
                 && !OrderStatus.COMPLETED.name().equalsIgnoreCase(order.getOrderStatus());
         boolean editable = SalesInvoiceStatus.DRAFT.name().equalsIgnoreCase(invoice.getStatus())
@@ -1174,8 +1220,7 @@ public class SalesInvoiceServiceImpl implements SalesInvoiceService {
     private static SalesInvoiceSummaryDto toInvoiceSummary(
             SalesInvoice inv,
             String orderCode,
-            List<SalesInvoiceItem> items
-    ) {
+            List<SalesInvoiceItem> items) {
         List<SalesInvoiceSummaryDto.SalesInvoiceItemSummaryDto> itemDtos = items.stream()
                 .map(it -> new SalesInvoiceSummaryDto.SalesInvoiceItemSummaryDto(
                         it.getInvoiceItemId(),
@@ -1201,7 +1246,6 @@ public class SalesInvoiceServiceImpl implements SalesInvoiceService {
                 inv.getDueDate(),
                 inv.getTotalAmount(),
                 inv.getIssuedAt(),
-                itemDtos
-        );
+                itemDtos);
     }
 }

@@ -1,7 +1,7 @@
 package com.aquasuite.ims.service.iam;
+
 import com.aquasuite.ims.repository.iam.store.PendingRegistration;
 import com.aquasuite.ims.repository.iam.store.RegistrationOtpStore;
-
 import com.aquasuite.ims.service.crm.CustomerRegistrationService;
 import com.aquasuite.ims.entity.iam.Role;
 import com.aquasuite.ims.entity.iam.User;
@@ -9,7 +9,7 @@ import com.aquasuite.ims.enums.iam.UserStatus;
 import com.aquasuite.ims.dto.iam.request.*;
 import com.aquasuite.ims.dto.iam.response.LoginResponse;
 import com.aquasuite.ims.repository.iam.*;
-import com.aquasuite.ims.service.iam.*;
+import com.aquasuite.ims.service.iam.impl.AuthServiceImpl;
 import com.aquasuite.ims.exception.AppException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,8 +21,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 import org.springframework.transaction.support.TransactionTemplate;
+
 import java.util.Optional;
 import java.util.UUID;
+
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -35,16 +37,15 @@ class RegistrationServiceTest {
     @Mock PasswordEncoder encoder;
     @Mock RegistrationOtpStore store;
     @Mock PlatformTransactionManager manager;
-    @Mock AuthService auth;
     @Mock CustomerRegistrationService profiles;
-    RegisterService service;
+    AuthServiceImpl service;
     PendingRegistration pending;
     RegistrationOtpStore.Claim claim;
 
     @BeforeEach
     void setup() {
-        service = new RegisterService(users, roles, encoder, store,
-                new TransactionTemplate(manager), auth, profiles);
+        service = spy(new AuthServiceImpl(null, users, null, null, null, roles, encoder, store,
+                new TransactionTemplate(manager), profiles, null, null));
         pending = new PendingRegistration(UUID.randomUUID(), "Customer Name", EMAIL,
                 "0901234567", "encoded-password");
         claim = new RegistrationOtpStore.Claim(pending, "version", "claim");
@@ -86,7 +87,7 @@ class RegistrationServiceTest {
         assertThat(response.id()).isEqualTo(captured.getValue().id());
         verify(users, never()).saveAndFlush(any());
         verify(users, never()).insertPendingRegistration(any(), any(), any(), any(), any(), any());
-        verifyNoInteractions(roles, manager, profiles, auth);
+        verifyNoInteractions(roles, manager, profiles);
         assertThat(captured.getValue().toString()).doesNotContain("encoded-value");
     }
 
@@ -112,16 +113,16 @@ class RegistrationServiceTest {
     void validOtpCreatesAccountAndProfileBeforeCommitThenCompletesAndLogsIn() {
         creatable();
         LoginResponse response = LoginResponse.builder().build();
-        when(auth.loginRegisteredUser(pending.id())).thenReturn(response);
+        doReturn(response).when(service).loginRegisteredUser(pending.id());
         assertThat(service.verify(verification())).isSameAs(response);
-        var order = inOrder(store, users, profiles, manager, auth);
+        var order = inOrder(store, users, profiles, manager, service);
         order.verify(store).verifyAndClaim(EMAIL, "012345");
         order.verify(users).saveAndFlush(argThat(u -> u.getStatus() == UserStatus.ACTIVE
                 && u.isVerified() && u.getRoles().size() == 1));
         order.verify(profiles).createProfile(argThat(r -> r.userId().equals(pending.id())));
         order.verify(manager).commit(any());
         order.verify(store).complete(claim);
-        order.verify(auth).loginRegisteredUser(pending.id());
+        order.verify(service).loginRegisteredUser(pending.id());
     }
 
     @Test
@@ -132,7 +133,7 @@ class RegistrationServiceTest {
         verify(manager).rollback(any());
         verify(store).release(claim);
         verify(store, never()).complete(any());
-        verifyNoInteractions(auth);
+        verify(service, never()).loginRegisteredUser(any());
     }
 
     @Test
@@ -143,7 +144,8 @@ class RegistrationServiceTest {
         verify(manager).rollback(any());
         verify(store).release(claim);
         verify(users, never()).saveAndFlush(any());
-        verifyNoInteractions(auth, profiles);
+        verifyNoInteractions(profiles);
+        verify(service, never()).loginRegisteredUser(any());
     }
 
     @Test
@@ -153,14 +155,15 @@ class RegistrationServiceTest {
         assertCode(() -> service.verify(verification()), "REG_001");
         verify(store).release(claim);
         verify(manager).rollback(any());
-        verifyNoInteractions(profiles, auth);
+        verifyNoInteractions(profiles);
+        verify(service, never()).loginRegisteredUser(any());
     }
 
     @Test
     void sessionFailureLeavesCommittedAccountAndReturnsLoginRequired() {
         creatable();
         doThrow(new IllegalStateException("synthetic session failure"))
-                .when(auth).loginRegisteredUser(pending.id());
+                .when(service).loginRegisteredUser(pending.id());
         assertCode(() -> service.verify(verification()), "REG_009");
         verify(manager).commit(any());
         verify(manager, never()).rollback(any());
@@ -171,10 +174,11 @@ class RegistrationServiceTest {
     @Test
     void cleanupFailureAfterCommitDoesNotPreventLogin() {
         creatable();
+        doReturn(LoginResponse.builder().build()).when(service).loginRegisteredUser(pending.id());
         doThrow(new IllegalStateException("synthetic Redis outage")).when(store).complete(claim);
         service.verify(verification());
         verify(manager).commit(any());
-        verify(auth).loginRegisteredUser(pending.id());
+        verify(service).loginRegisteredUser(pending.id());
     }
 
     @Test
@@ -182,7 +186,8 @@ class RegistrationServiceTest {
         service.resend(new ResendRegistrationOtpRequest(EMAIL));
         verify(store).rotateOtp(EMAIL);
         verify(users, never()).saveAndFlush(any());
-        verifyNoInteractions(manager, profiles, auth);
+        verifyNoInteractions(manager, profiles);
+        verify(service, never()).loginRegisteredUser(any());
     }
 
     @Test
@@ -194,7 +199,7 @@ class RegistrationServiceTest {
         verify(manager).rollback(any());
         verify(store).release(claim);
         verify(store, never()).complete(any());
-        verifyNoInteractions(auth);
+        verify(service, never()).loginRegisteredUser(any());
     }
 
     private static void assertCode(Runnable action, String code) {

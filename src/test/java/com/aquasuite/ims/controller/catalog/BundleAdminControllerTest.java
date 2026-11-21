@@ -4,7 +4,9 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-import com.aquasuite.ims.service.catalog.BundleAdminService;
+import com.aquasuite.ims.service.catalog.BundleService;
+import com.aquasuite.ims.service.catalog.helper.BundleEvaluationService;
+import com.aquasuite.ims.controller.catalog.BundleController;
 import com.aquasuite.ims.exception.GlobalExceptionHandler;
 
 import org.junit.jupiter.api.*;
@@ -16,18 +18,14 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 class BundleAdminControllerTest {
     MockMvc mvc;
-    BundleAdminService service;
+    BundleService service;
 
     @BeforeEach
     void setup() {
-        service = mock(BundleAdminService.class);
+        service = mock(BundleService.class);
         mvc =
                 MockMvcBuilders.standaloneSetup(
-                                new BundleAdminController(
-                                        service,
-                                        mock(
-                                                com.aquasuite.ims.service.catalog
-                                                        .BundleQueryService.class)))
+                                new BundleController(service, mock(BundleEvaluationService.class)))
                         .setControllerAdvice(new GlobalExceptionHandler())
                         .build();
     }

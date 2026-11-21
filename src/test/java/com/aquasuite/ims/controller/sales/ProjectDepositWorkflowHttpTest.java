@@ -9,12 +9,12 @@ import com.aquasuite.ims.dto.crm.response.CustomerSummaryDto;
 import com.aquasuite.ims.config.sales.dev.DemoProjectReservationOrderFactory;
 import com.aquasuite.ims.dto.iam.response.UserSummaryDto;
 import com.aquasuite.ims.config.inventory.dev.*;
-import com.aquasuite.ims.controller.sales.ProjectDepositController;
+import com.aquasuite.ims.controller.sales.OrderReservationController;
 import com.aquasuite.ims.config.sales.dev.ProjectDepositDemoConfiguration;
 import com.aquasuite.ims.entity.sales.Order;
 import com.aquasuite.ims.entity.sales.OrderItem;
 import com.aquasuite.ims.repository.sales.*;
-import com.aquasuite.ims.service.sales.ProjectDepositService;
+import com.aquasuite.ims.service.sales.impl.ProjectDepositService;
 import com.aquasuite.ims.exception.GlobalExceptionHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -57,7 +57,7 @@ class ProjectDepositWorkflowHttpTest {
                 .orderItemId(lineId).orderId(orderId).variantId(variantId).quantity(BigDecimal.TEN).lineTotal(new BigDecimal("100")).build()));
         new ApplicationContextRunner().withPropertyValues("spring.profiles.active=uc29-demo")
                 .withUserConfiguration(ProjectDepositDemoConfiguration.class, Security.class,
-                        ProjectDepositService.class, ProjectDepositController.class, DemoProjectReservationOrderFactory.class, DemoProjectDepositPaymentService.class,
+                        ProjectDepositService.class, OrderReservationController.class, DemoProjectReservationOrderFactory.class, DemoProjectDepositPaymentService.class,
                         DemoProjectDepositController.class, DemoProjectReservationService.class, DemoProjectStockController.class)
                 .withBean(CatalogLookupService.class, () -> catalog).withBean(CustomerService.class, () -> crm)
                 .withBean(IamQueryService.class, () -> iam).withBean(ProjectDepositOrderRepository.class, () -> orders)
@@ -65,7 +65,7 @@ class ProjectDepositWorkflowHttpTest {
                     assertThat(context).hasNotFailed();
                     SecurityContextHolder.getContext().setAuthentication(UsernamePasswordAuthenticationToken.authenticated(
                             "demo-owner", null, List.of(new SimpleGrantedAuthority("ROLE_SHOP_OWNER"))));
-                    var mvc = MockMvcBuilders.standaloneSetup(context.getBean(ProjectDepositController.class),
+                    var mvc = MockMvcBuilders.standaloneSetup(context.getBean(OrderReservationController.class),
                                     context.getBean(DemoProjectDepositController.class), context.getBean(DemoProjectStockController.class))
                             .setControllerAdvice(new GlobalExceptionHandler()).build();
                     String prefix = "/api/v1/sales/orders/"+orderId+"/deposits-reservations";

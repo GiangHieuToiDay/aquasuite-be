@@ -21,7 +21,7 @@ import com.aquasuite.ims.dto.iam.response.UserSummaryDto;
 import com.aquasuite.ims.service.inventory.InventoryService;
 import com.aquasuite.ims.dto.inventory.response.StockSummaryDto;
 import com.aquasuite.ims.dto.inventory.response.VariantInventoryUsage;
-import com.aquasuite.ims.service.sales.SalesVariantUsageService;
+import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.dto.sales.response.VariantDocumentUsage;
 import com.aquasuite.ims.exception.AppException;
 import com.aquasuite.ims.exception.CommonErrorCode;
@@ -58,7 +58,7 @@ class VariantServiceImplTest {
     @Mock private ProductVariantRepository variantRepository;
     @Mock private WarrantyPolicyRepository warrantyPolicyRepository;
     @Mock private InventoryService inventoryApi;
-    @Mock private SalesVariantUsageService salesVariantUsageApi;
+    @Mock private SalesQueryService salesVariantUsageApi;
     @Mock private JdbcTemplate jdbcTemplate;
     @Mock private IamQueryService iamApi;
     @Mock private ApplicationEventPublisher eventPublisher;

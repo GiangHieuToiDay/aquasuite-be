@@ -4,7 +4,7 @@ import com.aquasuite.ims.entity.finance.Transaction;
 import com.aquasuite.ims.service.finance.impl.PaymentVerificationServiceImpl;
 import com.aquasuite.ims.repository.finance.TransactionRepository;
 import com.aquasuite.ims.service.iam.IamQueryService;
-import com.aquasuite.ims.service.sales.SalesOrderService;
+import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.dto.sales.response.SalesOrderPaymentInfoDto;
 import com.aquasuite.ims.exception.AppException;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,7 +27,7 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class PaymentVerificationServiceTest {
     @Mock TransactionRepository transactions;
-    @Mock SalesOrderService sales;
+    @Mock SalesQueryService sales;
     @Mock IamQueryService iam;
     @Mock PaymentAllocationService paymentAllocationService;
     @InjectMocks PaymentVerificationServiceImpl service;

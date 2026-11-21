@@ -1,10 +1,9 @@
 package com.aquasuite.ims.service.finance.impl;
 
-import com.aquasuite.ims.service.finance.OrderReceivableService;
 import com.aquasuite.ims.dto.finance.response.OrderReceivableView;
 import com.aquasuite.ims.entity.finance.Transaction;
 import com.aquasuite.ims.repository.finance.TransactionRepository;
-import com.aquasuite.ims.service.sales.SalesOrderService;
+import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.dto.sales.response.SalesOrderMilestoneDto;
 import com.aquasuite.ims.dto.sales.response.SalesOrderPaymentInfoDto;
 import com.aquasuite.ims.exception.AppException;
@@ -25,7 +24,7 @@ import java.util.UUID;
  */
 @Service
 @RequiredArgsConstructor
-public class OrderReceivableServiceImpl implements OrderReceivableService {
+public class OrderReceivableServiceImpl {
 
     private static final String TYPE_RECEIPT = "RECEIPT";
     private static final String STATUS_VERIFIED = "VERIFIED";
@@ -34,7 +33,7 @@ public class OrderReceivableServiceImpl implements OrderReceivableService {
     /** Truy vấn các giao dịch thu tiền của đơn. */
     private final TransactionRepository transactions;
     /** Đọc thông tin đơn và các mốc thanh toán qua hợp đồng công khai của Sales. */
-    private final SalesOrderService sales;
+    private final SalesQueryService sales;
 
     /**
      * Tính đã xác minh, đang chờ, còn phải trả và tình trạng cọc của một đơn trong ảnh chụp nhất quán.
@@ -43,7 +42,6 @@ public class OrderReceivableServiceImpl implements OrderReceivableService {
      * @return thông tin thu tiền nếu đơn tồn tại; rỗng nếu không tìm thấy đơn
      * @throws AppException nếu khoản thu mang sai mã khách so với đơn (dữ liệu không nhất quán)
      */
-    @Override
     @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public Optional<OrderReceivableView> getOrderReceivable(UUID orderId) {
         if (orderId == null) {

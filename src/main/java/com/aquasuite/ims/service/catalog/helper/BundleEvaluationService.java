@@ -1,7 +1,6 @@
 package com.aquasuite.ims.service.catalog.helper;
-import com.aquasuite.ims.service.catalog.BundleQueryService;
+import com.aquasuite.ims.service.catalog.BundleService;
 import com.aquasuite.ims.service.catalog.helper.BundleInventoryReader;
-import com.aquasuite.ims.service.catalog.VariantService;
 
 import static com.aquasuite.ims.service.catalog.helper.BundleDetailAssembler.isSellable;
 
@@ -35,7 +34,7 @@ import java.util.stream.Collectors;
 public class BundleEvaluationService {
     private final ProductRepository products;
     private final ProductVariantRepository variants;
-    private final BundleQueryService query;
+    private final BundleService query;
     private final BundlePricingService pricing;
     private final BundleInventoryReader inventory;
     private final Validator validator;

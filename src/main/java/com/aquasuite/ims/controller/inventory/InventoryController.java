@@ -1,6 +1,8 @@
 package com.aquasuite.ims.controller.inventory;
 
 import com.aquasuite.ims.service.iam.IamQueryService;
+import com.aquasuite.ims.service.inventory.StockReservationService;
+import com.aquasuite.ims.dto.inventory.response.SkuReservationStock;
 import com.aquasuite.ims.dto.inventory.response.StockSummaryDto;
 import com.aquasuite.ims.entity.inventory.StockMovement;
 import com.aquasuite.ims.dto.inventory.request.ManualStockAdjustRequest;
@@ -8,6 +10,8 @@ import com.aquasuite.ims.dto.inventory.request.UpdateInventoryThresholdRequest;
 import com.aquasuite.ims.dto.inventory.response.InventoryListItemResponse;
 import com.aquasuite.ims.service.inventory.InventoryService;
 import com.aquasuite.ims.common.ApiResponse;
+import com.aquasuite.ims.exception.AppException;
+import com.aquasuite.ims.exception.CommonErrorCode;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -18,6 +22,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -34,6 +40,7 @@ import java.util.UUID;
 public class InventoryController {
 
     private final InventoryService inventoryService;
+    private final StockReservationService stockReservationService;
     private final IamQueryService iamApi;
 
     /**
@@ -110,5 +117,19 @@ public class InventoryController {
         UUID actorUserId = iamApi.getCurrentUserId();
         inventoryService.manualAdjustStock(request.variantId(), request.deltaQty(), request.reason(), actorUserId);
         return ResponseEntity.ok(ApiResponse.ok(null, "Điều chỉnh tồn kho thành công"));
+    }
+
+    /**
+     * UC36 read-only view of the units held and still available for each SKU/warehouse.
+     * (from StockReservationQueryController)
+     */
+    @GetMapping("/stock-reservations/variants/{variantId}")
+    public ApiResponse<List<SkuReservationStock>> stockReservationsByVariant(@PathVariable UUID variantId) {
+        var actor = iamApi.getCurrentUser();
+        if (actor == null || actor.id() == null || actor.roles() == null || actor.roles().stream()
+                .noneMatch(Set.of("SHOP_OWNER", "ADMIN", "SUPER_ADMIN", "SALES_STAFF")::contains)) {
+            throw new AppException(CommonErrorCode.ACCESS_DENIED);
+        }
+        return ApiResponse.ok(stockReservationService.stockByVariant(variantId));
     }
 }

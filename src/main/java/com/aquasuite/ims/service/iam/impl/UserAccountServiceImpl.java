@@ -36,15 +36,28 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import com.aquasuite.ims.dto.iam.request.CreateCreditApprovalGrantRequest;
+import com.aquasuite.ims.dto.iam.response.CreditApprovalGrantDto;
+import com.aquasuite.ims.dto.iam.response.CreditApprovalGrantResponse;
+import com.aquasuite.ims.enums.iam.AuthProvider;
+import com.aquasuite.ims.enums.iam.UserStatus;
+import com.aquasuite.ims.exception.iam.AuthErrorCode;
+import com.aquasuite.ims.exception.iam.CreditApprovalErrorCode;
+import com.aquasuite.ims.repository.iam.store.CreditApprovalGrantStore;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import java.math.BigDecimal;
 import java.security.SecureRandom;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 import java.util.regex.Pattern;
 
 @Service
 @Slf4j
-@RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class UserAccountServiceImpl implements UserAccountService {
+    private static final Duration GRANT_TTL = Duration.ofMinutes(2);
     private static final Pattern PASSWORD_POLICY = Pattern.compile("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$");
     private static final char[] TEMP_PASSWORD_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%".toCharArray();
 
@@ -55,6 +68,46 @@ public class UserAccountServiceImpl implements UserAccountService {
     AccountCredentialsNotificationPort notificationPort;
     RedisSessionStore sessionStore;
     UserAccountMapper userAccountMapper;
+    CreditApprovalGrantStore grantStore;
+    SecureRandom secureRandom = new SecureRandom();
+
+    @Autowired
+    public UserAccountServiceImpl(
+            UserRepository userRepository,
+            @Autowired(required = false) RoleRepository roleRepository,
+            PasswordEncoder passwordEncoder,
+            @Autowired(required = false) ApplicationEventPublisher eventPublisher,
+            @Autowired(required = false) AccountCredentialsNotificationPort notificationPort,
+            @Autowired(required = false) RedisSessionStore sessionStore,
+            @Autowired(required = false) UserAccountMapper userAccountMapper,
+            @Autowired(required = false) CreditApprovalGrantStore grantStore) {
+        this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.eventPublisher = eventPublisher;
+        this.notificationPort = notificationPort;
+        this.sessionStore = sessionStore;
+        this.userAccountMapper = userAccountMapper;
+        this.grantStore = grantStore;
+    }
+
+    public UserAccountServiceImpl(
+            UserRepository userRepository,
+            RoleRepository roleRepository,
+            PasswordEncoder passwordEncoder,
+            ApplicationEventPublisher eventPublisher,
+            AccountCredentialsNotificationPort notificationPort,
+            RedisSessionStore sessionStore,
+            UserAccountMapper userAccountMapper) {
+        this(userRepository, roleRepository, passwordEncoder, eventPublisher, notificationPort, sessionStore, userAccountMapper, null);
+    }
+
+    public UserAccountServiceImpl(
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder,
+            CreditApprovalGrantStore grantStore) {
+        this(userRepository, null, passwordEncoder, null, null, null, null, grantStore);
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -291,5 +344,54 @@ public class UserAccountServiceImpl implements UserAccountService {
                 }
             }
         });
+    }
+
+    // ── Credit Approval Grants (from CreditApprovalGrantServiceImpl) ─────────
+
+    @Override
+    public CreditApprovalGrantResponse issue(UUID requesterId, CreateCreditApprovalGrantRequest request) {
+        User owner = authenticateOwner(request.getOwnerEmail(), request.getPassword());
+        Instant expiresAt = Instant.now().plus(GRANT_TTL);
+        String token = token();
+        grantStore.put(token, new CreditApprovalGrantStore.GrantData(owner.getId(), requesterId,
+                request.getCustomerId(), request.getCreditLimit(), request.getCreditTermDays(), expiresAt), GRANT_TTL);
+        return CreditApprovalGrantResponse.builder().approvalToken(token).expiresAt(expiresAt).approvedBy(owner.getId()).build();
+    }
+
+    @Override
+    public CreditApprovalGrantDto consumeCreditProfileGrant(UUID requesterId, String grantToken, UUID customerId,
+                                                             BigDecimal creditLimit, Integer creditTermDays) {
+        CreditApprovalGrantStore.GrantData grant = grantStore.consume(grantToken);
+        if (!requesterId.equals(grant.requesterId()) || !customerId.equals(grant.customerId())
+                || creditLimit.compareTo(grant.creditLimit()) != 0 || !creditTermDays.equals(grant.creditTermDays())
+                || Instant.now().isAfter(grant.expiresAt())) {
+            throw new AppException(CreditApprovalErrorCode.INVALID_GRANT);
+        }
+        return new CreditApprovalGrantDto(grant.approverId(), grant.requesterId(), grant.customerId());
+    }
+
+    private User authenticateOwner(String ownerEmail, String password) {
+        User owner = userRepository.findWithRolesAndPermissionsByEmailIgnoreCase(ownerEmail.trim())
+                .orElseThrow(() -> new AppException(AuthErrorCode.INVALID_CREDENTIALS));
+        if (!passwordEncoder.matches(password, owner.getPasswordHash())) {
+            throw new AppException(AuthErrorCode.INVALID_CREDENTIALS);
+        }
+        boolean ownerRole = owner.getRoles().stream().anyMatch(role -> {
+            String roleName = role.getRoleName() == null ? "" : role.getRoleName().toUpperCase(Locale.ROOT);
+            return "SHOP_OWNER".equals(roleName) || "ROLE_SHOP_OWNER".equals(roleName);
+        });
+        if (owner.getStatus() != UserStatus.ACTIVE || owner.getProvider() != AuthProvider.LOCAL) {
+            throw new AppException(AuthErrorCode.ACCOUNT_NOT_ACTIVE);
+        }
+        if (!ownerRole) {
+            throw new AppException(CreditApprovalErrorCode.APPROVER_NOT_OWNER);
+        }
+        return owner;
+    }
+
+    private String token() {
+        byte[] bytes = new byte[32];
+        secureRandom.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 }

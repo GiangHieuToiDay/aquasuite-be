@@ -8,7 +8,7 @@ import com.aquasuite.ims.service.crm.CustomerService;
 import com.aquasuite.ims.dto.crm.response.CustomerAddressDto;
 import com.aquasuite.ims.dto.crm.response.CustomerSummaryDto;
 import com.aquasuite.ims.service.iam.IamQueryService;
-import com.aquasuite.ims.service.sales.SalesWarrantyService;
+import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.dto.sales.response.SalesOrderItemWarrantySnapshotDto;
 import com.aquasuite.ims.dto.sales.response.SalesOrderWarrantySummaryDto;
 import com.aquasuite.ims.event.servicedesk.WarrantyRecordAuditEvent;
@@ -62,11 +62,17 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import com.aquasuite.ims.dto.sales.response.SalesOrderItemSummaryDto;
+import com.aquasuite.ims.dto.servicedesk.response.WarrantyLookupResponse;
+import com.aquasuite.ims.service.sales.SalesQueryService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.StringUtils;
+
+import java.time.temporal.ChronoUnit;
 import java.util.Set;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 public class WarrantyRecordServiceImpl implements WarrantyRecordService {
 
     private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
@@ -81,7 +87,6 @@ public class WarrantyRecordServiceImpl implements WarrantyRecordService {
     private final WarrantyCodeGenerator warrantyCodeGenerator;
     private final CatalogLookupService catalogApi;
     private final CatalogWarrantyLookupService catalogWarrantyApi;
-    private final SalesWarrantyService salesWarrantyApi;
     private final CustomerService crmApi;
     private final IamQueryService iamApi;
     private final FulfillmentWarrantyPort fulfillmentWarrantyPort;
@@ -89,6 +94,45 @@ public class WarrantyRecordServiceImpl implements WarrantyRecordService {
 
     @Qualifier("servicedeskClock")
     private final Clock servicedeskClock;
+    private final SalesQueryService salesQueryService;
+
+    @Autowired
+    public WarrantyRecordServiceImpl(
+            WarrantyRecordRepository warrantyRecordRepository,
+            TechnicalJobRepository technicalJobRepository,
+            WarrantyTicketRepository warrantyTicketRepository,
+            WarrantyCodeGenerator warrantyCodeGenerator,
+            CatalogLookupService catalogApi,
+            CatalogWarrantyLookupService catalogWarrantyApi,
+            CustomerService crmApi,
+            IamQueryService iamApi,
+            FulfillmentWarrantyPort fulfillmentWarrantyPort,
+            ApplicationEventPublisher eventPublisher,
+            @Qualifier("servicedeskClock") Clock servicedeskClock,
+            SalesQueryService salesQueryService) {
+        this.warrantyRecordRepository = warrantyRecordRepository;
+        this.technicalJobRepository = technicalJobRepository;
+        this.warrantyTicketRepository = warrantyTicketRepository;
+        this.warrantyCodeGenerator = warrantyCodeGenerator;
+        this.catalogApi = catalogApi;
+        this.catalogWarrantyApi = catalogWarrantyApi;
+        this.crmApi = crmApi;
+        this.iamApi = iamApi;
+        this.fulfillmentWarrantyPort = fulfillmentWarrantyPort;
+        this.eventPublisher = eventPublisher;
+        this.servicedeskClock = servicedeskClock;
+        this.salesQueryService = salesQueryService;
+    }
+
+    public WarrantyRecordServiceImpl(
+            WarrantyRecordRepository warrantyRecordRepository,
+            IamQueryService iamApi,
+            CustomerService crmApi,
+            CatalogLookupService catalogApi,
+            SalesQueryService salesQueryService,
+            Clock clock) {
+        this(warrantyRecordRepository, null, null, null, catalogApi, null, crmApi, iamApi, null, null, clock, salesQueryService);
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -129,7 +173,7 @@ public class WarrantyRecordServiceImpl implements WarrantyRecordService {
     @Override
     @Transactional
     public WarrantyRecordDetailResponse createFromOrder(CreateWarrantyFromOrderRequest request) {
-        SalesOrderItemWarrantySnapshotDto snapshot = salesWarrantyApi.lockOrderItemForWarranty(request.orderItemId())
+        SalesOrderItemWarrantySnapshotDto snapshot = salesQueryService.lockOrderItemForWarranty(request.orderItemId())
                 .orElseThrow(() -> new AppException(
                         ServicedeskErrorCode.WARRANTY_ORDER_ITEM_NOT_FOUND, request.orderItemId()));
 
@@ -205,7 +249,7 @@ public class WarrantyRecordServiceImpl implements WarrantyRecordService {
     @Override
     @Transactional
     public WarrantyRecordDetailResponse createFromDelivery(CreateDeliveryWarrantyCommand command) {
-        SalesOrderItemWarrantySnapshotDto snapshot = salesWarrantyApi.lockOrderItemForWarranty(command.orderItemId())
+        SalesOrderItemWarrantySnapshotDto snapshot = salesQueryService.lockOrderItemForWarranty(command.orderItemId())
                 .orElseThrow(() -> new AppException(
                         ServicedeskErrorCode.WARRANTY_ORDER_ITEM_NOT_FOUND, command.orderItemId()));
 
@@ -479,7 +523,7 @@ public class WarrantyRecordServiceImpl implements WarrantyRecordService {
 
         Map<UUID, CatalogSkuSummaryDto> skuMap = catalogApi.getSkuSummaries(variantIds);
         Map<UUID, CustomerSummaryDto> customerMap = crmApi.getCustomersByIds(customerIds);
-        Map<UUID, String> orderCodeMap = salesWarrantyApi.getOrderCodesByIds(orderIds);
+        Map<UUID, String> orderCodeMap = salesQueryService.getOrderCodesByIds(orderIds);
         Set<UUID> claimedRecordIds = technicalJobRepository.findWarrantyRecordIdsWithOpenJob(
                 recordIds, TechnicalJobType.WARRANTY_REPAIR, OPEN_REPAIR_JOB_STATUSES);
 
@@ -537,7 +581,7 @@ public class WarrantyRecordServiceImpl implements WarrantyRecordService {
         CustomerSummaryDto customer = crmApi.getCustomerById(record.getCustomerId()).orElse(null);
         List<CustomerAddressDto> addresses = crmApi.getDeliveryAddressesByCustomerId(record.getCustomerId());
         SalesOrderWarrantySummaryDto orderSummary = record.getOrderId() != null
-                ? salesWarrantyApi.getOrderSummaryWithInvoice(record.getOrderId()).orElse(null)
+                ? salesQueryService.getOrderSummaryWithInvoice(record.getOrderId()).orElse(null)
                 : null;
 
         String installationAddress = orderSummary != null && orderSummary.deliveryAddress() != null && !orderSummary.deliveryAddress().isBlank()
@@ -765,5 +809,56 @@ public class WarrantyRecordServiceImpl implements WarrantyRecordService {
                 .remainingDays(record.computeRemainingDays(today))
                 .voidReason(record.getVoidReason())
                 .build();
+    }
+
+    // ── Customer Warranty Lookup (from WarrantyLookupServiceImpl) ────────────
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<WarrantyLookupResponse> findMine(String keyword) {
+        UUID userId = iamApi.getCurrentUserId();
+        Optional<UUID> customerId = crmApi.getCustomerByUserId(userId).map(customer -> customer.customerId());
+        if (customerId.isEmpty()) return List.of();
+        String normalizedKeyword = StringUtils.hasText(keyword) ? keyword.trim().toLowerCase(Locale.ROOT) : null;
+        LocalDate today = LocalDate.now(servicedeskClock != null ? servicedeskClock : Clock.systemUTC());
+        return warrantyRecordRepository.findByCustomerIdOrderByStartDateDesc(customerId.get()).stream()
+                .map(record -> toLookupResponse(record, today))
+                .filter(response -> matchesLookup(response, normalizedKeyword))
+                .toList();
+    }
+
+    private WarrantyLookupResponse toLookupResponse(WarrantyRecord record, LocalDate today) {
+        com.aquasuite.ims.dto.catalog.response.CatalogSkuSummaryDto sku = catalogApi != null && record.getVariantId() != null
+                ? catalogApi.getSkuSummary(record.getVariantId()).orElse(null)
+                : null;
+        SalesOrderItemSummaryDto orderItem = (record.getOrderItemId() == null || salesQueryService == null)
+                ? null
+                : salesQueryService.getOrderItemSummary(record.getOrderItemId()).orElse(null);
+        String productName = firstText(orderItem == null ? null : orderItem.productName(), sku == null ? null : sku.productName(), "Sản phẩm");
+        String variantName = firstText(orderItem == null ? null : orderItem.variantName(), sku == null ? null : sku.variantName(), null);
+        String skuCode = firstText(orderItem == null ? null : orderItem.sku(), sku == null ? null : sku.sku(), null);
+        boolean voided = record.getStatus() == WarrantyStatus.VOIDED;
+        boolean active = !voided && record.getEndDate() != null && !today.isAfter(record.getEndDate());
+        long remainingDays = active ? Math.max(0, ChronoUnit.DAYS.between(today, record.getEndDate())) : 0;
+        String status = voided ? "VOIDED" : (active ? "ACTIVE" : "EXPIRED");
+        return WarrantyLookupResponse.builder().warrantyRecordId(record.getWarrantyRecordId())
+                .productName(productName).variantName(variantName).sku(skuCode).serialNumber(record.getSerialNumber())
+                .orderCode(orderItem == null ? null : orderItem.orderCode()).warrantyTerms(record.getWarrantyTerms())
+                .startDate(record.getStartDate()).endDate(record.getEndDate()).remainingDays(remainingDays)
+                .status(status).claimAllowed(active).build();
+    }
+
+    private boolean matchesLookup(WarrantyLookupResponse record, String keyword) {
+        return keyword == null || containsLookup(record.serialNumber(), keyword) || containsLookup(record.orderCode(), keyword);
+    }
+
+    private boolean containsLookup(String value, String keyword) {
+        return value != null && value.toLowerCase(Locale.ROOT).contains(keyword);
+    }
+
+    private String firstText(String first, String fallback, String defaultValue) {
+        if (StringUtils.hasText(first)) return first;
+        if (StringUtils.hasText(fallback)) return fallback;
+        return defaultValue;
     }
 }

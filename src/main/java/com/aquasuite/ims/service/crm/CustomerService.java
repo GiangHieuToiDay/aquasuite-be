@@ -1,7 +1,9 @@
 package com.aquasuite.ims.service.crm;
 
+import com.aquasuite.ims.dto.crm.request.CustomerRegistrationRequest;
 import com.aquasuite.ims.dto.crm.response.CustomerAddressDto;
 import com.aquasuite.ims.dto.crm.response.CustomerDebtProfileDto;
+import com.aquasuite.ims.dto.crm.response.CustomerRegistrationResponse;
 import com.aquasuite.ims.dto.crm.response.CustomerSummaryDto;
 
 import java.util.Collection;
@@ -14,7 +16,7 @@ import java.util.UUID;
  * Public synchronous interface for the CRM Module (FE-10).
  * Other modules (Sales, ServiceDesk, Finance, IAM) communicate with CRM exclusively via this contract.
  */
-public interface CustomerService {
+public interface CustomerService extends CustomerRegistrationService {
 
     Optional<CustomerSummaryDto> getCustomerByUserId(UUID userId);
 
@@ -61,4 +63,7 @@ public interface CustomerService {
 
     /** Tra cứu hàng loạt khách hàng theo tập customerIds (tránh N+1 queries). */
     Map<UUID, CustomerSummaryDto> getCustomersByIds(Collection<UUID> customerIds);
+
+    @Override
+    CustomerRegistrationResponse createProfile(CustomerRegistrationRequest request);
 }

@@ -9,7 +9,7 @@ import com.aquasuite.ims.service.finance.PaymentAllocationService;
 import com.aquasuite.ims.service.fulfillment.DeliveryCodQueryService;
 import com.aquasuite.ims.dto.fulfillment.response.DeliveryCodSnapshot;
 import com.aquasuite.ims.service.iam.IamQueryService;
-import com.aquasuite.ims.service.sales.SalesOrderService;
+import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.dto.sales.response.SalesOrderPaymentInfoDto;
 import com.aquasuite.ims.exception.AppException;
 import com.aquasuite.ims.exception.CommonErrorCode;
@@ -35,29 +35,21 @@ import java.util.UUID;
 @Validated
 public class CodService {
     @org.springframework.beans.factory.annotation.Autowired
-    public CodService(TransactionRepository transactions, FinanceLockRepository locks, SalesOrderService sales,
-                      DeliveryCodQueryService deliveries, IamQueryService iam, PaymentAllocationService paymentAllocationService,
-                      com.aquasuite.ims.service.sales.OrderDispatchService orderDispatch) {
+    public CodService(TransactionRepository transactions, FinanceLockRepository locks, SalesQueryService sales,
+                      DeliveryCodQueryService deliveries, IamQueryService iam, PaymentAllocationService paymentAllocationService) {
         this.transactions = transactions;
         this.locks = locks;
         this.sales = sales;
         this.deliveries = deliveries;
         this.iam = iam;
         this.paymentAllocationService = paymentAllocationService;
-        this.orderDispatch = orderDispatch;
     }
-
-    public CodService(TransactionRepository transactions, FinanceLockRepository locks, SalesOrderService sales,
-                      DeliveryCodQueryService deliveries, IamQueryService iam, PaymentAllocationService paymentAllocationService) {
-        this(transactions, locks, sales, deliveries, iam, paymentAllocationService, null);
-    }
-    private final com.aquasuite.ims.service.sales.OrderDispatchService orderDispatch;
 
     public record Commitment(UUID deliveryId, BigDecimal amount) {}
 
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
     public BigDecimal available(UUID orderId, List<Commitment> commitments) {
-        var order = orderDispatch.lock(orderId);
+        var order = sales.lock(orderId);
         var receipts = transactions.findByOrderIdAndTransactionTypeIgnoreCase(orderId, "RECEIPT");
         BigDecimal paid = BigDecimal.ZERO, pending = BigDecimal.ZERO, promised = BigDecimal.ZERO;
         java.util.Map<UUID, BigDecimal> declared = new java.util.HashMap<>();
@@ -75,7 +67,7 @@ public class CodService {
     }
     private final TransactionRepository transactions;
     private final FinanceLockRepository locks;
-    private final SalesOrderService sales;
+    private final SalesQueryService sales;
     private final DeliveryCodQueryService deliveries;
     private final IamQueryService iam;
     private final PaymentAllocationService paymentAllocationService;

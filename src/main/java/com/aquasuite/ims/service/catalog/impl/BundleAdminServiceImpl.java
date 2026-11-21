@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
  */
 @Service
 @RequiredArgsConstructor
-public class BundleAdminServiceImpl implements BundleAdminService {
+public class BundleAdminServiceImpl {
     private final ProductRepository products;
     private final ProductVariantRepository variants;
     private final BundleConfigurationRepository configs;
@@ -45,7 +45,7 @@ public class BundleAdminServiceImpl implements BundleAdminService {
     private final CategoryRepository categories;
     private final BundlePricingService pricing;
     private final BundleRepository repository;
-    private final BundleQueryService query;
+    private final BundleQueryServiceImpl query;
     private final Clock clock;
     private final Validator validator;
 
@@ -308,8 +308,6 @@ public class BundleAdminServiceImpl implements BundleAdminService {
     private BundleResponse loadDetail(Product p) {
         return query.getBundleDetails(p.getProductId());
     }
-
-    @Override
     @Transactional
     public BundleResponse changePublicationStatus(UUID id, ChangePublicationStatusRequest request) {
         validateRequest(request);

@@ -18,13 +18,12 @@ import com.aquasuite.ims.dto.catalog.response.VariantStatsResponse;
 import com.aquasuite.ims.repository.catalog.ProductRepository;
 import com.aquasuite.ims.repository.catalog.ProductVariantRepository;
 import com.aquasuite.ims.repository.catalog.WarrantyPolicyRepository;
-import com.aquasuite.ims.service.catalog.VariantService;
 import com.aquasuite.ims.exception.catalog.CatalogVariantErrorCode;
 import com.aquasuite.ims.exception.catalog.VariantDeleteBlockedException;
 import com.aquasuite.ims.service.inventory.InventoryService;
 import com.aquasuite.ims.dto.inventory.response.VariantInventoryUsage;
 import com.aquasuite.ims.dto.inventory.response.StockSummaryDto;
-import com.aquasuite.ims.service.sales.SalesVariantUsageService;
+import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.dto.sales.response.VariantDocumentUsage;
 import com.aquasuite.ims.service.iam.IamQueryService;
 import com.aquasuite.ims.dto.iam.response.UserSummaryDto;
@@ -49,17 +48,15 @@ import java.util.*;
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-public class VariantServiceImpl implements VariantService {
+public class VariantServiceImpl {
     ProductRepository productRepository;
     ProductVariantRepository variantRepository;
     WarrantyPolicyRepository warrantyPolicyRepository;
     InventoryService inventoryApi;
-    SalesVariantUsageService salesVariantUsageApi;
+    SalesQueryService salesVariantUsageApi;
     JdbcTemplate jdbcTemplate;
     IamQueryService iamApi;
     ApplicationEventPublisher eventPublisher;
-
-    @Override
     @Transactional(readOnly = true)
     public Page<VariantResponse> list(
             UUID productId,
@@ -69,8 +66,7 @@ public class VariantServiceImpl implements VariantService {
             String sortBy,
             String sortDir,
             String warehouseCode,
-            Pageable pageable
-    ) {
+            Pageable pageable) {
         requireProduct(productId);
         String searchKeyword = (keyword == null || keyword.trim().isEmpty())
                 ? null
@@ -90,24 +86,21 @@ public class VariantServiceImpl implements VariantService {
                 : variantRepository.search(productId, searchKeyword, status, missingPrice, sortedPageable);
 
         Map<UUID, StockSummaryDto> rawStocks = inventoryApi.getStockSummaries(
-                result.getContent().stream().map(ProductVariant::getVariantId).toList(), requestedWarehouse
-        );
+                result.getContent().stream().map(ProductVariant::getVariantId).toList(), requestedWarehouse);
         Map<UUID, StockSummaryDto> stocks = rawStocks != null ? rawStocks : Collections.emptyMap();
 
-        return result.map(variant -> response(variant, stocks.get(variant.getVariantId()), requestedWarehouse, canViewCost));
+        return result
+                .map(variant -> response(variant, stocks.get(variant.getVariantId()), requestedWarehouse, canViewCost));
     }
-
-    @Override
     @Transactional(readOnly = true)
     public VariantStatsResponse stats(UUID productId) {
         requireProduct(productId);
-        return new VariantStatsResponse(variantRepository.countByProductIdAndStatusNot(productId, VariantStatus.DELETED),
+        return new VariantStatsResponse(
+                variantRepository.countByProductIdAndStatusNot(productId, VariantStatus.DELETED),
                 variantRepository.countByProductIdAndStatus(productId, VariantStatus.ACTIVE),
                 variantRepository.countByProductIdAndStatus(productId, VariantStatus.INACTIVE),
                 variantRepository.countByProductIdAndStatusNotAndSellingPriceIsNull(productId, VariantStatus.DELETED));
     }
-
-    @Override
     @Transactional
     public VariantResponse create(UUID productId, VariantUpsertRequest request) {
         Product product = requireProduct(productId);
@@ -121,8 +114,6 @@ public class VariantServiceImpl implements VariantService {
         publish(variant, "CREATED", Map.of(), null);
         return response(variant);
     }
-
-    @Override
     @Transactional
     public List<VariantResponse> createMatrix(UUID productId, VariantMatrixRequest request) {
         Product product = requireProduct(productId);
@@ -146,8 +137,6 @@ public class VariantServiceImpl implements VariantService {
         }
         return saved.stream().map(this::response).toList();
     }
-
-    @Override
     @Transactional
     public VariantResponse update(UUID productId, UUID variantId, VariantUpsertRequest request) {
         ProductVariant variant = requireVariant(productId, variantId);
@@ -160,12 +149,11 @@ public class VariantServiceImpl implements VariantService {
         publish(variant, "UPDATED", oldData, null);
         return response(variant);
     }
-
-    @Override
     @Transactional
     public VariantResponse changeStatus(UUID productId, UUID variantId, VariantStatusRequest request) {
         ProductVariant variant = requireVariant(productId, variantId);
-        if (request.status() == VariantStatus.DELETED) throw new AppException(CatalogVariantErrorCode.INVALID_STATUS);
+        if (request.status() == VariantStatus.DELETED)
+            throw new AppException(CatalogVariantErrorCode.INVALID_STATUS);
         if (request.status() == VariantStatus.ACTIVE && variant.getSellingPrice() == null)
             throw new AppException(CatalogVariantErrorCode.RETAIL_PRICE_REQUIRED);
         Map<String, Object> oldData = snapshot(variant);
@@ -174,22 +162,20 @@ public class VariantServiceImpl implements VariantService {
         publish(saved, "STATUS_CHANGED", oldData, null);
         return response(saved);
     }
-
-    @Override
     @Transactional(readOnly = true)
     public VariantDeletionEligibilityResponse deletionEligibility(UUID productId, UUID variantId) {
         requireVariant(productId, variantId);
         return usage(variantId);
     }
-
-    @Override
     @Transactional
     public void delete(UUID productId, UUID variantId, VariantDeleteRequest request) {
-        if (!request.confirmed()) throw new AppException(CatalogVariantErrorCode.INVALID_DELETE_CONFIRMATION);
+        if (!request.confirmed())
+            throw new AppException(CatalogVariantErrorCode.INVALID_DELETE_CONFIRMATION);
         ProductVariant variant = requireVariantForUpdate(productId, variantId);
         Map<String, Object> deletedSnapshot = snapshot(variant);
         VariantDeletionEligibilityResponse usage = usage(variantId, true);
-        if (!usage.eligible()) throw new VariantDeleteBlockedException(usage);
+        if (!usage.eligible())
+            throw new VariantDeleteBlockedException(usage);
         deletedSnapshot.put("deletionEligibility", deletionEligibilitySnapshot(usage));
         salesVariantUsageApi.removeVariantFromCarts(variantId);
         jdbcTemplate.update("DELETE FROM public.product_images WHERE variant_id = ?", variantId);
@@ -198,7 +184,8 @@ public class VariantServiceImpl implements VariantService {
         inventoryApi.deleteEmptyVariantInventory(variantId);
         variantRepository.delete(variant);
         variantRepository.flush();
-        eventPublisher.publishEvent(new ProductVariantChangedEvent(iamApi.getCurrentUserId(), variantId, "DELETED", deletedSnapshot, Map.of(), request.reason()));
+        eventPublisher.publishEvent(new ProductVariantChangedEvent(iamApi.getCurrentUserId(), variantId, "DELETED",
+                deletedSnapshot, Map.of(), request.reason()));
     }
 
     private VariantDeletionEligibilityResponse usage(UUID variantId) {
@@ -215,14 +202,17 @@ public class VariantServiceImpl implements VariantService {
         boolean eligible = inventory.canDelete() && !documents.hasBlockingDocument()
                 && bundleCount == 0 && bundleOptionCount == 0;
         return new VariantDeletionEligibilityResponse(variantId, inventory.onHandQty(), inventory.reservedQty(),
-                documents.goodsReceiptCount(), inventory.stockMovementCount(), documents.dispatchCount(), documents.quotationCount(),
+                documents.goodsReceiptCount(), inventory.stockMovementCount(), documents.dispatchCount(),
+                documents.quotationCount(),
                 documents.orderCount(), documents.invoiceCount(), inventory.stockCountItemCount(), bundleCount,
-                bundleOptionCount, documents.purchaseOrderCount(), documents.deliveryItemCount(), documents.cartItemCount(), eligible);
+                bundleOptionCount, documents.purchaseOrderCount(), documents.deliveryItemCount(),
+                documents.cartItemCount(), eligible);
     }
 
     private long countActiveBundleItems(UUID variantId) {
         return count("SELECT COUNT(*) FROM public.bundle_items item JOIN public.products product "
-                + "ON product.product_id = item.bundle_product_id WHERE item.variant_id = ? AND product.status = 'ACTIVE'", variantId);
+                + "ON product.product_id = item.bundle_product_id WHERE item.variant_id = ? AND product.status = 'ACTIVE'",
+                variantId);
     }
 
     private long countActiveBundleOptions(UUID variantId) {
@@ -241,10 +231,12 @@ public class VariantServiceImpl implements VariantService {
         jdbcTemplate.update("DELETE FROM public.bundle_component_groups component USING public.products product "
                 + "WHERE component.bundle_product_id = product.product_id AND product.status <> 'ACTIVE' "
                 + "AND component.default_variant_id = ?", variantId);
-        jdbcTemplate.update("UPDATE public.bundle_component_groups component SET allowed_variant_ids = array_remove(component.allowed_variant_ids, ?) "
-                + "FROM public.products product WHERE component.bundle_product_id = product.product_id "
-                + "AND product.status <> 'ACTIVE' AND component.default_variant_id <> ? "
-                + "AND ? = ANY(component.allowed_variant_ids)", variantId, variantId, variantId);
+        jdbcTemplate.update(
+                "UPDATE public.bundle_component_groups component SET allowed_variant_ids = array_remove(component.allowed_variant_ids, ?) "
+                        + "FROM public.products product WHERE component.bundle_product_id = product.product_id "
+                        + "AND product.status <> 'ACTIVE' AND component.default_variant_id <> ? "
+                        + "AND ? = ANY(component.allowed_variant_ids)",
+                variantId, variantId, variantId);
     }
 
     private void apply(Product product, VariantUpsertRequest request, ProductVariant target) {
@@ -263,16 +255,19 @@ public class VariantServiceImpl implements VariantService {
         target.setColor(blankToNull(request.color()));
         target.setSize(blankToNull(request.size()));
         target.setWeight(request.weight());
-        target.setTechnicalSpec(mergeSpecifications(product.getSpecifications(), target.getTechnicalSpec(), request.technicalSpec()));
+        target.setTechnicalSpec(
+                mergeSpecifications(product.getSpecifications(), target.getTechnicalSpec(), request.technicalSpec()));
         target.setCostPrice(cost == null ? BigDecimal.ZERO : cost);
         target.setSellingPrice(retail);
         target.setWarrantyPolicyId(resolveWarrantyPolicyId(product, request.warrantyPolicyId()));
         target.setSerialTracking(Boolean.TRUE.equals(request.serialTracking()));
-        target.setStatus(retail == null ? VariantStatus.INACTIVE : request.status() == null ? VariantStatus.ACTIVE : request.status());
+        target.setStatus(retail == null ? VariantStatus.INACTIVE
+                : request.status() == null ? VariantStatus.ACTIVE : request.status());
     }
 
     private void ensureUniqueSku(String sku, UUID currentId) {
-        variantRepository.findBySkuIgnoreCase(normalizeSku(sku)).filter(existing -> !existing.getVariantId().equals(currentId))
+        variantRepository.findBySkuIgnoreCase(normalizeSku(sku))
+                .filter(existing -> !existing.getVariantId().equals(currentId))
                 .ifPresent(existing -> {
                     throw new AppException(CatalogVariantErrorCode.DUPLICATE_SKU);
                 });
@@ -294,7 +289,8 @@ public class VariantServiceImpl implements VariantService {
     private ProductVariant requireVariant(UUID productId, UUID variantId) {
         requireProduct(productId);
         return variantRepository.findById(variantId)
-                .filter(variant -> variant.getProductId().equals(productId) && variant.getStatus() != VariantStatus.DELETED)
+                .filter(variant -> variant.getProductId().equals(productId)
+                        && variant.getStatus() != VariantStatus.DELETED)
                 .orElseThrow(() -> new AppException(CatalogVariantErrorCode.VARIANT_NOT_FOUND));
     }
 
@@ -324,10 +320,13 @@ public class VariantServiceImpl implements VariantService {
         return response(value, stock == null ? null : stock.orElse(null), null, true);
     }
 
-    private VariantResponse response(ProductVariant value, StockSummaryDto stock, String requestedWarehouse, boolean includeCostPrice) {
-        boolean warehouseMatched = stock != null && (requestedWarehouse == null || requestedWarehouse.equalsIgnoreCase(stock.warehouseCode()));
+    private VariantResponse response(ProductVariant value, StockSummaryDto stock, String requestedWarehouse,
+            boolean includeCostPrice) {
+        boolean warehouseMatched = stock != null
+                && (requestedWarehouse == null || requestedWarehouse.equalsIgnoreCase(stock.warehouseCode()));
         return new VariantResponse(
-                value.getVariantId(), value.getProductId(), value.getSku(), value.getVariantName(), value.getUnit(), value.getConversionRate(),
+                value.getVariantId(), value.getProductId(), value.getSku(), value.getVariantName(), value.getUnit(),
+                value.getConversionRate(),
                 value.getColor(), value.getSize(), value.getWeight(), value.getTechnicalSpec(),
                 includeCostPrice ? value.getCostPrice() : null,
                 value.getSellingPrice(),
@@ -337,8 +336,7 @@ public class VariantServiceImpl implements VariantService {
                 warehouseMatched ? stock.reservedQty() : BigDecimal.ZERO,
                 warehouseMatched ? stock.availableQty() : BigDecimal.ZERO,
                 warehouseMatched ? stock.minimumQty() : BigDecimal.ZERO,
-                warehouseMatched && stock.isLowStock()
-        );
+                warehouseMatched && stock.isLowStock());
     }
 
     private void assertPhysicalVariantAllowed(Product product) {
@@ -350,8 +348,7 @@ public class VariantServiceImpl implements VariantService {
     private Map<String, Object> mergeSpecifications(
             Map<String, Object> productSpecifications,
             Map<String, Object> existingVariantSpecifications,
-            Map<String, Object> requestedVariantSpecifications
-    ) {
+            Map<String, Object> requestedVariantSpecifications) {
         Map<String, Object> merged = new LinkedHashMap<>();
         if (productSpecifications != null) {
             merged.putAll(productSpecifications);
@@ -428,7 +425,8 @@ public class VariantServiceImpl implements VariantService {
             case STATUS -> List.of("status");
             default -> List.of("createdAt");
         };
-        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), direction, properties.toArray(String[]::new));
+        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), direction,
+                properties.toArray(String[]::new));
     }
 
     private String normalizeWarehouseCode(String warehouseCode) {
@@ -469,7 +467,8 @@ public class VariantServiceImpl implements VariantService {
     }
 
     private void publish(ProductVariant value, String action, Map<String, Object> oldData, String reason) {
-        eventPublisher.publishEvent(new ProductVariantChangedEvent(iamApi.getCurrentUserId(), value.getVariantId(), action, oldData, snapshot(value), reason));
+        eventPublisher.publishEvent(new ProductVariantChangedEvent(iamApi.getCurrentUserId(), value.getVariantId(),
+                action, oldData, snapshot(value), reason));
     }
 
     private String normalizeSku(String value) {

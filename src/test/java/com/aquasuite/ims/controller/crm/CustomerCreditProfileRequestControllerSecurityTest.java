@@ -3,7 +3,6 @@ package com.aquasuite.ims.controller.crm;
 import com.aquasuite.ims.enums.crm.CustomerCreditProfileRequestStatus;
 import com.aquasuite.ims.dto.crm.response.CustomerCreditProfileRequestResponse;
 import com.aquasuite.ims.repository.crm.CustomerRepository;
-import com.aquasuite.ims.service.crm.CustomerCreditProfileRequestService;
 import com.aquasuite.ims.service.crm.CustomerCreditProfileService;
 import com.aquasuite.ims.integration.crm.CreditEvidenceStorageService;
 import com.aquasuite.ims.service.iam.IamQueryService;
@@ -41,7 +40,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(
-        controllers = {CustomerController.class, CustomerCreditProfileRequestController.class},
+        controllers = {CustomerController.class},
         excludeFilters = @ComponentScan.Filter(
                 type = FilterType.ASSIGNABLE_TYPE,
                 classes = {AuthSecurityConfig.class, AccessAuthenticationConverter.class}))
@@ -53,7 +52,6 @@ class CustomerCreditProfileRequestControllerSecurityTest {
     @Autowired private MockMvc mockMvc;
     @MockBean private CustomerRepository customerRepository;
     @MockBean private CustomerCreditProfileService customerCreditProfileService;
-    @MockBean private CustomerCreditProfileRequestService customerCreditProfileRequestService;
     @MockBean private CreditEvidenceStorageService creditEvidenceStorageService;
     @MockBean private IamQueryService iamApi;
 
@@ -66,7 +64,7 @@ class CustomerCreditProfileRequestControllerSecurityTest {
     @Test
     @WithMockUser(roles = "SALES_STAFF")
     void salesStaffMaySubmitRequestButCannotReadApprovalQueueOrUseLegacyBypass() throws Exception {
-        when(customerCreditProfileRequestService.submit(eq(CUSTOMER_ID), any())).thenReturn(response(false, CustomerCreditProfileRequestStatus.PENDING));
+        when(customerCreditProfileService.submit(eq(CUSTOMER_ID), any())).thenReturn(response(false, CustomerCreditProfileRequestStatus.PENDING));
 
         mockMvc.perform(post("/api/v1/crm/customers/{customerId}/credit-profile-requests", CUSTOMER_ID)
                         .contentType("application/json")
@@ -81,13 +79,13 @@ class CustomerCreditProfileRequestControllerSecurityTest {
                         .content("{\"creditLimit\":2000000,\"creditTermDays\":15,\"approvalToken\":\"legacy\",\"reason\":\"legacy\"}"))
                 .andExpect(status().isForbidden());
 
-        verify(customerCreditProfileRequestService).submit(eq(CUSTOMER_ID), any());
+        verify(customerCreditProfileService).submit(eq(CUSTOMER_ID), any());
     }
 
     @Test
     @WithMockUser(roles = "SHOP_OWNER")
     void shopOwnerCanReadPendingQueue() throws Exception {
-        when(customerCreditProfileRequestService.list(eq(CustomerCreditProfileRequestStatus.PENDING), any()))
+        when(customerCreditProfileService.list(eq(CustomerCreditProfileRequestStatus.PENDING), any()))
                 .thenReturn(Page.empty());
 
         mockMvc.perform(get("/api/v1/crm/credit-profile-requests?status=PENDING"))

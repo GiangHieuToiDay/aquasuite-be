@@ -30,7 +30,7 @@ import com.aquasuite.ims.repository.sales.CartItemRepository;
 import com.aquasuite.ims.repository.sales.OnlinePayosPaymentRepository;
 import com.aquasuite.ims.repository.sales.OrderItemRepository;
 import com.aquasuite.ims.repository.sales.OrderRepository;
-import com.aquasuite.ims.service.sales.CartService;
+import com.aquasuite.ims.service.sales.impl.CartServiceImpl;
 import com.aquasuite.ims.service.sales.helper.OrderCodeGenerator;
 import com.aquasuite.ims.exception.AppException;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,7 +63,7 @@ import static org.mockito.Mockito.when;
 class OnlineCheckoutServiceImplTest {
 
     @Mock
-    private CartService cartService;
+    private CartServiceImpl cartService;
 
     @Mock
     private CartItemRepository cartItemRepository;

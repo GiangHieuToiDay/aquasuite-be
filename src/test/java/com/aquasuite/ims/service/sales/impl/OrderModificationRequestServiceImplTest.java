@@ -2,7 +2,7 @@ package com.aquasuite.ims.service.sales.impl;
 
 import com.aquasuite.ims.service.catalog.CatalogLookupService;
 import com.aquasuite.ims.dto.catalog.response.CatalogSkuSummaryDto;
-import com.aquasuite.ims.service.finance.PaymentSettlementService;
+import com.aquasuite.ims.service.finance.PaymentService;
 import com.aquasuite.ims.service.finance.PaymentAllocationService;
 import com.aquasuite.ims.dto.finance.response.VerifiedPaymentSummary;
 import com.aquasuite.ims.service.fulfillment.DeliveryCodQueryService;
@@ -63,7 +63,7 @@ class OrderModificationRequestServiceImplTest {
     @Mock private SalesInvoiceItemRepository invoiceItemRepository;
     @Mock private OrderModificationRequestMapper mapper;
     @Mock private DeliveryCodQueryService deliveries;
-    @Mock private PaymentSettlementService payments;
+    @Mock private PaymentService payments;
     @Mock private PaymentAllocationService paymentAllocations;
     @Mock private CatalogLookupService catalogApi;
     @Mock private StockReservationService reservations;

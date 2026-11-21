@@ -21,7 +21,7 @@ import com.aquasuite.ims.repository.finance.PaymentInvoiceAllocationRepository;
 import com.aquasuite.ims.repository.finance.PaymentReceiptRefundSettlementRepository;
 import com.aquasuite.ims.repository.finance.TransactionRepository;
 import com.aquasuite.ims.service.finance.impl.CustomerDebtServiceImpl;
-import com.aquasuite.ims.service.sales.SalesReceivableService;
+import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.dto.sales.response.SalesInvoiceDebtDto;
 import com.aquasuite.ims.dto.sales.response.SalesOrderDebtDto;
 import com.aquasuite.ims.exception.AppException;
@@ -62,7 +62,7 @@ class CustomerDebtServiceImplTest {
     private static final UUID ACTOR_ID = UUID.fromString("10000000-0000-4000-8000-000000000009");
 
     @Mock private CustomerService crmApi;
-    @Mock private SalesReceivableService salesReceivableApi;
+    @Mock private SalesQueryService salesReceivableApi;
     @Mock private TransactionRepository transactionRepository;
     @Mock private PaymentInvoiceAllocationRepository paymentInvoiceAllocationRepository;
     @Mock private PaymentReceiptRefundSettlementRepository paymentReceiptRefundSettlementRepository;

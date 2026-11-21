@@ -6,10 +6,9 @@ import com.aquasuite.ims.exception.finance.PaymentVerificationErrorCode;
 import com.aquasuite.ims.dto.finance.response.PaymentVerificationPageResponse;
 import com.aquasuite.ims.dto.finance.response.PaymentVerificationResponse;
 import com.aquasuite.ims.repository.finance.TransactionRepository;
-import com.aquasuite.ims.service.finance.PaymentVerificationService;
 import com.aquasuite.ims.service.finance.PaymentAllocationService;
 import com.aquasuite.ims.service.iam.IamQueryService;
-import com.aquasuite.ims.service.sales.SalesOrderService;
+import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.dto.sales.response.SalesOrderPaymentInfoDto;
 import com.aquasuite.ims.exception.AppException;
 import com.aquasuite.ims.exception.CommonErrorCode;
@@ -30,7 +29,7 @@ import java.util.UUID;
 /** Triển khai UC-70: xem, xác minh và từ chối khoản chuyển khoản đang chờ. */
 @Service
 @RequiredArgsConstructor
-public class PaymentVerificationServiceImpl implements PaymentVerificationService {
+public class PaymentVerificationServiceImpl {
 
     private static final String TYPE_RECEIPT = "RECEIPT";
     private static final String METHOD_TRANSFER = "BANK_TRANSFER";
@@ -41,7 +40,7 @@ public class PaymentVerificationServiceImpl implements PaymentVerificationServic
     /** Truy vấn, khóa và lưu giao dịch thu tiền. */
     private final TransactionRepository transactions;
     /** Khóa đơn và cập nhật trạng thái thanh toán qua hợp đồng công khai của Sales. */
-    private final SalesOrderService sales;
+    private final SalesQueryService sales;
     /** Xác định kế toán đang thực hiện quyết định. */
     private final IamQueryService iam;
     private final PaymentAllocationService paymentAllocationService;
@@ -53,7 +52,6 @@ public class PaymentVerificationServiceImpl implements PaymentVerificationServic
      * @param size kích thước trang
      * @return trang các khoản đang chờ
      */
-    @Override
     @Transactional(readOnly = true)
     public PaymentVerificationPageResponse list(UUID orderId, String status, int page, int size) {
         String st = (status == null || status.isBlank()) ? STATUS_PENDING : status.trim().toUpperCase();
@@ -77,7 +75,6 @@ public class PaymentVerificationServiceImpl implements PaymentVerificationServic
      * @return thông tin khoản
      * @throws AppException nếu không tìm thấy hoặc không phải khoản chuyển khoản của đơn
      */
-    @Override
     @Transactional(readOnly = true)
     public PaymentVerificationResponse detail(UUID paymentId) {
         Transaction t = transactions.findById(paymentId)
@@ -95,7 +92,6 @@ public class PaymentVerificationServiceImpl implements PaymentVerificationServic
      * @return khoản sau khi xác minh
      * @throws AppException nếu khoản không hợp lệ, đơn không nhận thanh toán, hoặc vượt nghĩa vụ
      */
-    @Override
     @Transactional
     public PaymentVerificationResponse verify(UUID paymentId) {
         // Lấy orderId bằng truy vấn scalar (không nạp entity) để lần nạp entity đầu tiên nằm dưới khóa,
@@ -153,7 +149,6 @@ public class PaymentVerificationServiceImpl implements PaymentVerificationServic
      * @return khoản sau khi từ chối
      * @throws AppException nếu thiếu lý do hoặc khoản không ở trạng thái chờ hợp lệ
      */
-    @Override
     @Transactional
     public PaymentVerificationResponse reject(UUID paymentId, String reason) {
         if (reason == null || reason.isBlank()) {

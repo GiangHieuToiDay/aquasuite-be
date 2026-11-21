@@ -1,17 +1,17 @@
 package com.aquasuite.ims.service.crm;
-import com.aquasuite.ims.integration.crm.CloudinaryStorageService;
 
-import com.aquasuite.ims.entity.crm.Customer;
-import com.aquasuite.ims.enums.crm.CustomerType;
 import com.aquasuite.ims.dto.crm.request.UpdateProfileRequest;
 import com.aquasuite.ims.dto.crm.response.AvatarUploadResponse;
-import com.aquasuite.ims.dto.crm.response.DeliveryAddressResponse;
 import com.aquasuite.ims.dto.crm.response.UserProfileResponse;
+import com.aquasuite.ims.dto.iam.response.UserSummaryDto;
+import com.aquasuite.ims.entity.crm.Customer;
+import com.aquasuite.ims.entity.crm.DeliveryAddressItem;
+import com.aquasuite.ims.enums.crm.CustomerType;
+import com.aquasuite.ims.exception.AppException;
+import com.aquasuite.ims.integration.crm.CloudinaryStorageService;
 import com.aquasuite.ims.repository.crm.CustomerRepository;
 import com.aquasuite.ims.service.crm.impl.UserProfileServiceImpl;
 import com.aquasuite.ims.service.iam.IamQueryService;
-import com.aquasuite.ims.dto.iam.response.UserSummaryDto;
-import com.aquasuite.ims.exception.AppException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,6 +21,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -28,7 +29,6 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -36,9 +36,6 @@ class UserProfileServiceTest {
 
     @Mock
     private CustomerRepository customerRepository;
-
-    @Mock
-    private DeliveryAddressService deliveryAddressService;
 
     @Mock
     private CloudinaryStorageService cloudinaryStorageService;
@@ -62,7 +59,7 @@ class UserProfileServiceTest {
                 .fullName("Nguyen Van A")
                 .email("nguyenvana@example.com")
                 .phone("0912345678")
-                .avatarUrl("https://res.cloudinary.com/aquasuite/avatar1.png")
+                .avatarUrl("https://res.cloudinary.com/aquasuite/avatar.png")
                 .status("ACTIVE")
                 .roles(List.of("CUSTOMER"))
                 .build();
@@ -76,23 +73,24 @@ class UserProfileServiceTest {
                 .email("nguyenvana@example.com")
                 .customerType(CustomerType.RETAIL)
                 .status("ACTIVE")
+                .deliveryAddresses(new ArrayList<>())
                 .build();
     }
 
     @Test
     @DisplayName("getProfile: returns full profile details with customerTier and addresses")
     void getProfile_WhenCustomerExists_ReturnsProfileWithTierAndAddresses() {
-        DeliveryAddressResponse address = DeliveryAddressResponse.builder()
+        DeliveryAddressItem address = DeliveryAddressItem.builder()
                 .addressId(UUID.randomUUID())
                 .recipientName("Nguyen Van A")
                 .phone("0912345678")
                 .addressText("123 Nguyen Trai, Thanh Xuan, Ha Noi")
                 .isDefault(true)
                 .build();
+        sampleCustomer.getDeliveryAddresses().add(address);
 
         when(iamApi.getUserById(userId)).thenReturn(sampleUserDto);
         when(customerRepository.findByUserId(userId)).thenReturn(Optional.of(sampleCustomer));
-        when(deliveryAddressService.getAddressesByUserId(userId)).thenReturn(List.of(address));
 
         UserProfileResponse response = userProfileService.getProfile(userId);
 
@@ -110,7 +108,6 @@ class UserProfileServiceTest {
     void getProfile_WhenCustomerNotFound_ReturnsProfileWithNullCustomerFields() {
         when(iamApi.getUserById(userId)).thenReturn(sampleUserDto);
         when(customerRepository.findByUserId(userId)).thenReturn(Optional.empty());
-        when(deliveryAddressService.getAddressesByUserId(userId)).thenReturn(List.of());
 
         UserProfileResponse response = userProfileService.getProfile(userId);
 
@@ -163,7 +160,6 @@ class UserProfileServiceTest {
         when(iamApi.existsByPhoneAndUserIdNot("0987654321", userId)).thenReturn(false);
         when(customerRepository.findByUserId(userId)).thenReturn(Optional.of(sampleCustomer));
         when(iamApi.getUserById(userId)).thenReturn(updatedDto);
-        when(deliveryAddressService.getAddressesByUserId(userId)).thenReturn(List.of());
 
         UserProfileResponse response = userProfileService.updateProfile(userId, request);
 

@@ -43,7 +43,7 @@ class DepositPaymentVerificationHttpIT extends PostgreSqlIntegrationTestSupport 
     @SpyBean com.aquasuite.ims.service.sales.helper.ReservationAllocationRunner runner;
     @Autowired com.aquasuite.ims.repository.sales.store.ReservationAllocationStore jobs;
     @Autowired org.springframework.transaction.PlatformTransactionManager transactionManager;
-    @Autowired com.aquasuite.ims.service.finance.PaymentVerificationService verifications;
+    @Autowired com.aquasuite.ims.service.finance.PaymentService verifications;
     UUID order, item, actor, inventory, customer, variant;
 
     @BeforeEach

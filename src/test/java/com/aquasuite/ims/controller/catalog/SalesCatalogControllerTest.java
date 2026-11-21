@@ -4,7 +4,7 @@ import com.aquasuite.ims.entity.catalog.*;
 import com.aquasuite.ims.enums.catalog.*;
 import com.aquasuite.ims.dto.catalog.response.BundleResponse;
 import com.aquasuite.ims.repository.catalog.*;
-import com.aquasuite.ims.service.catalog.BundleQueryService;
+import com.aquasuite.ims.service.catalog.BundleService;
 import com.aquasuite.ims.service.inventory.InventoryService;
 import com.aquasuite.ims.dto.inventory.response.StockSummaryDto;
 import com.aquasuite.ims.common.PageResponse;
@@ -21,8 +21,8 @@ class SalesCatalogControllerTest {
     private final ProductVariantRepository variants = mock(ProductVariantRepository.class);
     private final ProductRepository products = mock(ProductRepository.class);
     private final InventoryService inventory = mock(InventoryService.class);
-    private final BundleQueryService bundles = mock(BundleQueryService.class);
-    private final SalesCatalogController controller = new SalesCatalogController(variants, products,
+    private final BundleService bundles = mock(BundleService.class);
+    private final ProductController controller = new ProductController(null, null, null, null, null, variants, products,
             mock(CategoryRepository.class), mock(BrandRepository.class), mock(ProductImageRepository.class),
             inventory, bundles);
 

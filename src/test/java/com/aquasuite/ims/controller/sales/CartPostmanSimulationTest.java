@@ -13,7 +13,7 @@ import com.aquasuite.ims.dto.sales.request.AddCartItemRequest;
 import com.aquasuite.ims.dto.sales.request.MergeCartItemsRequest;
 import com.aquasuite.ims.dto.sales.request.UpdateCartItemQuantityRequest;
 import com.aquasuite.ims.repository.sales.CartItemRepository;
-import com.aquasuite.ims.service.sales.CartService;
+import com.aquasuite.ims.service.sales.impl.CartCheckoutServiceImpl;
 import com.aquasuite.ims.service.sales.impl.CartServiceImpl;
 import com.aquasuite.ims.exception.GlobalExceptionHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -229,7 +229,7 @@ public class CartPostmanSimulationTest {
             return null;
         }).when(cartItemRepository).deleteAllByCustomerId(customerId);
 
-        CartService cartService = new CartServiceImpl(
+        CartServiceImpl cartService = new CartServiceImpl(
                 cartItemRepository,
                 cartMapper,
                 iamApi,
@@ -238,7 +238,7 @@ public class CartPostmanSimulationTest {
                 inventoryApi
         );
 
-        CartController cartController = new CartController(cartService);
+        CartCheckoutController cartController = new CartCheckoutController(new CartCheckoutServiceImpl(cartService, null));
 
         mockMvc = MockMvcBuilders.standaloneSetup(cartController)
                 .setControllerAdvice(new GlobalExceptionHandler())

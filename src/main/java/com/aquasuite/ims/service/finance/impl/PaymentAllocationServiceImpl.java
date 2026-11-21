@@ -22,8 +22,7 @@ import com.aquasuite.ims.repository.finance.PaymentInvoiceAllocationRepository;
 import com.aquasuite.ims.repository.finance.PaymentReceiptRefundSettlementRepository;
 import com.aquasuite.ims.repository.finance.TransactionRepository;
 import com.aquasuite.ims.service.finance.PaymentAllocationService;
-import com.aquasuite.ims.service.sales.SalesOrderService;
-import com.aquasuite.ims.service.sales.SalesReceivableService;
+import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.dto.sales.response.SalesInvoiceDebtDto;
 import com.aquasuite.ims.dto.sales.response.SalesOrderPaymentInfoDto;
 import com.aquasuite.ims.exception.AppException;
@@ -69,8 +68,8 @@ public class PaymentAllocationServiceImpl implements PaymentAllocationService {
     TransactionRepository transactionRepository;
     PaymentInvoiceAllocationRepository allocationRepository;
     PaymentReceiptRefundSettlementRepository refundSettlementRepository;
-    SalesOrderService salesOrderApi;
-    SalesReceivableService salesReceivableApi;
+    SalesQueryService salesOrderApi;
+    SalesQueryService salesReceivableApi;
     PaymentAllocationMapper allocationMapper;
     ApplicationEventPublisher eventPublisher;
 

@@ -11,7 +11,7 @@ import com.aquasuite.ims.dto.servicedesk.response.TechnicalJobDetailResponse;
 import com.aquasuite.ims.repository.servicedesk.WarrantyRecordRepository;
 import com.aquasuite.ims.repository.servicedesk.WarrantyTicketRepository;
 import com.aquasuite.ims.service.servicedesk.TechnicalJobService;
-import com.aquasuite.ims.service.servicedesk.impl.WarrantyTicketManagementServiceImpl;
+import com.aquasuite.ims.service.servicedesk.impl.WarrantyTicketServiceImpl;
 import com.aquasuite.ims.exception.AppException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -53,13 +53,13 @@ class WarrantyTicketManagementServiceTest {
 
     private final Clock clock = Clock.fixed(LocalDate.of(2026, 11, 18).atStartOfDay(ZoneOffset.UTC).toInstant(),
             ZoneId.of("UTC"));
-    private WarrantyTicketManagementServiceImpl service;
+    private WarrantyTicketServiceImpl service;
 
     private final UUID technicianId = UUID.randomUUID();
 
     @BeforeEach
     void setup() {
-        service = new WarrantyTicketManagementServiceImpl(
+        service = new WarrantyTicketServiceImpl(
                 warrantyTicketRepository, warrantyRecordRepository, catalogApi, technicalJobService,
                 iamApi, eventPublisher, clock);
         lenient().when(warrantyTicketRepository.save(any(WarrantyTicket.class))).thenAnswer(inv -> inv.getArgument(0));

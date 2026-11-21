@@ -5,6 +5,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.aquasuite.ims.service.catalog.*;
+import com.aquasuite.ims.service.catalog.helper.BundleEvaluationService;
+import com.aquasuite.ims.controller.catalog.BundleController;
 import com.aquasuite.ims.exception.GlobalExceptionHandler;
 
 import org.junit.jupiter.api.Test;
@@ -14,10 +16,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 class BundlePublicationControllerTest {
-    final BundleAdminService service = mock(BundleAdminService.class);
+    final BundleService service = mock(BundleService.class);
     final MockMvc mvc =
             MockMvcBuilders.standaloneSetup(
-                            new BundleAdminController(service, mock(BundleQueryService.class)))
+                            new BundleController(service, mock(BundleEvaluationService.class)))
                     .setControllerAdvice(new GlobalExceptionHandler())
                     .build();
     final String url =

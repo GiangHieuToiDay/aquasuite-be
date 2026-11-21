@@ -38,7 +38,7 @@ class WarrantyEligibilityTest {
 
     @BeforeEach
     void setUp() {
-        warrantyApi = new WarrantyRecordServiceImpl(warrantyRecordRepository, technicalJobRepository, null, null, null, null, null, null, null, null, null, FIXED_CLOCK);
+        warrantyApi = new WarrantyRecordServiceImpl(warrantyRecordRepository, technicalJobRepository, null, null, null, null, null, null, null, null, FIXED_CLOCK, null);
     }
 
     @Test

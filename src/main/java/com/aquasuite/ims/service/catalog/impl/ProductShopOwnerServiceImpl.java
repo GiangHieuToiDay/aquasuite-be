@@ -10,7 +10,6 @@ import com.aquasuite.ims.dto.catalog.request.UpdateProductStatusRequest;
 import com.aquasuite.ims.dto.catalog.response.*;
 import com.aquasuite.ims.repository.catalog.*;
 import com.aquasuite.ims.repository.catalog.spec.ProductSpecification;
-import com.aquasuite.ims.service.catalog.ProductShopOwnerService;
 import com.aquasuite.ims.exception.AppException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +30,7 @@ import com.aquasuite.ims.mapper.catalog.ProductMapper;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class ProductShopOwnerServiceImpl implements ProductShopOwnerService {
+public class ProductShopOwnerServiceImpl {
 
     private final ProductRepository productRepository;
     private final ProductVariantRepository variantRepository;
@@ -40,8 +39,6 @@ public class ProductShopOwnerServiceImpl implements ProductShopOwnerService {
     private final BrandRepository brandRepository;
     private final WarrantyPolicyRepository warrantyPolicyRepository;
     private final ProductMapper productMapper;
-
-    @Override
     @Transactional
     public ProductDetailResponse createProduct(CreateProductRequest request) {
         String productCode = request.productCode().trim();
@@ -90,8 +87,6 @@ public class ProductShopOwnerServiceImpl implements ProductShopOwnerService {
         // Sản phẩm mới tạo chưa có biến thể (biến thể do chức năng Manage SKUs & Variants quản lý)
         return toDetailResponse(product, category, brand, Collections.emptyList(), allImages);
     }
-
-    @Override
     @Transactional(readOnly = true)
     public Page<ProductSummaryResponse> listProducts(
             String keyword,
@@ -177,8 +172,6 @@ public class ProductShopOwnerServiceImpl implements ProductShopOwnerService {
 
         return new PageImpl<>(summaries, pageable, productPage.getTotalElements());
     }
-
-    @Override
     @Transactional(readOnly = true)
     public ProductDetailResponse getProductDetail(UUID productId) {
         Product product = productRepository.findById(productId)
@@ -192,8 +185,6 @@ public class ProductShopOwnerServiceImpl implements ProductShopOwnerService {
 
         return toDetailResponse(product, category, brand, variants, images);
     }
-
-    @Override
     @Transactional
     public ProductDetailResponse updateProduct(UUID productId, UpdateProductRequest request) {
         Product product = productRepository.findById(productId)
@@ -255,8 +246,6 @@ public class ProductShopOwnerServiceImpl implements ProductShopOwnerService {
 
         return toDetailResponse(product, category, brand, existingVariants, allImages);
     }
-
-    @Override
     @Transactional
     public ProductDetailResponse updateProductStatus(UUID productId, UpdateProductStatusRequest request) {
         Product product = productRepository.findById(productId)
@@ -273,8 +262,6 @@ public class ProductShopOwnerServiceImpl implements ProductShopOwnerService {
         log.info("Shop owner updated product status: ID={}, Status={}", productId, request.status());
         return toDetailResponse(product, category, brand, variants, images);
     }
-
-    @Override
     @Transactional
     public void deleteProduct(UUID productId) {
         Product product = productRepository.findById(productId)

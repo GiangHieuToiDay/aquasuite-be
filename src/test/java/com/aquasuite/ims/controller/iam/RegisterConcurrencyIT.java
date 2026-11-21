@@ -1,7 +1,7 @@
 package com.aquasuite.ims.controller.iam;
 
 import com.aquasuite.ims.dto.iam.request.RegisterRequest;
-import com.aquasuite.ims.service.iam.RegisterService;
+import com.aquasuite.ims.repository.iam.store.RegistrationOtpStore;
 import com.aquasuite.ims.dto.iam.request.ResendRegistrationOtpRequest;
 import com.aquasuite.ims.dto.iam.request.VerifyRegistrationRequest;
 import com.aquasuite.ims.exception.AppException;
@@ -70,7 +70,7 @@ class RegisterConcurrencyIT extends RegisterTestSupport {
                         () -> outcome(() -> registrations.register(req)));
         assertThat(results).containsExactlyInAnyOrder("SUCCESS", "REG_001");
         assertThat(users.count()).isZero();
-        assertThat(redis.keys(RegisterService.OTP_PREFIX + "*")).hasSize(1);
+        assertThat(redis.keys(RegistrationOtpStore.PREFIX + "*")).hasSize(1);
         assertThat(output.getAll())
                 .doesNotContain("Batch entry 0 insert into public.users", "$2a$12$");
     }

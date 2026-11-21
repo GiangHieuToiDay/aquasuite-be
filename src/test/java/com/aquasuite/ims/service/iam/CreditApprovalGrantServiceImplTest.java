@@ -9,7 +9,7 @@ import com.aquasuite.ims.enums.iam.UserStatus;
 import com.aquasuite.ims.exception.iam.CreditApprovalErrorCode;
 import com.aquasuite.ims.dto.iam.request.CreateCreditApprovalGrantRequest;
 import com.aquasuite.ims.repository.iam.UserRepository;
-import com.aquasuite.ims.service.iam.impl.CreditApprovalGrantServiceImpl;
+import com.aquasuite.ims.service.iam.impl.UserAccountServiceImpl;
 import com.aquasuite.ims.exception.AppException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,7 +45,7 @@ class CreditApprovalGrantServiceImplTest {
         User owner = owner(ownerId);
         when(userRepository.findWithRolesAndPermissionsByEmailIgnoreCase("owner@example.com")).thenReturn(Optional.of(owner));
         when(passwordEncoder.matches("correct-password", owner.getPasswordHash())).thenReturn(true);
-        CreditApprovalGrantServiceImpl service = new CreditApprovalGrantServiceImpl(userRepository, passwordEncoder, grantStore);
+        UserAccountServiceImpl service = new UserAccountServiceImpl(userRepository, passwordEncoder, grantStore);
 
         CreateCreditApprovalGrantRequest request = new CreateCreditApprovalGrantRequest();
         request.setOwnerEmail("owner@example.com");
@@ -71,7 +71,7 @@ class CreditApprovalGrantServiceImplTest {
         UUID customerId = UUID.randomUUID();
         when(grantStore.consume("one-time-token")).thenReturn(new CreditApprovalGrantStore.GrantData(
                 UUID.randomUUID(), requesterId, customerId, new BigDecimal("20000000"), 15, Instant.now().plusSeconds(30)));
-        CreditApprovalGrantServiceImpl service = new CreditApprovalGrantServiceImpl(userRepository, passwordEncoder, grantStore);
+        UserAccountServiceImpl service = new UserAccountServiceImpl(userRepository, passwordEncoder, grantStore);
 
         AppException exception = assertThrows(AppException.class, () -> service.consumeCreditProfileGrant(
                 requesterId, "one-time-token", customerId, new BigDecimal("20000001"), 15));

@@ -4,7 +4,7 @@ import com.aquasuite.ims.service.iam.IamQueryService;
 import com.aquasuite.ims.dto.iam.response.UserSummaryDto;
 import com.aquasuite.ims.service.inventory.StockReservationService;
 import com.aquasuite.ims.dto.inventory.response.SkuReservationStock;
-import com.aquasuite.ims.controller.inventory.StockReservationQueryController;
+import com.aquasuite.ims.controller.inventory.InventoryController;
 import com.aquasuite.ims.exception.GlobalExceptionHandler;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -22,7 +22,7 @@ class StockReservationQueryHttpTest {
         when(iam.getCurrentUser()).thenReturn(UserSummaryDto.builder().id(UUID.randomUUID()).roles(List.of("SALES_STAFF")).build());
         when(inventory.stockByVariant(variant)).thenReturn(List.of(new SkuReservationStock(variant,"WH_MAIN",
                 BigDecimal.TEN,new BigDecimal("3"),new BigDecimal("7"))));
-        MockMvcBuilders.standaloneSetup(new StockReservationQueryController(inventory,iam))
+        MockMvcBuilders.standaloneSetup(new InventoryController(null, inventory, iam))
                 .setControllerAdvice(new GlobalExceptionHandler()).build()
                 .perform(get("/api/v1/inventory/stock-reservations/variants/"+variant))
                 .andExpect(status().isOk())
@@ -34,7 +34,7 @@ class StockReservationQueryHttpTest {
     @Test void customerCannotReadStaffStockReservationView() throws Exception {
         var inventory=mock(StockReservationService.class);var iam=mock(IamQueryService.class);
         when(iam.getCurrentUser()).thenReturn(UserSummaryDto.builder().id(UUID.randomUUID()).roles(List.of("CUSTOMER")).build());
-        MockMvcBuilders.standaloneSetup(new StockReservationQueryController(inventory,iam))
+        MockMvcBuilders.standaloneSetup(new InventoryController(null, inventory, iam))
                 .setControllerAdvice(new GlobalExceptionHandler()).build()
                 .perform(get("/api/v1/inventory/stock-reservations/variants/"+UUID.randomUUID()))
                 .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("AUTH_002"));

@@ -10,7 +10,6 @@ import com.aquasuite.ims.dto.catalog.response.BundleResponse;
 import com.aquasuite.ims.dto.catalog.response.BundleSkuResponse;
 import com.aquasuite.ims.repository.catalog.*;
 import com.aquasuite.ims.service.catalog.helper.BundleDetailAssembler;
-import com.aquasuite.ims.service.catalog.BundleQueryService;
 import com.aquasuite.ims.common.PageResponse;
 import com.aquasuite.ims.exception.*;
 import com.aquasuite.ims.util.PageableUtils;
@@ -32,7 +31,7 @@ import java.util.stream.Collectors;
 @Transactional(
         readOnly = true,
         isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
-public class BundleQueryServiceImpl implements BundleQueryService {
+public class BundleQueryServiceImpl {
     private final ProductRepository products;
     private final ProductVariantRepository variants;
     private final BundleConfigurationRepository configs;

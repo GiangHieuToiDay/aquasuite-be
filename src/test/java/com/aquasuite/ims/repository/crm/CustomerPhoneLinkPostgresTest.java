@@ -2,9 +2,9 @@ package com.aquasuite.ims.repository.crm;
 
 import com.aquasuite.ims.service.crm.CustomerService;
 import com.aquasuite.ims.service.crm.CustomerRegistrationService;
+import com.aquasuite.ims.service.crm.CustomerCreditProfileService;
 import com.aquasuite.ims.dto.crm.request.CustomerRegistrationRequest;
 import com.aquasuite.ims.service.crm.impl.CustomerServiceImpl;
-import com.aquasuite.ims.service.crm.impl.CustomerRegistrationServiceImpl;
 import com.aquasuite.ims.testsupport.PostgreSqlIntegrationTestSupport;
 import com.aquasuite.ims.exception.AppException;
 import org.junit.jupiter.api.Test;
@@ -13,6 +13,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -25,11 +26,12 @@ import static org.assertj.core.api.Assertions.*;
 
 @DataJpaTest(showSql = false, properties = "spring.datasource.hikari.maximum-pool-size=4")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import({CustomerServiceImpl.class, CustomerRegistrationServiceImpl.class})
+@Import({CustomerServiceImpl.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class CustomerPhoneLinkPostgresTest extends PostgreSqlIntegrationTestSupport {
     @Autowired CustomerService crm;
     @Autowired CustomerRegistrationService profiles;
+    @MockBean CustomerCreditProfileService creditProfileService;
     @Autowired JdbcTemplate jdbc;
     @Autowired PlatformTransactionManager manager;
     private final String phone = "0901234567";

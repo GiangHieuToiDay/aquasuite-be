@@ -2,7 +2,6 @@ package com.aquasuite.ims.repository.iam;
 
 import com.aquasuite.ims.service.iam.UserExternalService;
 import com.aquasuite.ims.dto.iam.response.UserSummaryDto;
-import com.aquasuite.ims.controller.iam.UserController;
 import com.aquasuite.ims.entity.iam.User;
 import com.aquasuite.ims.enums.iam.UserStatus;
 import com.aquasuite.ims.service.iam.UserService;
@@ -101,12 +100,6 @@ class IamSensitiveDataBoundaryTest {
         }
     }
 
-    @Test
-    @DisplayName("AC-11, AC-12: UserController has no annotations and no endpoint implementations")
-    void testUserControllerHasNoEndpointAnnotations() {
-        assertThat(UserController.class.getAnnotations()).isEmpty();
-        assertThat(UserController.class.getDeclaredMethods()).isEmpty();
-    }
 
     @Test
     @DisplayName("AC-04, AC-05, AC-06, AC-07: Semantic structural assertions for User skeletons and DTOs")

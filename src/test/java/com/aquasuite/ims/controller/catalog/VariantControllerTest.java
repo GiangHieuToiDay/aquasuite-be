@@ -1,6 +1,6 @@
 package com.aquasuite.ims.controller.catalog;
 
-import com.aquasuite.ims.controller.catalog.VariantController;
+import com.aquasuite.ims.controller.catalog.ProductController;
 import com.aquasuite.ims.entity.catalog.Product;
 import com.aquasuite.ims.entity.catalog.ProductVariant;
 import com.aquasuite.ims.enums.catalog.ProductStatus;
@@ -9,13 +9,14 @@ import com.aquasuite.ims.enums.catalog.VariantStatus;
 import com.aquasuite.ims.repository.catalog.ProductRepository;
 import com.aquasuite.ims.repository.catalog.ProductVariantRepository;
 import com.aquasuite.ims.repository.catalog.WarrantyPolicyRepository;
-import com.aquasuite.ims.service.catalog.VariantService;
+import com.aquasuite.ims.service.catalog.ProductService;
+import com.aquasuite.ims.service.catalog.impl.ProductServiceImpl;
 import com.aquasuite.ims.service.catalog.impl.VariantServiceImpl;
 import com.aquasuite.ims.service.iam.IamQueryService;
 import com.aquasuite.ims.dto.iam.response.UserSummaryDto;
 import com.aquasuite.ims.service.inventory.InventoryService;
 import com.aquasuite.ims.dto.inventory.response.VariantInventoryUsage;
-import com.aquasuite.ims.service.sales.SalesVariantUsageService;
+import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.dto.sales.response.VariantDocumentUsage;
 import com.aquasuite.ims.exception.GlobalExceptionHandler;
 import org.hamcrest.Matchers;
@@ -101,8 +102,8 @@ class VariantControllerTest {
         }
 
         @Bean
-        SalesVariantUsageService salesVariantUsageApi() {
-            return mock(SalesVariantUsageService.class);
+        SalesQueryService salesVariantUsageApi() {
+            return mock(SalesQueryService.class);
         }
 
         @Bean
@@ -121,12 +122,12 @@ class VariantControllerTest {
         }
 
         @Bean
-        VariantService variantService(
+        VariantServiceImpl variantService(
                 ProductRepository productRepository,
                 ProductVariantRepository variantRepository,
                 WarrantyPolicyRepository warrantyPolicyRepository,
                 InventoryService inventoryApi,
-                SalesVariantUsageService salesVariantUsageApi,
+                SalesQueryService salesVariantUsageApi,
                 JdbcTemplate jdbcTemplate,
                 IamQueryService iamApi,
                 ApplicationEventPublisher eventPublisher
@@ -144,8 +145,13 @@ class VariantControllerTest {
         }
 
         @Bean
-        VariantController variantController(VariantService variantService) {
-            return new VariantController(variantService);
+        ProductService productService(VariantServiceImpl variantService) {
+            return new ProductServiceImpl(null, variantService);
+        }
+
+        @Bean
+        ProductController variantController(ProductService productService) {
+            return new ProductController(productService, null, null, null, null, null, null, null, null, null, null, null);
         }
 
         @Bean
@@ -175,7 +181,7 @@ class VariantControllerTest {
     InventoryService inventoryApi;
 
     @Autowired
-    SalesVariantUsageService salesVariantUsageApi;
+    SalesQueryService salesVariantUsageApi;
 
     @Autowired
     JdbcTemplate jdbcTemplate;

@@ -34,9 +34,9 @@ class DeliveryControllerSecurityTest {
     static class Config implements WebMvcConfigurer {
         @Bean DeliveryService service() { return mock(DeliveryService.class); }
         @Bean DeliveryIssueNotePdfService pdfService() { return mock(DeliveryIssueNotePdfService.class); }
-        @Bean DeliveryIssueNoteController issueNotes(DeliveryIssueNotePdfService s) { return new DeliveryIssueNoteController(s); }
+        @Bean DeliveryIssueController issueNotes(com.aquasuite.ims.service.fulfillment.DeliveryIssueService dis, DeliveryIssueNotePdfService s) { return new DeliveryIssueController(dis, s); }
         @Bean DeliveryController deliveries(DeliveryService s) { return new DeliveryController(s); }
-        @Bean ShipperDeliveryController shipper(DeliveryService s) { return new ShipperDeliveryController(s); }
+        
         @Bean GlobalExceptionHandler errors() { return new GlobalExceptionHandler(); }
         @Bean SecurityFilterChain chain(HttpSecurity http) throws Exception {
             return http.csrf(c -> c.disable()).authorizeHttpRequests(a -> a.anyRequest().authenticated())

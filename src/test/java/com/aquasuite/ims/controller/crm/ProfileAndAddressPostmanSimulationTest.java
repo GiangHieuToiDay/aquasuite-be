@@ -8,7 +8,6 @@ import com.aquasuite.ims.dto.crm.request.UpdateDeliveryAddressRequest;
 import com.aquasuite.ims.dto.crm.request.UpdateProfileRequest;
 import com.aquasuite.ims.repository.crm.CustomerRepository;
 import com.aquasuite.ims.integration.crm.CloudinaryStorageServiceImpl;
-import com.aquasuite.ims.service.crm.impl.DeliveryAddressServiceImpl;
 import com.aquasuite.ims.service.crm.impl.UserProfileServiceImpl;
 import com.aquasuite.ims.service.iam.IamQueryService;
 import com.aquasuite.ims.dto.iam.response.UserSummaryDto;
@@ -50,7 +49,6 @@ class ProfileAndAddressPostmanSimulationTest {
     private IamQueryService iamApi;
 
     private UserProfileServiceImpl userProfileService;
-    private DeliveryAddressServiceImpl deliveryAddressService;
     private CloudinaryStorageServiceImpl cloudinaryStorageService;
 
     private UUID userId;
@@ -93,18 +91,17 @@ class ProfileAndAddressPostmanSimulationTest {
         lenient().when(customerRepository.save(any(Customer.class))).thenAnswer(inv -> inv.getArgument(0));
 
         cloudinaryStorageService = new CloudinaryStorageServiceImpl();
-        deliveryAddressService = new DeliveryAddressServiceImpl(customerRepository, iamApi);
-        userProfileService = new UserProfileServiceImpl(customerRepository, deliveryAddressService, cloudinaryStorageService, iamApi);
+        userProfileService = new UserProfileServiceImpl(customerRepository, cloudinaryStorageService, iamApi);
 
         GlobalExceptionHandler exceptionHandler = new GlobalExceptionHandler();
 
         profileMockMvc = MockMvcBuilders.standaloneSetup(new UserProfileController(userProfileService, iamApi))
                 .setControllerAdvice(exceptionHandler).build();
 
-        avatarMockMvc = MockMvcBuilders.standaloneSetup(new AvatarUploadController(userProfileService, iamApi))
+        avatarMockMvc = MockMvcBuilders.standaloneSetup(new UserProfileController(userProfileService, iamApi))
                 .setControllerAdvice(exceptionHandler).build();
 
-        addressMockMvc = MockMvcBuilders.standaloneSetup(new DeliveryAddressController(deliveryAddressService, iamApi))
+        addressMockMvc = MockMvcBuilders.standaloneSetup(new UserProfileController(userProfileService, iamApi))
                 .setControllerAdvice(exceptionHandler).build();
     }
 

@@ -41,10 +41,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 class IamConcurrencyAndRepositoryIntegrationTest extends PostgreSqlIntegrationTestSupport {
 
     @Autowired
-    private IamPermissionService permissionService;
+    private RolePermissionService permissionService;
 
     @Autowired
-    private IamRoleService roleService;
+    private RolePermissionService roleService;
 
     @Autowired
     private RoleRepository roleRepository;

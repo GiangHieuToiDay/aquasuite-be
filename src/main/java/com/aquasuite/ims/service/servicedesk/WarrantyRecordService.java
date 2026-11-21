@@ -5,6 +5,7 @@ import com.aquasuite.ims.dto.servicedesk.request.CreateAdHocWarrantyRequest;
 import com.aquasuite.ims.dto.servicedesk.request.CreateDeliveryWarrantyCommand;
 import com.aquasuite.ims.dto.servicedesk.request.CreateWarrantyFromOrderRequest;
 import com.aquasuite.ims.dto.servicedesk.request.WarrantyRecordFilterRequest;
+import com.aquasuite.ims.dto.servicedesk.response.WarrantyLookupResponse;
 import com.aquasuite.ims.dto.servicedesk.response.WarrantyPolicySummaryResponse;
 import com.aquasuite.ims.dto.servicedesk.response.WarrantyRecordDetailResponse;
 import com.aquasuite.ims.dto.servicedesk.response.WarrantyRecordListItemResponse;
@@ -38,4 +39,6 @@ public interface WarrantyRecordService {
     boolean isEligible(UUID warrantyRecordId);
 
     com.aquasuite.ims.dto.servicedesk.response.WarrantyEligibilityDto getEligibility(UUID warrantyRecordId);
+
+    List<WarrantyLookupResponse> findMine(String keyword);
 }

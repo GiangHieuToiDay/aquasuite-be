@@ -4,9 +4,9 @@ import com.aquasuite.ims.entity.finance.Transaction;
 import com.aquasuite.ims.exception.finance.OrderPaymentErrorCode;
 import com.aquasuite.ims.repository.finance.TransactionRepository;
 import com.aquasuite.ims.repository.finance.OrderPaymentProofRepository;
-import com.aquasuite.ims.service.finance.OrderPaymentProofService;
+import com.aquasuite.ims.service.finance.PaymentService.Proof;
 import com.aquasuite.ims.service.iam.IamQueryService;
-import com.aquasuite.ims.service.sales.SalesOrderService;
+import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.exception.AppException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -20,7 +20,7 @@ import org.springframework.web.multipart.MultipartFile;
 /** Lưu và đọc chứng từ chuyển khoản trong database, qua API có kiểm soát quyền. */
 @Service
 @RequiredArgsConstructor
-public class OrderPaymentProofServiceImpl implements OrderPaymentProofService {
+public class OrderPaymentProofServiceImpl {
     /** Dung lượng tối đa của một chứng từ, tính bằng byte. */
     private static final long MAX_BYTES = 5L * 1024 * 1024;
     /** Đọc và lưu dữ liệu chứng từ. */
@@ -28,7 +28,7 @@ public class OrderPaymentProofServiceImpl implements OrderPaymentProofService {
     /** Kiểm tra khoản thu và trạng thái chuyển khoản. */
     private final TransactionRepository transactions;
     /** Khóa đơn trong transaction khi tải chứng từ lên. */
-    private final SalesOrderService sales;
+    private final SalesQueryService sales;
     /** Xác định người tải chứng từ lên. */
     private final IamQueryService iam;
 
@@ -40,7 +40,6 @@ public class OrderPaymentProofServiceImpl implements OrderPaymentProofService {
      * @throws IOException nếu không đọc được nội dung tệp
      * @throws AppException nếu giao dịch, tệp hoặc trạng thái không hợp lệ, hoặc đã có chứng từ
      */
-    @Override
     @Transactional
     public void upload(UUID orderId, UUID paymentId, MultipartFile file) throws IOException {
         sales.lockOrderPaymentInfo(orderId).orElseThrow(() -> new AppException(OrderPaymentErrorCode.ORDER_NOT_FOUND));
@@ -65,7 +64,6 @@ public class OrderPaymentProofServiceImpl implements OrderPaymentProofService {
      * @return loại nội dung và dữ liệu tệp
      * @throws AppException nếu không tìm thấy chứng từ phù hợp
      */
-    @Override
     @Transactional(readOnly = true)
     public Proof read(UUID orderId, UUID paymentId) {
         return proofs.findByOrderAndPayment(orderId, paymentId)

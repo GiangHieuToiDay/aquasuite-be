@@ -1,20 +1,21 @@
 package com.aquasuite.ims.controller.iam;
 
 import com.aquasuite.ims.service.iam.IamQueryService;
-
 import com.aquasuite.ims.dto.iam.request.ChangeUserStatusRequest;
+import com.aquasuite.ims.dto.iam.request.CreateCreditApprovalGrantRequest;
 import com.aquasuite.ims.dto.iam.request.CreateUserAccountRequest;
 import com.aquasuite.ims.dto.iam.request.UpdateUserAccountRequest;
 import com.aquasuite.ims.dto.iam.response.AccountPageResponse;
 import com.aquasuite.ims.dto.iam.response.AccountStatsResponse;
+import com.aquasuite.ims.dto.iam.response.CreditApprovalGrantResponse;
 import com.aquasuite.ims.dto.iam.response.UserAccountResponse;
 import com.aquasuite.ims.service.iam.UserAccountService;
 import com.aquasuite.ims.common.ApiResponse;
 import jakarta.validation.Valid;
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
-import lombok.experimental.FieldDefaults;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -23,13 +24,17 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/iam/users")
-@RequiredArgsConstructor
 @PreAuthorize("hasRole('SHOP_OWNER')")
-@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class UserAccountController {
 
-    UserAccountService service;
-    IamQueryService iamApi;
+    private final UserAccountService service;
+    private final IamQueryService iamApi;
+
+    @Autowired
+    public UserAccountController(UserAccountService service, IamQueryService iamApi) {
+        this.service = service;
+        this.iamApi = iamApi;
+    }
 
     @GetMapping("/shippers")
     @PreAuthorize("hasAnyRole('ACCOUNTANT','SHOP_OWNER')")
@@ -46,25 +51,58 @@ public class UserAccountController {
     }
 
     @GetMapping("/stats")
-    public ApiResponse<AccountStatsResponse> stats() { return ApiResponse.ok(service.stats()); }
+    public ApiResponse<AccountStatsResponse> stats() {
+        return ApiResponse.ok(service.stats());
+    }
+
     @GetMapping
-    public ApiResponse<AccountPageResponse> search(@RequestParam(required = false) String keyword,
-                                                   @RequestParam(required = false) UUID roleId,
-                                                   @RequestParam(required = false) String status, Pageable pageable) {
+    public ApiResponse<AccountPageResponse> search(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) UUID roleId,
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String direction) {
+        Sort sort = "asc".equalsIgnoreCase(direction) ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
         return ApiResponse.ok(service.search(keyword, roleId, status, pageable, iamApi.getCurrentUserId()));
     }
+
     @GetMapping("/{id}")
-    public ApiResponse<UserAccountResponse> detail(@PathVariable UUID id) { return ApiResponse.ok(service.detail(id, iamApi.getCurrentUserId())); }
-    @PostMapping
-    public ResponseEntity<ApiResponse<UserAccountResponse>> create(@Valid @RequestBody CreateUserAccountRequest request) {
-        return ResponseEntity.status(201).body(ApiResponse.ok(service.create(request, iamApi.getCurrentUserId()), "Staff account created successfully and credentials emailed."));
+    public ApiResponse<UserAccountResponse> detail(@PathVariable UUID id) {
+        return ApiResponse.ok(service.detail(id, iamApi.getCurrentUserId()));
     }
+
+    @PostMapping
+    public ResponseEntity<ApiResponse<UserAccountResponse>> create(
+            @Valid @RequestBody CreateUserAccountRequest request) {
+        UserAccountResponse response = service.create(request, iamApi.getCurrentUserId());
+        return ResponseEntity.status(201).body(ApiResponse.ok(response, "User account created successfully"));
+    }
+
     @PatchMapping("/{id}")
-    public ApiResponse<UserAccountResponse> update(@PathVariable UUID id, @Valid @RequestBody UpdateUserAccountRequest request) {
+    public ApiResponse<UserAccountResponse> update(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateUserAccountRequest request) {
         return ApiResponse.ok(service.update(id, request, iamApi.getCurrentUserId()));
     }
+
     @PatchMapping("/{id}/status")
-    public ApiResponse<UserAccountResponse> changeStatus(@PathVariable UUID id, @Valid @RequestBody ChangeUserStatusRequest request) {
+    public ApiResponse<UserAccountResponse> changeStatus(
+            @PathVariable UUID id,
+            @Valid @RequestBody ChangeUserStatusRequest request) {
         return ApiResponse.ok(service.changeStatus(id, request, iamApi.getCurrentUserId()));
+    }
+
+    // ── CreditApprovalGrant (from CreditApprovalGrantController) ─────────────
+
+    @Deprecated(since = "UC-24 credit profile approval workflow")
+    @PostMapping("/api/v1/iam/credit-approval-grants")
+    @PreAuthorize("hasRole('SHOP_OWNER')")
+    public ApiResponse<CreditApprovalGrantResponse> issueCreditApproval(
+            @Valid @RequestBody CreateCreditApprovalGrantRequest request) {
+        return ApiResponse.ok(service.issue(iamApi.getCurrentUserId(), request),
+                "Store Owner credit approval granted.");
     }
 }

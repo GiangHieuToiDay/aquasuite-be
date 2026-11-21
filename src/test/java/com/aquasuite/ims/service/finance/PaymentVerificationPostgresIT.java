@@ -22,8 +22,8 @@ import static org.mockito.Mockito.when;
 /** Integration test UC-70 trên PostgreSQL thật: xác minh/từ chối, vượt nghĩa vụ và đồng thời. */
 @SpringBootTest
 class PaymentVerificationPostgresIT extends PostgreSqlIntegrationTestSupport {
-    @Autowired OrderPaymentService payments;
-    @Autowired PaymentVerificationService verifications;
+    @Autowired PaymentService payments;
+    @Autowired PaymentService verifications;
     @Autowired JdbcTemplate jdbc;
     @MockBean IamQueryService iam;
 

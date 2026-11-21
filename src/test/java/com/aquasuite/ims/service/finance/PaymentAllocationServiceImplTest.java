@@ -18,8 +18,8 @@ import com.aquasuite.ims.repository.finance.PaymentInvoiceAllocationRepository;
 import com.aquasuite.ims.repository.finance.PaymentReceiptRefundSettlementRepository;
 import com.aquasuite.ims.repository.finance.TransactionRepository;
 import com.aquasuite.ims.service.finance.impl.PaymentAllocationServiceImpl;
-import com.aquasuite.ims.service.sales.SalesOrderService;
-import com.aquasuite.ims.service.sales.SalesReceivableService;
+import com.aquasuite.ims.service.sales.SalesQueryService;
+import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.dto.sales.response.SalesInvoiceDebtDto;
 import com.aquasuite.ims.dto.sales.response.SalesOrderPaymentInfoDto;
 import com.aquasuite.ims.exception.AppException;
@@ -55,11 +55,11 @@ class PaymentAllocationServiceImplTest {
     @Mock TransactionRepository transactionRepository;
     @Mock PaymentInvoiceAllocationRepository allocationRepository;
     @Mock PaymentReceiptRefundSettlementRepository refundSettlementRepository;
-    @Mock SalesOrderService salesOrderApi;
-    @Mock SalesReceivableService salesReceivableApi;
+    @Mock SalesQueryService salesOrderApi;
+    @Mock SalesQueryService salesReceivableApi;
     @Mock PaymentAllocationMapper allocationMapper;
     @Mock ApplicationEventPublisher eventPublisher;
-    @InjectMocks PaymentAllocationServiceImpl service;
+    PaymentAllocationServiceImpl service;
 
     UUID receiptId;
     UUID orderId;
@@ -75,6 +75,15 @@ class PaymentAllocationServiceImplTest {
 
     @BeforeEach
     void setup() {
+        service = new PaymentAllocationServiceImpl(
+                transactionRepository,
+                allocationRepository,
+                refundSettlementRepository,
+                salesOrderApi,
+                salesReceivableApi,
+                allocationMapper,
+                eventPublisher
+        );
         receiptId = UUID.randomUUID();
         orderId = UUID.randomUUID();
         customerId = UUID.randomUUID();

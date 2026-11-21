@@ -1,5 +1,5 @@
 package com.aquasuite.ims.service.sales.helper;
-import com.aquasuite.ims.service.sales.OrderStockReservationService;
+import com.aquasuite.ims.service.sales.impl.OrderStockReservationService;
 
 import com.aquasuite.ims.repository.sales.store.ReservationAllocationStore;
 import com.aquasuite.ims.dto.sales.response.OrderStockReservationView;

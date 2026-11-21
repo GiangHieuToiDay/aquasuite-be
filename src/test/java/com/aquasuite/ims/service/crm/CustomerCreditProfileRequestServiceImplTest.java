@@ -12,11 +12,12 @@ import com.aquasuite.ims.dto.crm.request.SubmitCustomerCreditProfileRequest;
 import com.aquasuite.ims.dto.crm.response.CustomerCreditProfileRequestResponse;
 import com.aquasuite.ims.repository.crm.CustomerCreditProfileRequestRepository;
 import com.aquasuite.ims.repository.crm.CustomerRepository;
-import com.aquasuite.ims.service.crm.impl.CustomerCreditProfileRequestServiceImpl;
+import com.aquasuite.ims.service.crm.impl.CustomerCreditProfileServiceImpl;
+import com.aquasuite.ims.service.iam.UserAccountService;
 import com.aquasuite.ims.integration.crm.CreditEvidenceStorageService;
 import com.aquasuite.ims.service.iam.IamQueryService;
 import com.aquasuite.ims.dto.iam.response.UserSummaryDto;
-import com.aquasuite.ims.service.sales.CustomerOrderHistoryService;
+import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.exception.AppException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,12 +46,13 @@ class CustomerCreditProfileRequestServiceImplTest {
     @Mock private CustomerRepository customerRepository;
     @Mock private CustomerCreditProfileRequestRepository requestRepository;
     @Mock private CustomerCreditProfileRequestMapper requestMapper;
-    @Mock private CustomerOrderHistoryService customerOrderHistoryApi;
+    @Mock private SalesQueryService customerOrderHistoryApi;
     @Mock private IamQueryService iamApi;
+    @Mock private UserAccountService creditApprovalGrantApi;
     @Mock private CreditEvidenceStorageService creditEvidenceStorageService;
     @Mock private ApplicationEventPublisher eventPublisher;
 
-    @InjectMocks private CustomerCreditProfileRequestServiceImpl service;
+    @InjectMocks private CustomerCreditProfileServiceImpl service;
 
     private final UUID customerId = UUID.randomUUID();
     private final UUID salespersonId = UUID.randomUUID();

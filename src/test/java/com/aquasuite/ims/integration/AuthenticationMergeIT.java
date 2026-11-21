@@ -5,7 +5,7 @@ import com.aquasuite.ims.dto.catalog.request.BundleItemRequest;
 import com.aquasuite.ims.dto.catalog.request.ChangePublicationStatusRequest;
 import com.aquasuite.ims.dto.catalog.request.CreateBundleRequest;
 import com.aquasuite.ims.dto.catalog.response.BundleResponse;
-import com.aquasuite.ims.service.catalog.BundleAdminService;
+import com.aquasuite.ims.service.catalog.BundleService;
 import com.aquasuite.ims.entity.iam.User;
 import com.aquasuite.ims.enums.iam.UserStatus;
 import com.aquasuite.ims.repository.iam.UserRepository;
@@ -34,7 +34,7 @@ class AuthenticationMergeIT extends AuthIntegrationTestSupport {
     @Autowired JdbcTemplate jdbc;
     @Autowired UserRepository users;
     @Autowired PasswordEncoder passwords;
-    @Autowired BundleAdminService bundles;
+    @Autowired BundleService bundles;
     final UUID userId = UUID.randomUUID(),
             category = UUID.randomUUID(),
             product = UUID.randomUUID(),

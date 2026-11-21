@@ -5,7 +5,7 @@ import com.aquasuite.ims.entity.crm.Customer;
 import com.aquasuite.ims.dto.crm.request.UpdateCustomerCreditProfileRequest;
 import com.aquasuite.ims.repository.crm.CustomerRepository;
 import com.aquasuite.ims.service.crm.impl.CustomerCreditProfileServiceImpl;
-import com.aquasuite.ims.service.iam.CreditApprovalGrantService;
+import com.aquasuite.ims.service.iam.UserAccountService;
 import com.aquasuite.ims.dto.iam.response.CreditApprovalGrantDto;
 import com.aquasuite.ims.exception.AppException;
 import org.junit.jupiter.api.Test;
@@ -30,7 +30,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class CustomerCreditProfileServiceImplTest {
     @Mock private CustomerRepository customerRepository;
-    @Mock private CreditApprovalGrantService approvalGrantApi;
+    @Mock private UserAccountService approvalGrantApi;
     @Mock private ApplicationEventPublisher eventPublisher;
 
     @Test

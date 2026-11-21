@@ -32,8 +32,6 @@ import com.aquasuite.ims.repository.sales.CartItemRepository;
 import com.aquasuite.ims.repository.sales.OnlinePayosPaymentRepository;
 import com.aquasuite.ims.repository.sales.OrderItemRepository;
 import com.aquasuite.ims.repository.sales.OrderRepository;
-import com.aquasuite.ims.service.sales.CartService;
-import com.aquasuite.ims.service.sales.OnlineCheckoutService;
 import com.aquasuite.ims.service.sales.helper.OrderCodeGenerator;
 import com.aquasuite.ims.exception.AppException;
 import lombok.RequiredArgsConstructor;
@@ -60,12 +58,12 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class OnlineCheckoutServiceImpl implements OnlineCheckoutService {
+public class OnlineCheckoutServiceImpl {
 
     private static final String ACTIVE_STATUS = "ACTIVE";
     private static final Set<String> REUSABLE_PAYOS_STATUSES = Set.of("PENDING", "PROCESSING", "UNDERPAID");
 
-    private final CartService cartService;
+    private final CartServiceImpl cartService;
     private final CartItemRepository cartItemRepository;
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
@@ -79,8 +77,6 @@ public class OnlineCheckoutServiceImpl implements OnlineCheckoutService {
     private final CustomerService crmApi;
     private final CatalogLookupService catalogApi;
     private final InventoryService inventoryApi;
-
-    @Override
     @Transactional(readOnly = true)
     public OnlineCheckoutPreviewResponse getCheckoutPreview() {
         CustomerSummaryDto customer = resolveCurrentCustomer();
@@ -103,8 +99,6 @@ public class OnlineCheckoutServiceImpl implements OnlineCheckoutService {
                 .payosConfigured(payosProperties.isConfigured())
                 .build();
     }
-
-    @Override
     @Transactional
     public OnlineOrderCheckoutResponse placeOnlineOrder(PlaceOnlineOrderRequest request) {
         validatePaymentMethod(request.getPaymentMethod());
@@ -169,8 +163,6 @@ public class OnlineCheckoutServiceImpl implements OnlineCheckoutService {
 
         return buildCheckoutResponse(savedOrder, savedItems, payosPayment);
     }
-
-    @Override
     @Transactional(readOnly = true)
     public List<OnlineOrderCheckoutResponse> getMyOnlineOrders() {
         UUID customerId = resolveCurrentCustomer().customerId();
@@ -200,8 +192,6 @@ public class OnlineCheckoutServiceImpl implements OnlineCheckoutService {
                 ))
                 .toList();
     }
-
-    @Override
     @Transactional(readOnly = true)
     public OnlineOrderCheckoutResponse getOnlineOrderDetail(UUID orderId) {
         UUID customerId = resolveCurrentCustomer().customerId();
@@ -210,8 +200,6 @@ public class OnlineCheckoutServiceImpl implements OnlineCheckoutService {
         OnlinePayosPayment payosPayment = onlinePayosPaymentRepository.findByOrderId(orderId).orElse(null);
         return buildCheckoutResponse(order, items, payosPayment);
     }
-
-    @Override
     @Transactional
     public OnlineOrderCheckoutResponse verifyAndSyncPayosPayment(UUID orderId) {
         UUID customerId = resolveCurrentCustomer().customerId();
@@ -237,8 +225,6 @@ public class OnlineCheckoutServiceImpl implements OnlineCheckoutService {
         List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
         return buildCheckoutResponse(order, items, payosPayment);
     }
-
-    @Override
     @Transactional
     public OnlineOrderCheckoutResponse createOrRefreshPayosPaymentLink(UUID orderId) {
         CustomerSummaryDto customer = resolveCurrentCustomer();

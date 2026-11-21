@@ -5,7 +5,7 @@ import com.aquasuite.ims.dto.catalog.response.CatalogSkuSummaryDto;
 import com.aquasuite.ims.service.crm.CustomerService;
 import com.aquasuite.ims.dto.crm.response.CustomerSummaryDto;
 import com.aquasuite.ims.service.finance.CreditControlService;
-import com.aquasuite.ims.service.finance.OrderReceivableService;
+import com.aquasuite.ims.service.finance.PaymentService;
 import com.aquasuite.ims.dto.finance.response.CreditAuthorizationDecision;
 import com.aquasuite.ims.dto.finance.response.OrderReceivableView;
 import com.aquasuite.ims.service.iam.IamQueryService;
@@ -41,7 +41,7 @@ import com.aquasuite.ims.repository.sales.QuotationPaymentMilestoneRepository;
 import com.aquasuite.ims.repository.sales.QuotationRepository;
 import com.aquasuite.ims.repository.sales.SalesInvoiceItemRepository;
 import com.aquasuite.ims.repository.sales.SalesInvoiceRepository;
-import com.aquasuite.ims.service.sales.OrderStockReservationService;
+import com.aquasuite.ims.service.sales.impl.OrderStockReservationService;
 import com.aquasuite.ims.service.sales.SalesInvoiceService;
 import com.aquasuite.ims.service.sales.SalesOrderService;
 import com.aquasuite.ims.service.sales.helper.OrderCodeGenerator;
@@ -109,7 +109,7 @@ public class SalesInvoicePostmanSimulationTest {
         private ObjectMapper objectMapper;
         private SalesInvoiceService salesInvoiceApi;
         private InventoryService inventoryApi;
-        private OrderReceivableService orderReceivableApi;
+        private PaymentService orderReceivableApi;
         private OrderModificationRequestRepository modificationRequestRepository;
 
         private final Map<UUID, Order> orderStore = new LinkedHashMap<>();
@@ -155,7 +155,7 @@ public class SalesInvoicePostmanSimulationTest {
 
                 CatalogLookupService catalogApi = Mockito.mock(CatalogLookupService.class);
                 inventoryApi = Mockito.mock(InventoryService.class);
-                orderReceivableApi = Mockito.mock(OrderReceivableService.class);
+                orderReceivableApi = Mockito.mock(PaymentService.class);
                 CreditControlService creditControlApi = Mockito.mock(CreditControlService.class);
                 CustomerService crmApi = Mockito.mock(CustomerService.class);
                 IamQueryService iamApi = Mockito.mock(IamQueryService.class);

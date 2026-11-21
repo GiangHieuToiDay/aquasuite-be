@@ -5,7 +5,7 @@ import com.aquasuite.ims.dto.finance.request.RecordOrderPaymentRequest;
 import com.aquasuite.ims.dto.finance.response.OrderMilestoneProgressResponse;
 import com.aquasuite.ims.repository.finance.TransactionRepository;
 import com.aquasuite.ims.service.iam.IamQueryService;
-import com.aquasuite.ims.service.sales.SalesOrderService;
+import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.dto.sales.response.SalesOrderMilestoneDto;
 import com.aquasuite.ims.dto.sales.response.SalesOrderPaymentInfoDto;
 import com.aquasuite.ims.exception.AppException;
@@ -29,7 +29,7 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class OrderPaymentServiceTest {
     @Mock TransactionRepository transactions;
-    @Mock SalesOrderService sales;
+    @Mock SalesQueryService sales;
     @Mock IamQueryService iam;
     @Mock FinanceLockRepository locks;
     @Mock PaymentAllocationService paymentAllocationService;

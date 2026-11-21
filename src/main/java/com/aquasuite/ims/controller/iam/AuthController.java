@@ -1,12 +1,11 @@
 package com.aquasuite.ims.controller.iam;
 
-import com.aquasuite.ims.dto.iam.request.LoginRequest;
-import com.aquasuite.ims.dto.iam.request.RefreshRequest;
-import com.aquasuite.ims.dto.iam.response.CurrentUserResponse;
-import com.aquasuite.ims.dto.iam.response.LoginResponse;
-import com.aquasuite.ims.dto.iam.response.TokenResponse;
+import com.aquasuite.ims.dto.iam.request.*;
+import com.aquasuite.ims.dto.iam.response.*;
 import com.aquasuite.ims.service.iam.AuthService;
 import com.aquasuite.ims.common.ApiResponse;
+import com.aquasuite.ims.common.FieldErrorDetail;
+import com.aquasuite.ims.exception.CommonErrorCode;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,60 +14,98 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
     private final AuthService authService;
 
-    /**
-     * Nhận email/mật khẩu, xác thực tài khoản và trả về thông tin người dùng
-     * cùng access token, refresh token của phiên mới.
-     */
-    @PostMapping("/login")
-    public ResponseEntity<ApiResponse<LoginResponse>> login(
-            @Valid @RequestBody LoginRequest request) {
-        LoginResponse response = authService.login(request);
-        return ResponseEntity.ok(ApiResponse.ok(response, "Đăng nhập thành công"));
+    // ── Auth ─────────────────────────────────────────────────────────────────
+
+    @PostMapping("/api/v1/auth/login")
+    public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(authService.login(request), "Đăng nhập thành công"));
     }
 
-    /**
-     * Nhận refresh token hiện tại và trả về cặp token kế tiếp; token cũ không
-     * còn được phép sử dụng lại sau khi xoay vòng thành công.
-     */
-    @PostMapping("/refresh")
-    public ResponseEntity<ApiResponse<TokenResponse>> refresh(
-            @Valid @RequestBody RefreshRequest request) {
-        TokenResponse response = authService.refresh(request);
-        return ResponseEntity.ok(ApiResponse.ok(response));
+    @PostMapping("/api/v1/auth/refresh")
+    public ResponseEntity<ApiResponse<TokenResponse>> refresh(@Valid @RequestBody RefreshRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(authService.refresh(request)));
     }
 
-    /**
-     * Thu hồi toàn bộ phiên được chỉ định trong access JWT hiện tại, khiến các
-     * token còn lại của chính phiên đó không thể tiếp tục truy cập hệ thống.
-     */
-    @PostMapping("/logout")
+    @PostMapping("/api/v1/auth/logout")
     public ResponseEntity<ApiResponse<Void>> logout(@AuthenticationPrincipal Jwt jwt) {
         authService.logout(jwt);
         return ResponseEntity.ok(ApiResponse.ok(null, "Đăng xuất thành công"));
     }
 
-    /**
-     * Trả về hồ sơ và vai trò đang hoạt động của người dùng đã xác thực. Dữ liệu
-     * được đọc lại từ database và response bị cấm cache để tránh lộ thông tin IAM.
-     */
-    @GetMapping("/me")
+    @GetMapping("/api/v1/auth/me")
     public ResponseEntity<ApiResponse<CurrentUserResponse>> me(
             @AuthenticationPrincipal Jwt jwt, HttpServletResponse servletResponse) {
         servletResponse.setHeader(HttpHeaders.CACHE_CONTROL, CacheControl.noStore().getHeaderValue());
-        CurrentUserResponse response = authService.getCurrentUser(jwt);
-        return ResponseEntity.ok(ApiResponse.ok(response));
+        return ResponseEntity.ok(ApiResponse.ok(authService.getCurrentUser(jwt)));
+    }
+
+    // ── Register (from RegisterController) ───────────────────────────────────
+
+    @PostMapping("/api/v1/iam/register")
+    public ResponseEntity<ApiResponse<RegisterResponse>> register(@Valid @RequestBody RegisterRequest request) {
+        return ResponseEntity.status(201).cacheControl(CacheControl.noStore())
+                .body(ApiResponse.ok(authService.register(request),
+                        "Please verify the code sent to your email."));
+    }
+
+    @PostMapping("/api/v1/iam/register/verifications")
+    public ResponseEntity<ApiResponse<LoginResponse>> verify(@Valid @RequestBody VerifyRegistrationRequest request) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(ApiResponse.ok(authService.verify(request),
+                        "Account registered successfully! Welcome to AquaSuite."));
+    }
+
+    @PostMapping("/api/v1/iam/register/otp-resends")
+    public ResponseEntity<ApiResponse<Void>> resend(@Valid @RequestBody ResendRegistrationOtpRequest request) {
+        authService.resend(request);
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(ApiResponse.ok(null, "A verification code has been sent to your email."));
+    }
+
+    // ── Password (from PasswordController) ───────────────────────────────────
+
+    @PostMapping("/api/v1/iam/password/change")
+    public ResponseEntity<ApiResponse<PasswordActionResponse>> changePassword(
+            @Valid @RequestBody ChangePasswordRequest request) {
+        PasswordActionResponse response = authService.changePassword(request);
+        return ResponseEntity.ok(ApiResponse.ok(response, response.message()));
+    }
+
+    @PostMapping("/api/v1/iam/password/forgot")
+    public ResponseEntity<ApiResponse<PasswordActionResponse>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request) {
+        PasswordActionResponse response = authService.requestPasswordRecovery(request);
+        return ResponseEntity.ok(ApiResponse.ok(response, response.message()));
+    }
+
+    @PostMapping("/api/v1/iam/password/reset")
+    public ResponseEntity<ApiResponse<PasswordActionResponse>> resetPassword(
+            @Valid @RequestBody ResetPasswordWithOtpRequest request) {
+        PasswordActionResponse response = authService.resetPasswordWithOtp(request);
+        return ResponseEntity.ok(ApiResponse.ok(response, response.message()));
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<Void>> validation(MethodArgumentNotValidException error) {
+        var fields =
+                error.getBindingResult().getFieldErrors().stream()
+                        .map(e -> new FieldErrorDetail(e.getField(), e.getDefaultMessage()))
+                        .toList();
+        return ResponseEntity.badRequest()
+                .cacheControl(CacheControl.noStore())
+                .body(
+                        ApiResponse.error(
+                                CommonErrorCode.VALIDATION_ERROR.getCode(),
+                                CommonErrorCode.VALIDATION_ERROR.getMessage(),
+                                fields));
     }
 }

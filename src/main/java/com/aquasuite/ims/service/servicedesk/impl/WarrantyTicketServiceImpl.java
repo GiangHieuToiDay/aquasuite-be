@@ -6,7 +6,7 @@ import com.aquasuite.ims.service.crm.CustomerService;
 import com.aquasuite.ims.dto.crm.response.CustomerAddressDto;
 import com.aquasuite.ims.dto.crm.response.CustomerSummaryDto;
 import com.aquasuite.ims.service.iam.IamQueryService;
-import com.aquasuite.ims.service.sales.SalesWarrantyService;
+import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.dto.sales.response.SalesOrderWarrantySummaryDto;
 import com.aquasuite.ims.event.servicedesk.WarrantyClaimSubmittedEvent;
 import com.aquasuite.ims.event.servicedesk.WarrantyTicketAuditEvent;
@@ -46,6 +46,17 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import com.aquasuite.ims.dto.servicedesk.request.DispatchWarrantyTicketRequest;
+import com.aquasuite.ims.dto.servicedesk.request.RejectWarrantyTicketRequest;
+import com.aquasuite.ims.dto.servicedesk.response.TechnicalJobDetailResponse;
+import com.aquasuite.ims.service.servicedesk.TechnicalJobService;
+import jakarta.persistence.criteria.Predicate;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -66,7 +77,6 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class WarrantyTicketServiceImpl implements WarrantyTicketService {
 
     private static final Set<TechnicalJobStatus> OPEN_REPAIR_JOB_STATUSES = Set.of(
@@ -88,11 +98,73 @@ public class WarrantyTicketServiceImpl implements WarrantyTicketService {
     private final IamQueryService iamApi;
     private final CustomerService crmApi;
     private final CatalogLookupService catalogApi;
-    private final SalesWarrantyService salesWarrantyApi;
+    private final SalesQueryService salesWarrantyApi;
     private final ApplicationEventPublisher eventPublisher;
 
     @Qualifier("servicedeskClock")
     private final Clock servicedeskClock;
+    private final TechnicalJobService technicalJobService;
+
+    @Autowired
+    public WarrantyTicketServiceImpl(
+            WarrantyTicketRepository warrantyTicketRepository,
+            WarrantyRecordRepository warrantyRecordRepository,
+            TechnicalJobRepository technicalJobRepository,
+            WarrantyTicketCodeGenerator warrantyTicketCodeGenerator,
+            ServicedeskMediaStoragePort servicedeskMediaStoragePort,
+            MediaValidator mediaValidator,
+            IamQueryService iamApi,
+            CustomerService crmApi,
+            CatalogLookupService catalogApi,
+            SalesQueryService salesWarrantyApi,
+            ApplicationEventPublisher eventPublisher,
+            @Qualifier("servicedeskClock") Clock servicedeskClock,
+            TechnicalJobService technicalJobService) {
+        this.warrantyTicketRepository = warrantyTicketRepository;
+        this.warrantyRecordRepository = warrantyRecordRepository;
+        this.technicalJobRepository = technicalJobRepository;
+        this.warrantyTicketCodeGenerator = warrantyTicketCodeGenerator;
+        this.servicedeskMediaStoragePort = servicedeskMediaStoragePort;
+        this.mediaValidator = mediaValidator;
+        this.iamApi = iamApi;
+        this.crmApi = crmApi;
+        this.catalogApi = catalogApi;
+        this.salesWarrantyApi = salesWarrantyApi;
+        this.eventPublisher = eventPublisher;
+        this.servicedeskClock = servicedeskClock;
+        this.technicalJobService = technicalJobService;
+    }
+
+    public WarrantyTicketServiceImpl(
+            WarrantyTicketRepository warrantyTicketRepository,
+            WarrantyRecordRepository warrantyRecordRepository,
+            TechnicalJobRepository technicalJobRepository,
+            WarrantyTicketCodeGenerator warrantyTicketCodeGenerator,
+            ServicedeskMediaStoragePort servicedeskMediaStoragePort,
+            MediaValidator mediaValidator,
+            IamQueryService iamApi,
+            CustomerService crmApi,
+            CatalogLookupService catalogApi,
+            SalesQueryService salesWarrantyApi,
+            ApplicationEventPublisher eventPublisher,
+            Clock servicedeskClock) {
+        this(warrantyTicketRepository, warrantyRecordRepository, technicalJobRepository,
+                warrantyTicketCodeGenerator, servicedeskMediaStoragePort, mediaValidator,
+                iamApi, crmApi, catalogApi, salesWarrantyApi, eventPublisher, servicedeskClock, null);
+    }
+
+    public WarrantyTicketServiceImpl(
+            WarrantyTicketRepository warrantyTicketRepository,
+            WarrantyRecordRepository warrantyRecordRepository,
+            CatalogLookupService catalogApi,
+            TechnicalJobService technicalJobService,
+            IamQueryService iamApi,
+            ApplicationEventPublisher eventPublisher,
+            Clock servicedeskClock) {
+        this(warrantyTicketRepository, warrantyRecordRepository, null,
+                null, null, null,
+                iamApi, null, catalogApi, null, eventPublisher, servicedeskClock, technicalJobService);
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -454,6 +526,132 @@ public class WarrantyTicketServiceImpl implements WarrantyTicketService {
                 .createdAt(ticket.getCreatedAt())
                 .updatedAt(ticket.getUpdatedAt())
                 .build();
+    }
+
+    // ── Staff / Owner Management (from WarrantyTicketManagementServiceImpl) ──
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<WarrantyTicketListItemResponse> list(WarrantyTicketFilterRequest filter) {
+        int page = filter != null && filter.getPage() != null && filter.getPage() >= 0 ? filter.getPage() : 0;
+        int size = filter != null && filter.getSize() != null && filter.getSize() > 0 ? filter.getSize() : 20;
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        Specification<WarrantyTicket> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (filter != null && filter.getStatus() != null) {
+                predicates.add(cb.equal(root.get("status"), filter.getStatus()));
+            }
+            return predicates.isEmpty() ? cb.conjunction() : cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Page<WarrantyTicket> ticketPage = warrantyTicketRepository.findAll(spec, pageable);
+        List<WarrantyTicket> tickets = ticketPage.getContent();
+
+        Set<UUID> recordIds = tickets.stream().map(WarrantyTicket::getWarrantyRecordId).collect(Collectors.toSet());
+        Map<UUID, WarrantyRecord> recordMap = warrantyRecordRepository.findAllById(recordIds).stream()
+                .collect(Collectors.toMap(WarrantyRecord::getWarrantyRecordId, r -> r));
+
+        Set<UUID> variantIds = recordMap.values().stream()
+                .map(WarrantyRecord::getVariantId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<UUID, CatalogSkuSummaryDto> skuMap = catalogApi != null ? catalogApi.getSkuSummaries(variantIds) : Map.of();
+
+        List<WarrantyTicketListItemResponse> items = tickets.stream().map(t -> {
+            WarrantyRecord rec = recordMap.get(t.getWarrantyRecordId());
+            CatalogSkuSummaryDto sku = (rec != null && rec.getVariantId() != null) ? skuMap.get(rec.getVariantId()) : null;
+            return WarrantyTicketListItemResponse.builder()
+                    .ticketId(t.getTicketId())
+                    .ticketCode(t.getTicketCode())
+                    .warrantyRecordId(t.getWarrantyRecordId())
+                    .warrantyCode(rec != null ? rec.getWarrantyCode() : null)
+                    .productName(sku != null ? sku.productName() : null)
+                    .variantName(sku != null ? sku.variantName() : null)
+                    .serialNumber(rec != null ? rec.getSerialNumber() : null)
+                    .issueDescription(t.getIssueDescription())
+                    .preferredDate(t.getPreferredDate())
+                    .preferredSlot(t.getPreferredSlot())
+                    .siteAddress(t.getSiteAddress())
+                    .status(t.getStatus())
+                    .canCancel(false)
+                    .mediaCount(t.getMedia() != null ? t.getMedia().size() : 0)
+                    .createdAt(t.getCreatedAt())
+                    .build();
+        }).toList();
+
+        return PageResponse.of(items, ticketPage.getNumber(), ticketPage.getSize(),
+                ticketPage.getTotalElements(), ticketPage.getTotalPages());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public WarrantyTicketDetailResponse getById(UUID ticketId) {
+        WarrantyTicket ticket = warrantyTicketRepository.findById(ticketId)
+                .orElseThrow(() -> new AppException(ServicedeskErrorCode.WARRANTY_TICKET_NOT_FOUND, ticketId));
+        WarrantyRecord record = warrantyRecordRepository.findById(ticket.getWarrantyRecordId()).orElse(null);
+        return toDetailResponse(ticket, record);
+    }
+
+    @Override
+    @Transactional
+    public WarrantyTicketDetailResponse dispatch(UUID ticketId, DispatchWarrantyTicketRequest request) {
+        WarrantyTicket ticket = warrantyTicketRepository.findById(ticketId)
+                .orElseThrow(() -> new AppException(ServicedeskErrorCode.WARRANTY_TICKET_NOT_FOUND, ticketId));
+
+        if (ticket.getStatus() != WarrantyTicketStatus.NEW) {
+            throw new AppException(ServicedeskErrorCode.WARRANTY_TICKET_NOT_DISPATCHABLE, ticket.getStatus().name());
+        }
+
+        String serviceAddress = StringUtils.hasText(request.serviceAddress())
+                ? request.serviceAddress().trim()
+                : ticket.getSiteAddress();
+
+        TechnicalJobDetailResponse job = technicalJobService.dispatchWarrantyRepairJob(
+                ticket.getCustomerId(),
+                ticket.getWarrantyRecordId(),
+                ticket.getTicketId(),
+                request.technicianId(),
+                serviceAddress,
+                ticket.getIssueDescription(),
+                request.scheduledAt());
+
+        ticket.markInProgress(job.technicalJobId(), OffsetDateTime.now());
+        WarrantyTicket saved = warrantyTicketRepository.save(ticket);
+
+        WarrantyRecord record = warrantyRecordRepository.findById(saved.getWarrantyRecordId()).orElse(null);
+        log.info("Đã bắn công việc sửa chữa bảo hành {} cho ticket {} (KTV {})",
+                job.technicalJobId(), saved.getTicketCode(), request.technicianId());
+        return toDetailResponse(saved, record);
+    }
+
+    @Override
+    @Transactional
+    public WarrantyTicketDetailResponse reject(UUID ticketId, RejectWarrantyTicketRequest request) {
+        if (request == null || !StringUtils.hasText(request.reason())) {
+            throw new AppException(ServicedeskErrorCode.WARRANTY_TICKET_REJECT_REASON_REQUIRED);
+        }
+        WarrantyTicket ticket = warrantyTicketRepository.findById(ticketId)
+                .orElseThrow(() -> new AppException(ServicedeskErrorCode.WARRANTY_TICKET_NOT_FOUND, ticketId));
+
+        OffsetDateTime now = OffsetDateTime.now();
+        ticket.reject(request.reason(), now);
+        WarrantyTicket saved = warrantyTicketRepository.save(ticket);
+
+        eventPublisher.publishEvent(new WarrantyTicketAuditEvent(
+                UUID.randomUUID(),
+                saved.getTicketId(),
+                iamApi.getCurrentUserId(),
+                "REJECTED",
+                Map.of("status", "NEW"),
+                Map.of(
+                        "status", "REJECTED",
+                        "rejectionReason", saved.getRejectionReason() != null ? saved.getRejectionReason() : ""
+                ),
+                now
+        ));
+
+        WarrantyRecord record = warrantyRecordRepository.findById(saved.getWarrantyRecordId()).orElse(null);
+        log.info("Đã từ chối yêu cầu bảo hành {} tại bàn", saved.getTicketCode());
+        return toDetailResponse(saved, record);
     }
 }
 

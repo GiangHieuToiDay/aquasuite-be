@@ -29,14 +29,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers={CodController.class,PaymentVerificationController.class}, excludeFilters=@ComponentScan.Filter(type=FilterType.ASSIGNABLE_TYPE,
+@WebMvcTest(controllers={CodController.class,PaymentController.class}, excludeFilters=@ComponentScan.Filter(type=FilterType.ASSIGNABLE_TYPE,
         classes={AuthSecurityConfig.class,AccessAuthenticationConverter.class}))
 @Import({GlobalExceptionHandler.class,CodControllerSecurityTest.Security.class})
 class CodControllerSecurityTest {
     @Autowired MockMvc mvc;
     @MockBean CodService service;
     @MockBean IamQueryService iam;
-    @MockBean com.aquasuite.ims.service.finance.PaymentVerificationService verifications;
+    @MockBean com.aquasuite.ims.service.finance.PaymentService verifications;
 
     @Test void anonymousCannotListCod() throws Exception {
         mvc.perform(get("/api/v1/finance/cod/collections")).andExpect(status().isUnauthorized());

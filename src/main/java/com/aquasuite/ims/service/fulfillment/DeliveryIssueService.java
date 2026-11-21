@@ -7,7 +7,7 @@ import com.aquasuite.ims.entity.fulfillment.*;
 import com.aquasuite.ims.exception.fulfillment.FulfillmentErrorCode;
 import com.aquasuite.ims.dto.fulfillment.request.DeliveryIssueRequest;
 import com.aquasuite.ims.repository.fulfillment.*;
-import com.aquasuite.ims.service.sales.OrderDispatchService;
+import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.service.inventory.*;
 import com.aquasuite.ims.service.finance.CodService;
 import com.aquasuite.ims.service.catalog.CatalogLookupService;
@@ -24,7 +24,7 @@ import java.util.*;
 @Service
 @RequiredArgsConstructor
 public class DeliveryIssueService {
-    private final OrderDispatchService sales;
+    private final SalesQueryService sales;
     private final InventoryService stock;
     private final StockReservationService reservations;
     private final CatalogLookupService catalog;
@@ -47,7 +47,7 @@ public class DeliveryIssueService {
                          String deliveryStatus, OffsetDateTime confirmedAt, UUID salesInvoiceId) {}
 
     @Transactional(readOnly = true)
-    public List<OrderDispatchService.InvoiceSummary> issuedInvoices(UUID orderId) {
+    public List<SalesQueryService.InvoiceSummary> issuedInvoices(UUID orderId) {
         actor();
         sales.read(orderId);
         return sales.issuedInvoices(orderId);
@@ -65,7 +65,7 @@ public class DeliveryIssueService {
         return invoiceCandidatesView(sales.invoice(invoiceId));
     }
 
-    private Candidates invoiceCandidatesView(OrderDispatchService.Invoice invoice) {
+    private Candidates invoiceCandidatesView(SalesQueryService.Invoice invoice) {
         UUID orderId=invoice.orderId();
         var order = sales.lock(orderId);
         var invoiceQty=invoiceQuantities(invoice,order);
@@ -127,13 +127,13 @@ public class DeliveryIssueService {
         return result(d);
     }
 
-    private List<DeliveryItem> prepareItems(OrderDispatchService.Snapshot order, OrderDispatchService.Invoice invoice,
+    private List<DeliveryItem> prepareItems(SalesQueryService.Snapshot order, SalesQueryService.Invoice invoice,
                                             DeliveryIssueRequest request) {
         UUID orderId = order.orderId();
         var invoiceQty = invoiceQuantities(invoice, order);
         var invoiceIssued = store.issuedForInvoice(invoice.invoiceId());
         if (request.items().stream().map(DeliveryIssueRequest.Line::orderItemId).distinct().count() != request.items().size()) throw invalid();
-        var ordered = order.lines().stream().collect(java.util.stream.Collectors.toMap(OrderDispatchService.Line::orderItemId,l -> l));
+        var ordered = order.lines().stream().collect(java.util.stream.Collectors.toMap(SalesQueryService.Line::orderItemId,l -> l));
         var out = store.issued(orderId);
         List<DeliveryItem> details = new ArrayList<>();
         for (var l : request.items()) {
@@ -203,7 +203,7 @@ public class DeliveryIssueService {
         var invoice=sales.lockInvoice(invoiceId);
         var invoiceQty=invoiceQuantities(invoice,order);
         var invoiceIssued=store.issuedForInvoice(invoiceId);
-        var source = order.lines().stream().collect(java.util.stream.Collectors.toMap(OrderDispatchService.Line::orderItemId,l -> l));
+        var source = order.lines().stream().collect(java.util.stream.Collectors.toMap(SalesQueryService.Line::orderItemId,l -> l));
         var out = store.issued(orderId);
         var lines = items.findByDeliveryIdOrderByDeliveryItemId(id).stream()
                 .sorted(Comparator.comparing(DeliveryItem::getVariantId).thenComparing(DeliveryItem::getOrderItemId)).toList();
@@ -266,7 +266,7 @@ public class DeliveryIssueService {
         if (own.add(inventory.get().availableQty().max(BigDecimal.ZERO)).compareTo(line.getQuantity()) < 0)
             throw new AppException(com.aquasuite.ims.exception.fulfillment.FulfillmentErrorCode.RESERVATION_REVIEW_REQUIRED);
     }
-    private void eligible(OrderDispatchService.Snapshot o) {
+    private void eligible(SalesQueryService.Snapshot o) {
         if (!"PROCESSING".equals(o.status()) || o.modificationPending() || store.hasAmbiguousLegacy(o.orderId()))
             throw new AppException(FulfillmentErrorCode.ORDER_NOT_ELIGIBLE);
     }
@@ -277,10 +277,10 @@ public class DeliveryIssueService {
     }
     private Delivery locked(UUID id) { return deliveries.lockById(id).orElseThrow(() -> new AppException(CommonErrorCode.RESOURCE_NOT_FOUND)); }
     private Result result(Delivery d) { return new Result(d.getDeliveryId(),d.getDeliveryCode(),d.getOrderId(),d.getBatchNo(),d.getDeliveryStatus(),d.getConfirmedAt(),d.getSalesInvoiceId()); }
-    private Map<UUID,BigDecimal> invoiceQuantities(OrderDispatchService.Invoice invoice,OrderDispatchService.Snapshot order) {
+    private Map<UUID,BigDecimal> invoiceQuantities(SalesQueryService.Invoice invoice,SalesQueryService.Snapshot order) {
         if (!order.orderId().equals(invoice.orderId())
                 || !"ISSUED".equals(invoice.status()) || invoice.lines().isEmpty()) throw conflict();
-        var source=order.lines().stream().collect(java.util.stream.Collectors.toMap(OrderDispatchService.Line::orderItemId,l -> l));
+        var source=order.lines().stream().collect(java.util.stream.Collectors.toMap(SalesQueryService.Line::orderItemId,l -> l));
         Map<UUID,BigDecimal> result=new HashMap<>();
         for(var l:invoice.lines()) {
             var original=source.get(l.orderItemId());

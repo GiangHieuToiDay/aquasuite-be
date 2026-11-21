@@ -1,6 +1,5 @@
 package com.aquasuite.ims.service.finance.impl;
 
-import com.aquasuite.ims.service.finance.PaymentSettlementService;
 import com.aquasuite.ims.dto.finance.command.PendingCustomerRefundCommand;
 import com.aquasuite.ims.dto.finance.response.VerifiedPaymentSummary;
 import com.aquasuite.ims.dto.finance.response.RefundSettlementView;
@@ -16,17 +15,13 @@ import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
-public class PaymentSettlementServiceImpl implements PaymentSettlementService {
+public class PaymentSettlementServiceImpl {
     private final TransactionRepository transactionRepository;
-
-    @Override
     @Transactional(readOnly = true)
     public VerifiedPaymentSummary getVerifiedPaymentSummary(UUID orderId) {
         BigDecimal amount = transactionRepository.sumVerifiedAmountByOrderId(orderId);
         return new VerifiedPaymentSummary(orderId, amount == null ? BigDecimal.ZERO : amount);
     }
-
-    @Override
     @Transactional
     public UUID createPendingCustomerRefund(PendingCustomerRefundCommand command) {
         Transaction refund = Transaction.builder()
@@ -45,8 +40,6 @@ public class PaymentSettlementServiceImpl implements PaymentSettlementService {
                 .build();
         return transactionRepository.save(refund).getTransactionId();
     }
-
-    @Override
     @Transactional(readOnly = true)
     public Optional<RefundSettlementView> findCustomerRefund(UUID transactionId) {
         return transactionRepository.findById(transactionId)

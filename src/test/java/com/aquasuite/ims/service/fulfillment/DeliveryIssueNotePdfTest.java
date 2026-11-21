@@ -3,7 +3,7 @@ import com.aquasuite.ims.service.fulfillment.helper.DeliveryIssueNotePdfService;
 
 import com.aquasuite.ims.dto.fulfillment.response.DeliveryView;
 import com.aquasuite.ims.service.fulfillment.*;
-import com.aquasuite.ims.service.sales.OrderDispatchService;
+import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.exception.AppException;
 import org.junit.jupiter.api.Test;
 import org.openpdf.text.pdf.PdfReader;
@@ -17,7 +17,7 @@ import static org.mockito.Mockito.*;
 
 class DeliveryIssueNotePdfTest {
     DeliveryService deliveries = mock(DeliveryService.class);
-    OrderDispatchService orders = mock(OrderDispatchService.class);
+    SalesQueryService orders = mock(SalesQueryService.class);
     DeliveryIssueNotePdfService pdf = new DeliveryIssueNotePdfService(deliveries, orders);
     UUID id = UUID.randomUUID(), orderId = UUID.randomUUID(), invoiceId = UUID.randomUUID();
 
@@ -42,8 +42,8 @@ class DeliveryIssueNotePdfTest {
     }
     @Test void generatesVietnameseMultiPageDocument() throws Exception {
         when(deliveries.detail(id)).thenReturn(detail(true, 45));
-        when(orders.read(orderId)).thenReturn(new OrderDispatchService.Snapshot(orderId,"ORD-001","PROCESSING",null,false,List.of(),BigDecimal.ZERO));
-        when(orders.invoice(invoiceId)).thenReturn(new OrderDispatchService.Invoice(invoiceId,"INV-001",orderId,"PROJECT","ISSUED",List.of()));
+        when(orders.read(orderId)).thenReturn(new SalesQueryService.Snapshot(orderId,"ORD-001","PROCESSING",null,false,List.of(),BigDecimal.ZERO));
+        when(orders.invoice(invoiceId)).thenReturn(new SalesQueryService.Invoice(invoiceId,"INV-001",orderId,"PROJECT","ISSUED",List.of()));
         byte[] bytes = pdf.generate(id);
         try(var reader = new PdfReader(bytes)) { assertTrue(reader.getNumberOfPages() >= 3); }
         String preview = System.getProperty("delivery.pdf.preview");

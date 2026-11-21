@@ -16,7 +16,6 @@ import com.aquasuite.ims.dto.sales.request.UpdateCartItemQuantityRequest;
 import com.aquasuite.ims.dto.sales.response.CartItemResponse;
 import com.aquasuite.ims.dto.sales.response.CartResponse;
 import com.aquasuite.ims.repository.sales.CartItemRepository;
-import com.aquasuite.ims.service.sales.CartService;
 import com.aquasuite.ims.exception.AppException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,7 +42,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class CartServiceImpl implements CartService {
+public class CartServiceImpl {
 
     private static final String ACTIVE_STATUS = "ACTIVE";
 
@@ -53,15 +52,11 @@ public class CartServiceImpl implements CartService {
     private final CustomerService crmApi;
     private final CatalogLookupService catalogApi;
     private final InventoryService inventoryApi;
-
-    @Override
     @Transactional(readOnly = true)
     public CartResponse getCurrentCart() {
         UUID customerId = resolveCurrentCustomerId();
         return buildCartResponse(customerId);
     }
-
-    @Override
     @Transactional
     public CartResponse addItem(AddCartItemRequest request) {
         validatePositiveQuantity(request.getQuantity());
@@ -79,8 +74,6 @@ public class CartServiceImpl implements CartService {
                 customerId, variantId, targetQuantity);
         return buildCartResponse(customerId);
     }
-
-    @Override
     @Transactional
     public CartResponse mergeGuestItems(MergeCartItemsRequest request) {
         UUID customerId = resolveCurrentCustomerId();
@@ -137,8 +130,6 @@ public class CartServiceImpl implements CartService {
         log.info("Merged {} distinct guest cart items for customerId={}", aggregated.size(), customerId);
         return buildCartResponse(customerId);
     }
-
-    @Override
     @Transactional
     public CartResponse updateItemQuantity(UUID cartItemId, UpdateCartItemQuantityRequest request) {
         validatePositiveQuantity(request.getQuantity());
@@ -163,8 +154,6 @@ public class CartServiceImpl implements CartService {
                 cartItemId, request.getQuantity(), customerId);
         return buildCartResponse(customerId);
     }
-
-    @Override
     @Transactional
     public CartResponse removeItem(UUID cartItemId) {
         UUID customerId = resolveCurrentCustomerId();
@@ -176,8 +165,6 @@ public class CartServiceImpl implements CartService {
         log.info("Removed cartItemId={} for customerId={}", cartItemId, customerId);
         return buildCartResponse(customerId);
     }
-
-    @Override
     @Transactional
     public CartResponse clearCart() {
         UUID customerId = resolveCurrentCustomerId();

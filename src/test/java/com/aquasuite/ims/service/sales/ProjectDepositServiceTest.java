@@ -17,7 +17,7 @@ import com.aquasuite.ims.entity.sales.Order;
 import com.aquasuite.ims.entity.sales.OrderItem;
 import com.aquasuite.ims.dto.sales.request.ProjectDepositRequests.*;
 import com.aquasuite.ims.repository.sales.*;
-import com.aquasuite.ims.service.sales.ProjectDepositService;
+import com.aquasuite.ims.service.sales.impl.ProjectDepositService;
 import com.aquasuite.ims.exception.AppException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

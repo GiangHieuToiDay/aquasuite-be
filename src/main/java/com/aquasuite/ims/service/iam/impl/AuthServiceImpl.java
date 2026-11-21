@@ -1,58 +1,131 @@
 package com.aquasuite.ims.service.iam.impl;
 
-import com.aquasuite.ims.entity.iam.User;
-import com.aquasuite.ims.enums.iam.UserStatus;
-import com.aquasuite.ims.exception.iam.AuthErrorCode;
+import com.aquasuite.ims.dto.crm.request.CustomerRegistrationRequest;
+import com.aquasuite.ims.dto.iam.request.ChangePasswordRequest;
+import com.aquasuite.ims.dto.iam.request.ForgotPasswordRequest;
 import com.aquasuite.ims.dto.iam.request.LoginRequest;
 import com.aquasuite.ims.dto.iam.request.RefreshRequest;
+import com.aquasuite.ims.dto.iam.request.RegisterRequest;
+import com.aquasuite.ims.dto.iam.request.ResendRegistrationOtpRequest;
+import com.aquasuite.ims.dto.iam.request.ResetPasswordWithOtpRequest;
+import com.aquasuite.ims.dto.iam.request.VerifyRegistrationRequest;
 import com.aquasuite.ims.dto.iam.response.CurrentUserResponse;
 import com.aquasuite.ims.dto.iam.response.LoginResponse;
+import com.aquasuite.ims.dto.iam.response.PasswordActionResponse;
+import com.aquasuite.ims.dto.iam.response.RegisterResponse;
 import com.aquasuite.ims.dto.iam.response.TokenResponse;
-import com.aquasuite.ims.repository.iam.UserRepository;
-import com.aquasuite.ims.service.iam.AuthService;
-import com.aquasuite.ims.security.JwtTokenService;
-import com.aquasuite.ims.repository.iam.store.RedisSessionStore;
+import com.aquasuite.ims.entity.iam.User;
+import com.aquasuite.ims.enums.iam.RecoveryChannel;
+import com.aquasuite.ims.enums.iam.UserStatus;
+import com.aquasuite.ims.event.iam.PasswordChangedEvent;
 import com.aquasuite.ims.exception.AppException;
 import com.aquasuite.ims.exception.CommonErrorCode;
+import com.aquasuite.ims.exception.iam.AuthErrorCode;
+import com.aquasuite.ims.exception.iam.IamPasswordErrorCode;
+import com.aquasuite.ims.exception.iam.RegistrationErrorCode;
+import com.aquasuite.ims.integration.iam.OtpSenderStrategy;
+import com.aquasuite.ims.repository.iam.RoleRepository;
+import com.aquasuite.ims.repository.iam.UserRepository;
+import com.aquasuite.ims.repository.iam.store.PendingRegistration;
+import com.aquasuite.ims.repository.iam.store.RedisSessionStore;
+import com.aquasuite.ims.repository.iam.store.RegistrationOtpStore;
+import com.aquasuite.ims.security.JwtTokenService;
+import com.aquasuite.ims.service.crm.CustomerRegistrationService;
+import com.aquasuite.ims.service.iam.AuthService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.TransactionException;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
+import java.security.SecureRandom;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Service
 public class AuthServiceImpl implements AuthService {
+
+    private static final Pattern PASSWORD_POLICY_PATTERN = Pattern.compile(
+            "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{8,}$"
+    );
 
     private final AuthenticationManager authenticationManager;
     private final UserRepository userRepository;
     private final JwtTokenService jwtTokenService;
     private final RedisSessionStore redisSessionStore;
     private final CurrentAuthoritiesService currentAuthoritiesService;
+    private final RoleRepository roleRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final RegistrationOtpStore otpStore;
+    private final TransactionTemplate transactions;
+    private final CustomerRegistrationService customerProfiles;
+    private final List<OtpSenderStrategy> otpStrategies;
+    private final ApplicationEventPublisher eventPublisher;
 
+    @Autowired
     public AuthServiceImpl(
-            AuthenticationManager authenticationManager,
-            @org.springframework.beans.factory.annotation.Autowired(required = false)
-                    UserRepository userRepository,
-            JwtTokenService jwtTokenService,
-            RedisSessionStore redisSessionStore,
-            CurrentAuthoritiesService currentAuthoritiesService) {
+            @Autowired(required = false) AuthenticationManager authenticationManager,
+            @Autowired(required = false) UserRepository userRepository,
+            @Autowired(required = false) JwtTokenService jwtTokenService,
+            @Autowired(required = false) RedisSessionStore redisSessionStore,
+            @Autowired(required = false) CurrentAuthoritiesService currentAuthoritiesService,
+            @Autowired(required = false) RoleRepository roleRepository,
+            @Autowired(required = false) PasswordEncoder passwordEncoder,
+            @Autowired(required = false) RegistrationOtpStore otpStore,
+            @Autowired(required = false) TransactionTemplate transactions,
+            @Autowired(required = false) CustomerRegistrationService customerProfiles,
+            @Autowired(required = false) List<OtpSenderStrategy> otpStrategies,
+            @Autowired(required = false) ApplicationEventPublisher eventPublisher) {
         this.authenticationManager = authenticationManager;
         this.userRepository = userRepository;
         this.jwtTokenService = jwtTokenService;
         this.redisSessionStore = redisSessionStore;
         this.currentAuthoritiesService = currentAuthoritiesService;
+        this.roleRepository = roleRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.otpStore = otpStore;
+        this.transactions = transactions;
+        this.customerProfiles = customerProfiles;
+        this.otpStrategies = otpStrategies != null ? otpStrategies : List.of();
+        this.eventPublisher = eventPublisher;
+    }
+
+    public AuthServiceImpl(
+            AuthenticationManager authenticationManager,
+            UserRepository userRepository,
+            JwtTokenService jwtTokenService,
+            RedisSessionStore redisSessionStore,
+            CurrentAuthoritiesService currentAuthoritiesService) {
+        this(authenticationManager, userRepository, jwtTokenService, redisSessionStore,
+                currentAuthoritiesService, null, null, null, null, null, null, null);
+    }
+
+    public AuthServiceImpl(
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder,
+            List<OtpSenderStrategy> otpStrategies,
+            ApplicationEventPublisher eventPublisher) {
+        this(null, userRepository, null, null, null, null, passwordEncoder, null, null, null, otpStrategies, eventPublisher);
     }
 
     /**
@@ -344,5 +417,254 @@ public class AuthServiceImpl implements AuthService {
                 .email(user.getEmail())
                 .roles(roleNames != null ? List.copyOf(roleNames) : List.of())
                 .build();
+    }
+
+    // ── Registration Logic (from RegisterService) ──────────────────────────
+
+    @Override
+    public RegisterResponse register(RegisterRequest request) {
+        PendingRegistration pending;
+        try {
+            checkDuplicates(request.email(), request.phone());
+            pending = new PendingRegistration(UUID.randomUUID(), request.fullName(),
+                    request.email(), request.phone(), passwordEncoder.encode(request.password()));
+            otpStore.save(pending);
+        } catch (DataAccessException ex) {
+            throw new AppException(RegistrationErrorCode.UNAVAILABLE);
+        }
+        return new RegisterResponse(pending.id(), pending.email(), "PENDING_ACTIVATION");
+    }
+
+    @Override
+    public void resend(ResendRegistrationOtpRequest request) {
+        try {
+            if (userRepository.existsByEmailIgnoreCase(request.email())) {
+                throw new AppException(RegistrationErrorCode.NOT_PENDING);
+            }
+            otpStore.rotateOtp(request.email());
+        } catch (DataAccessException ex) {
+            throw new AppException(RegistrationErrorCode.UNAVAILABLE);
+        }
+    }
+
+    @Override
+    public LoginResponse verify(VerifyRegistrationRequest request) {
+        RegistrationOtpStore.Claim claim;
+        try {
+            if (userRepository.existsByEmailIgnoreCase(request.email())) {
+                throw new AppException(RegistrationErrorCode.NOT_PENDING);
+            }
+            claim = otpStore.verifyAndClaim(request.email(), request.otp());
+        } catch (DataAccessException ex) {
+            throw new AppException(RegistrationErrorCode.UNAVAILABLE);
+        }
+        UUID userId;
+        try {
+            userId = transactions.execute(tx -> createAccount(claim.registration()));
+        } catch (RuntimeException ex) {
+            release(claim);
+            if (ex instanceof AppException app) throw app;
+            if (ex instanceof DataIntegrityViolationException) {
+                throw new AppException(CommonErrorCode.DATA_INTEGRITY_VIOLATION);
+            }
+            throw new AppException(RegistrationErrorCode.UNAVAILABLE);
+        }
+        try {
+            otpStore.complete(claim);
+        } catch (RuntimeException ignored) {
+            // Account is committed; database duplicate checks prevent replay until Redis expires.
+        }
+        try {
+            return this.loginRegisteredUser(userId);
+        } catch (RuntimeException ex) {
+            throw new AppException(RegistrationErrorCode.LOGIN_REQUIRED);
+        }
+    }
+
+    private UUID createAccount(PendingRegistration pending) {
+        checkDuplicates(pending.email(), pending.phone());
+        var role = roleRepository.findByRoleNameIgnoreCase("CUSTOMER")
+                .filter(r -> r.isActive())
+                .orElseThrow(() -> new AppException(RegistrationErrorCode.UNAVAILABLE));
+        int inserted = userRepository.insertPendingRegistration(pending.id(), "customer-" + pending.id(),
+                pending.fullName(), pending.email(), pending.phone(), pending.passwordHash());
+        if (inserted != 1) {
+            checkDuplicates(pending.email(), pending.phone());
+            throw new AppException(CommonErrorCode.DATA_INTEGRITY_VIOLATION);
+        }
+        var user = userRepository.findById(pending.id())
+                .orElseThrow(() -> new AppException(RegistrationErrorCode.UNAVAILABLE));
+        user.getRoles().add(role);
+        user.setStatus(UserStatus.ACTIVE);
+        user.setVerified(true);
+        userRepository.saveAndFlush(user);
+        try {
+            customerProfiles.createProfile(new CustomerRegistrationRequest(user.getId(),
+                    user.getFullName(), user.getPhone(), user.getEmail()));
+        } catch (AppException ex) {
+            throw ex;
+        } catch (RuntimeException ex) {
+            throw new AppException(RegistrationErrorCode.UNAVAILABLE);
+        }
+        return user.getId();
+    }
+
+    private void checkDuplicates(String email, String phone) {
+        if (userRepository.existsByEmailIgnoreCase(email) || userRepository.existsByPhone(phone)) {
+            throw new AppException(RegistrationErrorCode.DUPLICATE_ACCOUNT);
+        }
+    }
+
+    private void release(RegistrationOtpStore.Claim claim) {
+        try {
+            otpStore.release(claim);
+        } catch (RuntimeException ignored) {
+            // Failed dependency may keep the claim until the existing five-minute TTL expires.
+        }
+    }
+
+    // ── Password Logic (from PasswordService) ──────────────────────────────
+
+    @Override
+    @Transactional
+    public PasswordActionResponse changePassword(ChangePasswordRequest req) {
+        UUID userId = resolveCurrentUserId();
+        if (userId == null) {
+            throw new AppException(IamPasswordErrorCode.INCORRECT_CURRENT_PASSWORD);
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AppException(IamPasswordErrorCode.USER_NOT_FOUND));
+
+        if (user.getPasswordHash() == null || !passwordEncoder.matches(req.currentPassword(), user.getPasswordHash())) {
+            throw new AppException(IamPasswordErrorCode.INCORRECT_CURRENT_PASSWORD);
+        }
+
+        validatePasswordPolicyAndConfirmation(req.newPassword(), req.confirmNewPassword());
+        validateNotSameAsCurrentPassword(user, req.newPassword());
+
+        String newHash = passwordEncoder.encode(req.newPassword());
+        user.setPasswordHash(newHash);
+        user.setPasswordLastChangedAt(Instant.now());
+        userRepository.save(user);
+
+        if (eventPublisher != null) {
+            eventPublisher.publishEvent(new PasswordChangedEvent(user.getId(), "CHANGE_PASSWORD"));
+        }
+
+        return new PasswordActionResponse("Password changed successfully. Please log in again if required.");
+    }
+
+    @Override
+    @Transactional
+    public PasswordActionResponse requestPasswordRecovery(ForgotPasswordRequest req) {
+        String identifier = req.identifier().trim();
+        User user;
+
+        if (req.channel() == RecoveryChannel.EMAIL) {
+            user = userRepository.findByEmailIgnoreCase(identifier)
+                    .orElseThrow(() -> new AppException(IamPasswordErrorCode.USER_NOT_FOUND));
+        } else if (req.channel() == RecoveryChannel.SMS) {
+            user = userRepository.findByPhone(identifier)
+                    .orElseThrow(() -> new AppException(IamPasswordErrorCode.USER_NOT_FOUND));
+        } else {
+            throw new AppException(IamPasswordErrorCode.USER_NOT_FOUND);
+        }
+
+        LocalDate today = LocalDate.now();
+        if (today.equals(user.getEmailSentDate()) && user.getEmailSentCount() != null && user.getEmailSentCount() >= 5) {
+            throw new AppException(IamPasswordErrorCode.EMAIL_RATE_LIMIT_EXCEEDED);
+        }
+
+        if (!today.equals(user.getEmailSentDate())) {
+            user.setEmailSentDate(today);
+            user.setEmailSentCount(1);
+        } else {
+            user.setEmailSentCount(user.getEmailSentCount() != null ? user.getEmailSentCount() + 1 : 1);
+        }
+
+        String otp = String.format("%06d", new SecureRandom().nextInt(1_000_000));
+        user.setVerificationCode(passwordEncoder.encode(otp));
+        user.setVerificationExpiredAt(Instant.now().plus(10, ChronoUnit.MINUTES));
+        userRepository.save(user);
+
+        OtpSenderStrategy strategy = otpStrategies.stream()
+                .filter(s -> s.getSupportedChannel() != null
+                        && s.getSupportedChannel().name().equalsIgnoreCase(req.channel().name()))
+                .findFirst()
+                .orElseThrow(() -> new AppException(IamPasswordErrorCode.SMS_CHANNEL_NOT_SUPPORTED_YET));
+
+        strategy.sendRecoveryOtp(identifier, otp);
+
+        return new PasswordActionResponse("A password reset code has been sent to your email.");
+    }
+
+    @Override
+    @Transactional
+    public PasswordActionResponse resetPasswordWithOtp(ResetPasswordWithOtpRequest req) {
+        String identifier = req.identifier().trim();
+
+        Optional<User> userOpt = userRepository.findByEmailIgnoreCase(identifier);
+        if (userOpt.isEmpty()) {
+            userOpt = userRepository.findByPhone(identifier);
+        }
+        User user = userOpt.orElseThrow(() -> new AppException(IamPasswordErrorCode.USER_NOT_FOUND));
+
+        if (user.getVerificationCode() == null || user.getVerificationExpiredAt() == null
+                || Instant.now().isAfter(user.getVerificationExpiredAt())) {
+            throw new AppException(IamPasswordErrorCode.INVALID_OR_EXPIRED_OTP);
+        }
+
+        if (!passwordEncoder.matches(req.otpCode().trim(), user.getVerificationCode())) {
+            throw new AppException(IamPasswordErrorCode.INVALID_OR_EXPIRED_OTP);
+        }
+
+        validatePasswordPolicyAndConfirmation(req.newPassword(), req.confirmNewPassword());
+        validateNotSameAsCurrentPassword(user, req.newPassword());
+
+        String newHash = passwordEncoder.encode(req.newPassword());
+        user.setPasswordHash(newHash);
+        user.setPasswordLastChangedAt(Instant.now());
+        user.setVerificationCode(null);
+        user.setVerificationExpiredAt(null);
+
+        if (user.getStatus() == UserStatus.INACTIVE) {
+            user.setStatus(UserStatus.ACTIVE);
+        }
+        userRepository.save(user);
+
+        if (eventPublisher != null) {
+            eventPublisher.publishEvent(new PasswordChangedEvent(user.getId(), "FORGOT_PASSWORD_RESET"));
+        }
+
+        return new PasswordActionResponse("Your password has been reset successfully. You may now sign in.");
+    }
+
+    private void validatePasswordPolicyAndConfirmation(String newPassword, String confirmNewPassword) {
+        if (newPassword == null || !newPassword.equals(confirmNewPassword)
+                || !PASSWORD_POLICY_PATTERN.matcher(newPassword).matches()) {
+            throw new AppException(IamPasswordErrorCode.WEAK_OR_MISMATCHED_PASSWORD);
+        }
+    }
+
+    private void validateNotSameAsCurrentPassword(User user, String rawNewPassword) {
+        if (user.getPasswordHash() != null && passwordEncoder.matches(rawNewPassword, user.getPasswordHash())) {
+            throw new AppException(IamPasswordErrorCode.SAME_AS_CURRENT_PASSWORD);
+        }
+    }
+
+    private UUID resolveCurrentUserId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth instanceof JwtAuthenticationToken jwt) {
+            try {
+                return UUID.fromString(jwt.getToken().getSubject());
+            } catch (IllegalArgumentException ignored) {}
+        }
+        if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal())) {
+            try {
+                return UUID.fromString(auth.getName());
+            } catch (IllegalArgumentException ignored) {}
+        }
+        return null;
     }
 }

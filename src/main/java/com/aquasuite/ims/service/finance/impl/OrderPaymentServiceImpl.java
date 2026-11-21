@@ -9,10 +9,9 @@ import com.aquasuite.ims.dto.finance.response.OrderPaymentResponse;
 import com.aquasuite.ims.dto.finance.response.OrderPaymentSummary;
 import com.aquasuite.ims.repository.finance.TransactionRepository;
 import com.aquasuite.ims.repository.finance.FinanceLockRepository;
-import com.aquasuite.ims.service.finance.OrderPaymentService;
 import com.aquasuite.ims.service.finance.PaymentAllocationService;
 import com.aquasuite.ims.service.iam.IamQueryService;
-import com.aquasuite.ims.service.sales.SalesOrderService;
+import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.dto.sales.response.SalesOrderMilestoneDto;
 import com.aquasuite.ims.dto.sales.response.SalesOrderPaymentInfoDto;
 import com.aquasuite.ims.exception.AppException;
@@ -30,11 +29,11 @@ import java.util.UUID;
 /** Xử lý ghi nhận và tính toán các khoản thanh toán đã lưu cho một đơn hàng. */
 @Service
 @RequiredArgsConstructor
-public class OrderPaymentServiceImpl implements OrderPaymentService {
+public class OrderPaymentServiceImpl {
     /** Truy vấn và lưu các giao dịch thu tiền. */
     private final TransactionRepository transactions;
     /** Truy vấn, khóa đơn và cập nhật trạng thái thanh toán qua hợp đồng Sales. */
-    private final SalesOrderService sales;
+    private final SalesQueryService sales;
     /** Xác định nhân viên đang thực hiện yêu cầu. */
     private final IamQueryService iam;
     /** Giữ khóa PostgreSQL theo mã chống ghi trùng trong transaction hiện tại. */
@@ -51,7 +50,6 @@ public class OrderPaymentServiceImpl implements OrderPaymentService {
      * @return giao dịch vừa ghi hoặc giao dịch cũ khi gửi lại cùng yêu cầu
      * @throws AppException nếu đơn không hợp lệ, số tiền vượt dư hoặc mã yêu cầu bị dùng khác nội dung
      */
-    @Override
     @Transactional
     public OrderPaymentResponse record(UUID orderId, RecordOrderPaymentRequest request) {
         UUID actorId = Objects.requireNonNull(iam.getCurrentUserId(), "Authenticated actor required");
@@ -108,7 +106,6 @@ public class OrderPaymentServiceImpl implements OrderPaymentService {
      * @return tổng quan thanh toán của đơn
      * @throws AppException nếu không tìm thấy đơn hoặc dữ liệu khoản thu không nhất quán
      */
-    @Override
     @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public OrderPaymentSummary summary(UUID orderId) {
         var order = sales.getOrderPaymentInfo(orderId)
@@ -122,7 +119,6 @@ public class OrderPaymentServiceImpl implements OrderPaymentService {
      * @return các giao dịch thu tiền thuộc đơn
      * @throws AppException nếu không tìm thấy đơn hoặc dữ liệu khoản thu không nhất quán
      */
-    @Override
     @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public List<OrderPaymentResponse> history(UUID orderId) {
         var order = sales.getOrderPaymentInfo(orderId).orElseThrow(() -> new AppException(OrderPaymentErrorCode.ORDER_NOT_FOUND));
@@ -143,7 +139,6 @@ public class OrderPaymentServiceImpl implements OrderPaymentService {
      * @return tổng quan toàn đơn kèm tiến độ từng mốc
      * @throws AppException nếu không tìm thấy đơn hoặc dữ liệu khoản thu không nhất quán
      */
-    @Override
     @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public OrderMilestoneProgressResponse milestoneProgress(UUID orderId) {
         var order = sales.getOrderPaymentInfo(orderId)

@@ -1,12 +1,14 @@
 package com.aquasuite.ims.service.sales.impl;
 
-import com.aquasuite.ims.service.sales.OrderDispatchService;
+import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.entity.sales.Order;
 import com.aquasuite.ims.entity.sales.OrderItem;
 import com.aquasuite.ims.enums.sales.OrderModificationRequestStatus;
 import com.aquasuite.ims.repository.sales.OrderItemRepository;
 import com.aquasuite.ims.repository.sales.OrderModificationRequestRepository;
+import com.aquasuite.ims.repository.sales.OrderPaymentMilestoneRepository;
 import com.aquasuite.ims.repository.sales.OrderRepository;
+import com.aquasuite.ims.repository.sales.SalesInvoiceRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -29,10 +31,12 @@ import static org.mockito.Mockito.when;
 class OrderDispatchApiImplTest {
 
     @Mock private OrderRepository orders;
+    @Mock private SalesInvoiceRepository salesInvoiceRepository;
+    @Mock private OrderPaymentMilestoneRepository orderPaymentMilestoneRepository;
     @Mock private OrderItemRepository items;
     @Mock private OrderModificationRequestRepository modifications;
     @Mock private JdbcTemplate jdbc;
-    @InjectMocks private OrderDispatchServiceImpl dispatchApi;
+    @InjectMocks private SalesQueryServiceImpl dispatchApi;
 
     @Test
     void approvedModificationDoesNotBlockDispatch() {
@@ -48,7 +52,7 @@ class OrderDispatchApiImplTest {
                 .thenReturn(false);
         when(items.findByOrderId(orderId)).thenReturn(List.of());
 
-        OrderDispatchService.Snapshot snapshot = dispatchApi.read(orderId);
+        SalesQueryService.Snapshot snapshot = dispatchApi.read(orderId);
         assertFalse(snapshot.modificationPending());
     }
 
@@ -65,7 +69,7 @@ class OrderDispatchApiImplTest {
                 .thenReturn(true);
         when(items.findByOrderId(orderId)).thenReturn(List.of());
 
-        OrderDispatchService.Snapshot snapshot = dispatchApi.read(orderId);
+        SalesQueryService.Snapshot snapshot = dispatchApi.read(orderId);
         assertTrue(snapshot.modificationPending());
     }
 
@@ -82,7 +86,7 @@ class OrderDispatchApiImplTest {
                 .thenReturn(true);
         when(items.findByOrderId(orderId)).thenReturn(List.of());
 
-        OrderDispatchService.Snapshot snapshot = dispatchApi.read(orderId);
+        SalesQueryService.Snapshot snapshot = dispatchApi.read(orderId);
         assertTrue(snapshot.modificationPending());
     }
 }

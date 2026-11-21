@@ -5,7 +5,7 @@ import com.aquasuite.ims.service.catalog.helper.BundlePricingService;
 import com.aquasuite.ims.service.catalog.helper.BundleDetailAssembler;
 import com.aquasuite.ims.config.catalog.BundleClockConfig;
 import com.aquasuite.ims.controller.catalog.BundleController;
-import com.aquasuite.ims.controller.catalog.BundleAdminController;
+
 import com.aquasuite.ims.mapper.catalog.BundleMapperImpl;
 import com.aquasuite.ims.exception.GlobalExceptionHandler;
 
@@ -83,6 +83,7 @@ public abstract class BundleCoreTestSupport {
                 "com.aquasuite.ims.repository.inventory"
             })
     @Import({
+        com.aquasuite.ims.service.catalog.impl.BundleServiceImpl.class,
         com.aquasuite.ims.service.catalog.impl.BundleAdminServiceImpl.class,
         com.aquasuite.ims.service.catalog.impl.BundleQueryServiceImpl.class,
         com.aquasuite.ims.repository.catalog.BundleRepository.class,
@@ -94,7 +95,7 @@ public abstract class BundleCoreTestSupport {
         BundleMapperImpl.class,
         BundleDetailAssembler.class,
         BundleClockConfig.class,
-        BundleAdminController.class,
+        BundleController.class,
         GlobalExceptionHandler.class
     })
     public static class Config {
@@ -125,8 +126,8 @@ public abstract class BundleCoreTestSupport {
     }
 
     @Autowired protected JdbcTemplate jdbc;
-    @Autowired protected BundleAdminService service;
-    @Autowired protected BundleQueryService query;
+    @Autowired protected BundleService service;
+    @Autowired protected BundleService query;
     @Autowired protected BundleEvaluationService evaluation;
     @Autowired protected ObjectMapper json;
     @Autowired protected MockMvc mvc;

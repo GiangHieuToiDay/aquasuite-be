@@ -37,7 +37,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(
-        controllers = CustomerWarrantyController.class,
+        controllers = WarrantyRecordController.class,
         excludeFilters = @ComponentScan.Filter(
                 type = FilterType.REGEX,
                 pattern = "com\\.aquasuite\\.ims\\.module\\.iam\\.internal\\.security\\..*"))

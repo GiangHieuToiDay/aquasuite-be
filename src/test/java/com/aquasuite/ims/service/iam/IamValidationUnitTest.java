@@ -10,8 +10,7 @@ import com.aquasuite.ims.dto.iam.request.UpdatePermissionRequest;
 import com.aquasuite.ims.dto.iam.response.PermissionResponse;
 import com.aquasuite.ims.repository.iam.PermissionRepository;
 import com.aquasuite.ims.repository.iam.RoleRepository;
-import com.aquasuite.ims.service.iam.impl.IamPermissionServiceImpl;
-import com.aquasuite.ims.service.iam.impl.IamRoleServiceImpl;
+import com.aquasuite.ims.service.iam.impl.RolePermissionServiceImpl;
 import com.aquasuite.ims.exception.AppException;
 import com.aquasuite.ims.exception.CommonErrorCode;
 import com.aquasuite.ims.common.PageQuery;
@@ -55,13 +54,14 @@ class IamValidationUnitTest {
     @Mock
     private RoleMapper roleMapper;
 
-    private IamPermissionServiceImpl permissionService;
-    private IamRoleServiceImpl roleService;
+    private RolePermissionServiceImpl permissionService;
+    private RolePermissionServiceImpl roleService;
 
     @BeforeEach
     void setUp() {
-        permissionService = new IamPermissionServiceImpl(permissionRepository, permissionMapper);
-        roleService = new IamRoleServiceImpl(roleRepository, permissionRepository, roleMapper);
+        RolePermissionServiceImpl impl = new RolePermissionServiceImpl(roleRepository, permissionRepository, roleMapper, permissionMapper);
+        permissionService = impl;
+        roleService = impl;
     }
 
     @Test

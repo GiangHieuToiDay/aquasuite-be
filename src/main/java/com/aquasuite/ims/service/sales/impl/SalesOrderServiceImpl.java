@@ -39,6 +39,8 @@ import com.aquasuite.ims.dto.sales.request.CreateOrderItemRequest;
 import com.aquasuite.ims.dto.sales.request.CreateSalesOrderRequest;
 import com.aquasuite.ims.dto.sales.request.SalesOrderFilterRequest;
 import com.aquasuite.ims.dto.sales.request.UpdateOrderFulfillmentRequest;
+import com.aquasuite.ims.dto.sales.request.*;
+import com.aquasuite.ims.dto.sales.response.OrderModificationRequestResponse;
 import com.aquasuite.ims.dto.sales.response.SalesOrderDetailResponse;
 import com.aquasuite.ims.dto.sales.response.SalesOrderItemResponse;
 import com.aquasuite.ims.dto.sales.response.SalesOrderMilestoneResponse;
@@ -78,7 +80,6 @@ import java.util.UUID;
 /** Tạo đơn tại quầy và cung cấp danh sách, chi tiết đơn hàng bán. */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class SalesOrderServiceImpl implements SalesOrderService {
 
     private final OrderRepository orderRepository;
@@ -96,16 +97,85 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     private final QuotationItemRepository quotationItemRepository;
     private final QuotationPaymentMilestoneRepository quotationPaymentMilestoneRepository;
     private final OrderPaymentMilestoneRepository orderPaymentMilestoneRepository;
-    private final com.aquasuite.ims.service.sales.OrderStockReservationService orderStockReservationService;
-    private final com.aquasuite.ims.service.finance.OrderReceivableService orderReceivableApi;
+    private final com.aquasuite.ims.service.sales.impl.OrderStockReservationService orderStockReservationService;
+    private final com.aquasuite.ims.service.finance.PaymentService orderReceivableApi;
     private final org.springframework.context.ApplicationEventPublisher eventPublisher;
+    private final OrderModificationRequestServiceImpl modificationService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public SalesOrderServiceImpl(
+            OrderRepository orderRepository,
+            OrderItemRepository orderItemRepository,
+            SalesInvoiceRepository salesInvoiceRepository,
+            SalesInvoiceItemRepository salesInvoiceItemRepository,
+            CreditControlService creditControlApi,
+            CatalogLookupService catalogApi,
+            InventoryService inventoryApi,
+            CustomerService crmApi,
+            IamQueryService iamApi,
+            SalesOrderMapper salesOrderMapper,
+            OrderCodeGenerator orderCodeGenerator,
+            QuotationRepository quotationRepository,
+            QuotationItemRepository quotationItemRepository,
+            QuotationPaymentMilestoneRepository quotationPaymentMilestoneRepository,
+            OrderPaymentMilestoneRepository orderPaymentMilestoneRepository,
+            com.aquasuite.ims.service.sales.impl.OrderStockReservationService orderStockReservationService,
+            com.aquasuite.ims.service.finance.PaymentService orderReceivableApi,
+            org.springframework.context.ApplicationEventPublisher eventPublisher,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) OrderModificationRequestServiceImpl modificationService) {
+        this.orderRepository = orderRepository;
+        this.orderItemRepository = orderItemRepository;
+        this.salesInvoiceRepository = salesInvoiceRepository;
+        this.salesInvoiceItemRepository = salesInvoiceItemRepository;
+        this.creditControlApi = creditControlApi;
+        this.catalogApi = catalogApi;
+        this.inventoryApi = inventoryApi;
+        this.crmApi = crmApi;
+        this.iamApi = iamApi;
+        this.salesOrderMapper = salesOrderMapper;
+        this.orderCodeGenerator = orderCodeGenerator;
+        this.quotationRepository = quotationRepository;
+        this.quotationItemRepository = quotationItemRepository;
+        this.quotationPaymentMilestoneRepository = quotationPaymentMilestoneRepository;
+        this.orderPaymentMilestoneRepository = orderPaymentMilestoneRepository;
+        this.orderStockReservationService = orderStockReservationService;
+        this.orderReceivableApi = orderReceivableApi;
+        this.eventPublisher = eventPublisher;
+        this.modificationService = modificationService;
+    }
 
     public SalesOrderServiceImpl(OrderRepository orderRepository,
-                                OrderItemRepository orderItemRepository,
-                                SalesInvoiceRepository salesInvoiceRepository,
-                                OrderPaymentMilestoneRepository orderPaymentMilestoneRepository,
-                                org.springframework.context.ApplicationEventPublisher eventPublisher) {
-        this(orderRepository, orderItemRepository, salesInvoiceRepository, null, null, null, null, null, null, null, null, null, null, null, orderPaymentMilestoneRepository, null, null, eventPublisher);
+            OrderItemRepository orderItemRepository,
+            SalesInvoiceRepository salesInvoiceRepository,
+            SalesInvoiceItemRepository salesInvoiceItemRepository,
+            CreditControlService creditControlApi,
+            CatalogLookupService catalogApi,
+            InventoryService inventoryApi,
+            CustomerService crmApi,
+            IamQueryService iamApi,
+            SalesOrderMapper salesOrderMapper,
+            OrderCodeGenerator orderCodeGenerator,
+            QuotationRepository quotationRepository,
+            QuotationItemRepository quotationItemRepository,
+            QuotationPaymentMilestoneRepository quotationPaymentMilestoneRepository,
+            OrderPaymentMilestoneRepository orderPaymentMilestoneRepository,
+            com.aquasuite.ims.service.sales.impl.OrderStockReservationService orderStockReservationService,
+            com.aquasuite.ims.service.finance.PaymentService orderReceivableApi,
+            org.springframework.context.ApplicationEventPublisher eventPublisher) {
+        this(orderRepository, orderItemRepository, salesInvoiceRepository, salesInvoiceItemRepository,
+                creditControlApi, catalogApi, inventoryApi, crmApi, iamApi, salesOrderMapper,
+                orderCodeGenerator, quotationRepository, quotationItemRepository,
+                quotationPaymentMilestoneRepository, orderPaymentMilestoneRepository,
+                orderStockReservationService, orderReceivableApi, eventPublisher, null);
+    }
+
+    public SalesOrderServiceImpl(OrderRepository orderRepository,
+            OrderItemRepository orderItemRepository,
+            SalesInvoiceRepository salesInvoiceRepository,
+            OrderPaymentMilestoneRepository orderPaymentMilestoneRepository,
+            org.springframework.context.ApplicationEventPublisher eventPublisher) {
+        this(orderRepository, orderItemRepository, salesInvoiceRepository, null, null, null, null, null, null, null,
+                null, null, null, null, orderPaymentMilestoneRepository, null, null, eventPublisher, null);
     }
 
     /**
@@ -210,7 +280,6 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                     throw new AppException(com.aquasuite.ims.exception.CommonErrorCode.INVALID_REQUEST_PARAM);
                 }
                 List<OrderItem> comboItems = new ArrayList<>();
-
 
                 // Kiểm tra tồn kho khả dụng cho toàn bộ component SKU trong gói combo
                 if (bundleDto.items() != null) {
@@ -365,11 +434,14 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         String staffName = getStaffName(salesStaffId);
 
         String cName = customer != null ? customer.customerName() : null;
-        String finalCustomerName = (cName != null && !cName.isBlank() && !"Walk-in Retail Customer".equalsIgnoreCase(cName.trim()))
-                ? cName.trim() : "Khách lẻ tại quầy";
+        String finalCustomerName = (cName != null && !cName.isBlank()
+                && !"Walk-in Retail Customer".equalsIgnoreCase(cName.trim()))
+                        ? cName.trim()
+                        : "Khách lẻ tại quầy";
         String cPhone = customer != null ? customer.phone() : null;
         String finalCustomerPhone = (cPhone != null && !cPhone.isBlank() && !"0000000000".equals(cPhone.trim()))
-                ? cPhone.trim() : null;
+                ? cPhone.trim()
+                : null;
 
         SalesOrderDetailResponse response = salesOrderMapper.toDetailResponse(
                 savedOrder,
@@ -446,11 +518,12 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 || (request != null && request.isReserveStockAfterDeposit());
 
         var comboNet = com.aquasuite.ims.service.sales.helper.QuotationComboAllocator.allocate(quotationItems);
-        Map<UUID,QuotationItem> comboRoots = quotationItems.stream()
+        Map<UUID, QuotationItem> comboRoots = quotationItems.stream()
                 .filter(item -> item.getComboId() != null && item.getVariantId() == null)
-                .collect(java.util.stream.Collectors.toMap(QuotationItem::getQuotationItemId,item -> item));
+                .collect(java.util.stream.Collectors.toMap(QuotationItem::getQuotationItemId, item -> item));
         for (QuotationItem qItem : quotationItems) {
-            if (comboRoots.containsKey(qItem.getQuotationItemId())) continue;
+            if (comboRoots.containsKey(qItem.getQuotationItemId()))
+                continue;
             CatalogSkuSummaryDto skuDto = catalogApi.getSkuSummary(qItem.getVariantId())
                     .orElseThrow(() -> new AppException(SalesErrorCode.SKU_NOT_FOUND, qItem.getVariantId()));
 
@@ -503,20 +576,20 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
             // Giữ chỗ tồn kho khả dụng nếu kho đang có sẵn hàng (UC-086)
             if (!reserveAfterDeposit) {
-            try {
-                Optional<StockSummaryDto> stockOpt = inventoryApi.getStockSummary(skuDto.variantId());
-                if (stockOpt.isPresent() && stockOpt.get().availableQty() != null) {
-                    BigDecimal avail = stockOpt.get().availableQty();
-                    if (avail.compareTo(BigDecimal.ZERO) > 0) {
-                        BigDecimal toReserve = qty.min(avail);
-                        inventoryApi.reserveStock(skuDto.variantId(), toReserve);
-                        log.info("Reserved stock {}/{} for variant SKU {} on project order {}",
-                                toReserve, qty, skuDto.sku(), orderCode);
+                try {
+                    Optional<StockSummaryDto> stockOpt = inventoryApi.getStockSummary(skuDto.variantId());
+                    if (stockOpt.isPresent() && stockOpt.get().availableQty() != null) {
+                        BigDecimal avail = stockOpt.get().availableQty();
+                        if (avail.compareTo(BigDecimal.ZERO) > 0) {
+                            BigDecimal toReserve = qty.min(avail);
+                            inventoryApi.reserveStock(skuDto.variantId(), toReserve);
+                            log.info("Reserved stock {}/{} for variant SKU {} on project order {}",
+                                    toReserve, qty, skuDto.sku(), orderCode);
+                        }
                     }
+                } catch (Exception ex) {
+                    log.warn("Stock reservation skipped for variant {}: {}", skuDto.variantId(), ex.getMessage());
                 }
-            } catch (Exception ex) {
-                log.warn("Stock reservation skipped for variant {}: {}", skuDto.variantId(), ex.getMessage());
-            }
             }
         }
 
@@ -599,8 +672,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                     quotation.getCustomerId(),
                     orderId,
                     OrderChannel.DIRECT_SALES.name(),
-                    remainingDebtAmount
-            ));
+                    remainingDebtAmount));
 
             boolean creditApproved = decision != null && decision.approved();
 
@@ -616,9 +688,11 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
                     var debtProfile = crmApi.getDebtProfile(quotation.getCustomerId()).orElse(null);
                     BigDecimal currentLimit = debtProfile != null && debtProfile.creditLimit() != null
-                            ? debtProfile.creditLimit() : BigDecimal.ZERO;
+                            ? debtProfile.creditLimit()
+                            : BigDecimal.ZERO;
                     BigDecimal currentAvailable = decision != null && decision.availableCredit() != null
-                            ? decision.availableCredit() : BigDecimal.ZERO;
+                            ? decision.availableCredit()
+                            : BigDecimal.ZERO;
                     BigDecimal currentOutstanding = currentLimit.subtract(currentAvailable).max(BigDecimal.ZERO);
 
                     BigDecimal proposedLimit = currentOutstanding.add(remainingDebtAmount);
@@ -634,8 +708,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                             proposedLimit,
                             quotation.getCreditTermDays(),
                             reason,
-                            currentStaffId
-                    );
+                            currentStaffId);
 
                     initialOrderStatus = OrderStatus.DRAFT;
                     combinedNote += " [Chờ Chủ duyệt tăng hạn mức công nợ]";
@@ -703,11 +776,12 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                         request != null ? request.getBatches() : null,
                         currentStaffId,
                         salesInvoiceRepository,
-                        salesInvoiceItemRepository
-                );
+                        salesInvoiceItemRepository);
 
-        // Đơn dự án đã xác nhận ngay (PROCESSING) -> phát sự kiện để Servicedesk tự sinh công việc lắp đặt (FE-13).
-        // Trường hợp đơn còn chờ duyệt hạn mức (DRAFT) sẽ phát sự kiện sau, tại OrderCreditApprovalEventListener.
+        // Đơn dự án đã xác nhận ngay (PROCESSING) -> phát sự kiện để Servicedesk tự
+        // sinh công việc lắp đặt (FE-13).
+        // Trường hợp đơn còn chờ duyệt hạn mức (DRAFT) sẽ phát sự kiện sau, tại
+        // OrderCreditApprovalEventListener.
         if (OrderStatus.PROCESSING.name().equals(savedOrder.getOrderStatus())) {
             eventPublisher.publishEvent(new com.aquasuite.ims.event.sales.OrderConfirmedEvent(
                     savedOrder.getOrderId(),
@@ -767,7 +841,8 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 quotation.getQuotationCode(), orderCode, finalTotal);
 
         List<SalesOrderItemResponse> itemResponses = salesOrderMapper.toItemResponseList(savedItems);
-        List<SalesOrderMilestoneResponse> milestoneResponses = salesOrderMapper.toMilestoneResponseList(savedMilestones);
+        List<SalesOrderMilestoneResponse> milestoneResponses = salesOrderMapper
+                .toMilestoneResponseList(savedMilestones);
         String staffName = getStaffName(currentStaffId);
 
         SalesOrderDetailResponse response = salesOrderMapper.toDetailResponse(
@@ -796,11 +871,12 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         var payments = new java.util.HashMap<UUID, com.aquasuite.ims.dto.finance.response.OrderReceivableView>();
         if (filter != null && filter.isDepositReservationOnly()) {
             spec = spec.and(com.aquasuite.ims.repository.sales.spec.DepositReservationOrderSpecification.eligible());
-            // shortcut: per-order Finance reads; introduce a batch public query if candidate volume grows large.
+            // shortcut: per-order Finance reads; introduce a batch public query if
+            // candidate volume grows large.
             for (Order candidate : orderRepository.findAll(spec)) {
                 orderReceivableApi.getOrderReceivable(candidate.getOrderId())
                         .filter(payment -> payment.depositRequired() != null && payment.depositRequired().signum() > 0)
-                        .ifPresent(payment -> payments.put(candidate.getOrderId(),payment));
+                        .ifPresent(payment -> payments.put(candidate.getOrderId(), payment));
             }
             spec = spec.and((root, query, cb) -> root.get("orderId").in(payments.keySet()));
         }
@@ -814,11 +890,14 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 var cusOpt = crmApi.getCustomerById(order.getCustomerId());
                 if (cusOpt.isPresent()) {
                     String cName = cusOpt.get().customerName();
-                    customerName = (cName != null && !cName.isBlank() && !"Walk-in Retail Customer".equalsIgnoreCase(cName.trim()))
-                            ? cName.trim() : "Khách lẻ tại quầy";
+                    customerName = (cName != null && !cName.isBlank()
+                            && !"Walk-in Retail Customer".equalsIgnoreCase(cName.trim()))
+                                    ? cName.trim()
+                                    : "Khách lẻ tại quầy";
                     String cPhone = cusOpt.get().phone();
                     customerPhone = (cPhone != null && !cPhone.isBlank() && !"0000000000".equals(cPhone.trim()))
-                            ? cPhone.trim() : null;
+                            ? cPhone.trim()
+                            : null;
                 }
             } catch (Exception e) {
                 log.debug("Customer {} lookup ignored", order.getCustomerId());
@@ -863,11 +942,14 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             var cusOpt = crmApi.getCustomerById(order.getCustomerId());
             if (cusOpt.isPresent()) {
                 String cName = cusOpt.get().customerName();
-                customerName = (cName != null && !cName.isBlank() && !"Walk-in Retail Customer".equalsIgnoreCase(cName.trim()))
-                        ? cName.trim() : "Khách lẻ tại quầy";
+                customerName = (cName != null && !cName.isBlank()
+                        && !"Walk-in Retail Customer".equalsIgnoreCase(cName.trim()))
+                                ? cName.trim()
+                                : "Khách lẻ tại quầy";
                 String cPhone = cusOpt.get().phone();
                 customerPhone = (cPhone != null && !cPhone.isBlank() && !"0000000000".equals(cPhone.trim()))
-                        ? cPhone.trim() : null;
+                        ? cPhone.trim()
+                        : null;
             }
         } catch (Exception e) {
             log.debug("Customer {} lookup ignored", order.getCustomerId());
@@ -882,7 +964,8 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 customerPhone,
                 staffName);
         if (orderPaymentMilestoneRepository != null) {
-            List<OrderPaymentMilestone> milestones = orderPaymentMilestoneRepository.findByOrderIdOrderBySortOrderAsc(orderId);
+            List<OrderPaymentMilestone> milestones = orderPaymentMilestoneRepository
+                    .findByOrderIdOrderBySortOrderAsc(orderId);
             List<SalesOrderMilestoneResponse> milestoneResponses = salesOrderMapper.toMilestoneResponseList(milestones);
             response.setMilestones(milestoneResponses != null ? milestoneResponses : new ArrayList<>());
         }
@@ -911,7 +994,8 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 .orElseThrow(() -> new AppException(SalesErrorCode.ORDER_NOT_FOUND));
 
         if (!OrderStatus.PROCESSING.name().equalsIgnoreCase(order.getOrderStatus())) {
-            log.warn("Cannot update fulfillment info for order {} with status {}", order.getOrderCode(), order.getOrderStatus());
+            log.warn("Cannot update fulfillment info for order {} with status {}", order.getOrderCode(),
+                    order.getOrderStatus());
             throw new AppException(SalesErrorCode.ORDER_NOT_MODIFIABLE);
         }
 
@@ -974,10 +1058,13 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                     .orElseThrow(() -> new AppException(SalesErrorCode.CUSTOMER_NOT_FOUND));
         }
 
-        String phone = (request.getCustomerPhone() != null && !request.getCustomerPhone().isBlank() && !"0000000000".equals(request.getCustomerPhone().trim()))
-                ? request.getCustomerPhone().trim() : null;
+        String phone = (request.getCustomerPhone() != null && !request.getCustomerPhone().isBlank()
+                && !"0000000000".equals(request.getCustomerPhone().trim()))
+                        ? request.getCustomerPhone().trim()
+                        : null;
         String name = (request.getCustomerName() != null && !request.getCustomerName().isBlank())
-                ? request.getCustomerName().trim() : null;
+                ? request.getCustomerName().trim()
+                : null;
 
         if (phone != null) {
             return crmApi.getCustomerByPhone(phone)
@@ -1059,13 +1146,14 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
     }
+
     private void populateDisplayItems(SalesOrderDetailResponse response, Order order,
-                                      List<OrderItem> items, List<SalesOrderItemResponse> mapped) {
+            List<OrderItem> items, List<SalesOrderItemResponse> mapped) {
         List<QuotationItem> snapshots = order.getQuotationId() != null
                 && items.stream().anyMatch(i -> i.getComboId() != null
                         && (i.getComboQuantity() == null || i.getComboSku() == null || i.getComboUnitPrice() == null))
-                ? quotationItemRepository.findByQuotationIdOrderBySortOrderAsc(order.getQuotationId())
-                : List.of();
+                                ? quotationItemRepository.findByQuotationIdOrderBySortOrderAsc(order.getQuotationId())
+                                : List.of();
         response.setDisplayItems(com.aquasuite.ims.service.sales.helper.OrderDisplayItems
                 .build(items, mapped, snapshots));
     }
@@ -1171,8 +1259,8 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         }
         return orderPaymentMilestoneRepository.findByOrderIdOrderBySortOrderAsc(orderId).stream()
                 .sorted(java.util.Comparator
-                        .comparing((OrderPaymentMilestone m) ->
-                                m.getSortOrder() != null ? m.getSortOrder() : Integer.MAX_VALUE)
+                        .comparing((OrderPaymentMilestone m) -> m.getSortOrder() != null ? m.getSortOrder()
+                                : Integer.MAX_VALUE)
                         .thenComparing(OrderPaymentMilestone::getMilestoneId))
                 .map(m -> SalesOrderMilestoneDto.builder()
                         .milestoneId(m.getMilestoneId())
@@ -1188,7 +1276,8 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     @Override
     @Transactional(readOnly = true)
     public Optional<SalesOrderItemSummaryDto> getOrderItemSummary(UUID orderItemId) {
-        if (orderItemId == null) return Optional.empty();
+        if (orderItemId == null)
+            return Optional.empty();
         return orderItemRepository.findById(orderItemId).flatMap(item -> orderRepository.findById(item.getOrderId())
                 .map(order -> toOrderItemSummary(item, order)));
     }
@@ -1197,5 +1286,46 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         return SalesOrderItemSummaryDto.builder().orderItemId(item.getOrderItemId()).orderId(order.getOrderId())
                 .orderCode(order.getOrderCode()).variantId(item.getVariantId()).sku(item.getSku())
                 .productName(item.getProductName()).variantName(item.getVariantName()).build();
+    }
+
+    // ── OrderModificationRequestService Delegations ──────────────────────────
+
+    @Override
+    public Page<OrderModificationRequestResponse> list(Pageable pageable, boolean accountantOnly) {
+        return modificationService != null ? modificationService.list(pageable, accountantOnly) : Page.empty();
+    }
+
+    @Override
+    public OrderModificationRequestResponse detail(UUID requestId, boolean accountantOnly) {
+        return modificationService != null ? modificationService.detail(requestId, accountantOnly) : null;
+    }
+
+    @Override
+    public OrderModificationRequestResponse create(CreateOrderModificationRequest body, UUID actorId) {
+        return modificationService != null ? modificationService.create(body, actorId) : null;
+    }
+
+    @Override
+    public OrderModificationRequestResponse reject(UUID requestId, ReviewOrderModificationRequest request,
+            UUID actorId) {
+        return modificationService != null ? modificationService.reject(requestId, request, actorId) : null;
+    }
+
+    @Override
+    public OrderModificationRequestResponse approve(UUID requestId, ApproveOrderModificationRequest request,
+            UUID actorId, boolean shopOwner) {
+        return modificationService != null ? modificationService.approve(requestId, request, actorId, shopOwner) : null;
+    }
+
+    @Override
+    public OrderModificationRequestResponse recordTaxResult(UUID requestId,
+            RecordOrderModificationTaxResultRequest request, UUID actorId) {
+        return modificationService != null ? modificationService.recordTaxResult(requestId, request, actorId) : null;
+    }
+
+    @Override
+    public void sendResultEmail(UUID requestId, UUID actorId) {
+        if (modificationService != null)
+            modificationService.sendResultEmail(requestId, actorId);
     }
 }

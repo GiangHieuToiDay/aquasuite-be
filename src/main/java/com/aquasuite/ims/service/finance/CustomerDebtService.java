@@ -9,16 +9,21 @@ import com.aquasuite.ims.dto.finance.response.*;
 
 import java.util.UUID;
 
-/** Các thao tác kiểm tra tín dụng, theo dõi công nợ và xử lý thông báo cho khách hàng. */
+/**
+ * Các thao tác kiểm tra tín dụng, theo dõi công nợ và xử lý thông báo cho khách
+ * hàng.
+ */
 public interface CustomerDebtService {
     /**
      * Khóa theo khách và chặn tạo đơn nếu khách đang ở trạng thái BLOCKED.
+     * 
      * @param customerId mã khách cần kiểm tra
      */
     void requireCustomerOrderAllowed(UUID customerId);
+
     /** Tìm danh sách công nợ theo điều kiện lọc và phân trang. */
     CustomerDebtPageResponse list(String keyword, String customerType, String debtStatus,
-                                  String sortBy, String direction, int page, int size);
+            String sortBy, String direction, int page, int size);
 
     /** Tính thống kê tổng quan công nợ. */
     DebtDashboardStatsResponse stats();
@@ -37,13 +42,16 @@ public interface CustomerDebtService {
 
     /**
      * Kiểm tra kênh bán, kỳ hạn, công nợ và hạn mức cho giá trị đơn dự kiến.
+     * 
      * @param customerId mã khách cần kiểm tra
-     * @param request kênh bán và số tiền đơn dự kiến
+     * @param request    kênh bán và số tiền đơn dự kiến
      * @return quyết định và thông tin tín dụng của khách
      */
     CreditCheckResponse checkCredit(UUID customerId, CreditCheckRequest request);
 
-    /** Ghi nhận phê duyệt ngoại lệ tín dụng cho một đơn theo điều kiện nghiệp vụ. */
+    /**
+     * Ghi nhận phê duyệt ngoại lệ tín dụng cho một đơn theo điều kiện nghiệp vụ.
+     */
     void approveOverride(UUID orderId, ReasonRequest request, UUID actorId);
 
     /** Gửi hoặc ghi nhận yêu cầu nhắc công nợ. */

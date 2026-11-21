@@ -39,7 +39,7 @@ class AvatarUploadControllerTest {
     private IamQueryService iamApi;
 
     @InjectMocks
-    private AvatarUploadController avatarUploadController;
+    private UserProfileController avatarUploadController;
 
     private UUID userId;
 

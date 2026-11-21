@@ -1,21 +1,21 @@
 package com.aquasuite.ims.service.sales;
 
-import com.aquasuite.ims.dto.sales.request.ConvertQuotationToOrderRequest;
-import com.aquasuite.ims.dto.sales.request.CreateSalesOrderRequest;
-import com.aquasuite.ims.dto.sales.request.SalesOrderFilterRequest;
-import com.aquasuite.ims.dto.sales.request.UpdateOrderFulfillmentRequest;
-import com.aquasuite.ims.dto.sales.response.SalesOrderDetailResponse;
-import com.aquasuite.ims.dto.sales.response.SalesOrderSummaryResponse;
+import com.aquasuite.ims.dto.sales.request.*;
+import com.aquasuite.ims.dto.sales.response.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Service nội bộ cho chức năng Tạo và Quản lý Đơn hàng Bán hàng tại quầy (UC-21)
- * và Chuyển đổi Báo giá thành Đơn hàng công trình (UC-28 / UC-073).
+ * Service nội bộ cho chức năng Tạo và Quản lý Đơn hàng Bán hàng tại quầy (UC-21),
+ * Chuyển đổi Báo giá thành Đơn hàng công trình (UC-28 / UC-073) và Yêu cầu Chỉnh sửa Đơn (UC-26) hợp nhất.
  */
 public interface SalesOrderService {
+
+    // ── Sales Order Operations ───────────────────────────────────────────────
 
     /**
      * Tạo mới đơn hàng bán lẻ trực tiếp tại quầy POS.
@@ -53,13 +53,29 @@ public interface SalesOrderService {
      */
     SalesOrderDetailResponse completeSalesOrder(UUID orderId);
 
-    java.util.Optional<com.aquasuite.ims.dto.sales.response.SalesOrderPaymentInfoDto> getOrderPaymentInfo(UUID orderId);
+    Optional<SalesOrderPaymentInfoDto> getOrderPaymentInfo(UUID orderId);
 
-    java.util.Optional<com.aquasuite.ims.dto.sales.response.SalesOrderPaymentInfoDto> lockOrderPaymentInfo(UUID orderId);
+    Optional<SalesOrderPaymentInfoDto> lockOrderPaymentInfo(UUID orderId);
 
     void updatePaymentStatus(UUID orderId, String paymentStatus);
 
-    java.util.List<com.aquasuite.ims.dto.sales.response.SalesOrderMilestoneDto> getOrderPaymentMilestones(UUID orderId);
+    List<SalesOrderMilestoneDto> getOrderPaymentMilestones(UUID orderId);
 
-    java.util.Optional<com.aquasuite.ims.dto.sales.response.SalesOrderItemSummaryDto> getOrderItemSummary(UUID orderItemId);
+    Optional<SalesOrderItemSummaryDto> getOrderItemSummary(UUID orderItemId);
+
+    // ── Order Modification Request Operations (UC-26) ────────────────────────
+
+    Page<OrderModificationRequestResponse> list(Pageable pageable, boolean accountantOnly);
+
+    OrderModificationRequestResponse detail(UUID requestId, boolean accountantOnly);
+
+    OrderModificationRequestResponse create(CreateOrderModificationRequest body, UUID actorId);
+
+    OrderModificationRequestResponse reject(UUID requestId, ReviewOrderModificationRequest request, UUID actorId);
+
+    OrderModificationRequestResponse approve(UUID requestId, ApproveOrderModificationRequest request, UUID actorId, boolean shopOwner);
+
+    OrderModificationRequestResponse recordTaxResult(UUID requestId, RecordOrderModificationTaxResultRequest request, UUID actorId);
+
+    void sendResultEmail(UUID requestId, UUID actorId);
 }

@@ -8,7 +8,8 @@ import com.aquasuite.ims.dto.crm.request.CreateDeliveryAddressRequest;
 import com.aquasuite.ims.dto.crm.request.UpdateDeliveryAddressRequest;
 import com.aquasuite.ims.dto.crm.response.DeliveryAddressResponse;
 import com.aquasuite.ims.repository.crm.CustomerRepository;
-import com.aquasuite.ims.service.crm.impl.DeliveryAddressServiceImpl;
+import com.aquasuite.ims.integration.crm.CloudinaryStorageService;
+import com.aquasuite.ims.service.crm.impl.UserProfileServiceImpl;
 import com.aquasuite.ims.service.iam.IamQueryService;
 import com.aquasuite.ims.exception.AppException;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,10 +38,13 @@ class DeliveryAddressServiceTest {
     private CustomerRepository customerRepository;
 
     @Mock
+    private CloudinaryStorageService cloudinaryStorageService;
+
+    @Mock
     private IamQueryService iamApi;
 
     @InjectMocks
-    private DeliveryAddressServiceImpl deliveryAddressService;
+    private UserProfileServiceImpl deliveryAddressService;
 
     private UUID userId;
     private UUID customerId;

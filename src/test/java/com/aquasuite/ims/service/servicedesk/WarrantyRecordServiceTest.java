@@ -7,7 +7,7 @@ import com.aquasuite.ims.dto.catalog.response.CatalogWarrantyPolicyDto;
 import com.aquasuite.ims.service.crm.CustomerService;
 import com.aquasuite.ims.dto.crm.response.CustomerSummaryDto;
 import com.aquasuite.ims.service.iam.IamQueryService;
-import com.aquasuite.ims.service.sales.SalesWarrantyService;
+import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.dto.sales.response.SalesOrderItemWarrantySnapshotDto;
 import com.aquasuite.ims.dto.sales.response.SalesOrderWarrantySummaryDto;
 import com.aquasuite.ims.event.servicedesk.WarrantyRecordAuditEvent;
@@ -66,7 +66,7 @@ class WarrantyRecordServiceTest {
     @Mock private WarrantyCodeGenerator warrantyCodeGenerator;
     @Mock private CatalogLookupService catalogApi;
     @Mock private CatalogWarrantyLookupService catalogWarrantyApi;
-    @Mock private SalesWarrantyService salesWarrantyApi;
+    @Mock private SalesQueryService salesWarrantyApi;
     @Mock private CustomerService crmApi;
     @Mock private IamQueryService iamApi;
     @Mock private FulfillmentWarrantyPort fulfillmentWarrantyPort;
@@ -90,12 +90,12 @@ class WarrantyRecordServiceTest {
                 warrantyCodeGenerator,
                 catalogApi,
                 catalogWarrantyApi,
-                salesWarrantyApi,
                 crmApi,
                 iamApi,
                 fulfillmentWarrantyPort,
                 eventPublisher,
-                FIXED_CLOCK
+                FIXED_CLOCK,
+                salesWarrantyApi
         );
         lenient().when(iamApi.getCurrentUserId()).thenReturn(actorId);
         lenient().when(warrantyRecordRepository.saveAndFlush(any(WarrantyRecord.class))).thenAnswer(inv -> {

@@ -3,7 +3,6 @@ import com.aquasuite.ims.service.sales.helper.ReservationActorNames;
 import com.aquasuite.ims.repository.sales.store.ReservationReleaseStore;
 import com.aquasuite.ims.repository.inventory.store.StockReservationStore;
 
-import com.aquasuite.ims.service.finance.OrderReceivableService;
 import com.aquasuite.ims.service.finance.impl.OrderReceivableServiceImpl;
 import com.aquasuite.ims.service.iam.IamQueryService;
 import com.aquasuite.ims.dto.iam.response.UserSummaryDto;
@@ -16,7 +15,7 @@ import com.aquasuite.ims.dto.sales.request.OrderStockReservationRequest;
 import com.aquasuite.ims.dto.sales.request.OrderStockReservationRequest.Line;
 import com.aquasuite.ims.dto.sales.response.OrderStockReservationView;
 import com.aquasuite.ims.repository.sales.store.OrderStockReservationStore;
-import com.aquasuite.ims.service.sales.OrderStockReservationService;
+import com.aquasuite.ims.service.sales.impl.OrderStockReservationService;
 import com.aquasuite.ims.exception.*;
 import com.aquasuite.ims.testsupport.PostgreSqlIntegrationTestSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -38,9 +37,9 @@ import static com.aquasuite.ims.exception.sales.ProjectDepositErrorCode.*;
 
 @DataJpaTest(showSql=false, properties="spring.datasource.hikari.maximum-pool-size=3")
 @AutoConfigureTestDatabase(replace=AutoConfigureTestDatabase.Replace.NONE)
-@Import({OrderStockReservationService.class,OrderStockReservationStore.class,OrderReceivableServiceImpl.class,SalesOrderServiceImpl.class,
+@Import({OrderStockReservationService.class,OrderStockReservationStore.class,OrderReceivableServiceImpl.class,com.aquasuite.ims.service.finance.impl.PaymentServiceImpl.class,SalesOrderServiceImpl.class,
         StockReservationServiceImpl.class,StockReservationStore.class,InventoryServiceImpl.class,
-        com.aquasuite.ims.service.sales.ReservationManagementService.class,
+        com.aquasuite.ims.service.sales.impl.ReservationManagementService.class,
         com.aquasuite.ims.service.sales.helper.ReservationActorNames.class,
         com.aquasuite.ims.repository.sales.store.ReservationReleaseStore.class,
         ReservationManagementPostgresTest.Json.class})
@@ -57,7 +56,7 @@ class ReservationManagementPostgresTest extends PostgreSqlIntegrationTestSupport
     @MockBean com.aquasuite.ims.service.catalog.CatalogLookupService catalog;
     @SpyBean StockReservationStore ledger;
     @SpyBean com.aquasuite.ims.repository.sales.store.ReservationReleaseStore releaseResults;
-    @Autowired com.aquasuite.ims.service.sales.ReservationManagementService management;
+    @Autowired com.aquasuite.ims.service.sales.impl.ReservationManagementService management;
     UUID order,item,variant,customer,actor,inventory;
     @BeforeEach void fixture() {
         reset(ledger,iam,releaseResults);

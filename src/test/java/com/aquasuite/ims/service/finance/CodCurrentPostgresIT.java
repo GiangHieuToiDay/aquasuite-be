@@ -24,8 +24,8 @@ import static org.mockito.Mockito.*;
 @SpringBootTest
 class CodCurrentPostgresIT extends PostgreSqlIntegrationTestSupport {
     @Autowired CodService service;
-    @Autowired OrderPaymentService payments;
-    @Autowired PaymentVerificationService verifications;
+    @Autowired PaymentService payments;
+    @Autowired PaymentService verifications;
     @Autowired JdbcTemplate jdbc;
     @MockBean IamQueryService iam;
     UUID shipper,accountant,customer,order,delivery;

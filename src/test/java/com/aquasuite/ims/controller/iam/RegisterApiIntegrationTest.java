@@ -5,7 +5,6 @@ import com.aquasuite.ims.AquasuiteBeApplication;
 import com.aquasuite.ims.service.iam.AuthService;
 import com.aquasuite.ims.entity.iam.Role;
 import com.aquasuite.ims.repository.iam.RoleRepository;
-import com.aquasuite.ims.service.iam.RegisterService;
 import com.aquasuite.ims.entity.iam.User;
 import com.aquasuite.ims.enums.iam.UserStatus;
 import com.aquasuite.ims.repository.iam.UserRepository;
@@ -44,7 +43,7 @@ abstract class RegisterTestSupport extends AuthIntegrationTestSupport {
     @Autowired RoleRepository roles;
     @Autowired PasswordEncoder encoder;
     @SpyBean StringRedisTemplate redis;
-    @Autowired RegisterService registrations;
+    @Autowired AuthService registrations;
     @SpyBean AuthService auth;
     @MockBean RegistrationEmailSender mail;
     @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;

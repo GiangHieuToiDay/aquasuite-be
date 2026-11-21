@@ -277,8 +277,8 @@ public class SalesOrderPostmanSimulationTest {
                 quotationItemRepository,
                 quotationPaymentMilestoneRepository,
                 orderPaymentMilestoneRepository,
-                org.mockito.Mockito.mock(com.aquasuite.ims.service.sales.OrderStockReservationService.class),
-                org.mockito.Mockito.mock(com.aquasuite.ims.service.finance.OrderReceivableService.class),
+                org.mockito.Mockito.mock(com.aquasuite.ims.service.sales.impl.OrderStockReservationService.class),
+                org.mockito.Mockito.mock(com.aquasuite.ims.service.finance.PaymentService.class),
                 org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class)
         );
 

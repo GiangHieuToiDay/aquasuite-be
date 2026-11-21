@@ -6,7 +6,7 @@ import com.aquasuite.ims.service.crm.CustomerService;
 import com.aquasuite.ims.dto.crm.response.CustomerAddressDto;
 import com.aquasuite.ims.dto.crm.response.CustomerSummaryDto;
 import com.aquasuite.ims.service.iam.IamQueryService;
-import com.aquasuite.ims.service.sales.SalesWarrantyService;
+import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.event.servicedesk.WarrantyClaimSubmittedEvent;
 import com.aquasuite.ims.event.servicedesk.WarrantyTicketAuditEvent;
 import com.aquasuite.ims.entity.servicedesk.TechnicalJob;
@@ -75,7 +75,7 @@ class WarrantyTicketServiceTest {
     @Mock private IamQueryService iamApi;
     @Mock private CustomerService crmApi;
     @Mock private CatalogLookupService catalogApi;
-    @Mock private SalesWarrantyService salesWarrantyApi;
+    @Mock private SalesQueryService salesWarrantyApi;
     @Mock private ApplicationEventPublisher eventPublisher;
 
     private WarrantyTicketServiceImpl service;

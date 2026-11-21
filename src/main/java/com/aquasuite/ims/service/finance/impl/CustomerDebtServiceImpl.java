@@ -24,7 +24,7 @@ import com.aquasuite.ims.repository.finance.FinanceLockRepository;
 import com.aquasuite.ims.repository.finance.PaymentInvoiceAllocationRepository;
 import com.aquasuite.ims.repository.finance.PaymentReceiptRefundSettlementRepository;
 import com.aquasuite.ims.service.finance.CustomerDebtService;
-import com.aquasuite.ims.service.sales.SalesReceivableService;
+import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.dto.sales.response.SalesInvoiceDebtDto;
 import com.aquasuite.ims.dto.sales.response.SalesOrderDebtDto;
 import com.aquasuite.ims.exception.AppException;
@@ -48,7 +48,7 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
     private static final String RECEIPT = "RECEIPT";
 
     private final CustomerService crmApi;
-    private final SalesReceivableService salesReceivableApi;
+    private final SalesQueryService salesReceivableApi;
     private final TransactionRepository transactionRepository;
     private final PaymentInvoiceAllocationRepository paymentInvoiceAllocationRepository;
     private final PaymentReceiptRefundSettlementRepository paymentReceiptRefundSettlementRepository;

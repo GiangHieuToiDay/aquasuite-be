@@ -8,7 +8,7 @@ import com.aquasuite.ims.dto.sales.request.CreateOrderModificationRequest;
 import com.aquasuite.ims.dto.sales.request.ReviewOrderModificationRequest;
 import com.aquasuite.ims.dto.sales.response.OrderModificationRequestResponse;
 import com.aquasuite.ims.enums.sales.OrderModificationRequestStatus;
-import com.aquasuite.ims.service.sales.OrderModificationRequestService;
+import com.aquasuite.ims.service.sales.SalesOrderService;
 import com.aquasuite.ims.exception.AppException;
 import com.aquasuite.ims.exception.CommonErrorCode;
 import com.aquasuite.ims.exception.GlobalExceptionHandler;
@@ -42,7 +42,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = OrderModificationRequestController.class,
+@WebMvcTest(controllers = SalesOrderController.class,
         excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE,
                 classes = {AuthSecurityConfig.class, AccessAuthenticationConverter.class}))
 @Import({GlobalExceptionHandler.class, OrderModificationRequestControllerSecurityTest.TestSecurityConfig.class})
@@ -50,7 +50,7 @@ class OrderModificationRequestControllerSecurityTest {
     private static final UUID REQUEST_ID = UUID.fromString("10000000-0000-4000-8000-000000000026");
 
     @Autowired private MockMvc mockMvc;
-    @MockBean private OrderModificationRequestService service;
+    @MockBean private SalesOrderService service;
     @MockBean private IamQueryService iamApi;
 
     @Test

@@ -30,7 +30,7 @@ class CategoryImportPostgresIntegrationTest extends PostgreSqlIntegrationTestSup
     @Autowired JdbcTemplate jdbc;
     @Autowired PlatformTransactionManager transactions;
     @Autowired javax.sql.DataSource dataSource;
-    @Autowired com.aquasuite.ims.controller.catalog.CategoryImportController controller;
+    @Autowired com.aquasuite.ims.controller.catalog.CategoryController controller;
     @Autowired com.aquasuite.ims.service.catalog.CategoryService categoryService;
 
     @Test void templateRequiresCategoryCreateAuthority() {

@@ -7,7 +7,7 @@ import com.aquasuite.ims.dto.finance.response.CodPayload.*;
 import com.aquasuite.ims.service.fulfillment.*;
 import com.aquasuite.ims.dto.fulfillment.response.*;
 import com.aquasuite.ims.service.iam.IamQueryService;
-import com.aquasuite.ims.service.sales.SalesOrderService;
+import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.dto.sales.response.SalesOrderPaymentInfoDto;
 import com.aquasuite.ims.exception.AppException;
 import org.junit.jupiter.api.*;
@@ -23,12 +23,12 @@ import static org.assertj.core.api.Assertions.*;
 
 class CodCurrentServiceTest {
     TransactionRepository repo; FinanceLockRepository locks;
-    SalesOrderService sales; DeliveryCodQueryService deliveries; IamQueryService iam; PaymentAllocationService allocations; CodService service;
+    SalesQueryService sales; DeliveryCodQueryService deliveries; IamQueryService iam; PaymentAllocationService allocations; CodService service;
     UUID shipper=UUID.randomUUID(), accountant=UUID.randomUUID(), order=UUID.randomUUID(), customer=UUID.randomUUID(), delivery=UUID.randomUUID(), id=UUID.randomUUID();
     Transaction t;
     @BeforeEach void setup() {
         repo=mock(TransactionRepository.class); locks=mock(FinanceLockRepository.class);
-        sales=mock(SalesOrderService.class); deliveries=mock(DeliveryCodQueryService.class); iam=mock(IamQueryService.class);
+        sales=mock(SalesQueryService.class); deliveries=mock(DeliveryCodQueryService.class); iam=mock(IamQueryService.class);
         allocations=mock(PaymentAllocationService.class);
         service=new CodService(repo,locks,sales,deliveries,iam,allocations);
         t=Transaction.builder().transactionId(id).transactionCode("COD-"+id).transactionType("RECEIPT")

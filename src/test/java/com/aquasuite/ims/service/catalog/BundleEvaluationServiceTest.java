@@ -27,7 +27,7 @@ class BundleEvaluationServiceTest {
     final Instant now = Instant.parse("2026-10-20T00:00:00Z");
     final ProductRepository products = mock(ProductRepository.class);
     final ProductVariantRepository variants = mock(ProductVariantRepository.class);
-    final BundleQueryService query = mock(BundleQueryService.class);
+    final BundleService query = mock(BundleService.class);
     final BundleInventoryReader inventory = mock(BundleInventoryReader.class);
     jakarta.validation.ValidatorFactory factory;
     BundleEvaluationService evaluation;

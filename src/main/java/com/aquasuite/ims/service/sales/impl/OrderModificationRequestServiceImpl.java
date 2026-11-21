@@ -2,7 +2,7 @@ package com.aquasuite.ims.service.sales.impl;
 
 import com.aquasuite.ims.service.catalog.CatalogLookupService;
 import com.aquasuite.ims.dto.catalog.response.CatalogSkuSummaryDto;
-import com.aquasuite.ims.service.finance.PaymentSettlementService;
+import com.aquasuite.ims.service.finance.PaymentService;
 import com.aquasuite.ims.service.finance.PaymentAllocationService;
 import com.aquasuite.ims.dto.finance.command.OrderModificationSettlementCommand;
 import com.aquasuite.ims.dto.finance.command.PendingCustomerRefundCommand;
@@ -34,7 +34,6 @@ import com.aquasuite.ims.repository.sales.OrderModificationRequestRepository;
 import com.aquasuite.ims.repository.sales.OrderRepository;
 import com.aquasuite.ims.repository.sales.SalesInvoiceItemRepository;
 import com.aquasuite.ims.repository.sales.SalesInvoiceRepository;
-import com.aquasuite.ims.service.sales.OrderModificationRequestService;
 import com.aquasuite.ims.exception.AppException;
 import com.aquasuite.ims.exception.CommonErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -61,7 +60,7 @@ import java.util.stream.Collectors;
 /** UC-26 review lifecycle. Direct order, reservation and Draft-invoice changes share one transaction. */
 @Service
 @RequiredArgsConstructor
-public class OrderModificationRequestServiceImpl implements OrderModificationRequestService {
+public class OrderModificationRequestServiceImpl {
     private final OrderModificationRequestRepository requestRepository;
     private final OrderModificationRequestItemRepository requestItemRepository;
     private final OrderRepository orderRepository;
@@ -70,13 +69,11 @@ public class OrderModificationRequestServiceImpl implements OrderModificationReq
     private final SalesInvoiceItemRepository invoiceItemRepository;
     private final OrderModificationRequestMapper mapper;
     private final DeliveryCodQueryService deliveries;
-    private final PaymentSettlementService payments;
+    private final PaymentService payments;
     private final PaymentAllocationService paymentAllocations;
     private final CatalogLookupService catalogApi;
     private final StockReservationService reservations;
     private final ApplicationEventPublisher events;
-
-    @Override
     @Transactional(readOnly = true)
     public Page<OrderModificationRequestResponse> list(Pageable page, boolean accountantOnly) {
         Page<OrderModificationRequest> requests = accountantOnly
@@ -84,8 +81,6 @@ public class OrderModificationRequestServiceImpl implements OrderModificationReq
                 : requestRepository.findAllByOrderByCreatedAtDesc(page);
         return requests.map(this::toResponse);
     }
-
-    @Override
     @Transactional(readOnly = true)
     public OrderModificationRequestResponse detail(UUID id, boolean accountantOnly) {
         OrderModificationRequest request = find(id);
@@ -94,8 +89,6 @@ public class OrderModificationRequestServiceImpl implements OrderModificationReq
         }
         return toResponse(request);
     }
-
-    @Override
     @Transactional
     public OrderModificationRequestResponse create(CreateOrderModificationRequest body, UUID actorId) {
         OrderModificationRequestType requestType = parseRequestType(body.getRequestType());
@@ -234,8 +227,6 @@ public class OrderModificationRequestServiceImpl implements OrderModificationReq
         audit(actorId, request, "CREATED", request.getRequestStatus(), request.getRequestStatus(), request.getCustomerReason());
         return toResponse(request);
     }
-
-    @Override
     @Transactional
     public OrderModificationRequestResponse reject(UUID id, ReviewOrderModificationRequest body, UUID actorId) {
         OrderModificationRequest request = lockReviewable(id);
@@ -248,8 +239,6 @@ public class OrderModificationRequestServiceImpl implements OrderModificationReq
         audit(actorId, request, "REJECTED", previous, request.getRequestStatus(), request.getDecisionNote());
         return toResponse(request);
     }
-
-    @Override
     @Transactional
     public OrderModificationRequestResponse approve(
             UUID id, ApproveOrderModificationRequest body, UUID actorId, boolean shopOwner
@@ -308,8 +297,6 @@ public class OrderModificationRequestServiceImpl implements OrderModificationReq
         audit(actorId, request, "APPROVED", previous, request.getRequestStatus(), request.getDecisionNote());
         return toResponse(request);
     }
-
-    @Override
     @Transactional
     public OrderModificationRequestResponse recordTaxResult(
             UUID id, RecordOrderModificationTaxResultRequest body, UUID actorId
@@ -366,8 +353,6 @@ public class OrderModificationRequestServiceImpl implements OrderModificationReq
                 "Đối soát phân bổ theo UC-26 " + request.getModificationRequestId()
         ));
     }
-
-    @Override
     @Transactional
     public void sendResultEmail(UUID requestId, UUID actorId) {
         OrderModificationRequest request = find(requestId);

@@ -2,17 +2,20 @@ package com.aquasuite.ims.controller.crm;
 
 import com.aquasuite.ims.entity.crm.Customer;
 import com.aquasuite.ims.enums.crm.CustomerType;
+import com.aquasuite.ims.enums.crm.CustomerCreditProfileRequestStatus;
+import com.aquasuite.ims.dto.crm.request.ApproveCustomerCreditProfileRequest;
 import com.aquasuite.ims.dto.crm.request.CreateCustomerRequest;
+import com.aquasuite.ims.dto.crm.request.RejectCustomerCreditProfileRequest;
+import com.aquasuite.ims.dto.crm.request.SubmitCustomerCreditProfileRequest;
 import com.aquasuite.ims.dto.crm.request.UpdateCustomerCreditProfileRequest;
-import com.aquasuite.ims.dto.crm.response.CustomerCreditProfileResponse;
 import com.aquasuite.ims.dto.crm.response.CreditEvidenceUploadResponse;
+import com.aquasuite.ims.dto.crm.response.CustomerCreditProfileRequestDetailResponse;
+import com.aquasuite.ims.dto.crm.response.CustomerCreditProfileRequestResponse;
+import com.aquasuite.ims.dto.crm.response.CustomerCreditProfileResponse;
 import com.aquasuite.ims.dto.crm.response.CustomerResponse;
+import com.aquasuite.ims.integration.crm.CreditEvidenceStorageService;
 import com.aquasuite.ims.repository.crm.CustomerRepository;
 import com.aquasuite.ims.service.crm.CustomerCreditProfileService;
-import com.aquasuite.ims.service.crm.CustomerCreditProfileRequestService;
-import com.aquasuite.ims.integration.crm.CreditEvidenceStorageService;
-import com.aquasuite.ims.dto.crm.request.SubmitCustomerCreditProfileRequest;
-import com.aquasuite.ims.dto.crm.response.CustomerCreditProfileRequestResponse;
 import com.aquasuite.ims.service.iam.IamQueryService;
 import com.aquasuite.ims.common.ApiResponse;
 import com.aquasuite.ims.common.PageResponse;
@@ -23,9 +26,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -45,7 +49,6 @@ public class CustomerController {
 
     private final CustomerRepository customerRepository;
     private final CustomerCreditProfileService customerCreditProfileService;
-    private final CustomerCreditProfileRequestService customerCreditProfileRequestService;
     private final CreditEvidenceStorageService creditEvidenceStorageService;
     private final IamQueryService iamApi;
 
@@ -152,7 +155,7 @@ public class CustomerController {
     public ResponseEntity<ApiResponse<CustomerCreditProfileRequestResponse>> submitCreditProfileRequest(
             @PathVariable UUID customerId,
             @jakarta.validation.Valid @RequestBody SubmitCustomerCreditProfileRequest request) {
-        CustomerCreditProfileRequestResponse result = customerCreditProfileRequestService.submit(customerId, request);
+        CustomerCreditProfileRequestResponse result = customerCreditProfileService.submit(customerId, request);
         String message = result.appliedImmediately()
                 ? "Customer credit profile applied."
                 : "Credit profile request submitted for Shop Owner approval.";
@@ -170,6 +173,52 @@ public class CustomerController {
         }
         String objectKey = creditEvidenceStorageService.upload(customerId, file);
         return ResponseEntity.ok(ApiResponse.ok(new CreditEvidenceUploadResponse(objectKey), "Credit identity evidence uploaded."));
+    }
+
+    // ── Credit Profile Requests (from CustomerCreditProfileRequestController) ─
+    // Base: /api/v1/crm/credit-profile-requests
+
+    @GetMapping(value = {"/api/v1/crm/credit-profile-requests"})
+    @PreAuthorize("hasRole('SHOP_OWNER')")
+    public ApiResponse<PageResponse<CustomerCreditProfileRequestResponse>> listCreditProfileRequests(
+            @RequestParam(required = false) CustomerCreditProfileRequestStatus status,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ApiResponse.ok(PageResponse.from(customerCreditProfileService.list(status, pageable)));
+    }
+
+    @GetMapping("/api/v1/crm/credit-profile-requests/{requestId}")
+    @PreAuthorize("hasRole('SHOP_OWNER')")
+    public ApiResponse<CustomerCreditProfileRequestDetailResponse> creditProfileRequestDetail(
+            @PathVariable UUID requestId) {
+        return ApiResponse.ok(customerCreditProfileService.detail(requestId));
+    }
+
+    @GetMapping("/api/v1/crm/credit-profile-requests/{requestId}/identity-document")
+    @PreAuthorize("hasRole('SHOP_OWNER')")
+    public ResponseEntity<byte[]> creditProfileIdentityDocument(@PathVariable UUID requestId) {
+        var document = customerCreditProfileService.readIdentityDocument(requestId);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + document.fileName() + "\"")
+                .contentType(MediaType.parseMediaType(document.contentType()))
+                .body(document.content());
+    }
+
+    @PostMapping("/api/v1/crm/credit-profile-requests/{requestId}/approve")
+    @PreAuthorize("hasRole('SHOP_OWNER')")
+    public ResponseEntity<ApiResponse<CustomerCreditProfileRequestResponse>> approveCreditProfileRequest(
+            @PathVariable UUID requestId,
+            @Valid @RequestBody ApproveCustomerCreditProfileRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                customerCreditProfileService.approve(requestId, request), "Credit profile request approved."));
+    }
+
+    @PostMapping("/api/v1/crm/credit-profile-requests/{requestId}/reject")
+    @PreAuthorize("hasRole('SHOP_OWNER')")
+    public ResponseEntity<ApiResponse<CustomerCreditProfileRequestResponse>> rejectCreditProfileRequest(
+            @PathVariable UUID requestId,
+            @Valid @RequestBody RejectCustomerCreditProfileRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                customerCreditProfileService.reject(requestId, request), "Credit profile request rejected."));
     }
 
     private CustomerResponse toResponse(Customer c) {

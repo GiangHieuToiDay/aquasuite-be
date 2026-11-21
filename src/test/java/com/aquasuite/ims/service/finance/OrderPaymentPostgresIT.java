@@ -1,7 +1,7 @@
 package com.aquasuite.ims.service.finance;
 
 import com.aquasuite.ims.dto.finance.request.RecordOrderPaymentRequest;
-import com.aquasuite.ims.controller.finance.OrderPaymentController;
+import com.aquasuite.ims.controller.finance.PaymentController;
 import com.aquasuite.ims.service.catalog.CatalogLookupService;
 import com.aquasuite.ims.dto.catalog.response.CatalogSkuSummaryDto;
 import com.aquasuite.ims.service.iam.IamQueryService;
@@ -32,11 +32,11 @@ import static org.mockito.Mockito.when;
 
 @SpringBootTest
 class OrderPaymentPostgresIT extends PostgreSqlIntegrationTestSupport {
-    @Autowired OrderPaymentService service;
+    @Autowired PaymentService service;
     @Autowired JdbcTemplate jdbc;
     @Autowired SalesOrderService salesOrderService;
-    @Autowired OrderPaymentProofService proofService;
-    @Autowired OrderPaymentController paymentController;
+    @Autowired PaymentService proofService;
+    @Autowired PaymentController paymentController;
     @Autowired TransactionTemplate transactionTemplate;
     @MockBean IamQueryService iam;
     @MockBean CatalogLookupService catalog;

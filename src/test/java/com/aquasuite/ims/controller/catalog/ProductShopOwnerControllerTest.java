@@ -5,7 +5,7 @@ import com.aquasuite.ims.enums.catalog.ProductType;
 import com.aquasuite.ims.exception.catalog.CatalogErrorCode;
 import com.aquasuite.ims.dto.catalog.request.*;
 import com.aquasuite.ims.dto.catalog.response.*;
-import com.aquasuite.ims.service.catalog.ProductShopOwnerService;
+import com.aquasuite.ims.service.catalog.ProductService;
 import com.aquasuite.ims.exception.AppException;
 import com.aquasuite.ims.exception.CommonErrorCode;
 import com.aquasuite.ims.exception.GlobalExceptionHandler;
@@ -44,10 +44,10 @@ class ProductShopOwnerControllerTest {
     private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
     @Mock
-    private ProductShopOwnerService productShopOwnerService;
+    private ProductService productShopOwnerService;
 
     @InjectMocks
-    private ProductShopOwnerController productShopOwnerController;
+    private ProductController productShopOwnerController;
 
     private UUID sampleProductId;
     private UUID sampleCategoryId;

@@ -20,8 +20,7 @@ import com.aquasuite.ims.repository.sales.CartItemRepository;
 import com.aquasuite.ims.repository.sales.OnlinePayosPaymentRepository;
 import com.aquasuite.ims.repository.sales.OrderItemRepository;
 import com.aquasuite.ims.repository.sales.OrderRepository;
-import com.aquasuite.ims.service.sales.CartService;
-import com.aquasuite.ims.service.sales.OnlineCheckoutService;
+import com.aquasuite.ims.service.sales.impl.CartCheckoutServiceImpl;
 import com.aquasuite.ims.service.sales.helper.OrderCodeGenerator;
 import com.aquasuite.ims.service.sales.impl.CartServiceImpl;
 import com.aquasuite.ims.service.sales.impl.OnlineCheckoutServiceImpl;
@@ -287,7 +286,7 @@ public class OnlineCheckoutPostmanSimulationTest {
         SalesOrderMapper salesOrderMapper = Mappers.getMapper(SalesOrderMapper.class);
         OnlineCheckoutMapper onlineCheckoutMapper = Mappers.getMapper(OnlineCheckoutMapper.class);
 
-        CartService cartService = new CartServiceImpl(
+        CartServiceImpl cartService = new CartServiceImpl(
                 cartItemRepository,
                 cartMapper,
                 iamApi,
@@ -296,7 +295,7 @@ public class OnlineCheckoutPostmanSimulationTest {
                 inventoryApi
         );
 
-        OnlineCheckoutService onlineCheckoutService = new OnlineCheckoutServiceImpl(
+        OnlineCheckoutServiceImpl onlineCheckoutService = new OnlineCheckoutServiceImpl(
                 cartService,
                 cartItemRepository,
                 orderRepository,
@@ -313,7 +312,7 @@ public class OnlineCheckoutPostmanSimulationTest {
                 inventoryApi
         );
 
-        mockMvc = MockMvcBuilders.standaloneSetup(new OnlineCheckoutController(onlineCheckoutService))
+        mockMvc = MockMvcBuilders.standaloneSetup(new CartCheckoutController(new CartCheckoutServiceImpl(null, onlineCheckoutService)))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(objectMapper))
                 .build();

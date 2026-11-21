@@ -6,11 +6,11 @@ import com.aquasuite.ims.service.iam.IamQueryService;
 import com.aquasuite.ims.dto.iam.response.UserSummaryDto;
 import com.aquasuite.ims.service.inventory.StockReservationService;
 import com.aquasuite.ims.service.inventory.StockReservationService.*;
-import com.aquasuite.ims.controller.sales.ReservationManagementController;
+import com.aquasuite.ims.controller.sales.OrderReservationController;
 import com.aquasuite.ims.entity.sales.*;
 import com.aquasuite.ims.enums.sales.*;
 import com.aquasuite.ims.repository.sales.*;
-import com.aquasuite.ims.service.sales.ReservationManagementService;
+import com.aquasuite.ims.service.sales.impl.ReservationManagementService;
 import com.aquasuite.ims.exception.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,7 +53,7 @@ class ReservationManagementTest {
         when(decisions.findByIdForUpdate(decisionId)).thenReturn(Optional.of(decision));
         when(decisions.findByOrderIdOrderByCreatedAtAsc(order)).thenReturn(List.of(decision));
         when(inventory.findByOrder(order)).thenReturn(List.of(stock("5", "0")));
-        mvc = MockMvcBuilders.standaloneSetup(new ReservationManagementController(service))
+        mvc = MockMvcBuilders.standaloneSetup(new OrderReservationController(null, null, service, null))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
     }
 

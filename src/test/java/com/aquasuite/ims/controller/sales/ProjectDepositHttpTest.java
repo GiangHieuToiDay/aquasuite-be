@@ -3,8 +3,8 @@ package com.aquasuite.ims.controller.sales;
 import com.aquasuite.ims.service.finance.ProjectDepositPaymentService.Status;
 import com.aquasuite.ims.config.finance.dev.*;
 import com.aquasuite.ims.config.inventory.dev.*;
-import com.aquasuite.ims.controller.sales.ProjectDepositController;
-import com.aquasuite.ims.service.sales.ProjectDepositService;
+import com.aquasuite.ims.controller.sales.OrderReservationController;
+import com.aquasuite.ims.service.sales.impl.ProjectDepositService;
 import com.aquasuite.ims.exception.GlobalExceptionHandler;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.AfterEach;
@@ -30,7 +30,7 @@ class ProjectDepositHttpTest {
     @Test
     void invalidAmountsAndMissingRequestIdsAreRejectedBeforeCallingService() throws Exception {
         var service = mock(ProjectDepositService.class);
-        var mvc = MockMvcBuilders.standaloneSetup(new ProjectDepositController(service))
+        var mvc = MockMvcBuilders.standaloneSetup(new OrderReservationController(null, null, null, service))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
         String path = "/api/v1/sales/orders/"+UUID.randomUUID()+"/deposits-reservations";
         mvc.perform(post(path+"/deposits").contentType(MediaType.APPLICATION_JSON)

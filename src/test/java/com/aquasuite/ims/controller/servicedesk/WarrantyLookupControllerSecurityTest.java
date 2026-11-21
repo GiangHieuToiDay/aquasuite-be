@@ -1,7 +1,7 @@
 package com.aquasuite.ims.controller.servicedesk;
 
 import com.aquasuite.ims.dto.servicedesk.response.WarrantyLookupResponse;
-import com.aquasuite.ims.service.servicedesk.WarrantyLookupService;
+import com.aquasuite.ims.service.servicedesk.WarrantyRecordService;
 import com.aquasuite.ims.exception.GlobalExceptionHandler;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(
-        controllers = WarrantyLookupController.class,
+        controllers = WarrantyRecordController.class,
         excludeFilters = @ComponentScan.Filter(
                 type = FilterType.REGEX,
                 pattern = "com\\.aquasuite\\.ims\\.module\\.iam\\.internal\\.security\\..*"))
@@ -44,13 +44,13 @@ class WarrantyLookupControllerSecurityTest {
     private MockMvc mockMvc;
 
     @MockitoBean
-    private WarrantyLookupService warrantyLookupService;
+    private WarrantyRecordService warrantyRecordService;
 
     @Test
     void unauthenticatedLookupIsRejected() throws Exception {
         mockMvc.perform(get("/api/v1/customer/warranties"))
                 .andExpect(status().isUnauthorized());
-        verifyNoInteractions(warrantyLookupService);
+        verifyNoInteractions(warrantyRecordService);
     }
 
     @Test
@@ -70,7 +70,7 @@ class WarrantyLookupControllerSecurityTest {
                 .status("ACTIVE")
                 .claimAllowed(true)
                 .build();
-        when(warrantyLookupService.findMine("SN-CS886")).thenReturn(List.of(item));
+        when(warrantyRecordService.findMine("SN-CS886")).thenReturn(List.of(item));
 
         mockMvc.perform(get("/api/v1/customer/warranties").param("keyword", "SN-CS886"))
                 .andExpect(status().isOk())
@@ -80,7 +80,7 @@ class WarrantyLookupControllerSecurityTest {
                 .andExpect(jsonPath("$.data[0].status").value("ACTIVE"))
                 .andExpect(jsonPath("$.data[0].claimAllowed").value(true));
 
-        verify(warrantyLookupService).findMine("SN-CS886");
+        verify(warrantyRecordService).findMine("SN-CS886");
     }
 
     @Test
@@ -117,7 +117,7 @@ class WarrantyLookupControllerSecurityTest {
         mockMvc.perform(get("/api/v1/customer/warranties"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("AUTH_002"));
-        verifyNoInteractions(warrantyLookupService);
+        verifyNoInteractions(warrantyRecordService);
     }
 
     @TestConfiguration
