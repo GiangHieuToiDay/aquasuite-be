@@ -194,7 +194,7 @@ class FlywayMigrationIT {
         var current = config(url).load();
         org.junit.jupiter.api.Assertions.assertFalse(current.validateWithResult().validationSuccessful);
 
-        new com.aquasuite.ims.share.config.FlywayConfig().flywayMigrationStrategy().migrate(current);
+        new com.aquasuite.ims.config.FlywayConfig().flywayMigrationStrategy().migrate(current);
 
         assertTrue(current.validateWithResult().validationSuccessful);
         var db = BundleCoreTestSupport.DB;

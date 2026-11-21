@@ -1,0 +1,46 @@
+package com.aquasuite.ims.service.finance;
+
+import com.aquasuite.ims.dto.finance.request.RecordOrderPaymentRequest;
+import com.aquasuite.ims.dto.finance.response.OrderMilestoneProgressResponse;
+import com.aquasuite.ims.dto.finance.response.OrderPaymentResponse;
+import com.aquasuite.ims.dto.finance.response.OrderPaymentSummary;
+import java.util.List;
+import java.util.UUID;
+
+/** Các thao tác ghi nhận và theo dõi thanh toán của một đơn hàng. */
+public interface OrderPaymentService {
+    /**
+     * Ghi nhận khoản thu hoặc trả giao dịch cũ khi gửi lại cùng yêu cầu.
+     * @param orderId mã đơn nhận thanh toán
+     * @param request thông tin khoản thu và mã chống ghi trùng
+     * @return thông tin giao dịch được ghi nhận
+     */
+    OrderPaymentResponse record(UUID orderId, RecordOrderPaymentRequest request);
+
+    /**
+     * Tính số đã xác minh, đang chờ và còn phải trả của đơn.
+     * @param orderId mã đơn cần xem
+     * @return tổng quan thanh toán
+     */
+    OrderPaymentSummary summary(UUID orderId);
+
+    /**
+     * Lấy các khoản thu đã ghi nhận cho đơn.
+     * @param orderId mã đơn cần xem lịch sử
+     * @return danh sách giao dịch thu tiền
+     */
+    List<OrderPaymentResponse> history(UUID orderId);
+
+    /**
+     * Tính tiến độ thanh toán theo từng mốc của đơn từ các khoản thu đã xác minh.
+     *
+     * <p>Chỉ khoản {@code RECEIPT}/{@code VERIFIED} của đúng đơn được phân bổ lần lượt
+     * vào các mốc theo thứ tự thỏa thuận; phần dư của mốc trước chảy sang mốc sau cùng
+     * đơn. Khoản {@code PENDING} được hiển thị riêng, không tính vào mốc. Không tạo thêm
+     * giao dịch và không đếm trùng số tiền.</p>
+     *
+     * @param orderId mã đơn cần tính tiến độ
+     * @return tổng quan toàn đơn kèm tiến độ từng mốc
+     */
+    OrderMilestoneProgressResponse milestoneProgress(UUID orderId);
+}

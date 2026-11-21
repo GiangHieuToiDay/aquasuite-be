@@ -1,0 +1,30 @@
+package com.aquasuite.ims.repository.sales;
+
+import com.aquasuite.ims.entity.sales.OrderModificationRequest;
+import com.aquasuite.ims.enums.sales.OrderModificationRequestStatus;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.util.Collection;
+import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import java.util.UUID;
+
+public interface OrderModificationRequestRepository extends JpaRepository<OrderModificationRequest, UUID> {
+
+    java.util.List<OrderModificationRequest> findByOrderIdOrderByCreatedAtAsc(UUID orderId);
+
+    boolean existsByOrderIdAndRequestStatusIn(UUID orderId, Collection<OrderModificationRequestStatus> statuses);
+
+    Page<OrderModificationRequest> findAllByOrderByCreatedAtDesc(Pageable pageable);
+
+    Page<OrderModificationRequest> findByRequestStatusOrderByCreatedAtDesc(OrderModificationRequestStatus status, Pageable pageable);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select request from OrderModificationRequest request where request.modificationRequestId = :requestId")
+    Optional<OrderModificationRequest> findByIdForUpdate(@Param("requestId") UUID requestId);
+}

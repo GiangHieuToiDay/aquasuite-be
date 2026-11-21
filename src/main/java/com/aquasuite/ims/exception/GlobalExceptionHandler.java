@@ -1,0 +1,173 @@
+package com.aquasuite.ims.exception;
+
+import com.aquasuite.ims.common.ApiResponse;
+import com.aquasuite.ims.common.FieldErrorDetail;
+
+import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+
+import java.util.List;
+
+@Slf4j
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(AppException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAppException(AppException ex) {
+        log.warn("Business exception [{}]: {}", ex.getErrorCode().getCode(), ex.getMessage());
+        return ResponseEntity.status(ex.getErrorCode().getStatus())
+                .body(ApiResponse.error(ex.getErrorCode().getCode(), ex.getMessage()));
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<Void>> handleValidationException(
+            MethodArgumentNotValidException ex) {
+        log.warn("Validation failed for {} field(s)", ex.getBindingResult().getFieldErrorCount());
+        List<FieldErrorDetail> errors =
+                ex.getBindingResult().getFieldErrors().stream()
+                        .map(
+                                error ->
+                                        new FieldErrorDetail(
+                                                error.getField(), error.getDefaultMessage()))
+                        .toList();
+
+        return ResponseEntity.status(CommonErrorCode.VALIDATION_ERROR.getStatus())
+                .body(
+                        ApiResponse.error(
+                                CommonErrorCode.VALIDATION_ERROR.getCode(),
+                                CommonErrorCode.VALIDATION_ERROR.getMessage(),
+                                errors));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadableException(HttpMessageNotReadableException ex) {
+        log.warn("Request body could not be read");
+        Throwable cause = ex.getCause();
+        if (cause instanceof com.fasterxml.jackson.databind.JsonMappingException mapping && !mapping.getPath().isEmpty()) {
+            StringBuilder path = new StringBuilder();
+            for (var reference : mapping.getPath()) {
+                if (reference.getFieldName() != null) {
+                    if (!path.isEmpty()) path.append('.');
+                    path.append(reference.getFieldName());
+                } else if (reference.getIndex() >= 0) {
+                    path.append('[').append(reference.getIndex()).append(']');
+                }
+            }
+            return ResponseEntity.badRequest().body(ApiResponse.error(
+                    CommonErrorCode.VALIDATION_ERROR.getCode(),
+                    "Thông tin không đúng định dạng; vui lòng kiểm tra trường được báo lỗi",
+                    List.of(new FieldErrorDetail(path.toString(), "Giá trị không đúng kiểu dữ liệu hoặc không thuộc danh sách lựa chọn hợp lệ"))));
+        }
+        return ResponseEntity
+                .status(CommonErrorCode.VALIDATION_ERROR.getStatus())
+                .body(ApiResponse.error(
+                        CommonErrorCode.VALIDATION_ERROR.getCode(),
+                        CommonErrorCode.VALIDATION_ERROR.getMessage()
+                ));
+    }
+
+    @ExceptionHandler({
+            MissingServletRequestParameterException.class,
+            org.springframework.web.multipart.support.MissingServletRequestPartException.class,
+            HandlerMethodValidationException.class
+    })
+    public ResponseEntity<ApiResponse<Void>> handleInvalidRequestParamException(Exception ex) {
+        log.warn("Invalid request parameter: {}", ex.getMessage());
+        return ResponseEntity
+                .status(CommonErrorCode.INVALID_REQUEST_PARAM.getStatus())
+                .body(ApiResponse.error(
+                        CommonErrorCode.INVALID_REQUEST_PARAM.getCode(),
+                        CommonErrorCode.INVALID_REQUEST_PARAM.getMessage()
+                ));
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAccessDeniedException(AccessDeniedException ex) {
+        log.warn("Access denied: {}", ex.getMessage());
+        return ResponseEntity.status(CommonErrorCode.ACCESS_DENIED.getStatus())
+                .body(
+                        ApiResponse.error(
+                                CommonErrorCode.ACCESS_DENIED.getCode(),
+                                CommonErrorCode.ACCESS_DENIED.getMessage()));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(
+            DataIntegrityViolationException ex) {
+        log.error("Data integrity violation: ", ex);
+        return ResponseEntity.status(CommonErrorCode.DATA_INTEGRITY_VIOLATION.getStatus())
+                .body(
+                        ApiResponse.error(
+                                CommonErrorCode.DATA_INTEGRITY_VIOLATION.getCode(),
+                                CommonErrorCode.DATA_INTEGRITY_VIOLATION.getMessage()));
+    }
+
+    @ExceptionHandler(org.springframework.web.bind.ServletRequestBindingException.class)
+    public ResponseEntity<ApiResponse<Void>> handleInvalidBinding(Exception ex) {
+        return ResponseEntity.badRequest()
+                .body(
+                        ApiResponse.error(
+                                CommonErrorCode.INVALID_REQUEST_PARAM.getCode(),
+                                CommonErrorCode.INVALID_REQUEST_PARAM.getMessage()));
+    }
+
+    @ExceptionHandler(org.springframework.dao.OptimisticLockingFailureException.class)
+    public ResponseEntity<ApiResponse<Void>> handleOptimisticConflict(Exception ex) {
+        if (ex instanceof org.springframework.orm.ObjectOptimisticLockingFailureException conflict
+                && "com.aquasuite.ims.entity.catalog.BundleConfiguration"
+                        .equals(conflict.getPersistentClassName())) {
+            return ResponseEntity.status(409)
+                    .body(
+                            ApiResponse.error(
+                                    "CATALOG_BUNDLE_003",
+                                    "Combo đã được thay đổi, vui lòng tải lại"));
+        }
+        return ResponseEntity.status(409)
+                .body(
+                        ApiResponse.error(
+                                CommonErrorCode.DATA_INTEGRITY_VIOLATION.getCode(),
+                                CommonErrorCode.DATA_INTEGRITY_VIOLATION.getMessage()));
+    }
+
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMethodArgumentTypeMismatch(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException ex) {
+        log.warn("Method argument type mismatch for param [{}]: {}", ex.getName(), ex.getMessage());
+        String detailMessage = String.format("Tham số '%s' không hợp lệ hoặc không đúng định dạng UUID/kiểu dữ liệu", ex.getName());
+        return ResponseEntity
+                .status(CommonErrorCode.INVALID_REQUEST_PARAM.getStatus())
+                .body(ApiResponse.error(
+                        CommonErrorCode.INVALID_REQUEST_PARAM.getCode(),
+                        detailMessage
+                ));
+    }
+
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceeded(org.springframework.web.multipart.MaxUploadSizeExceededException ex) {
+        return ResponseEntity
+                .status(org.springframework.http.HttpStatus.PAYLOAD_TOO_LARGE)
+                .body(ApiResponse.error(
+                        CommonErrorCode.MULTIPART_TOO_LARGE.getCode(),
+                        CommonErrorCode.MULTIPART_TOO_LARGE.getMessage()
+                ));
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiResponse<Void>> handleFallbackException(Exception ex) {
+        log.error("Unhandled exception: ", ex);
+        return ResponseEntity.status(CommonErrorCode.INTERNAL_SERVER_ERROR.getStatus())
+                .body(
+                        ApiResponse.error(
+                                CommonErrorCode.INTERNAL_SERVER_ERROR.getCode(),
+                                CommonErrorCode.INTERNAL_SERVER_ERROR.getMessage()));
+    }
+}

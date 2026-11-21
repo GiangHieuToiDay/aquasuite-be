@@ -1,14 +1,14 @@
 package com.aquasuite.ims.integration;
 
 import com.aquasuite.ims.AquasuiteBeApplication;
-import com.aquasuite.ims.module.catalog.internal.payload.req.BundleItemRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.req.ChangePublicationStatusRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.req.CreateBundleRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.res.BundleResponse;
-import com.aquasuite.ims.module.catalog.internal.service.BundleAdminService;
-import com.aquasuite.ims.module.iam.internal.entity.User;
-import com.aquasuite.ims.module.iam.internal.entity.UserStatus;
-import com.aquasuite.ims.module.iam.internal.repository.UserRepository;
+import com.aquasuite.ims.dto.catalog.request.BundleItemRequest;
+import com.aquasuite.ims.dto.catalog.request.ChangePublicationStatusRequest;
+import com.aquasuite.ims.dto.catalog.request.CreateBundleRequest;
+import com.aquasuite.ims.dto.catalog.response.BundleResponse;
+import com.aquasuite.ims.service.catalog.BundleAdminService;
+import com.aquasuite.ims.entity.iam.User;
+import com.aquasuite.ims.enums.iam.UserStatus;
+import com.aquasuite.ims.repository.iam.UserRepository;
 import com.aquasuite.ims.testsupport.AuthIntegrationTestSupport;
 import com.fasterxml.jackson.databind.*;
 import org.junit.jupiter.api.*;

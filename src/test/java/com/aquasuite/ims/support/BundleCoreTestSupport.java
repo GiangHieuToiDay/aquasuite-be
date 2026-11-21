@@ -1,14 +1,24 @@
 package com.aquasuite.ims.support;
+import com.aquasuite.ims.service.catalog.helper.BundleInventoryReader;
+import com.aquasuite.ims.service.catalog.helper.BundleEvaluationService;
+import com.aquasuite.ims.service.catalog.helper.BundlePricingService;
+import com.aquasuite.ims.service.catalog.helper.BundleDetailAssembler;
+import com.aquasuite.ims.config.catalog.BundleClockConfig;
+import com.aquasuite.ims.controller.catalog.BundleController;
+import com.aquasuite.ims.controller.catalog.BundleAdminController;
+import com.aquasuite.ims.mapper.catalog.BundleMapperImpl;
+import com.aquasuite.ims.exception.GlobalExceptionHandler;
 
-import com.aquasuite.ims.module.catalog.internal.config.BundleClockConfig;
-import com.aquasuite.ims.module.catalog.internal.controller.*;
-import com.aquasuite.ims.module.catalog.internal.mapper.BundleMapperImpl;
-import com.aquasuite.ims.module.catalog.internal.payload.req.BundleItemRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.req.CreateBundleRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.req.UpdateBundleRequest;
-import com.aquasuite.ims.module.catalog.internal.payload.res.BundleResponse;
-import com.aquasuite.ims.module.catalog.internal.service.*;
-import com.aquasuite.ims.share.exception.GlobalExceptionHandler;
+
+import com.aquasuite.ims.config.catalog.BundleClockConfig;
+import com.aquasuite.ims.controller.catalog.*;
+import com.aquasuite.ims.mapper.catalog.BundleMapperImpl;
+import com.aquasuite.ims.dto.catalog.request.BundleItemRequest;
+import com.aquasuite.ims.dto.catalog.request.CreateBundleRequest;
+import com.aquasuite.ims.dto.catalog.request.UpdateBundleRequest;
+import com.aquasuite.ims.dto.catalog.response.BundleResponse;
+import com.aquasuite.ims.service.catalog.*;
+import com.aquasuite.ims.exception.GlobalExceptionHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -59,27 +69,27 @@ public abstract class BundleCoreTestSupport {
     @EnableAutoConfiguration
     @EntityScan(
             basePackages = {
-                "com.aquasuite.ims.module.catalog.internal.entity",
-                "com.aquasuite.ims.module.iam.internal.entity",
-                "com.aquasuite.ims.module.iam.internal.entity",
-                "com.aquasuite.ims.module.iam.internal.entity",
-                "com.aquasuite.ims.module.inventory.internal.entity"
+                "com.aquasuite.ims.entity.catalog",
+                "com.aquasuite.ims.entity.iam",
+                "com.aquasuite.ims.entity.iam",
+                "com.aquasuite.ims.entity.iam",
+                "com.aquasuite.ims.entity.inventory"
             })
     @EnableJpaRepositories(
             basePackages = {
-                "com.aquasuite.ims.module.catalog.internal.repository",
-                "com.aquasuite.ims.module.iam.internal.repository",
-                "com.aquasuite.ims.module.iam.internal.repository",
-                "com.aquasuite.ims.module.inventory.internal.repository"
+                "com.aquasuite.ims.repository.catalog",
+                "com.aquasuite.ims.repository.iam",
+                "com.aquasuite.ims.repository.iam",
+                "com.aquasuite.ims.repository.inventory"
             })
     @Import({
-        com.aquasuite.ims.module.catalog.internal.service.impl.BundleAdminServiceImpl.class,
-        com.aquasuite.ims.module.catalog.internal.service.impl.BundleQueryServiceImpl.class,
-        com.aquasuite.ims.module.catalog.internal.repository.BundleRepository.class,
+        com.aquasuite.ims.service.catalog.impl.BundleAdminServiceImpl.class,
+        com.aquasuite.ims.service.catalog.impl.BundleQueryServiceImpl.class,
+        com.aquasuite.ims.repository.catalog.BundleRepository.class,
         BundleInventoryReader.class,
         BundleEvaluationService.class,
         BundleController.class,
-        com.aquasuite.ims.module.inventory.internal.service.impl.InventoryServiceImpl.class,
+        com.aquasuite.ims.service.inventory.impl.InventoryServiceImpl.class,
         BundlePricingService.class,
         BundleMapperImpl.class,
         BundleDetailAssembler.class,
@@ -89,8 +99,8 @@ public abstract class BundleCoreTestSupport {
     })
     public static class Config {
         @org.springframework.context.annotation.Bean
-        com.aquasuite.ims.module.iam.api.IamApi iamFacade() {
-            return org.mockito.Mockito.mock(com.aquasuite.ims.module.iam.api.IamApi.class);
+        com.aquasuite.ims.service.iam.IamQueryService iamFacade() {
+            return org.mockito.Mockito.mock(com.aquasuite.ims.service.iam.IamQueryService.class);
         }
 
         @org.springframework.context.annotation.Bean
