@@ -140,12 +140,12 @@ public class WarrantyRecord {
         this.updatedAt = now;
     }
 
-    /** Tính trạng thái hiển thị dựa trên trạng thái lưu trữ, công việc sửa chữa đang mở và ngày hiện tại. */
-    public WarrantyDisplayStatus computeDisplayStatus(LocalDate today, boolean hasOpenWarrantyJob) {
+    /** Tính trạng thái hiển thị dựa trên trạng thái lưu trữ, yêu cầu bảo hành đang mở và ngày hiện tại. */
+    public WarrantyDisplayStatus computeDisplayStatus(LocalDate today, boolean hasOpenWarrantyTicket) {
         if (this.status == WarrantyStatus.VOIDED) {
             return WarrantyDisplayStatus.VOIDED;
         }
-        if (hasOpenWarrantyJob) {
+        if (hasOpenWarrantyTicket) {
             return WarrantyDisplayStatus.CLAIMED;
         }
         if (this.endDate != null && today.isAfter(this.endDate)) {

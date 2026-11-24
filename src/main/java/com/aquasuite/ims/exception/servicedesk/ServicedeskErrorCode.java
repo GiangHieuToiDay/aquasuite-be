@@ -25,7 +25,7 @@ public enum ServicedeskErrorCode implements BaseErrorCode {
     WARRANTY_POLICY_NOT_APPLICABLE("SVD_012", "Sản phẩm hoặc chính sách bảo hành không áp dụng cấp thẻ bảo hành (thời hạn phải > 0 tháng và ở trạng thái ACTIVE).", HttpStatus.BAD_REQUEST),
     WARRANTY_ALREADY_VOIDED("SVD_013", "Thẻ bảo hành {0} đã bị hủy trước đó.", HttpStatus.CONFLICT),
     WARRANTY_VOID_REASON_REQUIRED("SVD_014", "Vui lòng nhập lý do hủy thẻ bảo hành.", HttpStatus.BAD_REQUEST),
-    WARRANTY_HAS_OPEN_JOB("SVD_015", "Không thể hủy thẻ bảo hành khi đang có phiếu sửa chữa bảo hành chưa hoàn tất.", HttpStatus.CONFLICT),
+    WARRANTY_HAS_OPEN_TICKET("SVD_015", "Không thể hủy thẻ bảo hành khi đang có yêu cầu bảo hành chưa hoàn tất.", HttpStatus.CONFLICT),
     WARRANTY_ORDER_ITEM_NOT_FOUND("SVD_016", "Không tìm thấy dòng sản phẩm trong đơn hàng: {0}", HttpStatus.NOT_FOUND),
     WARRANTY_ORDER_NOT_ELIGIBLE("SVD_017", "Đơn hàng ở trạng thái {0} không đủ điều kiện cấp thẻ bảo hành.", HttpStatus.CONFLICT),
     WARRANTY_QUANTITY_LIMIT_EXCEEDED("SVD_018", "Số lượng thẻ bảo hành đang hiệu lực đã đạt giới hạn số lượng mua trên dòng đơn hàng.", HttpStatus.CONFLICT),

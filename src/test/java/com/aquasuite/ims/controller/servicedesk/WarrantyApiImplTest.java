@@ -1,12 +1,12 @@
 package com.aquasuite.ims.controller.servicedesk;
 
+import com.aquasuite.ims.entity.servicedesk.WarrantyTicket;
 import com.aquasuite.ims.entity.servicedesk.WarrantyRecord;
-import com.aquasuite.ims.enums.servicedesk.TechnicalJobStatus;
-import com.aquasuite.ims.enums.servicedesk.TechnicalJobType;
 import com.aquasuite.ims.enums.servicedesk.WarrantyStatus;
-import com.aquasuite.ims.repository.servicedesk.TechnicalJobRepository;
 import com.aquasuite.ims.repository.servicedesk.WarrantyRecordRepository;
 import com.aquasuite.ims.service.servicedesk.impl.WarrantyRecordServiceImpl;
+import com.aquasuite.ims.enums.servicedesk.WarrantyTicketStatus;
+import com.aquasuite.ims.repository.servicedesk.WarrantyTicketRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -23,6 +23,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -32,17 +34,17 @@ class WarrantyEligibilityTest {
             Instant.parse("2026-11-12T05:00:00Z"), ZoneId.of("Asia/Ho_Chi_Minh"));
 
     @Mock private WarrantyRecordRepository warrantyRecordRepository;
-    @Mock private TechnicalJobRepository technicalJobRepository;
+    @Mock private WarrantyTicketRepository warrantyTicketRepository;
 
     private WarrantyRecordServiceImpl warrantyApi;
 
     @BeforeEach
     void setUp() {
-        warrantyApi = new WarrantyRecordServiceImpl(warrantyRecordRepository, technicalJobRepository, null, null, null, null, null, null, null, null, FIXED_CLOCK, null);
+        warrantyApi = new WarrantyRecordServiceImpl(warrantyRecordRepository, warrantyTicketRepository, null, null, null, null, null, null, null, FIXED_CLOCK, null);
     }
 
     @Test
-    @DisplayName("Thẻ ACTIVE còn hạn và đang có job sửa chữa mở -> displayStatus CLAIMED, eligible true")
+    @DisplayName("Thẻ ACTIVE còn hạn và đang có yêu cầu bảo hành mở -> displayStatus CLAIMED, eligible true")
     void activeWithOpenJobReturnsClaimed() {
         UUID id = UUID.randomUUID();
         WarrantyRecord record = WarrantyRecord.builder()
@@ -54,9 +56,8 @@ class WarrantyEligibilityTest {
                 .status(WarrantyStatus.ACTIVE)
                 .build();
         when(warrantyRecordRepository.findById(id)).thenReturn(Optional.of(record));
-        when(technicalJobRepository.existsByWarrantyRecordIdAndJobTypeAndStatusIn(
-                id, TechnicalJobType.WARRANTY_REPAIR, List.of(TechnicalJobStatus.ASSIGNED, TechnicalJobStatus.IN_PROGRESS)))
-                .thenReturn(true);
+        when(warrantyTicketRepository.findFirstByWarrantyRecordIdAndStatusIn(eq(id), any()))
+                .thenReturn(Optional.of(WarrantyTicket.builder().ticketCode("WT-202611-0001").status(WarrantyTicketStatus.NEW).build()));
 
         var dto = warrantyApi.getEligibility(id);
 
@@ -78,9 +79,7 @@ class WarrantyEligibilityTest {
                 .status(WarrantyStatus.ACTIVE)
                 .build();
         when(warrantyRecordRepository.findById(id)).thenReturn(Optional.of(record));
-        when(technicalJobRepository.existsByWarrantyRecordIdAndJobTypeAndStatusIn(
-                id, TechnicalJobType.WARRANTY_REPAIR, List.of(TechnicalJobStatus.ASSIGNED, TechnicalJobStatus.IN_PROGRESS)))
-                .thenReturn(false);
+
 
         var dto = warrantyApi.getEligibility(id);
 

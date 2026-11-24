@@ -12,11 +12,8 @@ import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.dto.sales.response.SalesOrderItemWarrantySnapshotDto;
 import com.aquasuite.ims.dto.sales.response.SalesOrderWarrantySummaryDto;
 import com.aquasuite.ims.event.servicedesk.WarrantyRecordAuditEvent;
-import com.aquasuite.ims.entity.servicedesk.TechnicalJob;
 import com.aquasuite.ims.entity.servicedesk.WarrantyRecord;
 import com.aquasuite.ims.entity.servicedesk.WarrantyTicket;
-import com.aquasuite.ims.enums.servicedesk.TechnicalJobStatus;
-import com.aquasuite.ims.enums.servicedesk.TechnicalJobType;
 import com.aquasuite.ims.enums.servicedesk.WarrantyDisplayStatus;
 import com.aquasuite.ims.enums.servicedesk.WarrantyStatus;
 import com.aquasuite.ims.enums.servicedesk.WarrantyTicketStatus;
@@ -29,7 +26,6 @@ import com.aquasuite.ims.dto.servicedesk.response.WarrantyPolicySummaryResponse;
 import com.aquasuite.ims.dto.servicedesk.response.WarrantyRecordDetailResponse;
 import com.aquasuite.ims.dto.servicedesk.response.WarrantyRecordListItemResponse;
 import com.aquasuite.ims.integration.servicedesk.FulfillmentWarrantyPort;
-import com.aquasuite.ims.repository.servicedesk.TechnicalJobRepository;
 import com.aquasuite.ims.repository.servicedesk.WarrantyRecordRepository;
 import com.aquasuite.ims.repository.servicedesk.WarrantyTicketRepository;
 import com.aquasuite.ims.service.servicedesk.WarrantyRecordService;
@@ -78,11 +74,10 @@ public class WarrantyRecordServiceImpl implements WarrantyRecordService {
     private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
             "createdAt", "startDate", "endDate", "warrantyCode", "status"
     );
-    private static final List<TechnicalJobStatus> OPEN_REPAIR_JOB_STATUSES =
-            List.of(TechnicalJobStatus.ASSIGNED, TechnicalJobStatus.IN_PROGRESS);
+    private static final List<WarrantyTicketStatus> OPEN_TICKET_STATUSES =
+            List.of(WarrantyTicketStatus.NEW, WarrantyTicketStatus.IN_PROGRESS);
 
     private final WarrantyRecordRepository warrantyRecordRepository;
-    private final TechnicalJobRepository technicalJobRepository;
     private final WarrantyTicketRepository warrantyTicketRepository;
     private final WarrantyCodeGenerator warrantyCodeGenerator;
     private final CatalogLookupService catalogApi;
@@ -99,7 +94,6 @@ public class WarrantyRecordServiceImpl implements WarrantyRecordService {
     @Autowired
     public WarrantyRecordServiceImpl(
             WarrantyRecordRepository warrantyRecordRepository,
-            TechnicalJobRepository technicalJobRepository,
             WarrantyTicketRepository warrantyTicketRepository,
             WarrantyCodeGenerator warrantyCodeGenerator,
             CatalogLookupService catalogApi,
@@ -111,7 +105,6 @@ public class WarrantyRecordServiceImpl implements WarrantyRecordService {
             @Qualifier("servicedeskClock") Clock servicedeskClock,
             SalesQueryService salesQueryService) {
         this.warrantyRecordRepository = warrantyRecordRepository;
-        this.technicalJobRepository = technicalJobRepository;
         this.warrantyTicketRepository = warrantyTicketRepository;
         this.warrantyCodeGenerator = warrantyCodeGenerator;
         this.catalogApi = catalogApi;
@@ -131,7 +124,7 @@ public class WarrantyRecordServiceImpl implements WarrantyRecordService {
             CatalogLookupService catalogApi,
             SalesQueryService salesQueryService,
             Clock clock) {
-        this(warrantyRecordRepository, null, null, null, catalogApi, null, crmApi, iamApi, null, null, clock, salesQueryService);
+        this(warrantyRecordRepository, null, null, catalogApi, null, crmApi, iamApi, null, null, clock, salesQueryService);
     }
 
     @Override
@@ -344,10 +337,10 @@ public class WarrantyRecordServiceImpl implements WarrantyRecordService {
             throw new AppException(ServicedeskErrorCode.WARRANTY_ALREADY_VOIDED, record.getWarrantyCode());
         }
 
-        boolean hasOpenJob = technicalJobRepository.existsByWarrantyRecordIdAndJobTypeAndStatusIn(
-                warrantyRecordId, TechnicalJobType.WARRANTY_REPAIR, OPEN_REPAIR_JOB_STATUSES);
-        if (hasOpenJob) {
-            throw new AppException(ServicedeskErrorCode.WARRANTY_HAS_OPEN_JOB);
+        boolean hasOpenTicket = warrantyTicketRepository
+                .findFirstByWarrantyRecordIdAndStatusIn(warrantyRecordId, OPEN_TICKET_STATUSES).isPresent();
+        if (hasOpenTicket) {
+            throw new AppException(ServicedeskErrorCode.WARRANTY_HAS_OPEN_TICKET);
         }
 
         UUID actorId = iamApi.getCurrentUserId();
@@ -524,12 +517,8 @@ public class WarrantyRecordServiceImpl implements WarrantyRecordService {
         Map<UUID, CatalogSkuSummaryDto> skuMap = catalogApi.getSkuSummaries(variantIds);
         Map<UUID, CustomerSummaryDto> customerMap = crmApi.getCustomersByIds(customerIds);
         Map<UUID, String> orderCodeMap = salesQueryService.getOrderCodesByIds(orderIds);
-        Set<UUID> claimedRecordIds = technicalJobRepository.findWarrantyRecordIdsWithOpenJob(
-                recordIds, TechnicalJobType.WARRANTY_REPAIR, OPEN_REPAIR_JOB_STATUSES);
-
-        List<WarrantyTicketStatus> openTicketStatuses = List.of(WarrantyTicketStatus.NEW, WarrantyTicketStatus.IN_PROGRESS);
         Map<UUID, String> openTicketsMap = recordIds.isEmpty() ? Map.of() : warrantyTicketRepository
-                .findTicketsByWarrantyRecordIdsAndStatuses(recordIds, openTicketStatuses)
+                .findTicketsByWarrantyRecordIdsAndStatuses(recordIds, OPEN_TICKET_STATUSES)
                 .stream()
                 .collect(java.util.stream.Collectors.toMap(
                         WarrantyTicket::getWarrantyRecordId,
@@ -540,9 +529,9 @@ public class WarrantyRecordServiceImpl implements WarrantyRecordService {
         List<WarrantyRecordListItemResponse> items = records.stream().map(r -> {
             CatalogSkuSummaryDto sku = skuMap.get(r.getVariantId());
             CustomerSummaryDto customer = customerMap.get(r.getCustomerId());
-            boolean hasOpenJob = claimedRecordIds.contains(r.getWarrantyRecordId());
             String openTicketCode = openTicketsMap.get(r.getWarrantyRecordId());
-            boolean canRequestSupport = r.getStatus() == WarrantyStatus.ACTIVE && !hasOpenJob && openTicketCode == null;
+            boolean hasOpenTicket = openTicketCode != null;
+            boolean canRequestSupport = r.getStatus() == WarrantyStatus.ACTIVE && !hasOpenTicket;
             return WarrantyRecordListItemResponse.builder()
                     .warrantyRecordId(r.getWarrantyRecordId())
                     .warrantyCode(r.getWarrantyCode())
@@ -561,7 +550,7 @@ public class WarrantyRecordServiceImpl implements WarrantyRecordService {
                     .remainingDays(r.computeRemainingDays(today))
                     .warrantyMonths(r.getWarrantyMonths())
                     .status(r.getStatus())
-                    .displayStatus(r.computeDisplayStatus(today, hasOpenJob))
+                    .displayStatus(r.computeDisplayStatus(today, hasOpenTicket))
                     .canRequestSupport(canRequestSupport)
                     .openTicketCode(openTicketCode)
                     .createdAt(r.getCreatedAt())
@@ -595,15 +584,11 @@ public class WarrantyRecordServiceImpl implements WarrantyRecordService {
                 ? fulfillmentWarrantyPort.findDeliverySummary(record.getDeliveryId()).orElse(null)
                 : null;
 
-        List<TechnicalJob> jobs = technicalJobRepository.findByWarrantyRecordIdOrderByCreatedAtDesc(record.getWarrantyRecordId());
-        boolean hasOpenJob = jobs.stream()
-                .anyMatch(j -> j.getJobType() == TechnicalJobType.WARRANTY_REPAIR
-                        && OPEN_REPAIR_JOB_STATUSES.contains(j.getStatus()));
-
         Optional<WarrantyTicket> openTicketOpt = warrantyTicketRepository.findFirstByWarrantyRecordIdAndStatusIn(
                 record.getWarrantyRecordId(), List.of(WarrantyTicketStatus.NEW, WarrantyTicketStatus.IN_PROGRESS));
         String openTicketCode = openTicketOpt.map(WarrantyTicket::getTicketCode).orElse(null);
-        boolean canRequestSupport = record.getStatus() == WarrantyStatus.ACTIVE && !hasOpenJob && openTicketCode == null;
+        boolean hasOpenTicket = openTicketCode != null;
+        boolean canRequestSupport = record.getStatus() == WarrantyStatus.ACTIVE && !hasOpenTicket;
 
         WarrantyRecordDetailResponse.OrderInvoiceInfo orderInvoiceInfo = orderSummary == null ? null :
                 WarrantyRecordDetailResponse.OrderInvoiceInfo.builder()
@@ -631,25 +616,11 @@ public class WarrantyRecordServiceImpl implements WarrantyRecordService {
                         .note(deliverySnapshot.note())
                         .build();
 
-        List<WarrantyRecordDetailResponse.RepairHistoryItem> repairHistory = jobs.stream()
-                .map(j -> WarrantyRecordDetailResponse.RepairHistoryItem.builder()
-                        .technicalJobId(j.getTechnicalJobId())
-                        .jobType(j.getJobType())
-                        .status(j.getStatus())
-                        .scheduledAt(j.getScheduledAt())
-                        .issueDescription(j.getIssueDescription())
-                        .result(j.getResult())
-                        .technicianId(j.getTechnicianId())
-                        .completedAt(j.getCompletedAt())
-                        .createdAt(j.getCreatedAt())
-                        .build())
-                .toList();
-
         return WarrantyRecordDetailResponse.builder()
                 .warrantyRecordId(record.getWarrantyRecordId())
                 .warrantyCode(record.getWarrantyCode())
                 .status(record.getStatus())
-                .displayStatus(record.computeDisplayStatus(today, hasOpenJob))
+                .displayStatus(record.computeDisplayStatus(today, hasOpenTicket))
                 .canRequestSupport(canRequestSupport)
                 .openTicketCode(openTicketCode)
                 .startDate(record.getStartDate())
@@ -679,7 +650,6 @@ public class WarrantyRecordServiceImpl implements WarrantyRecordService {
                 .installationAddress(installationAddress)
                 .orderInvoice(orderInvoiceInfo)
                 .deliveryNote(deliveryNoteInfo)
-                .repairHistory(repairHistory)
                 .build();
     }
 
@@ -720,17 +690,17 @@ public class WarrantyRecordServiceImpl implements WarrantyRecordService {
                     case VOIDED -> predicates.add(cb.equal(root.get("status"), WarrantyStatus.VOIDED));
                     case CLAIMED -> {
                         predicates.add(cb.equal(root.get("status"), WarrantyStatus.ACTIVE));
-                        predicates.add(cb.exists(openJobSubquery(root, query, cb)));
+                        predicates.add(cb.exists(openTicketSubquery(root, query, cb)));
                     }
                     case EXPIRED -> {
                         predicates.add(cb.equal(root.get("status"), WarrantyStatus.ACTIVE));
                         predicates.add(cb.lessThan(root.get("endDate"), today));
-                        predicates.add(cb.not(cb.exists(openJobSubquery(root, query, cb))));
+                        predicates.add(cb.not(cb.exists(openTicketSubquery(root, query, cb))));
                     }
                     case ACTIVE -> {
                         predicates.add(cb.equal(root.get("status"), WarrantyStatus.ACTIVE));
                         predicates.add(cb.greaterThanOrEqualTo(root.get("endDate"), today));
-                        predicates.add(cb.not(cb.exists(openJobSubquery(root, query, cb))));
+                        predicates.add(cb.not(cb.exists(openTicketSubquery(root, query, cb))));
                     }
                 }
             }
@@ -739,18 +709,17 @@ public class WarrantyRecordServiceImpl implements WarrantyRecordService {
         };
     }
 
-    private Subquery<UUID> openJobSubquery(
+    private Subquery<UUID> openTicketSubquery(
             Root<WarrantyRecord> root,
             jakarta.persistence.criteria.CriteriaQuery<?> query,
             jakarta.persistence.criteria.CriteriaBuilder cb
     ) {
         Subquery<UUID> sq = query.subquery(UUID.class);
-        Root<TechnicalJob> jobRoot = sq.from(TechnicalJob.class);
-        sq.select(jobRoot.get("technicalJobId"));
+        Root<WarrantyTicket> ticketRoot = sq.from(WarrantyTicket.class);
+        sq.select(ticketRoot.get("ticketId"));
         sq.where(
-                cb.equal(jobRoot.get("warrantyRecordId"), root.get("warrantyRecordId")),
-                cb.equal(jobRoot.get("jobType"), TechnicalJobType.WARRANTY_REPAIR),
-                jobRoot.get("status").in(OPEN_REPAIR_JOB_STATUSES)
+                cb.equal(ticketRoot.get("warrantyRecordId"), root.get("warrantyRecordId")),
+                ticketRoot.get("status").in(OPEN_TICKET_STATUSES)
         );
         return sq;
     }
@@ -791,9 +760,9 @@ public class WarrantyRecordServiceImpl implements WarrantyRecordService {
                 .orElseThrow(() -> new AppException(ServicedeskErrorCode.WARRANTY_NOT_FOUND, warrantyRecordId));
 
         LocalDate today = LocalDate.now(servicedeskClock);
-        boolean hasOpenJob = technicalJobRepository.existsByWarrantyRecordIdAndJobTypeAndStatusIn(
-                warrantyRecordId, TechnicalJobType.WARRANTY_REPAIR, OPEN_REPAIR_JOB_STATUSES);
-        WarrantyDisplayStatus displayStatus = record.computeDisplayStatus(today, hasOpenJob);
+        boolean hasOpenTicket = warrantyTicketRepository
+                .findFirstByWarrantyRecordIdAndStatusIn(warrantyRecordId, OPEN_TICKET_STATUSES).isPresent();
+        WarrantyDisplayStatus displayStatus = record.computeDisplayStatus(today, hasOpenTicket);
 
         boolean eligible = record.getStatus() == WarrantyStatus.ACTIVE
                 && record.getEndDate() != null

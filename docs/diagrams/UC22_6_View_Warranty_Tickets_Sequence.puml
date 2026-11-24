@@ -1,0 +1,65 @@
+@startuml UC22_6_View_Warranty_Tickets_Sequence
+title UC-22.6 - View Warranty Tickets
+
+hide footbox
+skinparam ParticipantPadding 10
+skinparam BoxPadding 6
+skinparam maxMessageSize 160
+skinparam sequence {
+    ArrowColor #263238
+    ActorBorderColor #263238
+    LifeLineBorderColor #78909C
+    ParticipantBorderColor #1565C0
+    ParticipantBackgroundColor #E3F2FD
+    GroupBorderColor #455A64
+    GroupBackgroundColor #FAFAFA
+}
+
+actor "Shop Owner" as Staff
+boundary "warrantyTicketUI: WarrantyTicketUI\n<<boundary>>" as UI
+control "warrantyTicketController:\nWarrantyTicketController\n<<controller>>" as Ctrl
+control "warrantyTicketService:\nWarrantyTicketService\n<<service>>" as Svc
+entity "warrantyTicketRepository:\nWarrantyTicketRepository\n<<repository>>" as TRepo
+entity "warrantyRecordRepository:\nWarrantyRecordRepository\n<<repository>>" as RRepo
+control "catalogLookupService:\nCatalogLookupService\n<<service>>" as Cat
+
+Staff -> UI: 1: Open Warranty Tickets (optionally choose a status filter)
+UI -> Ctrl: 2: GET /api/v1/warranty-tickets?status&page&size
+break not signed in (AUTH_001)
+    Ctrl --> UI: 3: HTTP 401 - ApiResponse(AUTH_001)
+    UI --> Staff: 4: Display "Chưa xác thực hoặc phiên đăng nhập đã hết hạn"
+end
+break role is not SHOP_OWNER (AUTH_002)
+    Ctrl --> UI: 5: HTTP 403 - ApiResponse(AUTH_002)
+    UI --> Staff: 6: Display "Bạn không có quyền thực hiện thao tác này"
+end
+Ctrl -> Svc: 7: list(filter)
+Svc -> TRepo: 8: findAll(status spec, page, size, createdAt desc)
+TRepo --> Svc: 9: Page<WarrantyTicket>
+Svc -> RRepo: 10: findAllById(warrantyRecordIds)
+RRepo --> Svc: 11: List<WarrantyRecord>
+Svc -> Cat: 12: getSkuSummaries(variantIds)
+Cat --> Svc: 13: Map<variantId, CatalogSkuSummaryDto>
+Svc --> Ctrl: 14: PageResponse<WarrantyTicketListItemResponse>
+Ctrl --> UI: 15: HTTP 200 ApiResponse<PageResponse<WarrantyTicketListItemResponse>>
+UI --> Staff: 16: Display ticket list ("Không có yêu cầu bảo hành phù hợp." when the list is empty)
+Staff -> UI: 17: Select a ticket to view its details
+UI -> Ctrl: 18: GET /api/v1/warranty-tickets/{id}
+Ctrl -> Svc: 19: getById(ticketId)
+Svc -> TRepo: 20: findById(ticketId)
+TRepo --> Svc: 21: Optional<WarrantyTicket>
+break ticket not found
+    Svc --> Ctrl: 22: throw AppException(SVD_023)
+    Ctrl --> UI: 23: HTTP 404 - ApiResponse(SVD_023)
+    UI --> Staff: 24: Display "Không tìm thấy thông tin yêu cầu bảo hành."
+end
+Svc -> RRepo: 25: findById(warrantyRecordId)
+RRepo --> Svc: 26: Optional<WarrantyRecord>
+Svc -> Cat: 27: getSkuSummary(variantId)
+Cat --> Svc: 28: CatalogSkuSummaryDto
+Svc -> Svc: 29: warrantyExpired = warranty end date is before today
+Svc --> Ctrl: 30: WarrantyTicketDetailResponse
+Ctrl --> UI: 31: HTTP 200 ApiResponse<WarrantyTicketDetailResponse>
+UI --> Staff: 32: Display ticket details; if expired: "Thẻ bảo hành đã hết hạn (<ngày hết hạn>)"
+
+@enduml

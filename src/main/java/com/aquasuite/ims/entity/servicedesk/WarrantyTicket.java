@@ -86,9 +86,6 @@ public class WarrantyTicket {
     @Builder.Default
     private boolean expiredAcknowledged = false;
 
-    @Column(name = "technical_job_id")
-    private UUID technicalJobId;
-
     @Column(name = "result", columnDefinition = "TEXT")
     private String result;
 

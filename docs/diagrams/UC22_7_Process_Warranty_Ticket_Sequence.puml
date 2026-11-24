@@ -1,0 +1,98 @@
+@startuml UC22_7_Process_Warranty_Ticket_Sequence
+title UC-22.7 - Process Warranty Ticket
+
+hide footbox
+skinparam ParticipantPadding 10
+skinparam BoxPadding 6
+skinparam maxMessageSize 160
+skinparam sequence {
+    ArrowColor #263238
+    ActorBorderColor #263238
+    LifeLineBorderColor #78909C
+    ParticipantBorderColor #1565C0
+    ParticipantBackgroundColor #E3F2FD
+    GroupBorderColor #455A64
+    GroupBackgroundColor #FAFAFA
+}
+
+actor "Shop Owner" as Staff
+boundary "warrantyTicketUI: WarrantyTicketUI\n<<boundary>>" as UI
+control "warrantyTicketController:\nWarrantyTicketController\n<<controller>>" as Ctrl
+control "warrantyTicketService:\nWarrantyTicketService\n<<service>>" as Svc
+entity "warrantyTicketRepository:\nWarrantyTicketRepository\n<<repository>>" as TRepo
+control "iamQueryService:\nIamQueryService\n<<service>>" as Iam
+control "warrantyTicketAuditListener:\nWarrantyTicketAuditListener\n<<listener>>" as AuditL
+entity "auditLogRepository:\nAuditLogRepository\n<<repository>>" as ARepo
+entity "warrantyRecordRepository:\nWarrantyRecordRepository\n<<repository>>" as RRepo
+control "catalogLookupService:\nCatalogLookupService\n<<service>>" as Cat
+
+note over Staff
+  Start processing and Complete are two separate requests.
+  Between them the Shop Owner works with the customer outside the system.
+end note
+
+Staff -> UI: 1: Choose Start, Complete (+ result) or Reject (+ reason)
+
+UI -> Ctrl: 2: POST /api/v1/warranty-tickets/{id}/start | /complete CompleteWarrantyTicketRequest | /reject RejectWarrantyTicketRequest
+break complete: result empty or over 4000 characters / reject: reason empty or over 2000 characters
+    Ctrl --> UI: 3: HTTP 400 - ApiResponse(SYS_003)
+    UI --> Staff: 4: Display "Dữ liệu đầu vào không hợp lệ"
+end
+break not signed in (AUTH_001)
+    Ctrl --> UI: 5: HTTP 401 - ApiResponse(AUTH_001)
+    UI --> Staff: 6: Display "Chưa xác thực hoặc phiên đăng nhập đã hết hạn"
+end
+break role is not SHOP_OWNER (AUTH_002)
+    Ctrl --> UI: 7: HTTP 403 - ApiResponse(AUTH_002)
+    UI --> Staff: 8: Display "Bạn không có quyền thực hiện thao tác này"
+end
+Ctrl -> Svc: 9: startProcessing(ticketId) | complete(ticketId, request) | reject(ticketId, request)
+Svc -> TRepo: 10: findById(ticketId)
+TRepo --> Svc: 11: Optional<WarrantyTicket>
+break ticket not found
+    Svc --> Ctrl: 12: throw AppException(SVD_023)
+    Ctrl --> UI: 13: HTTP 404 - ApiResponse(SVD_023)
+    UI --> Staff: 14: Display "Không tìm thấy yêu cầu bảo hành: <ticketId>"
+end
+Svc -> Svc: 15: Check current status: start and reject need New, complete needs In progress
+break status does not allow the action
+    Svc --> Ctrl: 16: throw AppException(SVD_039 start / SVD_040 complete / SVD_032 reject)
+    Ctrl --> UI: 17: HTTP 409 - ApiResponse(errorCode)
+    alt Start processing (SVD_039)
+        UI --> Staff: 18: Display "Chỉ có thể tiếp nhận xử lý yêu cầu bảo hành đang ở trạng thái Chờ tiếp nhận (NEW). Trạng thái hiện tại: <trạng thái>"
+    else Complete (SVD_040)
+        UI --> Staff: 19: Display "Chỉ có thể hoàn tất yêu cầu bảo hành đang xử lý (IN_PROGRESS). Trạng thái hiện tại: <trạng thái>"
+    else Reject (SVD_032)
+        UI --> Staff: 20: Display "Chỉ có thể từ chối yêu cầu bảo hành đang ở trạng thái Chờ tiếp nhận (NEW). Trạng thái hiện tại: <trạng thái>"
+    end
+end
+alt Start processing (Normal Flow)
+    Svc -> Svc: 21: status = IN_PROGRESS
+else Complete (Normal Flow, A2)
+    Svc -> Svc: 22: status = DONE, result, completedAt
+else Reject (A1)
+    Svc -> Svc: 23: status = REJECTED, rejectionReason
+end
+Svc -> TRepo: 24: save(ticket)
+Svc -> Iam: 25: getCurrentUserId()
+Iam --> Svc: 26: actorId
+Svc -> AuditL: 27: onWarrantyTicketAudited(WarrantyTicketAuditEvent STARTED / COMPLETED / REJECTED) [after commit]
+AuditL -> ARepo: 28: existsById(eventId)
+ARepo --> AuditL: 29: false
+AuditL -> ARepo: 30: save(AuditLog WARRANTY_TICKET, action, user, old and new status)
+Svc -> RRepo: 31: findById(warrantyRecordId)
+RRepo --> Svc: 32: Optional<WarrantyRecord>
+Svc -> Cat: 33: getSkuSummary(variantId)
+Cat --> Svc: 34: CatalogSkuSummaryDto
+Svc -> Svc: 35: build detail: warrantyExpired = warranty end date is before today
+Svc --> Ctrl: 36: WarrantyTicketDetailResponse
+Ctrl --> UI: 37: HTTP 200 ApiResponse<WarrantyTicketDetailResponse>
+alt Start processing
+    UI --> Staff: 38: Display MSG86 "Đã tiếp nhận xử lý yêu cầu bảo hành"
+else Complete
+    UI --> Staff: 39: Display MSG87 "Đã hoàn tất yêu cầu bảo hành"
+else Reject
+    UI --> Staff: 40: Display MSG88 "Đã từ chối yêu cầu bảo hành"
+end
+
+@enduml

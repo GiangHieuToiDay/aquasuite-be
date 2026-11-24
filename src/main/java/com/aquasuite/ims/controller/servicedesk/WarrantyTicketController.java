@@ -84,7 +84,7 @@ public class WarrantyTicketController {
             @Valid @RequestBody CreateWarrantyTicketRequest request) {
         WarrantyTicketDetailResponse response = warrantyTicketService.submit(request);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.ok(response, "MSG85: Yêu cầu bảo hành đã được gửi. Đội kỹ thuật sẽ liên hệ bạn trong vòng 4 giờ làm việc."));
+                .body(ApiResponse.ok(response, "MSG85: Yêu cầu bảo hành đã được gửi. Cửa hàng sẽ liên hệ bạn trong vòng 4 giờ làm việc."));
     }
 
     @GetMapping("/api/v1/storefront/warranty-tickets")
