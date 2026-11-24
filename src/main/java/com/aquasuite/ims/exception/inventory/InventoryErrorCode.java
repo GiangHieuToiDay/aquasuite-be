@@ -25,7 +25,8 @@ public enum InventoryErrorCode implements BaseErrorCode {
     GOODS_RECEIPT_INVALID_QUANTITY("INV_015", "Số lượng nhận phải lớn hơn 0. Giá trị nhập: {0}", HttpStatus.BAD_REQUEST),
     GOODS_RECEIPT_EXCEEDS_REMAINING("INV_016", "Số lượng nhận vượt quá số còn phải nhận. Nhận: {0}, Còn lại: {1}", HttpStatus.BAD_REQUEST),
     GOODS_RECEIPT_NOT_FOUND("INV_017", "Không tìm thấy phiếu nhập kho: {0}", HttpStatus.NOT_FOUND),
-    INVALID_THRESHOLD("INV_018", "Ngưỡng tồn kho không hợp lệ: tối thiểu phải ≥ 0 và tối đa (nếu có) phải ≥ tối thiểu", HttpStatus.BAD_REQUEST);
+    INVALID_THRESHOLD("INV_018", "Ngưỡng tồn kho không hợp lệ: tối thiểu phải ≥ 0 và tối đa (nếu có) phải ≥ tối thiểu", HttpStatus.BAD_REQUEST),
+    GOODS_RECEIPT_IDEMPOTENCY_CONFLICT("INV_019", "Mã yêu cầu {0} đã được dùng cho một phiếu nhập kho với nội dung khác", HttpStatus.CONFLICT);
 
     private final String code;
     private final String message;

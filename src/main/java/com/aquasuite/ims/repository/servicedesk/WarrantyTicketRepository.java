@@ -18,8 +18,6 @@ public interface WarrantyTicketRepository
 
     Optional<WarrantyTicket> findByTicketIdAndCustomerId(UUID ticketId, UUID customerId);
 
-    /** Tra ticket từ công việc kỹ thuật đã bắn (phục vụ phản hồi job COMPLETED → ticket DONE). */
-    Optional<WarrantyTicket> findByTechnicalJobId(UUID technicalJobId);
 
     Optional<WarrantyTicket> findFirstByWarrantyRecordIdAndStatusIn(
             UUID warrantyRecordId,

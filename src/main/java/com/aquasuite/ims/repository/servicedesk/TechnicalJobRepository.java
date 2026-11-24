@@ -15,18 +15,12 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Truy xuất công việc kỹ thuật (FE-13). Tra cứu động (UC-59) dùng {@link JpaSpecificationExecutor}
- * để chỉ thêm điều kiện lọc khi có giá trị, tránh vấn đề kiểu dữ liệu của tham số null trên PostgreSQL.
+ * Truy xuất công việc kỹ thuật (bảng technical_jobs). FE-13 và role TECHNICAL_STAFF đã bị loại bỏ (2026-11-24);
+ * repository chỉ còn phục vụ hồ sơ thẻ bảo hành (UC-45) đọc lại các phiếu sửa chữa bảo hành đã có trong dữ liệu.
  */
 @Repository
 public interface TechnicalJobRepository
         extends JpaRepository<TechnicalJob, UUID>, JpaSpecificationExecutor<TechnicalJob> {
-
-    /** Kiểm tra đã tồn tại công việc kỹ thuật cho đơn hàng + loại công việc chưa (đảm bảo idempotent khi auto-sinh job). */
-    boolean existsByOrderIdAndJobType(UUID orderId, TechnicalJobType jobType);
-
-    /** Kiểm tra một yêu cầu bảo hành (ticket) đã có công việc kỹ thuật được bắn hay chưa (idempotent khi dispatch). */
-    boolean existsByWarrantyTicketId(UUID warrantyTicketId);
 
     /** Lấy lịch sử công việc kỹ thuật gắn với một thẻ bảo hành (UC-45 dossier). */
     List<TechnicalJob> findByWarrantyRecordIdOrderByCreatedAtDesc(UUID warrantyRecordId);

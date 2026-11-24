@@ -1,0 +1,7 @@
+<map id="UC32_Manage_Goods_Receipt_Sequence_map" name="UC32_Manage_Goods_Receipt_Sequence_map">
+<area shape="rect" id="id1" href="request" title="request" alt="" coords="104,256,174,270"/>
+<area shape="rect" id="id2" href="cùng" title="cùng" alt="" coords="104,538,207,552"/>
+<area shape="rect" id="id3" href="cùng" title="cùng" alt="" coords="104,710,228,724"/>
+<area shape="rect" id="id4" href="mỗi" title="mỗi" alt="" coords="797,1272,943,1285"/>
+<area shape="rect" id="id5" href="PO" title="PO" alt="" coords="104,1036,283,1050"/>
+</map>

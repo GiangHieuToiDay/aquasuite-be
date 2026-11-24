@@ -405,7 +405,7 @@ class PurchaseOrderServiceTest {
                 .status(PurchaseOrderStatus.CONFIRMED)
                 .build();
 
-        when(purchaseOrderRepository.findById(poId)).thenReturn(Optional.of(po));
+        when(purchaseOrderRepository.findByIdForUpdate(poId)).thenReturn(Optional.of(po));
         when(inventoryApi.hasConfirmedGoodsReceipt(poId)).thenReturn(true);
 
         CancelPurchaseOrderRequest request = CancelPurchaseOrderRequest.builder()
@@ -426,7 +426,7 @@ class PurchaseOrderServiceTest {
                 .status(PurchaseOrderStatus.PARTIALLY_RECEIVED)
                 .build();
 
-        when(purchaseOrderRepository.findById(poId)).thenReturn(Optional.of(po));
+        when(purchaseOrderRepository.findByIdForUpdate(poId)).thenReturn(Optional.of(po));
         when(inventoryApi.hasDraftGoodsReceipt(poId)).thenReturn(false);
         when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
 

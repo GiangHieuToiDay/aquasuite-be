@@ -37,7 +37,6 @@ public class DevelopmentDataInitializer implements ApplicationRunner {
                     new RoleDefinition("SHOP_OWNER", "Chủ cửa hàng"),
                     new RoleDefinition("SALES_STAFF", "Nhân viên bán hàng"),
                     new RoleDefinition("ACCOUNTANT", "Kế toán"),
-                    new RoleDefinition("TECHNICAL_STAFF", "Nhân viên kỹ thuật"),
                     new RoleDefinition("SHIPPER", "Nhân viên giao hàng"),
                     new RoleDefinition("CUSTOMER", "Khách hàng"));
 

@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xmi:XMI xmi:version="2.1" xmlns:xmi="http://schema.omg.org/spec/XMI/2.1" xmlns:uml="http://schema.omg.org/spec/UML/2.1">
+  <uml:Model xmi:id="model_uc32" name="UC-32 Manage Goods Receipt">
+    <packagedElement xmi:type="uml:Package" xmi:id="pkg_types" name="Participants">
+      <packagedElement xmi:type="uml:Actor" xmi:id="type_001" name="ShopOwnerAccountant"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="type_002" name="GoodsReceiptUI"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="type_003" name="GoodsReceiptController"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="type_004" name="GoodsReceiptService"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="type_005" name="PurchaseOrderService"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="type_006" name="GoodsReceiptRepository"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="type_007" name="GoodsReceiptItemRepository"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="type_008" name="InventoryRepository"/>
+      <packagedElement xmi:type="uml:Class" xmi:id="type_009" name="StockMovementRepository"/>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Interaction" xmi:id="interaction_uc32" name="UC-32 - Manage Goods Receipt by Purchase Order">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="prop_010" name="Shop Owner / Accountant" type="type_001"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="prop_011" name="goodsReceiptUI" type="type_002"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="prop_012" name="goodsReceiptController" type="type_003"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="prop_013" name="goodsReceiptService" type="type_004"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="prop_014" name="purchaseOrderService" type="type_005"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="prop_015" name="goodsReceiptRepository" type="type_006"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="prop_016" name="goodsReceiptItemRepository" type="type_007"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="prop_017" name="inventoryRepository" type="type_008"/>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="prop_018" name="stockMovementRepository" type="type_009"/>
+      <ownedComment xmi:type="uml:Comment" xmi:id="note_138" annotatedElement="lifeline_022 lifeline_023">
+        <body>Receipt, stock, stock movement and PO progress commit together. Any failure rolls back the whole transaction.</body>
+      </ownedComment>
+      <lifeline xmi:type="uml:Lifeline" xmi:id="lifeline_019" name="Shop Owner / Accountant" represents="prop_010" coveredBy="send_029 frag_034 recv_043 frag_053 recv_065 frag_066 recv_078 frag_088 recv_100 recv_137"/>
+      <lifeline xmi:type="uml:Lifeline" xmi:id="lifeline_020" name="goodsReceiptUI: GoodsReceiptUI" represents="prop_011" coveredBy="recv_030 send_032 frag_034 recv_040 send_042 frag_053 recv_062 send_064 frag_066 recv_075 send_077 frag_088 recv_097 send_099 recv_134 send_136"/>
+      <lifeline xmi:type="uml:Lifeline" xmi:id="lifeline_021" name="goodsReceiptController: GoodsReceiptController" represents="prop_012" coveredBy="recv_033 frag_034 send_039 send_045 frag_053 recv_059 send_061 frag_066 recv_072 send_074 frag_088 recv_094 send_096 recv_131 send_133"/>
+      <lifeline xmi:type="uml:Lifeline" xmi:id="lifeline_022" name="goodsReceiptService: GoodsReceiptService" represents="prop_013" coveredBy="recv_046 send_048 recv_052 frag_053 send_058 frag_066 send_071 send_080 recv_084 send_086 recv_087 frag_088 send_093 send_102 frag_104 send_109 send_112 recv_116 send_118 send_121 send_124 recv_128 send_130"/>
+      <lifeline xmi:type="uml:Lifeline" xmi:id="lifeline_023" name="purchaseOrderService: PurchaseOrderService" represents="prop_014" coveredBy="recv_081 send_083 recv_125 send_127"/>
+      <lifeline xmi:type="uml:Lifeline" xmi:id="lifeline_024" name="goodsReceiptRepository: GoodsReceiptRepository" represents="prop_015" coveredBy="recv_049 send_051 recv_103"/>
+      <lifeline xmi:type="uml:Lifeline" xmi:id="lifeline_025" name="goodsReceiptItemRepository: GoodsReceiptItemRepository" represents="prop_016" coveredBy="frag_104 recv_110"/>
+      <lifeline xmi:type="uml:Lifeline" xmi:id="lifeline_026" name="inventoryRepository: InventoryRepository" represents="prop_017" coveredBy="frag_104 recv_113 send_115 recv_119"/>
+      <lifeline xmi:type="uml:Lifeline" xmi:id="lifeline_027" name="stockMovementRepository: StockMovementRepository" represents="prop_018" coveredBy="frag_104 recv_122"/>
+      <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_029" covered="lifeline_019" message="msg_028"/>
+      <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_030" covered="lifeline_020" message="msg_028"/>
+      <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_032" covered="lifeline_020" message="msg_031"/>
+      <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_033" covered="lifeline_021" message="msg_031"/>
+      <fragment xmi:type="uml:CombinedFragment" xmi:id="frag_034" interactionOperator="break" covered="lifeline_019 lifeline_020 lifeline_021">
+        <operand xmi:type="uml:InteractionOperand" xmi:id="operand_035" covered="lifeline_019 lifeline_020 lifeline_021">
+          <guard xmi:type="uml:InteractionConstraint" xmi:id="guard_036">
+            <specification xmi:type="uml:LiteralString" xmi:id="expr_037" value="request data is invalid"/>
+          </guard>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_039" covered="lifeline_021" message="msg_038"/>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_040" covered="lifeline_020" message="msg_038"/>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_042" covered="lifeline_020" message="msg_041"/>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_043" covered="lifeline_019" message="msg_041"/>
+        </operand>
+      </fragment>
+      <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_045" covered="lifeline_021" message="msg_044"/>
+      <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_046" covered="lifeline_022" message="msg_044"/>
+      <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_048" covered="lifeline_022" message="msg_047"/>
+      <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_049" covered="lifeline_024" message="msg_047"/>
+      <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_051" covered="lifeline_024" message="msg_050"/>
+      <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_052" covered="lifeline_022" message="msg_050"/>
+      <fragment xmi:type="uml:CombinedFragment" xmi:id="frag_053" interactionOperator="break" covered="lifeline_019 lifeline_020 lifeline_021 lifeline_022">
+        <operand xmi:type="uml:InteractionOperand" xmi:id="operand_054" covered="lifeline_019 lifeline_020 lifeline_021 lifeline_022">
+          <guard xmi:type="uml:InteractionConstraint" xmi:id="guard_055">
+            <specification xmi:type="uml:LiteralString" xmi:id="expr_056" value="same key and identical request data"/>
+          </guard>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_058" covered="lifeline_022" message="msg_057"/>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_059" covered="lifeline_021" message="msg_057"/>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_061" covered="lifeline_021" message="msg_060"/>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_062" covered="lifeline_020" message="msg_060"/>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_064" covered="lifeline_020" message="msg_063"/>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_065" covered="lifeline_019" message="msg_063"/>
+        </operand>
+      </fragment>
+      <fragment xmi:type="uml:CombinedFragment" xmi:id="frag_066" interactionOperator="break" covered="lifeline_019 lifeline_020 lifeline_021 lifeline_022">
+        <operand xmi:type="uml:InteractionOperand" xmi:id="operand_067" covered="lifeline_019 lifeline_020 lifeline_021 lifeline_022">
+          <guard xmi:type="uml:InteractionConstraint" xmi:id="guard_068">
+            <specification xmi:type="uml:LiteralString" xmi:id="expr_069" value="same key reused with different request data"/>
+          </guard>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_071" covered="lifeline_022" message="msg_070"/>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_072" covered="lifeline_021" message="msg_070"/>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_074" covered="lifeline_021" message="msg_073"/>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_075" covered="lifeline_020" message="msg_073"/>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_077" covered="lifeline_020" message="msg_076"/>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_078" covered="lifeline_019" message="msg_076"/>
+        </operand>
+      </fragment>
+      <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_080" covered="lifeline_022" message="msg_079"/>
+      <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_081" covered="lifeline_023" message="msg_079"/>
+      <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_083" covered="lifeline_023" message="msg_082"/>
+      <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_084" covered="lifeline_022" message="msg_082"/>
+      <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_086" covered="lifeline_022" message="msg_085"/>
+      <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_087" covered="lifeline_022" message="msg_085"/>
+      <fragment xmi:type="uml:CombinedFragment" xmi:id="frag_088" interactionOperator="break" covered="lifeline_019 lifeline_020 lifeline_021 lifeline_022">
+        <operand xmi:type="uml:InteractionOperand" xmi:id="operand_089" covered="lifeline_019 lifeline_020 lifeline_021 lifeline_022">
+          <guard xmi:type="uml:InteractionConstraint" xmi:id="guard_090">
+            <specification xmi:type="uml:LiteralString" xmi:id="expr_091" value="PO is not receivable or received quantity is invalid"/>
+          </guard>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_093" covered="lifeline_022" message="msg_092"/>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_094" covered="lifeline_021" message="msg_092"/>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_096" covered="lifeline_021" message="msg_095"/>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_097" covered="lifeline_020" message="msg_095"/>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_099" covered="lifeline_020" message="msg_098"/>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_100" covered="lifeline_019" message="msg_098"/>
+        </operand>
+      </fragment>
+      <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_102" covered="lifeline_022" message="msg_101"/>
+      <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_103" covered="lifeline_024" message="msg_101"/>
+      <fragment xmi:type="uml:CombinedFragment" xmi:id="frag_104" interactionOperator="loop" covered="lifeline_022 lifeline_025 lifeline_026 lifeline_027">
+        <operand xmi:type="uml:InteractionOperand" xmi:id="operand_105" covered="lifeline_022 lifeline_025 lifeline_026 lifeline_027">
+          <guard xmi:type="uml:InteractionConstraint" xmi:id="guard_106">
+            <specification xmi:type="uml:LiteralString" xmi:id="expr_107" value="each accepted PO item in this delivery"/>
+          </guard>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_109" covered="lifeline_022" message="msg_108"/>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_110" covered="lifeline_025" message="msg_108"/>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_112" covered="lifeline_022" message="msg_111"/>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_113" covered="lifeline_026" message="msg_111"/>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_115" covered="lifeline_026" message="msg_114"/>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_116" covered="lifeline_022" message="msg_114"/>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_118" covered="lifeline_022" message="msg_117"/>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_119" covered="lifeline_026" message="msg_117"/>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_121" covered="lifeline_022" message="msg_120"/>
+          <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_122" covered="lifeline_027" message="msg_120"/>
+        </operand>
+      </fragment>
+      <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_124" covered="lifeline_022" message="msg_123"/>
+      <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_125" covered="lifeline_023" message="msg_123"/>
+      <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_127" covered="lifeline_023" message="msg_126"/>
+      <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_128" covered="lifeline_022" message="msg_126"/>
+      <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_130" covered="lifeline_022" message="msg_129"/>
+      <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_131" covered="lifeline_021" message="msg_129"/>
+      <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_133" covered="lifeline_021" message="msg_132"/>
+      <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_134" covered="lifeline_020" message="msg_132"/>
+      <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="send_136" covered="lifeline_020" message="msg_135"/>
+      <fragment xmi:type="uml:MessageOccurrenceSpecification" xmi:id="recv_137" covered="lifeline_019" message="msg_135"/>
+      <message xmi:type="uml:Message" xmi:id="msg_028" name="1: Enter quantities received in this delivery" messageSort="synchCall" sendEvent="send_029" receiveEvent="recv_030"/>
+      <message xmi:type="uml:Message" xmi:id="msg_031" name="2: POST /api/v1/inventory/goods-receipts CreateGoodsReceiptRequest" messageSort="synchCall" sendEvent="send_032" receiveEvent="recv_033"/>
+      <message xmi:type="uml:Message" xmi:id="msg_038" name="3: HTTP 400 - ApiResponse(SYS_003)" messageSort="reply" sendEvent="send_039" receiveEvent="recv_040"/>
+      <message xmi:type="uml:Message" xmi:id="msg_041" name='4: Display "Invalid input data"' messageSort="reply" sendEvent="send_042" receiveEvent="recv_043"/>
+      <message xmi:type="uml:Message" xmi:id="msg_044" name="5: createAndConfirm(request, actorUserId)" messageSort="synchCall" sendEvent="send_045" receiveEvent="recv_046"/>
+      <message xmi:type="uml:Message" xmi:id="msg_047" name="6: findByIdempotencyKey(idempotencyKey)" messageSort="synchCall" sendEvent="send_048" receiveEvent="recv_049"/>
+      <message xmi:type="uml:Message" xmi:id="msg_050" name="7: Existing receipt or empty" messageSort="reply" sendEvent="send_051" receiveEvent="recv_052"/>
+      <message xmi:type="uml:Message" xmi:id="msg_057" name="8: Existing GoodsReceiptResponse" messageSort="reply" sendEvent="send_058" receiveEvent="recv_059"/>
+      <message xmi:type="uml:Message" xmi:id="msg_060" name="9: HTTP 201 - ApiResponse&lt;GoodsReceiptResponse&gt;" messageSort="reply" sendEvent="send_061" receiveEvent="recv_062"/>
+      <message xmi:type="uml:Message" xmi:id="msg_063" name="10: Display the existing receipt" messageSort="reply" sendEvent="send_064" receiveEvent="recv_065"/>
+      <message xmi:type="uml:Message" xmi:id="msg_070" name="11: throw AppException(INV_019)" messageSort="reply" sendEvent="send_071" receiveEvent="recv_072"/>
+      <message xmi:type="uml:Message" xmi:id="msg_073" name="12: HTTP 409 - ApiResponse(INV_019)" messageSort="reply" sendEvent="send_074" receiveEvent="recv_075"/>
+      <message xmi:type="uml:Message" xmi:id="msg_076" name='13: Display "Request key already used with different data"' messageSort="reply" sendEvent="send_077" receiveEvent="recv_078"/>
+      <message xmi:type="uml:Message" xmi:id="msg_079" name="14: lockReceivablePurchaseOrder(purchaseOrderId)" messageSort="synchCall" sendEvent="send_080" receiveEvent="recv_081"/>
+      <message xmi:type="uml:Message" xmi:id="msg_082" name="15: ReceivablePurchaseOrderView" messageSort="reply" sendEvent="send_083" receiveEvent="recv_084"/>
+      <message xmi:type="uml:Message" xmi:id="msg_085" name="16: validateLines(items, remainingQty)" messageSort="synchCall" sendEvent="send_086" receiveEvent="recv_087"/>
+      <message xmi:type="uml:Message" xmi:id="msg_092" name="17: throw AppException(INV_010..INV_016)" messageSort="reply" sendEvent="send_093" receiveEvent="recv_094"/>
+      <message xmi:type="uml:Message" xmi:id="msg_095" name="18: HTTP 400 / 404 / 409 ApiResponse(errorCode, errorMessage)" messageSort="reply" sendEvent="send_096" receiveEvent="recv_097"/>
+      <message xmi:type="uml:Message" xmi:id="msg_098" name="19: Display [errorCode] errorMessage" messageSort="reply" sendEvent="send_099" receiveEvent="recv_100"/>
+      <message xmi:type="uml:Message" xmi:id="msg_101" name="20: save(CONFIRMED goodsReceipt)" messageSort="synchCall" sendEvent="send_102" receiveEvent="recv_103"/>
+      <message xmi:type="uml:Message" xmi:id="msg_108" name="21: save(goodsReceiptItem)" messageSort="synchCall" sendEvent="send_109" receiveEvent="recv_110"/>
+      <message xmi:type="uml:Message" xmi:id="msg_111" name="22: findByVariantIdAndWarehouseCodeForUpdate(...)" messageSort="synchCall" sendEvent="send_112" receiveEvent="recv_113"/>
+      <message xmi:type="uml:Message" xmi:id="msg_114" name="23: Inventory" messageSort="reply" sendEvent="send_115" receiveEvent="recv_116"/>
+      <message xmi:type="uml:Message" xmi:id="msg_117" name="24: save(increasedInventory)" messageSort="synchCall" sendEvent="send_118" receiveEvent="recv_119"/>
+      <message xmi:type="uml:Message" xmi:id="msg_120" name="25: save(GOODS_RECEIPT stockMovement)" messageSort="synchCall" sendEvent="send_121" receiveEvent="recv_122"/>
+      <message xmi:type="uml:Message" xmi:id="msg_123" name="26: applyGoodsReceipt(purchaseOrderId, receivedByPoItem)" messageSort="synchCall" sendEvent="send_124" receiveEvent="recv_125"/>
+      <message xmi:type="uml:Message" xmi:id="msg_126" name="27: PARTIALLY_RECEIVED or COMPLETED" messageSort="reply" sendEvent="send_127" receiveEvent="recv_128"/>
+      <message xmi:type="uml:Message" xmi:id="msg_129" name="28: GoodsReceiptResponse" messageSort="reply" sendEvent="send_130" receiveEvent="recv_131"/>
+      <message xmi:type="uml:Message" xmi:id="msg_132" name='29: HTTP 201 ApiResponse&lt;GoodsReceiptResponse&gt;, code="SUCCESS"' messageSort="reply" sendEvent="send_133" receiveEvent="recv_134"/>
+      <message xmi:type="uml:Message" xmi:id="msg_135" name='30: Display "Goods receipt created and confirmed successfully"' messageSort="reply" sendEvent="send_136" receiveEvent="recv_137"/>
+    </packagedElement>
+  </uml:Model>
+</xmi:XMI>

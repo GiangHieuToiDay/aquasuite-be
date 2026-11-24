@@ -40,7 +40,7 @@ import java.util.regex.Pattern;
 public class RolePermissionServiceImpl implements RolePermissionService {
 
     public static final List<String> CANONICAL_ROLES_ORDER = List.of(
-            "SHOP_OWNER", "SALES_STAFF", "ACCOUNTANT", "TECHNICAL_STAFF", "SHIPPER", "CUSTOMER"
+            "SHOP_OWNER", "SALES_STAFF", "ACCOUNTANT", "SHIPPER", "CUSTOMER"
     );
 
     private static final Set<String> CANONICAL_ROLES_SET = Set.copyOf(CANONICAL_ROLES_ORDER);

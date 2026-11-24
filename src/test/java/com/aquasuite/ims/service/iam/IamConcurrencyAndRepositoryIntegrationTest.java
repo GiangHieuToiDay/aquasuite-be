@@ -130,7 +130,7 @@ class IamConcurrencyAndRepositoryIntegrationTest extends PostgreSqlIntegrationTe
         Permission p = new Permission(UUID.randomUUID(), "WAREHOUSE_READ", "Read warehouse");
         permissionRepository.saveAndFlush(p);
 
-        Role role = roleRepository.findByRoleNameIgnoreCase("TECHNICAL_STAFF").orElseThrow();
+        Role role = roleRepository.findByRoleNameIgnoreCase("SHIPPER").orElseThrow();
 
         int threads = 4;
         ExecutorService executor = Executors.newFixedThreadPool(threads);

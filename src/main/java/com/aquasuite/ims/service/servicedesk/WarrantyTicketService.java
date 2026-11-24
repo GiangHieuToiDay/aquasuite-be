@@ -2,7 +2,7 @@ package com.aquasuite.ims.service.servicedesk;
 
 import com.aquasuite.ims.dto.servicedesk.request.CancelWarrantyTicketRequest;
 import com.aquasuite.ims.dto.servicedesk.request.CreateWarrantyTicketRequest;
-import com.aquasuite.ims.dto.servicedesk.request.DispatchWarrantyTicketRequest;
+import com.aquasuite.ims.dto.servicedesk.request.CompleteWarrantyTicketRequest;
 import com.aquasuite.ims.dto.servicedesk.request.RejectWarrantyTicketRequest;
 import com.aquasuite.ims.dto.servicedesk.request.WarrantyTicketFilterRequest;
 import com.aquasuite.ims.dto.servicedesk.response.ClaimFormResponse;
@@ -37,14 +37,17 @@ public interface WarrantyTicketService {
     /** Chi tiết một yêu cầu bảo hành theo id (phạm vi nội bộ, không giới hạn theo customer). */
     WarrantyTicketDetailResponse getById(UUID ticketId);
 
-    /**
-     * Chủ cửa hàng "bắn job" sửa chữa bảo hành: tạo công việc kỹ thuật WARRANTY_REPAIR gán kỹ thuật viên,
-     * liên kết với ticket và chuyển ticket NEW → IN_PROGRESS.
-     */
-    WarrantyTicketDetailResponse dispatch(UUID ticketId, DispatchWarrantyTicketRequest request);
+    /** Chủ cửa hàng tiếp nhận xử lý yêu cầu bảo hành: NEW → IN_PROGRESS. */
+    WarrantyTicketDetailResponse startProcessing(UUID ticketId);
 
     /**
-     * Chủ cửa hàng từ chối yêu cầu bảo hành tại bàn (chỉ khi NEW), kèm lý do. Không cử kỹ thuật viên.
+     * Chủ cửa hàng hoàn tất yêu cầu bảo hành: IN_PROGRESS → DONE, bắt buộc ghi kết quả
+     * (đã sửa miễn phí / có phí, hoặc không bảo hành vì ... khi phát hiện trong lúc xử lý).
+     */
+    WarrantyTicketDetailResponse complete(UUID ticketId, CompleteWarrantyTicketRequest request);
+
+    /**
+     * Chủ cửa hàng từ chối yêu cầu bảo hành tại bàn (chỉ khi NEW), kèm lý do.
      */
     WarrantyTicketDetailResponse reject(UUID ticketId, RejectWarrantyTicketRequest request);
 }

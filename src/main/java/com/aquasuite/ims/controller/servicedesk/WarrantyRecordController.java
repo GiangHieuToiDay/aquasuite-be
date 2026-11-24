@@ -34,7 +34,7 @@ public class WarrantyRecordController {
     // ── Staff & Shop Owner endpoints ─────────────────────────────────────────
 
     @GetMapping("/api/v1/warranty-records")
-    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'SALES_STAFF', 'TECHNICAL_STAFF')")
+    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'SALES_STAFF')")
     public ResponseEntity<ApiResponse<PageResponse<WarrantyRecordListItemResponse>>> searchRecords(
             WarrantyRecordFilterRequest filter
     ) {
@@ -42,13 +42,13 @@ public class WarrantyRecordController {
     }
 
     @GetMapping("/api/v1/warranty-records/policies")
-    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'SALES_STAFF', 'TECHNICAL_STAFF')")
+    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'SALES_STAFF')")
     public ResponseEntity<ApiResponse<List<WarrantyPolicySummaryResponse>>> getActivePolicies() {
         return ResponseEntity.ok(ApiResponse.ok(warrantyRecordService.getActivePolicies()));
     }
 
     @GetMapping("/api/v1/warranty-records/variants/{variantId}/policy")
-    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'SALES_STAFF', 'TECHNICAL_STAFF')")
+    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'SALES_STAFF')")
     public ResponseEntity<ApiResponse<CatalogWarrantyPolicyDto>> getVariantWarrantyInfo(
             @PathVariable UUID variantId
     ) {
@@ -56,7 +56,7 @@ public class WarrantyRecordController {
     }
 
     @GetMapping("/api/v1/warranty-records/{id}")
-    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'SALES_STAFF', 'TECHNICAL_STAFF')")
+    @PreAuthorize("hasAnyRole('SHOP_OWNER', 'SALES_STAFF')")
     public ResponseEntity<ApiResponse<WarrantyRecordDetailResponse>> getRecordDetail(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(warrantyRecordService.getRecordDetail(id)));
     }

@@ -5,7 +5,6 @@ import com.aquasuite.ims.service.finance.CreditControlService;
 import com.aquasuite.ims.dto.finance.command.CreditAuthorizationCommand;
 import com.aquasuite.ims.dto.finance.response.CreditAuthorizationDecision;
 import com.aquasuite.ims.service.inventory.InventoryService;
-import com.aquasuite.ims.event.sales.OrderConfirmedEvent;
 import com.aquasuite.ims.entity.sales.Order;
 import com.aquasuite.ims.entity.sales.OrderItem;
 import com.aquasuite.ims.enums.sales.OrderChannel;
@@ -82,15 +81,6 @@ public class OrderCreditApprovalEventListener {
                         log.info("Order {} transitioned from DRAFT to PROCESSING upon Shop Owner credit approval (requestId={})",
                                 order.getOrderCode(), event.requestId());
 
-                        // Đơn dự án vừa được xác nhận (PROCESSING) -> phát sự kiện để Servicedesk sinh công việc lắp đặt (FE-13).
-                        eventPublisher.publishEvent(new OrderConfirmedEvent(
-                                order.getOrderId(),
-                                order.getOrderCode(),
-                                order.getCustomerId(),
-                                order.getOrderType(),
-                                order.getSalesStaffId(),
-                                order.getDeliveryAddress(),
-                                order.getProjectName()));
                     } else {
                         order.setOrderStatus(OrderStatus.DRAFT.name());
                         order.setUpdatedAt(OffsetDateTime.now());

@@ -1,0 +1,39 @@
+# Look up and Manage Inventory Information (UC-31)
+
+> Use Case Specification in the SRS v1.4 table format. Behaviour is checked against the running code
+> (`InventoryController`, `InventoryServiceImpl`, `LowStockAlertListener`, `InventoryThresholdAuditListener`).
+> Sequence diagrams:
+> - Look up inventory (Normal Flow, A1, A2, E1, E2): `docs/diagrams/UC31_Look_Up_Inventory_Sequence.puml`;
+>   Visual Paradigm `D:\DO_AN\Diagram\UC31_Look_Up_Inventory.vpp` / `.svg`.
+> - Configure safety threshold (A3, E1, E3, E4, E5): `docs/diagrams/UC31_Configure_Safety_Threshold_Sequence.puml`;
+>   Visual Paradigm `D:\DO_AN\Diagram\UC31_Configure_Safety_Threshold.vpp` / `.svg`.
+
+|  |  |
+| :-: | :-- |
+| Created By | Pham Van Nam |
+| Created Date | 23/11/2026 |
+| Primary Actors | Shop Owner, Accountant |
+| Secondary Actors | None |
+| Description | Lets the Shop Owner and the Accountant look up real-time stock of every SKU in the main warehouse (on-hand, reserved and available quantity, minimum and maximum stock level, stock status), review low-stock items and inspect the stock movement history of a SKU. The Shop Owner can also configure the safety stock thresholds (minimum and maximum quantity) that drive low-stock alerts and purchase suggestions. The use case never changes physical stock. |
+| Preconditions | 1. The user is authenticated with the Shop Owner or Accountant role.<br>2. The SKUs exist in the product catalog and have an inventory record in the main warehouse (WH_MAIN).<br>3. To configure safety thresholds, the user has the Shop Owner role. |
+| Normal Flow | 1. The user opens the Inventory Management page.<br>2. The system displays a paged inventory list (20 rows per page, most recently updated first). Each row shows SKU code, product name, unit, on-hand quantity, reserved quantity, available quantity (on-hand − reserved), minimum quantity, maximum quantity and stock status (In stock, Low stock, Out of stock).<br>3. The user searches by keyword (SKU code, product name or variant name) and/or filters by stock status and/or selects "Low stock only".<br>4. The system finds the SKUs matching the keyword in the product catalog, returns the matching inventory records with the selected filters applied, and recalculates available quantity and stock status for each row.<br>5. The user selects a SKU to view its details.<br>6. The system displays the stock summary of the SKU and its stock movement history, newest first and paged, with movement type, quantity, balance after the movement, reference document, note, responsible user and time. |
+| Alternative Flows | **A1. Step 2 – View low-stock items**: The user opens the "Low stock" view. The system lists only the SKUs whose minimum quantity is greater than 0 and whose available quantity is less than or equal to the minimum quantity.<br>**A2. Step 4 – No matching result**: No SKU matches the keyword or filters. The system displays an empty list.<br>**A3. Step 6 – Configure safety stock thresholds (Shop Owner only)**:<br>1. The Shop Owner chooses "Configure threshold" for the SKU and enters the minimum quantity (required) and the maximum quantity (optional).<br>2. The system validates the values, locks the inventory record of the SKU, saves the new minimum and maximum quantity and records an audit entry with the responsible user and the old and new values.<br>3. The system displays MSG69: "Inventory safety threshold updated successfully." and refreshes the stock summary.<br>4. After the change is saved, if the SKU is low stock under the new thresholds, the system records a low-stock alert for staff review. It does not create a purchase order or choose a purchase quantity.<br>**A4. Step 6 – View reservations**: The user follows the link to the reserved quantities of the SKU, handled by UC-36 Manage Stock Reservations. |
+| Exception Flow | **E1. Not signed in or access denied**: The user is not signed in or the session has expired: the system rejects the request (AUTH_001, HTTP 401). A user without the Shop Owner or Accountant role opens the inventory functions, or an Accountant attempts to configure thresholds: the system rejects the request with an access-denied error (AUTH_002, HTTP 403).<br>**E2. Inventory record not found** (Step 6, A3): The selected SKU has no inventory record: the system displays an inventory-not-found error (INV_001, HTTP 404) and nothing is changed. The SKU identifier is malformed: the system displays an invalid-parameter error (SYS_002, HTTP 400).<br>**E3. Invalid threshold** (A3): The request data is checked before the role permission. The minimum quantity is missing, negative or has more than 2 decimal places, or the maximum quantity is negative or has more than 2 decimal places: the system displays a validation error (SYS_003, HTTP 400). The maximum quantity is lower than the minimum quantity: the system displays an invalid-threshold error (INV_018, HTTP 400). The thresholds are not changed.<br>**E4. Concurrent threshold update** (A3): Two users update the same SKU at the same time. The record is locked during the update, so the changes are applied one after the other; the later change is kept and each change has its own audit entry.<br>**E5. Audit or alert recording fails** (A3): The audit entry and the low-stock alert are recorded after the threshold change is committed. If recording fails, the new thresholds are kept and the failure is written to the system log for follow-up. |
+| Postconditions | 1. Looking up inventory does not change any stock, reservation or threshold data.<br>2. After A3 succeeds, the new minimum and maximum quantity are stored, an audit entry with the responsible user and the old and new values is recorded (see E5), and stock status, the low-stock list and purchase suggestions (UC-34) use the new values.<br>3. If A3 fails, the thresholds remain unchanged. |
+| Business Rules | **GB-23**: Inventory is tracked per SKU using physical stock, reserved quantity, available quantity, minimum stock level and stock movement history.<br>**GB-25**: Inventory changes must arise from confirmed goods receipts, confirmed stock-out activities, applicable returns/cancellations or approved stock adjustments; UC-31 itself never changes physical stock.<br>**GB-27**: Low stock generates a notification or restock request for staff review; the system must not automatically choose purchase quantities or send supplier purchase orders.<br>**BR-31.1**: Available quantity = on-hand quantity − reserved quantity.<br>**BR-31.2**: A SKU is low stock when its minimum quantity is greater than 0 and its available quantity is less than or equal to the minimum quantity. A minimum quantity of 0 means the SKU is not monitored.<br>**BR-31.3**: Stock status is Out of stock when available quantity ≤ 0, Low stock when BR-31.2 holds, otherwise In stock.<br>**BR-31.4**: Minimum quantity ≥ 0; maximum quantity is optional and, when given, must be ≥ minimum quantity; both have at most 2 decimal places. |
+
+## Messages
+
+| No | Code | Type | Context | Content |
+|---|---|---|---|---|
+| 69 | MSG69 | Success | UC-31 – Alternative Flows (A3) | Inventory safety threshold updated successfully. |
+
+## Implementation reference
+
+| Step | Endpoint | Role | Service operation |
+|---|---|---|---|
+| Normal 2–4 | `GET /api/v1/inventory?keyword&status&lowStockOnly&page&size` | SHOP_OWNER, ACCOUNTANT | `searchInventory(...)` |
+| A1 | `GET /api/v1/inventory/low-stock` | SHOP_OWNER, ACCOUNTANT | `getLowStockItems(pageable)` |
+| Normal 6 | `GET /api/v1/inventory/{variantId}` | SHOP_OWNER, ACCOUNTANT | `getInventoryByVariantId(variantId)` |
+| Normal 6 | `GET /api/v1/inventory/{variantId}/movements` | SHOP_OWNER, ACCOUNTANT | `getMovementsByVariantId(variantId, pageable)` |
+| A3 | `PATCH /api/v1/inventory/{variantId}/threshold` | SHOP_OWNER | `updateThreshold(...)` → `InventoryThresholdChangedEvent` (audit), `LowStockAlertEvent` |

@@ -778,21 +778,6 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                         salesInvoiceRepository,
                         salesInvoiceItemRepository);
 
-        // Đơn dự án đã xác nhận ngay (PROCESSING) -> phát sự kiện để Servicedesk tự
-        // sinh công việc lắp đặt (FE-13).
-        // Trường hợp đơn còn chờ duyệt hạn mức (DRAFT) sẽ phát sự kiện sau, tại
-        // OrderCreditApprovalEventListener.
-        if (OrderStatus.PROCESSING.name().equals(savedOrder.getOrderStatus())) {
-            eventPublisher.publishEvent(new com.aquasuite.ims.event.sales.OrderConfirmedEvent(
-                    savedOrder.getOrderId(),
-                    savedOrder.getOrderCode(),
-                    savedOrder.getCustomerId(),
-                    savedOrder.getOrderType(),
-                    savedOrder.getSalesStaffId(),
-                    savedOrder.getDeliveryAddress(),
-                    savedOrder.getProjectName()));
-        }
-
         // 10.1. Snapshot các đợt thanh toán (milestones) từ Báo giá sang Đơn hàng
         List<QuotationPaymentMilestone> quotationMilestones = quotationPaymentMilestoneRepository != null
                 ? quotationPaymentMilestoneRepository.findByQuotationIdOrderBySortOrderAsc(quotationId)

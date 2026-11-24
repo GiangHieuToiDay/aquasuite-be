@@ -67,7 +67,7 @@ class DevelopmentDataInitializerRollbackIntegrationTest extends PostgreSqlIntegr
         userRepository.save(conflictUser);
 
         assertThat(userRepository.count()).isEqualTo(1);
-        assertThat(roleRepository.count()).isEqualTo(6);
+        assertThat(roleRepository.count()).isEqualTo(5);
 
         // 2. Setup initializer with dev environment emulated
         MockEnvironment mockEnv = new MockEnvironment();
@@ -90,7 +90,7 @@ class DevelopmentDataInitializerRollbackIntegrationTest extends PostgreSqlIntegr
                 .hasMessageContaining("non-ACTIVE status");
 
         // 4. Verify transaction rollback: canonical roles preserved from V2, no uncommitted roles or owner created
-        assertThat(roleRepository.count()).isEqualTo(6);
+        assertThat(roleRepository.count()).isEqualTo(5);
         assertThat(roleRepository.findByRoleNameIgnoreCase("SHOP_OWNER")).isPresent();
 
         // Conflict user remains unchanged

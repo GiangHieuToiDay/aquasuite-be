@@ -93,6 +93,13 @@ public class TechnicalJob {
     @Column(name = "completed_at")
     private OffsetDateTime completedAt;
 
+    /** Lý do hủy (Chủ cửa hàng nhập, hoặc "Đơn hàng ... đã hủy" khi hệ thống tự hủy). */
+    @Column(name = "cancellation_reason", columnDefinition = "TEXT")
+    private String cancellationReason;
+
+    @Column(name = "cancelled_at")
+    private OffsetDateTime cancelledAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 

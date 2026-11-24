@@ -305,7 +305,6 @@ class DevelopmentDataInitializerTest {
                             "SHOP_OWNER",
                             "SALES_STAFF",
                             "ACCOUNTANT",
-                            "TECHNICAL_STAFF",
                             "SHIPPER",
                             "CUSTOMER");
 

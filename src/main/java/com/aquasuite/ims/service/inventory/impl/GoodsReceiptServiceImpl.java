@@ -20,6 +20,7 @@ import com.aquasuite.ims.service.purchasing.PurchaseOrderService;
 import com.aquasuite.ims.dto.purchasing.response.ReceivableItemView;
 import com.aquasuite.ims.dto.purchasing.response.ReceivablePurchaseOrderView;
 import com.aquasuite.ims.exception.AppException;
+import com.aquasuite.ims.exception.CommonErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -28,17 +29,23 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -46,8 +53,8 @@ import java.util.concurrent.ThreadLocalRandom;
 /**
  * Triển khai nghiệp vụ nhập kho theo đơn mua hàng (UC-32) theo Hướng B đã chốt.
  *
- * <p>Ranh giới module: service này chỉ đọc đơn mua hàng và cập nhật tiến độ nhận qua public
- * contract {@link PurchaseOrderService}, không truy cập entity internal của Purchasing. Toàn bộ thao tác
+ * <p>Ranh giới module: service này chỉ khóa/đọc đơn mua hàng và cập nhật tiến độ nhận qua public
+ * contract {@link PurchaseOrderService} + DTO {@code dto.purchasing}, không truy cập entity/repository của Purchasing. Toàn bộ thao tác
  * (ghi phiếu, cộng tồn, ghi thẻ kho, cập nhật tiến độ PO) chạy trong một transaction duy nhất.</p>
  */
 @Slf4j
@@ -64,23 +71,45 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
 
     private static final String RECEIPT_STATUS_CONFIRMED = "CONFIRMED";
     private static final String REFERENCE_TYPE_GOODS_RECEIPT = "GOODS_RECEIPT";
+    private static final String IDEMPOTENCY_LOCK_PREFIX = "goods-receipt-key:";
 
     /**
      * Lập và xác nhận phiếu nhập kho trong một hành động atomic (Hướng B).
      *
-     * <p>Trình tự: (1) đọc snapshot PO và kiểm tra điều kiện nhận; (2) duyệt từng dòng theo
-     * {@link #validateLines}; (3) ghi phiếu CONFIRMED; (4) cộng tồn + ghi thẻ kho dưới khóa dòng
-     * tồn; (5) gọi {@link PurchaseOrderService#onGoodsReceiptConfirmed} làm chốt chặn giao dịch cuối cùng.
-     * Bất kỳ bước nào ném lỗi đều cuộn ngược toàn bộ nên không để lại cập nhật dở dang.</p>
+     * <p>Thứ tự khóa cố định (tránh deadlock): khóa advisory theo idempotency key → dòng PO
+     * (FOR UPDATE, qua public contract Purchasing) → các dòng tồn theo thứ tự variantId.</p>
+     *
+     * <p>Trình tự: (0) khóa key, nếu key đã có phiếu thì trả lại phiếu cũ (cùng payload) hoặc từ chối
+     * {@code INV_019} (khác payload); (1) khóa PO và đọc số còn lại mới nhất; (2) duyệt dòng theo
+     * {@link #validateLines}; (3) ghi phiếu CONFIRMED; (4) cộng tồn + ghi thẻ kho; (5) cập nhật tiến độ
+     * PO qua {@link PurchaseOrderService#applyGoodsReceipt}. Mọi lỗi ở bất kỳ bước nào cuộn ngược toàn bộ.</p>
      */
     @Override
     @Transactional
     public GoodsReceiptResponse createAndConfirm(CreateGoodsReceiptRequest request, UUID actorUserId) {
         UUID actorId = actorUserId != null ? actorUserId : iamApi.getCurrentUserId();
         UUID purchaseOrderId = request.purchaseOrderId();
+        UUID idempotencyKey = request.idempotencyKey();
+        if (idempotencyKey == null) {
+            throw new AppException(CommonErrorCode.VALIDATION_ERROR);
+        }
+        String requestHash = requestHash(request);
 
-        // 1. Đọc snapshot đơn mua hàng qua public contract của Purchasing.
-        ReceivablePurchaseOrderView po = purchasingApi.getReceivablePurchaseOrder(purchaseOrderId)
+        // 0. Chống ghi trùng: tuần tự hóa theo key rồi kiểm tra phiếu đã ghi với key này.
+        goodsReceiptRepository.lockIdempotencyKey(IDEMPOTENCY_LOCK_PREFIX + idempotencyKey);
+        Optional<GoodsReceipt> prior = goodsReceiptRepository.findByIdempotencyKey(idempotencyKey);
+        if (prior.isPresent()) {
+            GoodsReceipt existing = prior.get();
+            if (!requestHash.equals(existing.getRequestHash())) {
+                throw new AppException(InventoryErrorCode.GOODS_RECEIPT_IDEMPOTENCY_CONFLICT, idempotencyKey);
+            }
+            log.info("Replay goods receipt {} for idempotency key {}", existing.getReceiptCode(), idempotencyKey);
+            return mapToResponse(existing, mapItems(existing.getGoodsReceiptId()));
+        }
+
+        // 1. Khóa PO và đọc snapshot mới nhất qua public contract của Purchasing. Khóa giữ đến commit,
+        //    nên số còn lại dưới đây không thể bị phiếu khác, hủy hoặc đóng PO thay đổi chen giữa.
+        ReceivablePurchaseOrderView po = purchasingApi.lockReceivablePurchaseOrder(purchaseOrderId)
                 .orElseThrow(() -> new AppException(InventoryErrorCode.GOODS_RECEIPT_PO_NOT_FOUND, purchaseOrderId));
 
         if (!po.receivable()) {
@@ -94,6 +123,8 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
         // 3. Ghi phiếu nhập ở trạng thái CONFIRMED (Hướng B: tạo = xác nhận).
         OffsetDateTime now = OffsetDateTime.now();
         GoodsReceipt receipt = GoodsReceipt.builder()
+                .idempotencyKey(idempotencyKey)
+                .requestHash(requestHash)
                 .receiptCode(generateReceiptCode())
                 .purchaseOrderId(purchaseOrderId)
                 .status(RECEIPT_STATUS_CONFIRMED)
@@ -112,7 +143,7 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
         //    Khóa dòng tồn theo thứ tự variantId cố định để tránh deadlock khi nhiều phiếu chạy song song.
         List<GoodsReceiptItemResponse> itemResponses = new ArrayList<>(lines.size());
         BigDecimal receiptTotal = BigDecimal.ZERO;
-        Map<UUID, BigDecimal> receivedByVariant = new LinkedHashMap<>();
+        Map<UUID, BigDecimal> receivedByPoItem = new LinkedHashMap<>();
 
         for (CreateGoodsReceiptItemRequest line : lines) {
             ReceivableItemView poItem = poItemById.get(line.purchaseOrderItemId());
@@ -133,7 +164,7 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
             item = goodsReceiptItemRepository.save(item);
 
             applyStockIncrease(poItem.variantId(), po.warehouseCode(), qty, receipt.getReceiptCode(), actorId);
-            receivedByVariant.merge(poItem.variantId(), qty, BigDecimal::add);
+            receivedByPoItem.put(poItem.purchaseOrderItemId(), qty);
 
             itemResponses.add(GoodsReceiptItemResponse.builder()
                     .goodsReceiptItemId(item.getGoodsReceiptItemId())
@@ -149,10 +180,12 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
         receipt.setTotalAmount(receiptTotal);
         receipt = goodsReceiptRepository.save(receipt);
 
-        // 5. Cập nhật tiến độ nhận của đơn mua hàng — chốt chặn giao dịch cuối (chống nhận vượt + @Version).
-        purchasingApi.onGoodsReceiptConfirmed(purchaseOrderId, receivedByVariant);
+        // 5. Cập nhật tiến độ nhận + trạng thái PO dưới cùng khóa. Ném lỗi (không bỏ qua) nếu PO không
+        //    còn nhận được hoặc vượt số còn lại, khiến phiếu/tồn/thẻ kho ở trên cuộn ngược cùng.
+        String poStatus = purchasingApi.applyGoodsReceipt(purchaseOrderId, receivedByPoItem);
 
-        log.info("Confirmed goods receipt {} for PO {} by user {}", receipt.getReceiptCode(), purchaseOrderId, actorId);
+        log.info("Confirmed goods receipt {} for PO {} (PO now {}) by user {}",
+                receipt.getReceiptCode(), purchaseOrderId, poStatus, actorId);
         return mapToResponse(receipt, itemResponses);
     }
 
@@ -247,19 +280,11 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
      */
     private void applyStockIncrease(UUID variantId, String warehouseCode, BigDecimal qty,
                                     String receiptCode, UUID actorId) {
+        // Tạo dòng tồn rỗng nếu chưa có (ON CONFLICT DO NOTHING) rồi khóa: hai phiếu khác PO cùng
+        // nhập lần đầu một SKU không tạo trùng và không làm mất cập nhật của nhau.
+        inventoryRepository.insertEmptyIfAbsent(UUID.randomUUID(), variantId, warehouseCode);
         Inventory inv = inventoryRepository.findByVariantIdAndWarehouseCodeForUpdate(variantId, warehouseCode)
-                .orElse(null);
-
-        if (inv == null) {
-            inv = Inventory.builder()
-                    .inventoryId(UUID.randomUUID())
-                    .variantId(variantId)
-                    .warehouseCode(warehouseCode)
-                    .onHandQty(BigDecimal.ZERO)
-                    .reservedQty(BigDecimal.ZERO)
-                    .minimumQty(BigDecimal.ZERO)
-                    .build();
-        }
+                .orElseThrow(() -> new AppException(InventoryErrorCode.INVENTORY_NOT_FOUND, variantId));
 
         BigDecimal newOnHand = (inv.getOnHandQty() != null ? inv.getOnHandQty() : BigDecimal.ZERO).add(qty);
         inv.setOnHandQty(newOnHand);
@@ -313,6 +338,44 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
                 .createdAt(receipt.getCreatedAt())
                 .items(items)
                 .build();
+    }
+
+    /**
+     * Băm SHA-256 payload đã chuẩn hóa: thứ tự dòng không quan trọng, số lượng so theo giá trị
+     * (7 == 7.00). Mỗi trường được ghi kèm độ dài để không nhập nhằng giữa các trường.
+     */
+    private static String requestHash(CreateGoodsReceiptRequest request) {
+        StringBuilder sb = new StringBuilder("goods-receipt:v1");
+        appendField(sb, request.purchaseOrderId() == null ? null : request.purchaseOrderId().toString());
+        appendField(sb, request.supplierInvoiceNo());
+        appendField(sb, request.invoiceImageUrl());
+        appendField(sb, request.note());
+        List<String> lines = new ArrayList<>();
+        if (request.items() != null) {
+            for (CreateGoodsReceiptItemRequest item : request.items()) {
+                String id = item == null || item.purchaseOrderItemId() == null ? "-" : item.purchaseOrderItemId().toString();
+                String qty = item == null || item.quantity() == null ? "-" : item.quantity().stripTrailingZeros().toPlainString();
+                lines.add(id + "=" + qty);
+            }
+        }
+        Collections.sort(lines);
+        for (String line : lines) {
+            appendField(sb, line);
+        }
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(sb.toString().getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 not available", e);
+        }
+    }
+
+    private static void appendField(StringBuilder sb, String value) {
+        if (value == null) {
+            sb.append("|n");
+        } else {
+            sb.append('|').append(value.length()).append(':').append(value);
+        }
     }
 
     /** Sinh mã phiếu nhập kho dạng GRN + dấu thời gian UTC + số ngẫu nhiên, tương tự các phiếu khác. */

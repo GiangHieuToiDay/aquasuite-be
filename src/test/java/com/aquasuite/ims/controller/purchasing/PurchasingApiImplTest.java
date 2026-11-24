@@ -8,6 +8,7 @@ import com.aquasuite.ims.repository.purchasing.PurchaseOrderRepository;
 import com.aquasuite.ims.service.purchasing.PurchaseOrderService;
 import com.aquasuite.ims.service.purchasing.impl.PurchaseOrderServiceImpl;
 import com.aquasuite.ims.exception.AppException;
+import com.aquasuite.ims.exception.purchasing.PurchasingErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -60,95 +61,122 @@ class PurchaseOrderReceiptConfirmationTest {
         assertEquals(new BigDecimal("13"), incoming);
     }
 
+    private PurchaseOrder po(UUID poId, PurchaseOrderStatus status, PurchaseOrderItem... items) {
+        PurchaseOrder po = PurchaseOrder.builder().purchaseOrderId(poId).poCode("PO-001").status(status).build();
+        for (PurchaseOrderItem item : items) po.addItem(item);
+        return po;
+    }
+
+    private PurchaseOrderItem item(UUID itemId, String ordered, String received) {
+        return PurchaseOrderItem.builder()
+                .purchaseOrderItemId(itemId)
+                .variantId(UUID.randomUUID())
+                .sku("SKU-" + itemId.toString().substring(0, 4))
+                .quantityOrdered(new BigDecimal(ordered))
+                .quantityReceived(new BigDecimal(received))
+                .build();
+    }
+
     @Test
-    @DisplayName("onGoodsReceiptConfirmed - Update received quantity and set PARTIALLY_RECEIVED")
-    void testOnGoodsReceiptConfirmed_PartiallyReceived() {
+    @DisplayName("applyGoodsReceipt - cộng đúng dòng PO theo purchaseOrderItemId, PO -> PARTIALLY_RECEIVED")
+    void applyGoodsReceipt_partiallyReceived() {
         UUID poId = UUID.randomUUID();
-        UUID vId1 = UUID.randomUUID();
-        UUID vId2 = UUID.randomUUID();
+        UUID itemId1 = UUID.randomUUID();
+        UUID itemId2 = UUID.randomUUID();
+        PurchaseOrderItem item1 = item(itemId1, "10", "0");
+        PurchaseOrderItem item2 = item(itemId2, "20", "0");
+        PurchaseOrder po = po(poId, PurchaseOrderStatus.CONFIRMED, item1, item2);
+        when(purchaseOrderRepository.findByIdForUpdate(poId)).thenReturn(Optional.of(po));
 
-        PurchaseOrder po = PurchaseOrder.builder()
-                .purchaseOrderId(poId)
-                .poCode("PO-001")
-                .status(PurchaseOrderStatus.CONFIRMED)
-                .build();
+        String status = purchasingApi.applyGoodsReceipt(poId, Map.of(itemId1, new BigDecimal("5")));
 
-        PurchaseOrderItem item1 = PurchaseOrderItem.builder()
-                .variantId(vId1)
-                .quantityOrdered(new BigDecimal("10"))
-                .quantityReceived(BigDecimal.ZERO)
-                .build();
-        PurchaseOrderItem item2 = PurchaseOrderItem.builder()
-                .variantId(vId2)
-                .quantityOrdered(new BigDecimal("20"))
-                .quantityReceived(BigDecimal.ZERO)
-                .build();
-        po.addItem(item1);
-        po.addItem(item2);
-
-        when(purchaseOrderRepository.findById(poId)).thenReturn(Optional.of(po));
-
-        purchasingApi.onGoodsReceiptConfirmed(poId, Map.of(vId1, new BigDecimal("5")));
-
+        assertEquals("PARTIALLY_RECEIVED", status);
         assertEquals(PurchaseOrderStatus.PARTIALLY_RECEIVED, po.getStatus());
-        assertEquals(new BigDecimal("5"), item1.getQuantityReceived());
-        assertEquals(BigDecimal.ZERO, item2.getQuantityReceived());
+        assertEquals(0, item1.getQuantityReceived().compareTo(new BigDecimal("5")));
+        assertEquals(0, item2.getQuantityReceived().compareTo(BigDecimal.ZERO));
         verify(purchaseOrderRepository).save(po);
+        verify(purchaseOrderRepository, never()).findById(any());
     }
 
     @Test
-    @DisplayName("onGoodsReceiptConfirmed - Update received quantity and set COMPLETED when all items full")
-    void testOnGoodsReceiptConfirmed_Completed() {
+    @DisplayName("applyGoodsReceipt - phiếu thứ hai nhận nốt mọi dòng thì PO -> COMPLETED")
+    void applyGoodsReceipt_completedAcrossReceipts() {
         UUID poId = UUID.randomUUID();
-        UUID vId1 = UUID.randomUUID();
+        UUID itemId1 = UUID.randomUUID();
+        UUID itemId2 = UUID.randomUUID();
+        PurchaseOrderItem item1 = item(itemId1, "10", "7");
+        PurchaseOrderItem item2 = item(itemId2, "4", "4");
+        PurchaseOrder po = po(poId, PurchaseOrderStatus.PARTIALLY_RECEIVED, item1, item2);
+        when(purchaseOrderRepository.findByIdForUpdate(poId)).thenReturn(Optional.of(po));
 
-        PurchaseOrder po = PurchaseOrder.builder()
-                .purchaseOrderId(poId)
-                .poCode("PO-001")
-                .status(PurchaseOrderStatus.CONFIRMED)
-                .build();
+        String status = purchasingApi.applyGoodsReceipt(poId, Map.of(itemId1, new BigDecimal("3")));
 
-        PurchaseOrderItem item1 = PurchaseOrderItem.builder()
-                .variantId(vId1)
-                .quantityOrdered(new BigDecimal("10"))
-                .quantityReceived(BigDecimal.ZERO)
-                .build();
-        po.addItem(item1);
-
-        when(purchaseOrderRepository.findById(poId)).thenReturn(Optional.of(po));
-
-        purchasingApi.onGoodsReceiptConfirmed(poId, Map.of(vId1, new BigDecimal("10")));
-
-        assertEquals(PurchaseOrderStatus.COMPLETED, po.getStatus());
-        assertEquals(new BigDecimal("10"), item1.getQuantityReceived());
-        verify(purchaseOrderRepository).save(po);
+        assertEquals("COMPLETED", status);
+        assertEquals(0, item1.getQuantityReceived().compareTo(BigDecimal.TEN));
     }
 
     @Test
-    @DisplayName("onGoodsReceiptConfirmed - Reject when received exceeds remaining and roll back")
-    void testOnGoodsReceiptConfirmed_ExceedsRemaining() {
+    @DisplayName("applyGoodsReceipt - vượt số còn lại thì ném lỗi, không lưu PO")
+    void applyGoodsReceipt_exceedsRemaining() {
         UUID poId = UUID.randomUUID();
-        UUID vId1 = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        PurchaseOrder po = po(poId, PurchaseOrderStatus.CONFIRMED, item(itemId, "10", "4"));
+        when(purchaseOrderRepository.findByIdForUpdate(poId)).thenReturn(Optional.of(po));
 
-        PurchaseOrder po = PurchaseOrder.builder()
-                .purchaseOrderId(poId)
-                .poCode("PO-001")
-                .status(PurchaseOrderStatus.CONFIRMED)
-                .build();
-
-        PurchaseOrderItem item1 = PurchaseOrderItem.builder()
-                .variantId(vId1)
-                .sku("SKU-A")
-                .quantityOrdered(new BigDecimal("10"))
-                .quantityReceived(new BigDecimal("4"))
-                .build();
-        po.addItem(item1);
-
-        when(purchaseOrderRepository.findById(poId)).thenReturn(Optional.of(po));
-
-        // Còn lại 6 nhưng nhận 7 -> vượt, phải ném lỗi và không lưu PO.
-        assertThrows(AppException.class,
-                () -> purchasingApi.onGoodsReceiptConfirmed(poId, Map.of(vId1, new BigDecimal("7"))));
+        AppException ex = assertThrows(AppException.class,
+                () -> purchasingApi.applyGoodsReceipt(poId, Map.of(itemId, new BigDecimal("7"))));
+        assertEquals(PurchasingErrorCode.PO_RECEIPT_EXCEEDS_REMAINING, ex.getErrorCode());
         verify(purchaseOrderRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("applyGoodsReceipt - PO đã hủy/đóng: ném PO_021 thay vì bỏ qua im lặng")
+    void applyGoodsReceipt_rejectsNonReceivablePo() {
+        for (PurchaseOrderStatus status : List.of(PurchaseOrderStatus.CANCELLED, PurchaseOrderStatus.COMPLETED,
+                PurchaseOrderStatus.DRAFT)) {
+            UUID poId = UUID.randomUUID();
+            UUID itemId = UUID.randomUUID();
+            PurchaseOrderItem item = item(itemId, "10", "0");
+            PurchaseOrder po = po(poId, status, item);
+            when(purchaseOrderRepository.findByIdForUpdate(poId)).thenReturn(Optional.of(po));
+
+            AppException ex = assertThrows(AppException.class,
+                    () -> purchasingApi.applyGoodsReceipt(poId, Map.of(itemId, BigDecimal.ONE)));
+            assertEquals(PurchasingErrorCode.PO_NOT_RECEIVABLE, ex.getErrorCode());
+            assertEquals(0, item.getQuantityReceived().compareTo(BigDecimal.ZERO));
+        }
+        verify(purchaseOrderRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("applyGoodsReceipt - dòng không thuộc PO hoặc số <= 0 bị từ chối")
+    void applyGoodsReceipt_rejectsForeignOrNonPositiveLine() {
+        UUID poId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        PurchaseOrder po = po(poId, PurchaseOrderStatus.CONFIRMED, item(itemId, "10", "0"));
+        when(purchaseOrderRepository.findByIdForUpdate(poId)).thenReturn(Optional.of(po));
+
+        AppException foreign = assertThrows(AppException.class,
+                () -> purchasingApi.applyGoodsReceipt(poId, Map.of(UUID.randomUUID(), BigDecimal.ONE)));
+        assertEquals(PurchasingErrorCode.PO_RECEIPT_ITEM_NOT_IN_PO, foreign.getErrorCode());
+        AppException zero = assertThrows(AppException.class,
+                () -> purchasingApi.applyGoodsReceipt(poId, Map.of(itemId, BigDecimal.ZERO)));
+        assertEquals(PurchasingErrorCode.PO_RECEIPT_ITEM_NOT_IN_PO, zero.getErrorCode());
+        verify(purchaseOrderRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("lockReceivablePurchaseOrder - đọc qua FOR UPDATE và trả remaining mới nhất")
+    void lockReceivablePurchaseOrder_usesLockingRead() {
+        UUID poId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        PurchaseOrder po = po(poId, PurchaseOrderStatus.PARTIALLY_RECEIVED, item(itemId, "10", "7"));
+        when(purchaseOrderRepository.findByIdForUpdate(poId)).thenReturn(Optional.of(po));
+
+        var view = purchasingApi.lockReceivablePurchaseOrder(poId).orElseThrow();
+
+        assertTrue(view.receivable());
+        assertEquals(0, view.items().get(0).remainingQty().compareTo(new BigDecimal("3")));
+        verify(purchaseOrderRepository, never()).findById(any());
     }
 }

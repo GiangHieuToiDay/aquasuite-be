@@ -183,7 +183,7 @@ public class WarrantyTicket {
 
     /**
      * Chủ cửa hàng từ chối yêu cầu bảo hành tại bàn (chỉ khi NEW) — ví dụ thẻ hết hạn, yêu cầu rác/ngoài phạm vi.
-     * Không cử kỹ thuật viên; kết luận bảo hành/không bảo hành khi đã cử người vẫn thuộc bước hiện trường (DONE).
+     * Nếu chỉ phát hiện không đủ điều kiện khi đang xử lý, Chủ cửa hàng hoàn tất (DONE) và ghi kết quả "Không bảo hành vì ...".
      */
     public void reject(String reason, OffsetDateTime now) {
         if (this.status != WarrantyTicketStatus.NEW) {
@@ -195,30 +195,29 @@ public class WarrantyTicket {
     }
 
     /**
-     * Chủ cửa hàng "bắn job": gắn công việc kỹ thuật WARRANTY_REPAIR và chuyển ticket NEW → IN_PROGRESS.
-     * Chỉ cho phép khi ticket đang chờ tiếp nhận (NEW).
+     * Chủ cửa hàng tiếp nhận xử lý yêu cầu bảo hành: NEW → IN_PROGRESS. Chỉ cho phép khi ticket đang chờ tiếp nhận.
      */
-    public void markInProgress(UUID technicalJobId, OffsetDateTime now) {
+    public void startProcessing(OffsetDateTime now) {
         if (this.status != WarrantyTicketStatus.NEW) {
-            throw new AppException(ServicedeskErrorCode.WARRANTY_TICKET_NOT_DISPATCHABLE, this.status.name());
+            throw new AppException(ServicedeskErrorCode.WARRANTY_TICKET_NOT_STARTABLE, this.status.name());
         }
-        this.technicalJobId = technicalJobId;
         this.status = WarrantyTicketStatus.IN_PROGRESS;
         this.updatedAt = now != null ? now : OffsetDateTime.now();
     }
 
     /**
-     * Phản hồi khi công việc kỹ thuật hoàn tất: chuyển ticket IN_PROGRESS → DONE, lưu kết quả cho chủ theo dõi.
-     * Lũy đẳng (idempotent): bỏ qua nếu ticket không còn ở IN_PROGRESS để không chặn việc hoàn tất job.
+     * Chủ cửa hàng hoàn tất yêu cầu bảo hành: IN_PROGRESS → DONE, lưu kết quả xử lý (đã sửa miễn phí, sửa có phí,
+     * hoặc không bảo hành vì ... khi phát hiện trong lúc xử lý) và thời điểm hoàn tất.
      */
-    public void markDone(String result, OffsetDateTime completedAt, OffsetDateTime now) {
+    public void complete(String result, OffsetDateTime now) {
         if (this.status != WarrantyTicketStatus.IN_PROGRESS) {
-            return;
+            throw new AppException(ServicedeskErrorCode.WARRANTY_TICKET_NOT_COMPLETABLE, this.status.name());
         }
+        OffsetDateTime at = now != null ? now : OffsetDateTime.now();
         this.status = WarrantyTicketStatus.DONE;
-        this.result = result;
-        this.completedAt = completedAt != null ? completedAt : (now != null ? now : OffsetDateTime.now());
-        this.updatedAt = now != null ? now : OffsetDateTime.now();
+        this.result = result.trim();
+        this.completedAt = at;
+        this.updatedAt = at;
     }
 }
 

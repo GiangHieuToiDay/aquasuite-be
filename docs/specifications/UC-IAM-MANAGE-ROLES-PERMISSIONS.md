@@ -1,5 +1,8 @@
 # Use Case Specification — Manage Roles and Permissions
 
+> **Cập nhật 2026-11-24:** Nhóm quyết định bỏ vai trò `TECHNICAL_STAFF` (Nhân viên kỹ thuật) cùng các UC công việc kỹ thuật. Migration `V53__remove_technical_staff_role.sql` gỡ vai trò khỏi tài khoản/permission, xóa role và cập nhật trigger bảo vệ còn năm canonical role. UUID `10000000-0000-4000-8000-000000000004` không còn được sử dụng. Migration V1 giữ nguyên (lịch sử Flyway).
+
+
 ## Metadata
 
 - **UC ID**: `UC-IAM-ROLES-PERMISSIONS`
@@ -21,7 +24,7 @@ UC cung cấp khả năng để chủ cửa hàng xem cấu hình phân quyền,
 
 ### In Scope
 
-- Xem sáu role cố định và các permission đang gán cho từng role.
+- Xem năm role cố định và các permission đang gán cho từng role.
 - Xem danh sách và chi tiết permission.
 - Tạo permission mới.
 - Chỉnh sửa `description` của permission.
@@ -104,9 +107,9 @@ Quyền quản trị RBAC không phụ thuộc vào một permission động vì
 
 1. SHOP_OWNER yêu cầu danh sách role.
 2. Hệ thống xác thực token, session, user status và `ROLE_SHOP_OWNER`.
-3. Hệ thống đọc sáu canonical role cùng permissions đang gán.
+3. Hệ thống đọc năm canonical role cùng permissions đang gán.
 4. Hệ thống kiểm tra mỗi role thuộc canonical set.
-5. Hệ thống trả role theo thứ tự: `SHOP_OWNER`, `SALES_STAFF`, `ACCOUNTANT`, `TECHNICAL_STAFF`, `SHIPPER`, `CUSTOMER`.
+5. Hệ thống trả role theo thứ tự: `SHOP_OWNER`, `SALES_STAFF`, `ACCOUNTANT`, `SHIPPER`, `CUSTOMER`.
 
 ### MF-02 — Get Role Detail
 
@@ -190,12 +193,12 @@ Quyền quản trị RBAC không phụ thuộc vào một permission động vì
 
 ### Role Rules
 
-1. Canonical role set có đúng sáu code đã xác nhận.
+1. Canonical role set có đúng năm code đã xác nhận.
 2. Role code lưu và trả về bằng uppercase.
 3. Không có role mutation endpoint.
 4. Role metadata chỉ đọc trong UC này.
 5. Dữ liệu role ngoài canonical set là invariant violation, không phải dữ liệu được UC tự động sửa.
-6. PostgreSQL trigger phải từ chối `UPDATE role_name` và `DELETE` đối với sáu canonical role; trigger không chặn mutation trên `role_permissions`.
+6. PostgreSQL trigger phải từ chối `UPDATE role_name` và `DELETE` đối với năm canonical role; trigger không chặn mutation trên `role_permissions`.
 
 ### Permission Code Rules
 
@@ -224,7 +227,7 @@ Ví dụ hợp lệ: `USER_READ`, `ORDER_APPROVE`, `IAM_PERMISSION_MANAGE`.
 - `search`: optional; search case-insensitive trên code và description.
 - `sortBy`: mặc định `code`; allowlist gồm `code`, `description`, `id`.
 - `direction`: `asc` hoặc `desc`, mặc định `asc`.
-- Role list không phân trang vì tập hợp cố định có sáu phần tử; `data` là array `RoleResponse` theo canonical order.
+- Role list không phân trang vì tập hợp cố định có năm phần tử; `data` là array `RoleResponse` theo canonical order.
 - Permission list có phân trang và không trả trực tiếp Spring `Page`; `data` dùng `PermissionPageResponse` ổn định.
 
 ## 8. API Contracts
@@ -400,13 +403,12 @@ Delete thành công dùng `200 ApiResponse<Void>` để giữ response envelope 
 | `SHOP_OWNER` | `10000000-0000-4000-8000-000000000001` | `Chủ cửa hàng` | `true` |
 | `SALES_STAFF` | `10000000-0000-4000-8000-000000000002` | `Nhân viên bán hàng` | `true` |
 | `ACCOUNTANT` | `10000000-0000-4000-8000-000000000003` | `Kế toán` | `true` |
-| `TECHNICAL_STAFF` | `10000000-0000-4000-8000-000000000004` | `Nhân viên kỹ thuật` | `true` |
 | `SHIPPER` | `10000000-0000-4000-8000-000000000005` | `Nhân viên giao hàng` | `true` |
 | `CUSTOMER` | `10000000-0000-4000-8000-000000000006` | `Khách hàng` | `true` |
 
 Compatibility predicate: một existing row compatible khi `role_name` khớp chính xác một canonical UPPER_SNAKE_CASE name. Với row compatible, migration giữ nguyên `role_id`, `description` và `is_active`; không rewrite primary key hoặc metadata. Case-insensitive variant, duplicate hay collision với UUID literal dự kiến cho row khác làm migration fail trước mutation. Role ngoài managed canonical dataset không bị sửa hoặc xóa.
 
-Forward migration phải tạo PostgreSQL trigger bảo vệ sáu canonical `role_name` khỏi `UPDATE role_name` và `DELETE`, kể cả direct SQL. Trigger không chặn update metadata khác hoặc insert/delete trong `role_permissions`, không dựa vào hard-coded JPA relationship và toàn bộ implementation thuộc IAM schema/migration scope.
+Forward migration phải tạo PostgreSQL trigger bảo vệ năm canonical `role_name` khỏi `UPDATE role_name` và `DELETE`, kể cả direct SQL. Trigger không chặn update metadata khác hoặc insert/delete trong `role_permissions`, không dựa vào hard-coded JPA relationship và toàn bộ implementation thuộc IAM schema/migration scope.
 
 ### Existing Permission Data Safety
 
@@ -446,7 +448,7 @@ Vì vậy, assign/unassign có hiệu lực từ request kế tiếp sau commit 
 
 ## 12. Acceptance Criteria
 
-- **AC-01:** Given SHOP_OWNER hợp lệ, when list roles, then hệ thống trả đúng sáu canonical role theo canonical order.
+- **AC-01:** Given SHOP_OWNER hợp lệ, when list roles, then hệ thống trả đúng năm canonical role theo canonical order.
 - **AC-02:** Given bất kỳ actor nào, when gọi API create/delete/rename/update role, then endpoint đó không tồn tại.
 - **AC-03:** Given non-SHOP_OWNER đã xác thực, when gọi endpoint của UC, then hệ thống trả `403 AUTH_002`.
 - **AC-04:** Given anonymous hoặc invalid token, when gọi endpoint, then hệ thống trả `401 AUTH_001`.
@@ -470,7 +472,7 @@ Vì vậy, assign/unassign có hiệu lực từ request kế tiếp sau commit 
 - **AC-22:** Given concurrent assign cùng mapping, when transactions commit, then chỉ một mapping tồn tại.
 - **AC-23:** Given concurrent delete và assign, when transactions kết thúc, then không có dangling reference hoặc partial commit.
 - **AC-24:** Given bất kỳ mutation của UC, when transaction commit, then `user_roles` không thay đổi.
-- **AC-25:** Given fresh database hoặc database đã có compatible canonical roles, when forward migration chạy, then đủ sáu canonical role tồn tại; role hiện hữu hợp lệ giữ nguyên UUID và role thiếu được insert bằng UUID cố định trong migration.
+- **AC-25:** Given fresh database hoặc database đã có compatible canonical roles, when forward migration chạy, then đủ năm canonical role tồn tại; role hiện hữu hợp lệ giữ nguyên UUID và role thiếu được insert bằng UUID cố định trong migration.
 - **AC-26:** Given case-insensitive conflict, duplicate hoặc canonical role data không tương thích, when migration chạy, then migration fail rõ ràng; không overwrite/xóa role hiện hữu và không tác động role ngoài managed canonical dataset.
 - **AC-27:** Given Redis hoặc PostgreSQL authentication dependency lỗi, when truy cập API, then hệ thống fail closed.
 - **AC-28:** Given page size lớn hơn 100 hoặc sort field ngoài allowlist, when list permissions, then hệ thống trả HTTP 400.
@@ -495,7 +497,7 @@ FEATURE-009 không phải dependency và không được sửa bởi UC này.
 
 - Durable audit infrastructure chưa tồn tại. UC chỉ có thể ghi structured operational log chứa actor user ID, operation, role ID, permission ID/code và outcome; log này không được tuyên bố là immutable audit trail.
 - UC Manage User Accounts and Status phải ngăn non-owner tự gán `SHOP_OWNER`. Quy tắc có cho phép gỡ SHOP_OWNER cuối cùng hay không chưa thuộc phạm vi và cần business decision riêng.
-- `RESOLVED — Canonical role protection`: forward migration tạo PostgreSQL trigger cấm rename/delete sáu canonical roles; assignment mapping không bị chặn.
+- `RESOLVED — Canonical role protection`: forward migration tạo PostgreSQL trigger cấm rename/delete năm canonical roles; assignment mapping không bị chặn.
 - `RESOLVED — UUID and compatibility`: bảng UUID literal và exact-name compatibility predicate ở §9 là contract chính thức; existing compatible row giữ nguyên identity/metadata.
 - `RESOLVED — Existing permission safety`: preflight validation chạy trước mutation và fail trước invalid/conflicting code; không tự sửa dữ liệu.
 - `RESOLVED — HTTP pagination`: permission page dùng DTO ổn định, role list không phân trang và mọi response nằm trong `ApiResponse`.
@@ -503,6 +505,6 @@ FEATURE-009 không phải dependency và không được sửa bởi UC này.
 - `RESOLVED — Delete success JSON`: giữ running `ApiResponse<Void>`; null data bị omitted bởi `NON_NULL`, không đổi envelope/Jackson và test phải assert `$.data` không tồn tại.
 - `RESOLVED — Permission display`: permission chỉ có canonical `code` và optional `description`; không thêm tên hiển thị riêng hoặc migration liên quan.
 - `RESOLVED — Delete assigned permission`: trả `409 IAM_006`, không auto-unassign và không partial delete.
-- `RESOLVED — Canonical roles provisioning`: forward migration quản lý sáu canonical codes, giữ nguyên role hợp lệ, insert role thiếu bằng UUID cố định và fail trước conflict/incompatible data.
+- `RESOLVED — Canonical roles provisioning`: forward migration quản lý năm canonical codes, giữ nguyên role hợp lệ, insert role thiếu bằng UUID cố định và fail trước conflict/incompatible data.
 - `RESOLVED — Concurrency`: description update dùng last-write-wins; không thêm entity/schema/API versioning. Chỉ xem xét lại khi có nhiều owner/admin cùng quản trị.
 - Limitation cần ghi nhận nếu automated test không thể mô phỏng an toàn existing production role data; trước rollout phải kiểm chứng bằng inventory thực tế, không giả định production trống.

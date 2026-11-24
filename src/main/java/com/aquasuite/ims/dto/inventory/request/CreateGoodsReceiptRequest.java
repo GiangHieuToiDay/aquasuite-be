@@ -15,6 +15,11 @@ import java.util.UUID;
  * thành công, tồn kho được cộng ngay và phiếu trở nên bất biến. Mỗi lần nhà cung cấp giao một đợt
  * thực tế có hàng được chấp nhận tương ứng một request; một đơn mua có thể có nhiều phiếu.</p>
  *
+ * <p>{@code idempotencyKey} do client sinh một lần cho mỗi lần lập phiếu và gửi lại nguyên vẹn khi
+ * retry (ví dụ sau timeout). Cùng khóa + cùng nội dung trả lại phiếu đã ghi, không cộng tồn lần hai;
+ * cùng khóa + nội dung khác bị từ chối {@code INV_019} (409).</p>
+ *
+ * @param idempotencyKey    mã duy nhất cho lần lập phiếu; dùng lại khi gửi lại cùng yêu cầu
  * @param purchaseOrderId   đơn mua hàng cần nhập (phải ở CONFIRMED hoặc PARTIALLY_RECEIVED)
  * @param supplierInvoiceNo số hóa đơn nhà cung cấp (tùy chọn)
  * @param invoiceImageUrl   ảnh hóa đơn (tùy chọn)
@@ -23,6 +28,9 @@ import java.util.UUID;
  */
 @Builder
 public record CreateGoodsReceiptRequest(
+        @NotNull(message = "idempotencyKey không được để trống")
+        UUID idempotencyKey,
+
         @NotNull(message = "purchaseOrderId không được để trống")
         UUID purchaseOrderId,
 

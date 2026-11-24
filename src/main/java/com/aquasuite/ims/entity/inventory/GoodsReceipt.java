@@ -86,6 +86,14 @@ public class GoodsReceipt {
     @Column(name = "cancel_reason", columnDefinition = "TEXT")
     private String cancelReason;
 
+    /** Khóa chống ghi trùng do client sinh cho mỗi lần lập phiếu; NULL với phiếu cũ trước V51. */
+    @Column(name = "idempotency_key", updatable = false)
+    private UUID idempotencyKey;
+
+    /** SHA-256 (hex) của payload chuẩn hóa, dùng để phát hiện dùng lại khóa với nội dung khác. */
+    @Column(name = "request_hash", length = 64, updatable = false)
+    private String requestHash;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
