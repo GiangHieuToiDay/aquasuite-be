@@ -3,8 +3,10 @@ package com.aquasuite.ims.controller.sales;
 import com.aquasuite.ims.enums.sales.FulfillmentMethod;
 import com.aquasuite.ims.enums.sales.PaymentMethod;
 import com.aquasuite.ims.exception.sales.SalesErrorCode;
+import com.aquasuite.ims.dto.sales.request.ConfirmOnlineOrderRequest;
 import com.aquasuite.ims.dto.sales.request.CreateOrderItemRequest;
 import com.aquasuite.ims.dto.sales.request.CreateSalesOrderRequest;
+import com.aquasuite.ims.dto.sales.request.RejectOnlineOrderRequest;
 import com.aquasuite.ims.dto.sales.response.SalesOrderDetailResponse;
 import com.aquasuite.ims.dto.sales.response.SalesOrderSummaryResponse;
 import com.aquasuite.ims.service.sales.SalesOrderService;
@@ -32,8 +34,10 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -156,5 +160,62 @@ class SalesOrderControllerTest {
                                 .andExpect(status().isNotFound())
                                 .andExpect(jsonPath("$.success").value(false))
                                 .andExpect(jsonPath("$.code").value("SALES_003"));
+        }
+
+        @Test
+        @DisplayName("PATCH /api/v1/sales/orders/{orderId}/confirm -> Xác nhận đơn hàng Online trả về 200")
+        void confirmOnlineOrder_Success() throws Exception {
+                ConfirmOnlineOrderRequest request = ConfirmOnlineOrderRequest.builder()
+                                .deliveryAddress("123 Lê Lợi, Q.1")
+                                .deliverySchedule("Giao sáng mai")
+                                .note("Đã gọi xác nhận")
+                                .build();
+
+                when(salesOrderService.confirmOnlineOrder(eq(sampleOrderId), any(ConfirmOnlineOrderRequest.class)))
+                                .thenReturn(sampleDetailResponse);
+
+                mockMvc.perform(patch("/api/v1/sales/orders/{orderId}/confirm", sampleOrderId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.success").value(true))
+                                .andExpect(jsonPath("$.data.orderStatus").value("PROCESSING"));
+        }
+
+        @Test
+        @DisplayName("PATCH /api/v1/sales/orders/{orderId}/reject -> Từ chối/Hủy đơn hàng Online trả về 200")
+        void rejectOnlineOrder_Success() throws Exception {
+                RejectOnlineOrderRequest request = RejectOnlineOrderRequest.builder()
+                                .reason("Khách yêu cầu hủy đơn")
+                                .build();
+
+                SalesOrderDetailResponse cancelledDetail = SalesOrderDetailResponse.builder()
+                                .orderId(sampleOrderId)
+                                .orderCode("SO-20261103-0001")
+                                .orderStatus("CANCELLED")
+                                .paymentStatus("UNPAID")
+                                .build();
+
+                when(salesOrderService.rejectOnlineOrder(eq(sampleOrderId), any(RejectOnlineOrderRequest.class)))
+                                .thenReturn(cancelledDetail);
+
+                mockMvc.perform(patch("/api/v1/sales/orders/{orderId}/reject", sampleOrderId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.success").value(true))
+                                .andExpect(jsonPath("$.data.orderStatus").value("CANCELLED"));
+        }
+
+        @Test
+        @DisplayName("POST /api/v1/sales/orders/{orderId}/payos/sync -> Đồng bộ PayOS đơn hàng Online trả về 200")
+        void syncOnlineOrderPayosPayment_Success() throws Exception {
+                when(salesOrderService.syncOnlineOrderPayosPayment(sampleOrderId))
+                                .thenReturn(sampleDetailResponse);
+
+                mockMvc.perform(post("/api/v1/sales/orders/{orderId}/payos/sync", sampleOrderId))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.success").value(true))
+                                .andExpect(jsonPath("$.data.orderId").value(sampleOrderId.toString()));
         }
 }

@@ -32,10 +32,11 @@ import com.aquasuite.ims.repository.sales.CartItemRepository;
 import com.aquasuite.ims.repository.sales.OnlinePayosPaymentRepository;
 import com.aquasuite.ims.repository.sales.OrderItemRepository;
 import com.aquasuite.ims.repository.sales.OrderRepository;
+import com.aquasuite.ims.service.finance.PaymentService;
 import com.aquasuite.ims.service.sales.helper.OrderCodeGenerator;
 import com.aquasuite.ims.exception.AppException;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,12 +53,13 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 /**
- * Triển khai nghiệp vụ Đặt hàng và Thanh toán trực tuyến (UC-18) kèm PayOS (Napas 24/7).
- * Đơn hàng Online không sử dụng mua nợ (CREDIT) và bắt đầu ở trạng thái PENDING_CONFIRMATION.
+ * Triển khai nghiệp vụ Đặt hàng và Thanh toán trực tuyến (UC-18) kèm PayOS
+ * (Napas 24/7).
+ * Đơn hàng Online không sử dụng mua nợ (CREDIT) và bắt đầu ở trạng thái
+ * PENDING_CONFIRMATION.
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class OnlineCheckoutServiceImpl {
 
     private static final String ACTIVE_STATUS = "ACTIVE";
@@ -77,6 +79,63 @@ public class OnlineCheckoutServiceImpl {
     private final CustomerService crmApi;
     private final CatalogLookupService catalogApi;
     private final InventoryService inventoryApi;
+    private final PaymentService paymentService;
+
+    @Autowired
+    public OnlineCheckoutServiceImpl(
+            CartServiceImpl cartService,
+            CartItemRepository cartItemRepository,
+            OrderRepository orderRepository,
+            OrderItemRepository orderItemRepository,
+            OnlinePayosPaymentRepository onlinePayosPaymentRepository,
+            OrderCodeGenerator orderCodeGenerator,
+            SalesOrderMapper salesOrderMapper,
+            OnlineCheckoutMapper onlineCheckoutMapper,
+            PayosClient payosClient,
+            PayosProperties payosProperties,
+            IamQueryService iamApi,
+            CustomerService crmApi,
+            CatalogLookupService catalogApi,
+            InventoryService inventoryApi,
+            @Autowired(required = false) PaymentService paymentService) {
+        this.cartService = cartService;
+        this.cartItemRepository = cartItemRepository;
+        this.orderRepository = orderRepository;
+        this.orderItemRepository = orderItemRepository;
+        this.onlinePayosPaymentRepository = onlinePayosPaymentRepository;
+        this.orderCodeGenerator = orderCodeGenerator;
+        this.salesOrderMapper = salesOrderMapper;
+        this.onlineCheckoutMapper = onlineCheckoutMapper;
+        this.payosClient = payosClient;
+        this.payosProperties = payosProperties;
+        this.iamApi = iamApi;
+        this.crmApi = crmApi;
+        this.catalogApi = catalogApi;
+        this.inventoryApi = inventoryApi;
+        this.paymentService = paymentService;
+    }
+
+    public OnlineCheckoutServiceImpl(
+            CartServiceImpl cartService,
+            CartItemRepository cartItemRepository,
+            OrderRepository orderRepository,
+            OrderItemRepository orderItemRepository,
+            OnlinePayosPaymentRepository onlinePayosPaymentRepository,
+            OrderCodeGenerator orderCodeGenerator,
+            SalesOrderMapper salesOrderMapper,
+            OnlineCheckoutMapper onlineCheckoutMapper,
+            PayosClient payosClient,
+            PayosProperties payosProperties,
+            IamQueryService iamApi,
+            CustomerService crmApi,
+            CatalogLookupService catalogApi,
+            InventoryService inventoryApi) {
+        this(cartService, cartItemRepository, orderRepository, orderItemRepository,
+                onlinePayosPaymentRepository, orderCodeGenerator, salesOrderMapper,
+                onlineCheckoutMapper, payosClient, payosProperties, iamApi, crmApi,
+                catalogApi, inventoryApi, null);
+    }
+
     @Transactional(readOnly = true)
     public OnlineCheckoutPreviewResponse getCheckoutPreview() {
         CustomerSummaryDto customer = resolveCurrentCustomer();
@@ -99,6 +158,7 @@ public class OnlineCheckoutServiceImpl {
                 .payosConfigured(payosProperties.isConfigured())
                 .build();
     }
+
     @Transactional
     public OnlineOrderCheckoutResponse placeOnlineOrder(PlaceOnlineOrderRequest request) {
         validatePaymentMethod(request.getPaymentMethod());
@@ -163,13 +223,13 @@ public class OnlineCheckoutServiceImpl {
 
         return buildCheckoutResponse(savedOrder, savedItems, payosPayment);
     }
+
     @Transactional(readOnly = true)
     public List<OnlineOrderCheckoutResponse> getMyOnlineOrders() {
         UUID customerId = resolveCurrentCustomer().customerId();
         List<Order> orders = orderRepository.findByCustomerIdAndOrderChannelOrderByCreatedAtDesc(
                 customerId,
-                OrderChannel.ONLINE.name()
-        );
+                OrderChannel.ONLINE.name());
         if (orders.isEmpty()) {
             return List.of();
         }
@@ -181,17 +241,16 @@ public class OnlineCheckoutServiceImpl {
                 .collect(Collectors.toMap(
                         OnlinePayosPayment::getOrderId,
                         p -> p,
-                        (existing, replacement) -> existing
-                ));
+                        (existing, replacement) -> existing));
 
         return orders.stream()
                 .map(order -> buildCheckoutResponse(
                         order,
                         itemsByOrder.getOrDefault(order.getOrderId(), List.of()),
-                        payosByOrder.get(order.getOrderId())
-                ))
+                        payosByOrder.get(order.getOrderId())))
                 .toList();
     }
+
     @Transactional(readOnly = true)
     public OnlineOrderCheckoutResponse getOnlineOrderDetail(UUID orderId) {
         UUID customerId = resolveCurrentCustomer().customerId();
@@ -200,6 +259,7 @@ public class OnlineCheckoutServiceImpl {
         OnlinePayosPayment payosPayment = onlinePayosPaymentRepository.findByOrderId(orderId).orElse(null);
         return buildCheckoutResponse(order, items, payosPayment);
     }
+
     @Transactional
     public OnlineOrderCheckoutResponse verifyAndSyncPayosPayment(UUID orderId) {
         UUID customerId = resolveCurrentCustomer().customerId();
@@ -214,17 +274,35 @@ public class OnlineCheckoutServiceImpl {
         payosPayment.setAmountPaid(remoteStatus.amountPaid());
         onlinePayosPaymentRepository.save(payosPayment);
 
-        if ("PAID".equals(statusName) && !PaymentStatus.PAID.name().equalsIgnoreCase(order.getPaymentStatus())) {
-            order.setPaymentStatus(PaymentStatus.PAID.name());
-            order.setUpdatedAt(OffsetDateTime.now());
-            order = orderRepository.save(order);
-            log.info("Synced PayOS payment PAID for orderCode={}, payosOrderCode={}",
-                    order.getOrderCode(), payosPayment.getPayosOrderCode());
+        if ("PAID".equals(statusName)) {
+            if (!PaymentStatus.PAID.name().equalsIgnoreCase(order.getPaymentStatus())) {
+                order.setPaymentStatus(PaymentStatus.PAID.name());
+                order.setUpdatedAt(OffsetDateTime.now());
+                order = orderRepository.save(order);
+                log.info("Synced PayOS payment PAID for orderCode={}, payosOrderCode={}",
+                        order.getOrderCode(), payosPayment.getPayosOrderCode());
+            }
+            if (paymentService != null) {
+                UUID actorId = null;
+                try {
+                    actorId = iamApi.getCurrentUserId();
+                } catch (Exception ignored) {
+                    actorId = null;
+                }
+                paymentService.ensureOnlinePayosReceiptRecorded(
+                        order.getOrderId(),
+                        payosPayment.getPayosPaymentId(),
+                        payosPayment.getPayosOrderCode(),
+                        order.getTotalAmount(),
+                        payosPayment.getUpdatedAt() != null ? payosPayment.getUpdatedAt() : OffsetDateTime.now(),
+                        actorId);
+            }
         }
 
         List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
         return buildCheckoutResponse(order, items, payosPayment);
     }
+
     @Transactional
     public OnlineOrderCheckoutResponse createOrRefreshPayosPaymentLink(UUID orderId) {
         CustomerSummaryDto customer = resolveCurrentCustomer();
@@ -344,8 +422,7 @@ public class OnlineCheckoutServiceImpl {
     private OnlinePayosPayment createPayosPaymentForOrder(
             Order order,
             List<OrderItem> items,
-            CustomerSummaryDto customer
-    ) {
+            CustomerSummaryDto customer) {
         long payosOrderCode = generateUniquePayosOrderCode();
         long amount = resolvePayosAmount(order.getTotalAmount());
         String description = buildPayosDescription(order.getOrderCode());
@@ -355,8 +432,7 @@ public class OnlineCheckoutServiceImpl {
                         i.getVariantName() != null && !i.getVariantName().isBlank() ? i.getVariantName() : i.getSku(),
                         Math.max(1, i.getQuantity().intValue()),
                         i.getUnitPrice().setScale(0, RoundingMode.HALF_UP).longValue(),
-                        "Cái"
-                ))
+                        "Cái"))
                 .toList();
 
         String returnUrl = appendOrderIdQuery(payosProperties.getReturnUrl(), order.getOrderId());
@@ -373,9 +449,7 @@ public class OnlineCheckoutServiceImpl {
                         customer.email(),
                         customer.phone(),
                         order.getDeliveryAddress(),
-                        payosItems
-                )
-        );
+                        payosItems));
 
         OnlinePayosPayment entity = OnlinePayosPayment.builder()
                 .orderId(order.getOrderId())
@@ -430,8 +504,7 @@ public class OnlineCheckoutServiceImpl {
     private OnlineOrderCheckoutResponse buildCheckoutResponse(
             Order order,
             List<OrderItem> items,
-            OnlinePayosPayment payosPayment
-    ) {
+            OnlinePayosPayment payosPayment) {
         List<SalesOrderItemResponse> itemResponses = salesOrderMapper.toItemResponseList(items);
         PayosPaymentLinkResponse payosResponse = payosPayment != null
                 ? onlineCheckoutMapper.toPayosPaymentLinkResponse(payosPayment)
@@ -451,4 +524,3 @@ public class OnlineCheckoutServiceImpl {
         return trimmed.isEmpty() ? null : trimmed;
     }
 }
-

@@ -101,6 +101,96 @@ public class OrderPaymentServiceImpl {
     }
 
     /**
+     * Đảm bảo giao dịch thanh toán trực tuyến qua cổng PayOS đã xác nhận (PAID) được ghi nhận
+     * thành phiếu thu VERIFIED trong sổ quỹ Tài chính (idempotent theo payosPaymentId).
+     */
+    @Transactional
+    public OrderPaymentResponse ensureOnlinePayosReceiptRecorded(
+            UUID orderId,
+            UUID payosPaymentId,
+            Long payosOrderCode,
+            BigDecimal amount,
+            OffsetDateTime paidAt,
+            UUID actorId) {
+        if (orderId == null) {
+            return null;
+        }
+        UUID key = payosPaymentId != null
+                ? payosPaymentId
+                : UUID.nameUUIDFromBytes(("payos-order-" + orderId).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        locks.lockPaymentKey("order-payment-key:" + key);
+
+        SalesOrderPaymentInfoDto order = sales.lockOrderPaymentInfo(orderId)
+                .or(() -> sales.getOrderPaymentInfo(orderId))
+                .orElseThrow(() -> new AppException(OrderPaymentErrorCode.ORDER_NOT_FOUND));
+
+        var previous = transactions.findByIdempotencyKey(key);
+        if (previous.isPresent()) {
+            Transaction existing = previous.get();
+            if (existing.getInvoiceId() == null && order.storeInvoiceId() != null) {
+                existing.setInvoiceId(order.storeInvoiceId());
+                transactions.saveAndFlush(existing);
+            }
+            return response(existing);
+        }
+
+        List<Transaction> existingReceipts = payments(order);
+        BigDecimal alreadyVerified = sum(existingReceipts, "VERIFIED");
+        BigDecimal targetTotal = (order.totalAmount() != null && order.totalAmount().signum() > 0)
+                ? order.totalAmount()
+                : (amount != null ? amount : BigDecimal.ZERO);
+        BigDecimal recordAmount = targetTotal.subtract(alreadyVerified).max(BigDecimal.ZERO);
+        if (recordAmount.signum() <= 0) {
+            if (!existingReceipts.isEmpty()) {
+                Transaction first = existingReceipts.getFirst();
+                if (first.getInvoiceId() == null && order.storeInvoiceId() != null) {
+                    first.setInvoiceId(order.storeInvoiceId());
+                    transactions.saveAndFlush(first);
+                }
+                return response(first);
+            }
+            return null;
+        }
+
+        UUID resolvedActor = actorId;
+        if (resolvedActor == null) {
+            try {
+                resolvedActor = iam.getCurrentUserId();
+            } catch (Exception ignored) {
+                resolvedActor = null;
+            }
+        }
+        if (resolvedActor == null) {
+            return null;
+        }
+
+        OffsetDateTime timestamp = paidAt != null ? paidAt : OffsetDateTime.now();
+        String codeSuffix = payosOrderCode != null ? String.valueOf(payosOrderCode) : key.toString().substring(0, 8);
+        Transaction transaction = Transaction.builder()
+                .transactionId(UUID.randomUUID())
+                .idempotencyKey(key)
+                .transactionCode("PAYOS-" + codeSuffix)
+                .transactionType("RECEIPT")
+                .category("CUSTOMER_PAYMENT")
+                .customerId(order.customerId())
+                .orderId(orderId)
+                .invoiceId(order.storeInvoiceId())
+                .amount(recordAmount)
+                .paymentMethod("BANK_TRANSFER")
+                .referenceNo("PAYOS-" + codeSuffix)
+                .description("Thanh toán trực tuyến qua cổng PayOS (Mã GD: " + codeSuffix + ")")
+                .status("VERIFIED")
+                .transactionDate(timestamp)
+                .createdBy(resolvedActor)
+                .approvedBy(resolvedActor)
+                .approvedAt(timestamp)
+                .createdAt(OffsetDateTime.now())
+                .build();
+        transactions.saveAndFlush(transaction);
+        return response(transaction);
+    }
+
+    /**
      * Tính tổng đã xác minh, đang chờ và còn phải trả từ một ảnh chụp dữ liệu nhất quán.
      * @param orderId mã đơn cần tính
      * @return tổng quan thanh toán của đơn
@@ -185,6 +275,12 @@ public class OrderPaymentServiceImpl {
     private static OrderPaymentSummary summary(SalesOrderPaymentInfoDto order, List<Transaction> payments) {
         BigDecimal verified = sum(payments, "VERIFIED");
         BigDecimal pending = sum(payments, "PENDING");
+        if (verified.signum() == 0 && payments.isEmpty()
+                && "ONLINE".equalsIgnoreCase(order.orderChannel())
+                && "PAID".equalsIgnoreCase(order.paymentStatus())
+                && order.totalAmount() != null && order.totalAmount().signum() > 0) {
+            verified = order.totalAmount();
+        }
         BigDecimal remaining = order.totalAmount().subtract(verified).max(BigDecimal.ZERO);
         String status = verified.signum() == 0 ? "UNPAID"
                 : remaining.signum() == 0 ? "PAID" : "PARTIALLY_PAID";

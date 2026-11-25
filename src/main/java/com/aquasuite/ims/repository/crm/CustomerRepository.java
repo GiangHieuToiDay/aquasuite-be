@@ -66,4 +66,17 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
         WHERE c.phone IS NOT NULL AND LOWER(c.phone) LIKE LOWER(CONCAT('%', :keyword, '%'))
     """)
     List<UUID> findCustomerIdsByPhoneKeyword(@Param("keyword") String keyword);
+
+    @Query("""
+        SELECT c.customerId FROM Customer c
+        WHERE (c.phone IS NOT NULL
+               AND c.phone <> '0000000000'
+               AND LOWER(c.phone) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '!')
+           OR (c.customerName IS NOT NULL
+               AND LOWER(c.customerName) <> 'walk-in retail customer'
+               AND LOWER(c.customerName) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '!')
+           OR (c.customerCode IS NOT NULL
+               AND LOWER(c.customerCode) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '!')
+    """)
+    List<UUID> findCustomerIdsBySearchKeyword(@Param("keyword") String keyword);
 }

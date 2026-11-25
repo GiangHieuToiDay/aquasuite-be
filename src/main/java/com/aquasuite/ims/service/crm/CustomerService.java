@@ -61,6 +61,9 @@ public interface CustomerService extends CustomerRegistrationService {
     /** Tìm tập customerId theo từ khóa SĐT (phục vụ lọc danh sách bảo hành). */
     List<UUID> findCustomerIdsByPhoneKeyword(String phoneKeyword);
 
+    /** Tìm tập customerId khớp gần đúng theo SĐT, tên hoặc mã khách hàng (phục vụ tra cứu đơn hàng). */
+    List<UUID> findCustomerIdsByKeyword(String keyword);
+
     /** Tra cứu hàng loạt khách hàng theo tập customerIds (tránh N+1 queries). */
     Map<UUID, CustomerSummaryDto> getCustomersByIds(Collection<UUID> customerIds);
 

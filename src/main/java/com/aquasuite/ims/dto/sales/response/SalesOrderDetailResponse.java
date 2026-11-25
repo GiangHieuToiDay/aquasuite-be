@@ -46,6 +46,7 @@ public class SalesOrderDetailResponse {
     private String orderChannel;
     private String orderStatus;
     private String paymentStatus;
+    private String paymentMethod;
     private OffsetDateTime orderDate;
     private LocalDate dueDate;
     private BigDecimal subtotal;
@@ -64,4 +65,6 @@ public class SalesOrderDetailResponse {
 
     @Builder.Default
     private List<SalesOrderMilestoneResponse> milestones = new ArrayList<>();
+
+    private PayosPaymentLinkResponse payosPayment;
 }

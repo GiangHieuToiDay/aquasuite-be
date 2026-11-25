@@ -1,5 +1,6 @@
 package com.aquasuite.ims.dto.sales.request;
 
+import com.aquasuite.ims.enums.sales.OrderChannel;
 import com.aquasuite.ims.enums.sales.OrderStatus;
 import com.aquasuite.ims.enums.sales.OrderType;
 import com.aquasuite.ims.enums.sales.PaymentStatus;
@@ -31,6 +32,9 @@ public class SalesOrderFilterRequest {
 
     /** Lọc theo loại đơn hàng (RETAIL, PROJECT) */
     private OrderType orderType;
+
+    /** Lọc theo kênh bán hàng (COUNTER, POS, ONLINE, DIRECT_SALES) */
+    private OrderChannel orderChannel;
 
     /** Lọc theo khoảng ngày tạo đơn (từ ngày) */
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
