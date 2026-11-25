@@ -1,0 +1,858 @@
+<meta charset="utf-8"><style>body{font-family:Arial;font-size:11pt}table{border-collapse:collapse;width:100%;margin:8px 0 18px}td,th{border:1px solid #000;padding:5px;vertical-align:top;text-align:left}th{background:#DDEBF7}h1{font-size:18pt}h2{font-size:14pt}h3{font-size:12pt}hr{display:none}</style><h1>Report 5 – Software Test Documentation (Part: Pham Van Nam)</h1>
+<h2>Change Log</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Date</th>
+<th style="text-align: center;">A*, M, D</th>
+<th style="text-align: center;">In charge</th>
+<th style="text-align: left;">Change Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">25/11/2026</td>
+<td style="text-align: center;">A</td>
+<td style="text-align: center;">Pham Van Nam</td>
+<td style="text-align: left;">Created Test Plan, Test Strategy, Test Data and consolidated test results (UT, IT) and prepared system, NFR and acceptance test cases (ST, NFR, AT) for UC-02.1, UC-03.5, UC-06.1, UC-06.2, UC-06.3, UC-14.1, UC-16.1, UC-17.1, UC-17.2, UC-22.6, UC-22.7 and UC-14.2.</td>
+</tr>
+</tbody>
+</table>
+<p>*A - Added M - Modified D - Deleted</p>
+<hr />
+<h1>I. Overall Plan</h1>
+<h2>1. Scope of Testing</h2>
+<p><strong>Features in scope.</strong> This part verifies 12 use cases of AquaSuite (the management platform of Thám Vân Home), owned by Pham Van Nam: UC-02.1 Login; UC-03.5 Manage Role Permissions; UC-06.1 and UC-06.2 Manage Categories; UC-06.3 Manage Brands; UC-14.2 Record Staff-Assisted Payment; UC-14.1 Verify Staff-Recorded Bank Transfer; UC-16.1 Create Goods Receipt from Purchase Order; UC-17.1 Look up Inventory; UC-17.2 Configure Safety Threshold; UC-22.6 View Warranty Tickets; UC-22.7 Process Warranty Ticket.</p>
+<p><strong>Functions and non-functional requirements tested:</strong>
+- Functional behaviour of every main, alternative and exception flow and every business rule (GBR) of the use case specifications, including the Vietnamese messages shown on the screen.
+- Role-based access control (<code>@PreAuthorize</code> roles and permission authorities resolved from the database on every request), session handling with Redis, and the immediate effect of permission changes.
+- Idempotency and concurrency: request keys for payments and goods receipts, advisory and row locks, no double stock increase.
+- Input validation on forms and API requests.</p>
+<p><strong>Not tested in this part:</strong> other modules and use cases (sales orders, delivery, customer debt, warranty claims and policies of other owners), payment gateway integrations, and formal load testing (only the proposed performance checks in Report-5.4).</p>
+<p><strong>Test stages (levels):</strong></p>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Level</th>
+<th style="text-align: center;">In charge</th>
+<th style="text-align: left;">Input / time</th>
+<th style="text-align: left;">Focus</th>
+<th style="text-align: left;">Acceptance criteria</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">Unit Test (UT)</td>
+<td style="text-align: center;">Pham Van Nam</td>
+<td style="text-align: left;">Source code, 25/11/2026</td>
+<td style="text-align: left;">Services, mappers, frontend schemas and API clients in isolation</td>
+<td style="text-align: left;">100% of UT cases pass; every flow with logic has at least one normal and one abnormal case</td>
+</tr>
+<tr>
+<td style="text-align: center;">Integration Test (IT)</td>
+<td style="text-align: center;">Pham Van Nam</td>
+<td style="text-align: left;">Running application with PostgreSQL and Redis, 25/11/2026</td>
+<td style="text-align: left;">HTTP API, security, Flyway schema, concurrency</td>
+<td style="text-align: left;">100% of IT cases pass; every role restriction is checked</td>
+</tr>
+<tr>
+<td style="text-align: center;">System Test (ST)</td>
+<td style="text-align: center;">Pham Van Nam</td>
+<td style="text-align: left;">Specifications, running web application</td>
+<td style="text-align: left;">Every flow and business rule of the use case specification on the screen</td>
+<td style="text-align: left;">All cases executed; no open Critical or Major defect</td>
+</tr>
+<tr>
+<td style="text-align: center;">Acceptance Test (AT)</td>
+<td style="text-align: center;">Pham Van Nam with the business user</td>
+<td style="text-align: left;">Business scenarios BF-01 to BF-05</td>
+<td style="text-align: left;">Complete business scenarios</td>
+<td style="text-align: left;">All scenarios accepted; exploratory findings logged</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Constraints and assumptions:</strong>
+- Automated tests build their own fixtures; system and acceptance tests need the seed data of section II.1.
+- Test passwords are never written in documents (<code>[test_password]</code>).
+- Frontend automated tests cover schemas and API clients, not rendered screens; the screens are covered by ST and AT.</p>
+<h2>2. Test Strategy</h2>
+<h3>2.1 Testing Types</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Type</th>
+<th style="text-align: left;">Objective</th>
+<th style="text-align: left;">Technique</th>
+<th style="text-align: left;">Completion criteria</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">Functional Testing</td>
+<td style="text-align: left;">Every flow and business rule works as specified</td>
+<td style="text-align: left;">Equivalence partitioning and boundary value analysis; one case per flow of each specification; the business rules (GBR) are checked inside the flow they apply to</td>
+<td style="text-align: left;">All planned cases executed; no open Critical or Major defect</td>
+</tr>
+<tr>
+<td style="text-align: center;">Input Validation Testing</td>
+<td style="text-align: left;">Invalid data is rejected with the specified message</td>
+<td style="text-align: left;">Boundary values (lengths, negative numbers, empty values), form schema tests</td>
+<td style="text-align: left;">All limits in the specifications are checked</td>
+</tr>
+<tr>
+<td style="text-align: center;">Security Testing</td>
+<td style="text-align: left;">Only permitted roles can act; no information leak</td>
+<td style="text-align: left;">Role matrix tests with MockMvc, 401 and 403 checks, authority reload tests</td>
+<td style="text-align: left;">Every restricted action is checked for at least one forbidden role</td>
+</tr>
+<tr>
+<td style="text-align: center;">Concurrency and Data Integrity Testing</td>
+<td style="text-align: left;">No duplicate or inconsistent data</td>
+<td style="text-align: left;">Idempotent retry tests, repeated request keys, simultaneous requests</td>
+<td style="text-align: left;">Stock and balances stay correct in all cases</td>
+</tr>
+<tr>
+<td style="text-align: center;">UI Testing</td>
+<td style="text-align: left;">Screens, dialogs and messages are correct</td>
+<td style="text-align: left;">Manual execution of the specification flows on the web application</td>
+<td style="text-align: left;">All ST and AT scripts executed</td>
+</tr>
+</tbody>
+</table>
+<h3>2.2 Test Levels</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Type of Tests</th>
+<th style="text-align: center;">Unit Test</th>
+<th style="text-align: center;">Integration Test</th>
+<th style="text-align: center;">System Test</th>
+<th style="text-align: center;">Acceptance Test</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Functional Testing</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+</tr>
+<tr>
+<td style="text-align: left;">Input Validation Testing</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td style="text-align: left;">Security Testing</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td style="text-align: left;">Concurrency and Data Integrity Testing</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;"></td>
+</tr>
+<tr>
+<td style="text-align: left;">UI Testing</td>
+<td style="text-align: center;">(optional)</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✓</td>
+<td style="text-align: center;">✓</td>
+</tr>
+</tbody>
+</table>
+<h3>2.3 Supporting Tools</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Purpose</th>
+<th style="text-align: left;">Tool</th>
+<th style="text-align: center;">Vendor/In-house</th>
+<th style="text-align: center;">Version</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Backend language and runtime</td>
+<td style="text-align: left;">Java (OpenJDK)</td>
+<td style="text-align: center;">Oracle / Eclipse Adoptium</td>
+<td style="text-align: center;">21</td>
+</tr>
+<tr>
+<td style="text-align: left;">Backend framework</td>
+<td style="text-align: left;">Spring Boot</td>
+<td style="text-align: center;">Broadcom</td>
+<td style="text-align: center;">3.5.16</td>
+</tr>
+<tr>
+<td style="text-align: left;">Backend unit and integration tests</td>
+<td style="text-align: left;">JUnit 5 (Jupiter), Mockito, Spring Boot Test, MockMvc, Spring Security Test</td>
+<td style="text-align: center;">Open source</td>
+<td style="text-align: center;">Managed by Spring Boot 3.5.16</td>
+</tr>
+<tr>
+<td style="text-align: left;">Database and migration</td>
+<td style="text-align: left;">PostgreSQL (Docker) and Flyway</td>
+<td style="text-align: center;">PostgreSQL Org / Redgate</td>
+<td style="text-align: center;">Image <code>postgres:18-alpine</code>; migrations V1 to V54</td>
+</tr>
+<tr>
+<td style="text-align: left;">Session store</td>
+<td style="text-align: left;">Redis (Docker)</td>
+<td style="text-align: center;">Redis Ltd.</td>
+<td style="text-align: center;">Image <code>redis:7.2-alpine</code></td>
+</tr>
+<tr>
+<td style="text-align: left;">Build and test runner (backend)</td>
+<td style="text-align: left;">Apache Maven (wrapper)</td>
+<td style="text-align: center;">Apache</td>
+<td style="text-align: center;">3.9.9</td>
+</tr>
+<tr>
+<td style="text-align: left;">Frontend framework</td>
+<td style="text-align: left;">React, TypeScript, Vite</td>
+<td style="text-align: center;">Meta / Microsoft / Vite team</td>
+<td style="text-align: center;">React 19.2, TypeScript 6.0, Vite 8.3</td>
+</tr>
+<tr>
+<td style="text-align: left;">Frontend test runner</td>
+<td style="text-align: left;">Node.js built-in test runner</td>
+<td style="text-align: center;">Node.js</td>
+<td style="text-align: center;">24.22.1</td>
+</tr>
+<tr>
+<td style="text-align: left;">Test documentation</td>
+<td style="text-align: left;">Microsoft Excel workbooks (Report-5.1 to 5.5)</td>
+<td style="text-align: center;">Microsoft</td>
+<td style="text-align: center;">.xlsx</td>
+</tr>
+</tbody>
+</table>
+<h2>3. Test Plan</h2>
+<h3>3.1 Test Environment</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Purpose</th>
+<th style="text-align: left;">Tool</th>
+<th style="text-align: center;">Provider</th>
+<th style="text-align: center;">Version</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Application server (backend)</td>
+<td style="text-align: left;">Spring Boot (port 8080)</td>
+<td style="text-align: center;">Local host</td>
+<td style="text-align: center;">Java 21</td>
+</tr>
+<tr>
+<td style="text-align: left;">Web client (frontend)</td>
+<td style="text-align: left;">React and Vite (port 5173)</td>
+<td style="text-align: center;">Vite dev server</td>
+<td style="text-align: center;">Node.js 24.22.1</td>
+</tr>
+<tr>
+<td style="text-align: left;">Primary database</td>
+<td style="text-align: left;">PostgreSQL in Docker (port 5432)</td>
+<td style="text-align: center;">Docker</td>
+<td style="text-align: center;">postgres:18-alpine</td>
+</tr>
+<tr>
+<td style="text-align: left;">Session cache</td>
+<td style="text-align: left;">Redis in Docker (port 6379)</td>
+<td style="text-align: center;">Docker</td>
+<td style="text-align: center;">redis:7.2-alpine</td>
+</tr>
+<tr>
+<td style="text-align: left;">Test runner</td>
+<td style="text-align: left;">Maven wrapper and <code>node --test</code></td>
+<td style="text-align: center;">Apache / Node.js</td>
+<td style="text-align: center;">Maven 3.9.9, Node 24.22.1</td>
+</tr>
+<tr>
+<td style="text-align: left;">Browser for ST and AT</td>
+<td style="text-align: left;">Google Chrome</td>
+<td style="text-align: center;">Google</td>
+<td style="text-align: center;">Latest</td>
+</tr>
+</tbody>
+</table>
+<h3>3.2 Test Milestones</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Milestone Task</th>
+<th style="text-align: center;">Start Date</th>
+<th style="text-align: center;">End Date</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">M1: Test plan and test data</td>
+<td style="text-align: center;">[điền]</td>
+<td style="text-align: center;">[điền]</td>
+</tr>
+<tr>
+<td style="text-align: left;">M2: Unit testing (144 cases, BE and FE)</td>
+<td style="text-align: center;">[điền]</td>
+<td style="text-align: center;">25/11/2026</td>
+</tr>
+<tr>
+<td style="text-align: left;">M3: Integration and security testing (81 cases)</td>
+<td style="text-align: center;">[điền]</td>
+<td style="text-align: center;">25/11/2026</td>
+</tr>
+<tr>
+<td style="text-align: left;">M4: System testing (129 cases from the specifications) and NFR checks (16)</td>
+<td style="text-align: center;">[điền]</td>
+<td style="text-align: center;">[điền]</td>
+</tr>
+<tr>
+<td style="text-align: left;">M5: Acceptance and exploratory testing (5 scripts)</td>
+<td style="text-align: center;">[điền]</td>
+<td style="text-align: center;">[điền]</td>
+</tr>
+<tr>
+<td style="text-align: left;">M6: Defect fixing, retest and report consolidation</td>
+<td style="text-align: center;">[điền]</td>
+<td style="text-align: center;">[điền]</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h1>II. Implementation &amp; Schedule</h1>
+<h2>1. Test Data</h2>
+<p>Rules: all automated UT and IT cases are self-contained (they inject their own fixtures with mocks or a PostgreSQL database built by Flyway migrations V1 to V54); no case depends on data left by another case; no case depends on a database sequence ID (fixtures use generated UUIDs and unique codes). For manual system and acceptance tests the passwords are never stored in documents; all password fields use <code>[test_password]</code>.</p>
+<h3>1.1 Minimum Test Account</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Username</th>
+<th style="text-align: center;">Role</th>
+<th style="text-align: center;">Password</th>
+<th style="text-align: center;">Account Status</th>
+<th style="text-align: left;">Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">owner_test</td>
+<td style="text-align: center;">Shop Owner (SHOP_OWNER)</td>
+<td style="text-align: center;">[test_password]</td>
+<td style="text-align: center;">ACTIVE</td>
+<td style="text-align: left;">Manages role permissions (UC-03.5), categories and brands (UC-06.x), safety thresholds (UC-17.2), goods receipts (UC-16.1), warranty tickets (UC-22.6, UC-22.7); records payments (UC-14.2).</td>
+</tr>
+<tr>
+<td style="text-align: center;">accountant_test</td>
+<td style="text-align: center;">Accountant (ACCOUNTANT)</td>
+<td style="text-align: center;">[test_password]</td>
+<td style="text-align: center;">ACTIVE</td>
+<td style="text-align: left;">Verifies bank transfers (UC-14.1), creates goods receipts (UC-16.1), looks up inventory (UC-17.1); read-only on payments (UC-14.2).</td>
+</tr>
+<tr>
+<td style="text-align: center;">sales_test</td>
+<td style="text-align: center;">Sales Staff (SALES_STAFF)</td>
+<td style="text-align: center;">[test_password]</td>
+<td style="text-align: center;">ACTIVE</td>
+<td style="text-align: left;">Records staff-assisted payments (UC-14.2); used to check forbidden access to the other use cases.</td>
+</tr>
+<tr>
+<td style="text-align: center;">shipper_test</td>
+<td style="text-align: center;">Shipper (SHIPPER)</td>
+<td style="text-align: center;">[test_password]</td>
+<td style="text-align: center;">ACTIVE</td>
+<td style="text-align: left;">Checks forbidden access (403) to management functions.</td>
+</tr>
+<tr>
+<td style="text-align: center;">customer_test</td>
+<td style="text-align: center;">Customer (CUSTOMER)</td>
+<td style="text-align: center;">[test_password]</td>
+<td style="text-align: center;">ACTIVE</td>
+<td style="text-align: left;">Logs in to the storefront (UC-02.1) and is redirected to the storefront; checks forbidden access.</td>
+</tr>
+<tr>
+<td style="text-align: center;">locked_test</td>
+<td style="text-align: center;">Suspended user (SALES_STAFF)</td>
+<td style="text-align: center;">[test_password]</td>
+<td style="text-align: center;">LOCKED</td>
+<td style="text-align: left;">UC-02.1: an account that is not Active cannot log in.</td>
+</tr>
+</tbody>
+</table>
+<p>Account set-up: <code>owner_test</code> (Shop Owner) and <code>customer_test</code> (Customer) are created by the development data initializer of the application. <code>accountant_test</code>, <code>sales_test</code> and <code>shipper_test</code> must be created by the Shop Owner in the user account management page before system testing, and <code>locked_test</code> is a Sales Staff account whose status is set to Locked after creation. All passwords are kept outside this document.</p>
+<h3>1.2 Minimum Domain Data</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Entity</th>
+<th style="text-align: center;">Count</th>
+<th style="text-align: left;">Required State</th>
+<th style="text-align: left;">Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">Category</td>
+<td style="text-align: center;">3</td>
+<td style="text-align: left;">One root category, one child category, one INACTIVE category; one category that has a child</td>
+<td style="text-align: left;">UC-06.1, UC-06.2: parent-child rules, hide, soft delete, deletion blocked when children exist</td>
+</tr>
+<tr>
+<td style="text-align: center;">Brand</td>
+<td style="text-align: center;">2</td>
+<td style="text-align: left;">One ACTIVE, one INACTIVE</td>
+<td style="text-align: left;">UC-06.3: unique code and name, hide, soft delete</td>
+</tr>
+<tr>
+<td style="text-align: center;">Product and SKU variant</td>
+<td style="text-align: center;">3 SKUs</td>
+<td style="text-align: left;">Stock records in WH_MAIN with different thresholds (one with minimum 0, one at or below the threshold, one normal)</td>
+<td style="text-align: left;">UC-17.1, UC-17.2: status calculation, low-stock filter, threshold configuration</td>
+</tr>
+<tr>
+<td style="text-align: center;">Purchase order</td>
+<td style="text-align: center;">2</td>
+<td style="text-align: left;">One "Đã xác nhận" order with 2 lines and remaining quantity above 0; one order already "Hoàn thành"</td>
+<td style="text-align: left;">UC-16.1: full and partial receiving, status checks</td>
+</tr>
+<tr>
+<td style="text-align: center;">Sales order and payment</td>
+<td style="text-align: center;">2 orders</td>
+<td style="text-align: left;">One order with remaining balance above 0; one order with a transfer in "Chờ xác minh"</td>
+<td style="text-align: left;">UC-14.2, UC-14.1: cash, transfer, verification, rejection, exceeding the balance</td>
+</tr>
+<tr>
+<td style="text-align: center;">Warranty ticket</td>
+<td style="text-align: center;">3</td>
+<td style="text-align: left;">One Chờ tiếp nhận, one Đang xử lý, one Hoàn tất, linked to an active warranty record (one record expired)</td>
+<td style="text-align: left;">UC-22.6, UC-22.7: list, filter, life cycle, expired warning</td>
+</tr>
+</tbody>
+</table>
+<h2>2. Test Cases</h2>
+<p>Test cases are kept in five shared master workbooks in the team folder (V1), using the structure of the V1 templates. Each member adds the sheets of the use cases they own; the first sheets were written by Pham Van Nam:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Report Code</th>
+<th style="text-align: left;">File</th>
+<th style="text-align: center;">Level</th>
+<th style="text-align: center;">Test cases</th>
+<th style="text-align: left;">Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">Report-5.1</td>
+<td style="text-align: left;">Report-5.1_Unit Test_Master.xlsx</td>
+<td style="text-align: center;">UT</td>
+<td style="text-align: center;">144</td>
+<td style="text-align: left;">Executed on 25/11/2026: 144 Passed</td>
+</tr>
+<tr>
+<td style="text-align: center;">Report-5.2</td>
+<td style="text-align: left;">Report-5.2_Integration Test_Master.xlsx</td>
+<td style="text-align: center;">IT (including SecurityTest sheet with 22 cases)</td>
+<td style="text-align: center;">81</td>
+<td style="text-align: left;">Executed on 25/11/2026: 81 Passed</td>
+</tr>
+<tr>
+<td style="text-align: center;">Report-5.3</td>
+<td style="text-align: left;">Report-5.3_System Test_FRs_Master.xlsx</td>
+<td style="text-align: center;">ST-FR</td>
+<td style="text-align: center;">129</td>
+<td style="text-align: left;">Prepared from the specifications (each business rule is checked inside its flow). Executed on 25/11/2026 at API level: 64 Passed, 0 Failed; 65 screen cases Pending</td>
+</tr>
+<tr>
+<td style="text-align: center;">Report-5.4</td>
+<td style="text-align: left;">Report-5.4_System Test_NFRs_Master.xlsx</td>
+<td style="text-align: center;">ST-NFR (10 security, 6 performance)</td>
+<td style="text-align: center;">16</td>
+<td style="text-align: left;">Executed on 25/11/2026: 9 Passed, 1 Failed, 6 Not Run (security 6 Passed, 1 Failed, 3 Not Run; performance 3 Passed, 3 Not Run)</td>
+</tr>
+<tr>
+<td style="text-align: center;">Report-5.5</td>
+<td style="text-align: left;">Report-5.5_Acceptance Test Scripts_Master.xlsx</td>
+<td style="text-align: center;">AT (5 UAT scripts, exploratory log)</td>
+<td style="text-align: center;">5</td>
+<td style="text-align: left;">Prepared; not executed yet (acceptance by the business user)</td>
+</tr>
+</tbody>
+</table>
+<p>Distribution of test cases per use case:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">UC Code</th>
+<th style="text-align: left;">Use Case Name</th>
+<th style="text-align: center;">UT</th>
+<th style="text-align: center;">IT</th>
+<th style="text-align: center;">ST-FR</th>
+<th style="text-align: center;">Total</th>
+<th style="text-align: left;">Key Focus &amp; Business Verification</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">UC-02.1</td>
+<td style="text-align: left;">Login</td>
+<td style="text-align: center;">27</td>
+<td style="text-align: center;">22</td>
+<td style="text-align: center;">6</td>
+<td style="text-align: center;">55</td>
+<td style="text-align: left;">Email and password limits, invalid credentials, account not Active, session creation, token refresh and replay detection, Redis failure handling</td>
+</tr>
+<tr>
+<td style="text-align: center;">UC-03.5</td>
+<td style="text-align: left;">Manage Role Permissions</td>
+<td style="text-align: center;">45</td>
+<td style="text-align: center;">18</td>
+<td style="text-align: center;">10</td>
+<td style="text-align: center;">73</td>
+<td style="text-align: left;">Assign and unassign permissions, forbidden for non-owners, fixed roles protected by trigger, frontend access safety</td>
+</tr>
+<tr>
+<td style="text-align: center;">UC-06.1, 06.2, 06.3</td>
+<td style="text-align: left;">Manage Categories and Brands</td>
+<td style="text-align: center;">7</td>
+<td style="text-align: center;">14</td>
+<td style="text-align: center;">35</td>
+<td style="text-align: center;">56</td>
+<td style="text-align: left;">CRUD lifecycle, code normalisation, immutable code, parent-child rules, hide, soft delete, permission authorities</td>
+</tr>
+<tr>
+<td style="text-align: center;">UC-14.1</td>
+<td style="text-align: left;">Verify Staff-Recorded Bank Transfer</td>
+<td style="text-align: center;">9</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">15</td>
+<td style="text-align: center;">24</td>
+<td style="text-align: left;">Verify within the obligation, exceeding the balance keeps pending, decided only once, rejection reason</td>
+</tr>
+<tr>
+<td style="text-align: center;">UC-14.2</td>
+<td style="text-align: left;">Record Staff-Assisted Payment</td>
+<td style="text-align: center;">13</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">13</td>
+<td style="text-align: center;">26</td>
+<td style="text-align: left;">Cash verified immediately, pending transfer, excess rejected, idempotent request key, milestone progress</td>
+</tr>
+<tr>
+<td style="text-align: center;">UC-16.1</td>
+<td style="text-align: left;">Create Goods Receipt from Purchase Order</td>
+<td style="text-align: center;">19</td>
+<td style="text-align: center;">13</td>
+<td style="text-align: center;">13</td>
+<td style="text-align: center;">45</td>
+<td style="text-align: left;">Full and partial receiving, remaining quantity, order status, idempotent retry, stock movement, concurrency</td>
+</tr>
+<tr>
+<td style="text-align: center;">UC-17.1, 17.2</td>
+<td style="text-align: left;">Look up Inventory, Configure Safety Threshold</td>
+<td style="text-align: center;">14</td>
+<td style="text-align: center;">14</td>
+<td style="text-align: center;">17</td>
+<td style="text-align: center;">45</td>
+<td style="text-align: left;">Search and status calculation, low-stock filter, threshold validation, audit event, role security</td>
+</tr>
+<tr>
+<td style="text-align: center;">UC-22.6, 22.7</td>
+<td style="text-align: left;">View and Process Warranty Tickets</td>
+<td style="text-align: center;">10</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">20</td>
+<td style="text-align: center;">30</td>
+<td style="text-align: left;">Life cycle New → In progress → Done / Rejected, required result and reason, expired-warranty warning</td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>Total</strong></td>
+<td style="text-align: left;"></td>
+<td style="text-align: center;"><strong>144</strong></td>
+<td style="text-align: center;"><strong>81</strong></td>
+<td style="text-align: center;"><strong>129</strong></td>
+<td style="text-align: center;"><strong>354</strong></td>
+<td style="text-align: left;">Plus 16 NFR cases and 5 acceptance scripts</td>
+</tr>
+</tbody>
+</table>
+<p>Notes: <code>WarrantyTicketServiceTest</code> (claim submission) and the frontend warranty form tests belong to other use cases and are not counted. UC-14.2, UC-14.1 and UC-22.6/22.7 have no automated integration test; their API behaviour is covered by ST.</p>
+<h2>3. Test Reports</h2>
+<h3>3.1 Summary Table</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Round</th>
+<th style="text-align: center;">Metrics</th>
+<th style="text-align: center;">UT</th>
+<th style="text-align: center;">IT</th>
+<th style="text-align: center;">ST</th>
+<th style="text-align: center;">AT</th>
+<th style="text-align: center;">Total</th>
+<th style="text-align: left;">Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">Round #1</td>
+<td style="text-align: center;">Total</td>
+<td style="text-align: center;">144</td>
+<td style="text-align: center;">81</td>
+<td style="text-align: center;">129</td>
+<td style="text-align: center;">5</td>
+<td style="text-align: center;">359</td>
+<td style="text-align: left;">UT and IT run on 25/11/2026; ST 64 cases verified at API level, 65 screen cases pending; AT pending</td>
+</tr>
+<tr>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">Passed</td>
+<td style="text-align: center;">144</td>
+<td style="text-align: center;">81</td>
+<td style="text-align: center;">64</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">289</td>
+<td style="text-align: left;"></td>
+</tr>
+<tr>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">Failed</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: left;"></td>
+</tr>
+<tr>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">Pending</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">65</td>
+<td style="text-align: center;">5</td>
+<td style="text-align: center;">70</td>
+<td style="text-align: left;"></td>
+</tr>
+<tr>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">Pass Rate</td>
+<td style="text-align: center;">100%</td>
+<td style="text-align: center;">100%</td>
+<td style="text-align: center;">49.6%</td>
+<td style="text-align: center;">0%</td>
+<td style="text-align: center;">80.5%</td>
+<td style="text-align: left;">Pass Rate = Passed ÷ Total</td>
+</tr>
+</tbody>
+</table>
+<h3>3.2 Test Levels' Defects</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Metric</th>
+<th style="text-align: center;">Review</th>
+<th style="text-align: center;">UT</th>
+<th style="text-align: center;">IT</th>
+<th style="text-align: center;">ST</th>
+<th style="text-align: center;">AT</th>
+<th style="text-align: center;">Total</th>
+<th style="text-align: left;">Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">Total Defects</td>
+<td style="text-align: center;">4</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">3</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">8</td>
+<td style="text-align: left;">See the defect list below</td>
+</tr>
+<tr>
+<td style="text-align: center;">Open Defects (Critical)</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: left;"></td>
+</tr>
+<tr>
+<td style="text-align: center;">Open Defects (Major)</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: left;">3 minor ST defects are open (D-06 to D-08)</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">ID</th>
+<th style="text-align: center;">Level</th>
+<th style="text-align: left;">Defect</th>
+<th style="text-align: left;">Product</th>
+<th style="text-align: center;">Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">D-01</td>
+<td style="text-align: center;">Review</td>
+<td style="text-align: left;">The goods receipt dialog did not send the <code>idempotencyKey</code> that the backend requires</td>
+<td style="text-align: left;">Software Package</td>
+<td style="text-align: center;">Closed</td>
+</tr>
+<tr>
+<td style="text-align: center;">D-02</td>
+<td style="text-align: center;">Review</td>
+<td style="text-align: left;">Some success messages were in English instead of the Vietnamese wording shown on screen</td>
+<td style="text-align: left;">Software Package</td>
+<td style="text-align: center;">Closed</td>
+</tr>
+<tr>
+<td style="text-align: center;">D-03</td>
+<td style="text-align: center;">UT</td>
+<td style="text-align: left;"><code>DevelopmentDataInitializerTest</code> still expected 6 canonical roles while the system has 5</td>
+<td style="text-align: left;">Software Package</td>
+<td style="text-align: center;">Closed</td>
+</tr>
+<tr>
+<td style="text-align: center;">D-04</td>
+<td style="text-align: center;">Review</td>
+<td style="text-align: left;">Duplicate GBR ids in the Business Rules table and a GBR-WT prefix collision with UC-21.2 (renamed to GBR-WP)</td>
+<td style="text-align: left;">Report 3</td>
+<td style="text-align: center;">Closed</td>
+</tr>
+<tr>
+<td style="text-align: center;">D-05</td>
+<td style="text-align: center;">Review</td>
+<td style="text-align: left;">The design specification lacked <code>goods_receipts.idempotency_key</code>, <code>goods_receipts.request_hash</code> and <code>warranty_tickets.expired_acknowledged</code></td>
+<td style="text-align: left;">Report 4</td>
+<td style="text-align: center;">Closed</td>
+</tr>
+<tr>
+<td style="text-align: center;">D-06</td>
+<td style="text-align: center;">ST</td>
+<td style="text-align: left;">Validation messages of the payment recording API are in English ("must not be null", "must be greater than or equal to 0.01", "numeric value out of bounds") instead of Vietnamese (UC-14.2)</td>
+<td style="text-align: left;">Software Package</td>
+<td style="text-align: center;">Open (Minor)</td>
+</tr>
+<tr>
+<td style="text-align: center;">D-07</td>
+<td style="text-align: center;">ST</td>
+<td style="text-align: left;">The specification of UC-14.1 says only the Accountant verifies bank transfers, but the API also allows the Shop Owner</td>
+<td style="text-align: left;">Report 3</td>
+<td style="text-align: center;">Open (Minor): align the specification or the API</td>
+</tr>
+<tr>
+<td style="text-align: center;">D-08</td>
+<td style="text-align: center;">ST</td>
+<td style="text-align: left;">The login error message returned by the system has no final full stop, while the specification of UC-02.1 shows one</td>
+<td style="text-align: left;">Report 3</td>
+<td style="text-align: center;">Open (Minor)</td>
+</tr>
+</tbody>
+</table>
+<h3>3.3 Work Product's Defects</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Product</th>
+<th style="text-align: center;">Review</th>
+<th style="text-align: center;">UT</th>
+<th style="text-align: center;">IT</th>
+<th style="text-align: center;">ST</th>
+<th style="text-align: center;">AT</th>
+<th style="text-align: center;">Total</th>
+<th style="text-align: left;">Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">Software Package</td>
+<td style="text-align: center;">2</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">4</td>
+<td style="text-align: left;">D-01, D-02, D-03, D-06</td>
+</tr>
+<tr>
+<td style="text-align: center;">Report 1 (Intro)</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: left;"></td>
+</tr>
+<tr>
+<td style="text-align: center;">Report 2 (Plan)</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: left;"></td>
+</tr>
+<tr>
+<td style="text-align: center;">Report 3 (Software Requirement Spec)</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">2</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">3</td>
+<td style="text-align: left;">D-04, D-07, D-08</td>
+</tr>
+<tr>
+<td style="text-align: center;">Report 4 (Software Design Spec)</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: left;">D-05</td>
+</tr>
+<tr>
+<td style="text-align: center;">Report 5 (Test Documentation)</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: left;"></td>
+</tr>
+<tr>
+<td style="text-align: center;"><strong>Total</strong></td>
+<td style="text-align: center;">4</td>
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">3</td>
+<td style="text-align: center;">0</td>
+<td style="text-align: center;">8</td>
+<td style="text-align: left;"></td>
+</tr>
+</tbody>
+</table>
