@@ -62,7 +62,8 @@ class AuthServiceCurrentUserTest {
                         userRepository,
                         jwtTokenService,
                         redisSessionStore,
-                        currentAuthoritiesService);
+                        currentAuthoritiesService,
+                        null, null, null, null, null, null, null);
         userId = UUID.randomUUID();
     }
 

@@ -9,7 +9,6 @@ import com.aquasuite.ims.exception.CommonErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.convert.converter.Converter;
-import org.springframework.dao.DataAccessException;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
@@ -17,14 +16,17 @@ import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
-import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.util.Collection;
-import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * Chuyển access JWT đã được giải mã thành {@link AbstractAuthenticationToken} dùng cho phân quyền.
+ * Mỗi request đều đọc lại người dùng, trạng thái và vai trò/quyền từ PostgreSQL nên thay đổi quyền
+ * có hiệu lực ngay, không phải chờ token hết hạn.
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -38,63 +40,48 @@ public class AccessAuthenticationConverter implements Converter<Jwt, AbstractAut
      */
     @Override
     public AbstractAuthenticationToken convert(Jwt jwt) {
-        UUID userId;
-        try {
-            userId = UUID.fromString(jwt.getSubject());
-        } catch (Exception e) {
-            log.warn("Failed to parse UUID subject from access token: {}", e.getMessage());
-            setAuthError(CommonErrorCode.UNAUTHORIZED);
-            throw new OAuth2AuthenticationException(
-                    new OAuth2Error("invalid_token", "Invalid sub claim", null));
-        }
+        UUID userId = parseUserId(jwt);
 
-        // 1. Load current user and status/authorities from PostgreSQL
+        // 1. Tải người dùng cùng vai trò và quyền hiện hành từ PostgreSQL
         User user;
         try {
-            Optional<User> userOpt = currentAuthoritiesService.loadCurrentUser(userId);
-            if (userOpt.isEmpty()) {
-                log.warn("User {} not found in PostgreSQL", userId);
-                setAuthError(CommonErrorCode.UNAUTHORIZED);
-                throw new OAuth2AuthenticationException(
-                        new OAuth2Error("invalid_token", "User not found", null));
-            }
-            user = userOpt.get();
-        } catch (DataAccessException e) {
+            user = currentAuthoritiesService.loadCurrentUser(userId).orElse(null);
+        } catch (RuntimeException e) {
             log.error("PostgreSQL failure during user lookup for userId: {}", userId, e);
-            setAuthError(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE);
-            throw new OAuth2AuthenticationException(
-                    new OAuth2Error("service_unavailable", "Database unavailable", null));
-        } catch (OAuth2AuthenticationException e) {
-            throw e;
-        } catch (Exception e) {
-            log.error("Unexpected error looking up user {}", userId, e);
-            setAuthError(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE);
-            throw new OAuth2AuthenticationException(
-                    new OAuth2Error("service_unavailable", "Database error", null));
+            throw reject(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "service_unavailable", "Database unavailable");
         }
-
-        // 2. Check ACTIVE status
+        if (user == null) {
+            log.warn("User {} not found in PostgreSQL", userId);
+            throw reject(CommonErrorCode.UNAUTHORIZED, "invalid_token", "User not found");
+        }
+        // 2. Chỉ tài khoản đang ACTIVE mới được đi tiếp
         if (user.getStatus() != UserStatus.ACTIVE) {
             log.info("User {} account status is {} (not ACTIVE)", userId, user.getStatus());
-            setAuthError(AuthErrorCode.ACCOUNT_NOT_ACTIVE);
-            throw new OAuth2AuthenticationException(
-                    new OAuth2Error("account_not_active", "Account not active", null));
+            throw reject(AuthErrorCode.ACCOUNT_NOT_ACTIVE, "account_not_active", "Account not active");
         }
 
-        // 3. Resolve current granted authorities
+        // 3. Tính danh sách quyền hiện hành rồi tạo Authentication
         Collection<GrantedAuthority> authorities =
                 currentAuthoritiesService.resolveAuthorities(user.getRoles());
-
         return new JwtAuthenticationToken(jwt, authorities, user.getUsername());
     }
 
-    /** Gắn mã lỗi xác thực vào request để entry point trả response thống nhất. */
-    private void setAuthError(BaseErrorCode errorCode) {
-        RequestAttributes attr = RequestContextHolder.getRequestAttributes();
-        if (attr instanceof ServletRequestAttributes servletRequestAttributes) {
-            servletRequestAttributes
-                    .getRequest()
-                    .setAttribute(AuthSecurityErrorHandlers.AUTH_ERROR_ATTRIBUTE, errorCode);
+    /** Đọc user ID từ claim sub của JWT; sai định dạng UUID thì từ chối token. */
+    private UUID parseUserId(Jwt jwt) {
+        try {
+            return UUID.fromString(jwt.getSubject());
+        } catch (Exception e) {
+            log.warn("Failed to parse UUID subject from access token: {}", e.getMessage());
+            throw reject(CommonErrorCode.UNAUTHORIZED, "invalid_token", "Invalid sub claim");
         }
+    }
+
+    /** Gắn mã lỗi vào request để entry point trả response thống nhất, rồi tạo exception để ném. */
+    private OAuth2AuthenticationException reject(
+            BaseErrorCode errorCode, String oauthErrorCode, String description) {
+        if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attrs) {
+            attrs.getRequest().setAttribute(AuthSecurityErrorHandlers.AUTH_ERROR_ATTRIBUTE, errorCode);
+        }
+        return new OAuth2AuthenticationException(new OAuth2Error(oauthErrorCode, description, null));
     }
 }

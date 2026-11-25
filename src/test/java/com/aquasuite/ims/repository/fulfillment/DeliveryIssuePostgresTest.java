@@ -35,11 +35,16 @@ import static org.mockito.Mockito.*;
 
 @DataJpaTest(showSql=false,properties="spring.datasource.hikari.maximum-pool-size=4")
 @AutoConfigureTestDatabase(replace=AutoConfigureTestDatabase.Replace.NONE)
-@Import({DeliveryIssueService.class,com.aquasuite.ims.service.fulfillment.DeliveryService.class,DeliveryIssueStore.class,SalesQueryServiceImpl.class,SalesOrderServiceImpl.class,
+@Import({DeliveryIssueService.class,com.aquasuite.ims.service.fulfillment.DeliveryCodQueryService.class,com.aquasuite.ims.service.fulfillment.DeliveryService.class,DeliveryIssueStore.class,SalesQueryServiceImpl.class,SalesOrderServiceImpl.class,
         CodService.class,InventoryDispatchService.class,StockReservationStore.class,
         StockReservationServiceImpl.class,InventoryServiceImpl.class,DeliveryIssuePostgresTest.Json.class})
 @Transactional(propagation=Propagation.NOT_SUPPORTED)
 class DeliveryIssuePostgresTest extends PostgreSqlIntegrationTestSupport {
+    @org.junit.jupiter.api.AfterEach
+    void clearCommittedFixtures() {
+        com.aquasuite.ims.testsupport.CommittedFixtureCleaner.clear(jdbc);
+    }
+
         @TestConfiguration
         static class Json {
                 @Bean
@@ -58,6 +63,13 @@ class DeliveryIssuePostgresTest extends PostgreSqlIntegrationTestSupport {
         JdbcTemplate jdbc;
         @MockBean
         IamQueryService iam;
+        @MockBean com.aquasuite.ims.service.finance.PaymentService mockPaymentService;
+        @MockBean com.aquasuite.ims.service.sales.impl.OrderStockReservationService mockOrderStockReservationService;
+        @MockBean com.aquasuite.ims.service.sales.helper.OrderCodeGenerator mockOrderCodeGenerator;
+        @MockBean com.aquasuite.ims.mapper.sales.SalesOrderMapper mockSalesOrderMapper;
+        @MockBean com.aquasuite.ims.service.crm.CustomerService mockCustomerService;
+        @MockBean com.aquasuite.ims.service.finance.CreditControlService mockCreditControlService;
+        @MockBean com.aquasuite.ims.service.finance.PaymentAllocationService mockPaymentAllocationService;
         @MockBean
         CatalogLookupService catalog;
         @MockBean

@@ -81,7 +81,7 @@ class DeliveryAddressControllerTest {
 
         mockMvc.perform(get("/api/v1/profile/addresses"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("SUCCESS"))
+                .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data[0].addressId").value(addressId.toString()))
                 .andExpect(jsonPath("$.data[0].recipientName").value("Tran Van B"));
     }
@@ -106,7 +106,7 @@ class DeliveryAddressControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.status").value("SUCCESS"))
+                .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.addressId").value(addressId.toString()))
                 .andExpect(jsonPath("$.data.recipientName").value("Tran Van B"));
     }
@@ -123,8 +123,8 @@ class DeliveryAddressControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidRequest)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.status").value("ERROR"))
-                .andExpect(jsonPath("$.code").value("MSG01"));
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("SYS_003"));
     }
 
     @Test
@@ -134,7 +134,7 @@ class DeliveryAddressControllerTest {
 
         mockMvc.perform(get("/api/v1/profile/addresses/{id}", addressId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("SUCCESS"))
+                .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.addressId").value(addressId.toString()));
     }
 
@@ -170,7 +170,7 @@ class DeliveryAddressControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("SUCCESS"))
+                .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.recipientName").value("Tran Van C"))
                 .andExpect(jsonPath("$.data.isDefault").value(true));
     }
@@ -182,7 +182,7 @@ class DeliveryAddressControllerTest {
 
         mockMvc.perform(delete("/api/v1/profile/addresses/{id}", addressId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("SUCCESS"));
+                .andExpect(jsonPath("$.success").value(true));
     }
 
     @Test
@@ -198,7 +198,7 @@ class DeliveryAddressControllerTest {
 
         mockMvc.perform(patch("/api/v1/profile/addresses/{id}/default", addressId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("SUCCESS"))
+                .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.isDefault").value(true));
     }
 }

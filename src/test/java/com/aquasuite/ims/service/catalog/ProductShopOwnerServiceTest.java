@@ -84,7 +84,7 @@ class ProductShopOwnerServiceTest {
                 .status(BrandStatus.ACTIVE)
                 .build();
 
-        when(warrantyPolicyRepository.findFirstByBrandIdAndCategoryIdAndStatus(any(), any(), eq("ACTIVE")))
+        lenient().when(warrantyPolicyRepository.findFirstByBrandIdAndCategoryIdAndStatus(any(), any(), eq("ACTIVE")))
                 .thenReturn(Optional.empty());
     }
 

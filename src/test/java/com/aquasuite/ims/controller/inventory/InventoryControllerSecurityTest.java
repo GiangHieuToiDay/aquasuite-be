@@ -54,6 +54,7 @@ class InventoryControllerSecurityTest {
 
     @MockBean private InventoryService inventoryService;
     @MockBean private IamQueryService iamApi;
+    @MockBean private com.aquasuite.ims.service.inventory.StockReservationService stockReservationService;
 
     // ---- Tra cứu danh sách: SHOP_OWNER + ACCOUNTANT được phép ----
 

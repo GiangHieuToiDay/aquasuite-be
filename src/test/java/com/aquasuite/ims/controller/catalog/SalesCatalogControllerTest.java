@@ -30,12 +30,9 @@ class SalesCatalogControllerTest {
     void includesComboWithoutVariantAndUsesProductIdAcrossAllPages() {
         UUID bundleId = UUID.randomUUID();
         UUID componentId = UUID.randomUUID();
-        BundleResponse bundle = mock(BundleResponse.class);
-        when(bundle.bundleId()).thenReturn(bundleId);
-        when(bundle.name()).thenReturn("My combo");
-        when(bundle.packagePrice()).thenReturn(BigDecimal.valueOf(900));
-        when(bundle.items()).thenReturn(List.of(new BundleResponse.Item(UUID.randomUUID(), componentId,
-                "SKU", "Component", 2, BigDecimal.TEN, true)));
+        BundleResponse bundle = bundle(bundleId, "My combo", BigDecimal.valueOf(900),
+                List.of(new BundleResponse.Item(UUID.randomUUID(), componentId,
+                        "SKU", "Component", 2, BigDecimal.TEN, true)));
         when(bundles.getBundleList(any())).thenAnswer(call -> {
             var request = (com.aquasuite.ims.dto.catalog.request.BundlePageRequest) call.getArgument(0);
             assertThat(request.getProductStatus()).isEqualTo(ProductStatus.ACTIVE);
@@ -66,9 +63,7 @@ class SalesCatalogControllerTest {
         when(products.findAllById(any())).thenReturn(List.of(
                 Product.builder().productId(bundleId).productType(ProductType.BUNDLE).build(),
                 Product.builder().productId(normalId).productType(ProductType.NORMAL).build()));
-        BundleResponse bundle = mock(BundleResponse.class);
-        when(bundle.bundleId()).thenReturn(bundleId);
-        when(bundle.items()).thenReturn(List.of());
+        BundleResponse bundle = bundle(bundleId, null, null, List.of());
         when(bundles.getBundleList(any())).thenReturn(PageResponse.of(List.of(bundle), 0, 100, 1, 1));
 
         var result = controller.getSalesCatalogItems().getBody().getData();
@@ -77,5 +72,11 @@ class SalesCatalogControllerTest {
         assertThat(result.getFirst().variantId()).isEqualTo(normal.getVariantId());
         assertThat(result.getLast().variantId()).isEqualTo(bundleId);
         assertThat(result.getLast().availableStock()).isEqualByComparingTo("0");
+    }
+
+    /** BundleResponse là record (final) nên dựng đối tượng thật thay vì mock. */
+    private static BundleResponse bundle(UUID id, String name, BigDecimal packagePrice, List<BundleResponse.Item> items) {
+        return new BundleResponse(id, null, name, null, null, null, 0, null, packagePrice, null, null, null,
+                null, null, null, null, null, items, null, null);
     }
 }

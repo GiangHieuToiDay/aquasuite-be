@@ -34,7 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         controllers = WarrantyRecordController.class,
         excludeFilters = @ComponentScan.Filter(
                 type = FilterType.REGEX,
-                pattern = "com\\.aquasuite\\.ims\\.module\\.iam\\.internal\\.security\\..*"))
+                pattern = "com\\.aquasuite\\.ims\\.security\\..*"))
 @Import({GlobalExceptionHandler.class, WarrantyLookupControllerSecurityTest.TestSecurityConfig.class})
 class WarrantyLookupControllerSecurityTest {
 

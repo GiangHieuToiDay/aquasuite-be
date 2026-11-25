@@ -32,6 +32,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@org.junit.jupiter.api.extension.ExtendWith(com.aquasuite.ims.testsupport.IamSeedRestoreExtension.class)
 @SpringBootTest
 class IamEntityMappingIntegrationTest extends PostgreSqlIntegrationTestSupport {
 
@@ -62,7 +63,7 @@ class IamEntityMappingIntegrationTest extends PostgreSqlIntegrationTestSupport {
         assertThat(User.class.getPackageName()).isEqualTo("com.aquasuite.ims.entity.iam");
         assertThat(Role.class.getPackageName()).isEqualTo("com.aquasuite.ims.entity.iam");
         assertThat(Permission.class.getPackageName()).isEqualTo("com.aquasuite.ims.entity.iam");
-        assertThat(UserStatus.class.getPackageName()).isEqualTo("com.aquasuite.ims.entity.iam");
+        assertThat(UserStatus.class.getPackageName()).isEqualTo("com.aquasuite.ims.enums.iam");
     }
 
     @Test

@@ -1,34 +1,29 @@
 package com.aquasuite.ims.security;
 
 import com.aquasuite.ims.entity.iam.User;
-import com.aquasuite.ims.enums.iam.UserStatus;
 import com.aquasuite.ims.repository.iam.UserRepository;
 import com.aquasuite.ims.service.iam.impl.CurrentAuthoritiesService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collection;
-
+/**
+ * Nạp người dùng theo email cho bước đăng nhập bằng mật khẩu của Spring Security. Kết quả là
+ * {@link AppUserDetails} chứa luôn entity và quyền để {@code AuthServiceImpl} dùng lại.
+ */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class UserDetailsServiceImpl implements UserDetailsService {
 
     private final UserRepository userRepository;
     private final CurrentAuthoritiesService currentAuthoritiesService;
 
-    public UserDetailsServiceImpl(
-            @org.springframework.beans.factory.annotation.Autowired(required = false)
-                    UserRepository userRepository,
-            CurrentAuthoritiesService currentAuthoritiesService) {
-        this.userRepository = userRepository;
-        this.currentAuthoritiesService = currentAuthoritiesService;
-    }
-
+    /** Tìm người dùng theo email (không phân biệt hoa thường), nạp kèm vai trò và quyền. */
     @Override
     @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
@@ -36,25 +31,9 @@ public class UserDetailsServiceImpl implements UserDetailsService {
             throw new UsernameNotFoundException("Email must not be empty");
         }
 
-        if (userRepository == null) {
-            throw new UsernameNotFoundException("User repository is unavailable");
-        }
-
         User user = userRepository.findWithRolesAndPermissionsByEmailIgnoreCase(email.trim())
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
-        boolean enabled = user.getStatus() == UserStatus.ACTIVE;
-        Collection<GrantedAuthority> authorities =
-                currentAuthoritiesService.resolveAuthorities(user.getRoles());
-
-        return org.springframework.security.core.userdetails.User.builder()
-                .username(user.getEmail())
-                .password(user.getPasswordHash())
-                .disabled(!enabled)
-                .accountExpired(false)
-                .credentialsExpired(false)
-                .accountLocked(false)
-                .authorities(authorities)
-                .build();
+        return new AppUserDetails(user, currentAuthoritiesService.resolveAuthorities(user.getRoles()));
     }
 }

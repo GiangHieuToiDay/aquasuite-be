@@ -57,10 +57,10 @@ public class DevelopmentDataInitializer implements ApplicationRunner {
     private final Environment environment;
 
     public DevelopmentDataInitializer(
-            @org.springframework.beans.factory.annotation.Autowired(required = false) RoleRepository roleRepository,
-            @org.springframework.beans.factory.annotation.Autowired(required = false) UserRepository userRepository,
-            @org.springframework.beans.factory.annotation.Autowired(required = false) PasswordEncoder passwordEncoder,
-            @org.springframework.beans.factory.annotation.Autowired(required = false) TransactionTemplate transactionTemplate,
+            RoleRepository roleRepository,
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder,
+            TransactionTemplate transactionTemplate,
             Environment environment) {
         this.roleRepository = roleRepository;
         this.userRepository = userRepository;

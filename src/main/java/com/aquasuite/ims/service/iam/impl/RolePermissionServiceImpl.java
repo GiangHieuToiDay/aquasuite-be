@@ -357,8 +357,18 @@ public class RolePermissionServiceImpl implements RolePermissionService {
         return null;
     }
 
+    /** PostgreSQL driver chỉ có ở runtime nên nhận diện theo tên lớp, kể cả lớp con (proxy/mock). */
+    private static boolean isPsqlException(Class<?> type) {
+        for (Class<?> c = type; c != null; c = c.getSuperclass()) {
+            if ("org.postgresql.util.PSQLException".equals(c.getName())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private String extractFromPsqlException(Throwable throwable) {
-        if (throwable != null && "org.postgresql.util.PSQLException".equals(throwable.getClass().getName())) {
+        if (throwable != null && isPsqlException(throwable.getClass())) {
             try {
                 java.lang.reflect.Method getMsgMethod = throwable.getClass().getMethod("getServerErrorMessage");
                 Object serverMsg = getMsgMethod.invoke(throwable);

@@ -67,7 +67,7 @@ public class TwilioVerifyClient {
     public boolean check(String verificationSid, String otp) {
         if (verificationSid == null || !verificationSid.matches("VE[0-9a-fA-F]{32}")) return false;
         var form = new LinkedMultiValueMap<String, String>();
-        // Bind verification to this challenge rather than looking up the latest code by phone.
+        // Gắn xác minh vào đúng yêu cầu (verification SID) thay vì tra mã mới nhất theo số điện thoại
         form.add("VerificationSid", verificationSid);
         form.add("Code", otp);
         Verification result = post("VerificationCheck", form, true);

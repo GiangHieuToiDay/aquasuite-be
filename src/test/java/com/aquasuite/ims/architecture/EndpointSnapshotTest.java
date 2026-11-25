@@ -1,5 +1,6 @@
 package com.aquasuite.ims.architecture;
 
+import com.aquasuite.ims.testsupport.PostgreSqlIntegrationTestSupport;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -14,7 +15,7 @@ import java.util.List;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @AutoConfigureMockMvc
-class EndpointSnapshotTest {
+class EndpointSnapshotTest extends PostgreSqlIntegrationTestSupport {
 
     @Autowired
     private RequestMappingHandlerMapping requestMappingHandlerMapping;

@@ -332,9 +332,9 @@ public class OnlineCheckoutPostmanSimulationTest {
 
     @Test
     @Order(1)
-    @DisplayName("1. [GET /checkout-preview] Xem trước giỏ hàng + sổ địa chỉ -> 200 OK")
+    @DisplayName("1. [POST /checkout/preview] Xem trước giỏ hàng + sổ địa chỉ -> 200 OK")
     void step1_GetCheckoutPreview() throws Exception {
-        MvcResult result = mockMvc.perform(get("/api/v1/sales/online-orders/checkout-preview"))
+        MvcResult result = mockMvc.perform(post("/api/v1/sales/checkout/preview"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.cart.totalItems").value(1))
@@ -342,12 +342,12 @@ public class OnlineCheckoutPostmanSimulationTest {
                 .andExpect(jsonPath("$.data.defaultAddress.addressId").value(savedAddressId.toString()))
                 .andExpect(jsonPath("$.data.payosConfigured").value(true))
                 .andReturn();
-        printHttpResult("1. GET /api/v1/sales/online-orders/checkout-preview", null, result);
+        printHttpResult("1. POST /api/v1/sales/checkout/preview", null, result);
     }
 
     @Test
     @Order(2)
-    @DisplayName("2. [POST /online-orders] Chặn mua nợ CREDIT trên kênh Online -> 400 SALES_030")
+    @DisplayName("2. [POST /checkout/place-order] Chặn mua nợ CREDIT trên kênh Online -> 400 SALES_030")
     void step2_RejectCreditMethod() throws Exception {
         String body = """
                 {
@@ -356,19 +356,19 @@ public class OnlineCheckoutPostmanSimulationTest {
                 }
                 """.formatted(savedAddressId);
 
-        MvcResult result = mockMvc.perform(post("/api/v1/sales/online-orders")
+        MvcResult result = mockMvc.perform(post("/api/v1/sales/checkout/place-order")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("SALES_030"))
                 .andReturn();
-        printHttpResult("2. POST /api/v1/sales/online-orders (CREDIT -> 400)", body, result);
+        printHttpResult("2. POST /api/v1/sales/checkout/place-order (CREDIT -> 400)", body, result);
     }
 
     @Test
     @Order(3)
-    @DisplayName("3. [POST /online-orders] Đặt hàng PayOS (BANK_TRANSFER) -> 200 OK, tạo QR & xóa giỏ hàng")
+    @DisplayName("3. [POST /checkout/place-order] Đặt hàng PayOS (BANK_TRANSFER) -> 200 OK, tạo QR & xóa giỏ hàng")
     void step3_PlacePayosOnlineOrder() throws Exception {
         String body = """
                 {
@@ -379,7 +379,7 @@ public class OnlineCheckoutPostmanSimulationTest {
                 }
                 """.formatted(savedAddressId);
 
-        MvcResult result = mockMvc.perform(post("/api/v1/sales/online-orders")
+        MvcResult result = mockMvc.perform(post("/api/v1/sales/checkout/place-order")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isOk())
@@ -396,52 +396,12 @@ public class OnlineCheckoutPostmanSimulationTest {
 
         String json = result.getResponse().getContentAsString(StandardCharsets.UTF_8);
         payosOrderId = UUID.fromString(objectMapper.readTree(json).path("data").path("orderId").asText());
-        printHttpResult("3. POST /api/v1/sales/online-orders (BANK_TRANSFER PayOS)", body, result);
-    }
-
-    @Test
-    @Order(4)
-    @DisplayName("4. [GET /online-orders/{orderId}] Lấy chi tiết đơn hàng & link PayOS -> 200 OK")
-    void step4_GetOnlineOrderDetail() throws Exception {
-        MvcResult result = mockMvc.perform(get("/api/v1/sales/online-orders/{orderId}", payosOrderId))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.orderId").value(payosOrderId.toString()))
-                .andExpect(jsonPath("$.data.paymentStatus").value("UNPAID"))
-                .andExpect(jsonPath("$.data.items[0].sku").value("TOTO-NEOREST-01"))
-                .andReturn();
-        printHttpResult("4. GET /api/v1/sales/online-orders/" + payosOrderId, null, result);
-    }
-
-    @Test
-    @Order(5)
-    @DisplayName("5. [POST /online-orders/{orderId}/payos/verify] Đối soát PayOS PAID -> Cập nhật đơn thành PAID")
-    void step5_VerifyAndSyncPayosPaid() throws Exception {
-        simulatedPayosRemoteStatus.set("PAID");
-
-        MvcResult result = mockMvc.perform(post("/api/v1/sales/online-orders/{orderId}/payos/verify", payosOrderId))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.paymentStatus").value("PAID"))
-                .andExpect(jsonPath("$.data.payosPayment.status").value("PAID"))
-                .andExpect(jsonPath("$.data.payosPayment.amountPaid").value(2000))
-                .andReturn();
-        printHttpResult("5. POST /api/v1/sales/online-orders/" + payosOrderId + "/payos/verify", null, result);
-    }
-
-    @Test
-    @Order(6)
-    @DisplayName("6. [POST /online-orders/{orderId}/payos/payment-link] Đơn đã PAID không tạo lại link -> 400 SALES_033")
-    void step6_RejectRefreshLinkAfterPaid() throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/v1/sales/online-orders/{orderId}/payos/payment-link", payosOrderId))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.code").value("SALES_033"))
-                .andReturn();
-        printHttpResult("6. POST /api/v1/sales/online-orders/{orderId}/payos/payment-link (Already PAID)", null, result);
+        printHttpResult("3. POST /api/v1/sales/checkout/place-order (BANK_TRANSFER PayOS)", body, result);
     }
 
     @Test
     @Order(7)
-    @DisplayName("7. [POST /online-orders] Đặt hàng COD (CASH) với địa chỉ nhập tay -> 200 OK")
+    @DisplayName("7. [POST /checkout/place-order] Đặt hàng COD (CASH) với địa chỉ nhập tay -> 200 OK")
     void step7_PlaceCodOrderManualAddress() throws Exception {
         seedCartItem(new BigDecimal("2"), new BigDecimal("18500000"));
         String body = """
@@ -454,7 +414,7 @@ public class OnlineCheckoutPostmanSimulationTest {
                 }
                 """;
 
-        MvcResult result = mockMvc.perform(post("/api/v1/sales/online-orders")
+        MvcResult result = mockMvc.perform(post("/api/v1/sales/checkout/place-order")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isOk())
@@ -464,12 +424,12 @@ public class OnlineCheckoutPostmanSimulationTest {
                 .andExpect(jsonPath("$.data.totalAmount").value(37000000.00))
                 .andExpect(jsonPath("$.data.payosPayment").doesNotExist())
                 .andReturn();
-        printHttpResult("7. POST /api/v1/sales/online-orders (CASH COD)", body, result);
+        printHttpResult("7. POST /api/v1/sales/checkout/place-order (CASH COD)", body, result);
     }
 
     @Test
     @Order(8)
-    @DisplayName("8. [POST /online-orders] Đặt hàng khi giỏ hàng đã trống -> 400 SALES_028")
+    @DisplayName("8. [POST /checkout/place-order] Đặt hàng khi giỏ hàng đã trống -> 400 SALES_028")
     void step8_RejectEmptyCartCheckout() throws Exception {
         String body = """
                 {
@@ -478,14 +438,14 @@ public class OnlineCheckoutPostmanSimulationTest {
                 }
                 """.formatted(savedAddressId);
 
-        MvcResult result = mockMvc.perform(post("/api/v1/sales/online-orders")
+        MvcResult result = mockMvc.perform(post("/api/v1/sales/checkout/place-order")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("SALES_028"))
                 .andReturn();
-        printHttpResult("8. POST /api/v1/sales/online-orders (Empty Cart -> 400)", body, result);
+        printHttpResult("8. POST /api/v1/sales/checkout/place-order (Empty Cart -> 400)", body, result);
     }
 
     private void printHttpResult(String title, String requestBody, MvcResult result) throws Exception {

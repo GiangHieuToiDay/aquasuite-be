@@ -37,6 +37,7 @@ class CodControllerSecurityTest {
     @MockBean CodService service;
     @MockBean IamQueryService iam;
     @MockBean com.aquasuite.ims.service.finance.PaymentService verifications;
+    @MockBean com.aquasuite.ims.service.finance.PaymentAllocationService allocations;
 
     @Test void anonymousCannotListCod() throws Exception {
         mvc.perform(get("/api/v1/finance/cod/collections")).andExpect(status().isUnauthorized());

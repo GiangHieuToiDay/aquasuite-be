@@ -26,9 +26,11 @@ import java.util.UUID;
 @Component
 @RequiredArgsConstructor
 public class RegistrationOtpStore {
-    // Isolate email challenges from pending SMS registrations.
+    /** Tiền tố key (phiên bản v4) tách các phiên đăng ký bằng email khỏi phiên đăng ký bằng SMS. */
     public static final String PREFIX = "iam:registration:pending:v4:";
+    /** Thời sống của phiên đăng ký chờ: 5 phút. */
     private static final long TTL_MS = 300_000;
+    /** Số lần nhập OTP sai tối đa trước khi phiên bị khóa. */
     private static final int MAX_ATTEMPTS = 5;
     private final StringRedisTemplate redis;
     private final PasswordEncoder encoder;
@@ -141,8 +143,8 @@ public class RegistrationOtpStore {
         Claim claim = claim(state);
         check(redis.execute(ACQUIRE, List.of(key(email)), claim.version(), claim.token()));
         try {
-            // A saved hash permits retries after DB rollback
-            // using only the approved code, within the original pending registration TTL.
+            // Hash OTP đã duyệt được lưu để cho phép thử lại sau khi transaction cơ sở dữ liệu bị rollback,
+            // chỉ với đúng mã đã duyệt và trong thời hạn ban đầu của phiên đăng ký
             String approvedHash = (String) state.get("approvedHash");
             boolean matches = approvedHash != null ? encoder.matches(otp, approvedHash)
                     : state.get("otpHash") instanceof String hash && encoder.matches(otp, hash);
@@ -169,7 +171,7 @@ public class RegistrationOtpStore {
     /** Nhả claim khi gửi/kiểm tra lỗi; lỗi Redis không được che mất lỗi gốc của thao tác. */
     private void releaseSafely(Claim claim) {
         try { release(claim); } catch (RuntimeException ignored) {
-            // An uncertain claim fails closed until the pending TTL expires.
+            // Không chắc chắn về claim thì giữ nguyên khóa (an toàn) cho tới khi phiên chờ hết hạn
         }
     }
 
