@@ -6,9 +6,12 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
 import java.util.List;
@@ -39,6 +42,22 @@ public interface InventoryRepository extends JpaRepository<Inventory, UUID> {
     Optional<Inventory> findByVariantIdAndWarehouseCodeForUpdate(
             @Param("variantId") UUID variantId,
             @Param("warehouseCode") String warehouseCode);
+
+    /**
+     * Tạo dòng tồn rỗng cho (variant, kho) nếu chưa có, an toàn khi nhiều giao dịch cùng tạo lần đầu
+     * (unique (variant_id, warehouse_code)). Gọi trước {@link #findByVariantIdAndWarehouseCodeForUpdate}.
+     */
+    @Modifying
+    @Transactional(propagation = Propagation.MANDATORY)
+    @Query(value = """
+            INSERT INTO public.inventories
+                (inventory_id, variant_id, warehouse_code, on_hand_qty, reserved_qty, minimum_qty, updated_at)
+            VALUES (:inventoryId, :variantId, :warehouseCode, 0, 0, 0, CURRENT_TIMESTAMP)
+            ON CONFLICT (variant_id, warehouse_code) DO NOTHING
+            """, nativeQuery = true)
+    int insertEmptyIfAbsent(@Param("inventoryId") UUID inventoryId,
+                            @Param("variantId") UUID variantId,
+                            @Param("warehouseCode") String warehouseCode);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT i FROM Inventory i WHERE i.variantId = :variantId")

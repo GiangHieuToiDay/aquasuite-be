@@ -5,12 +5,11 @@ import com.aquasuite.ims.service.iam.IamQueryService;
 import com.aquasuite.ims.entity.servicedesk.WarrantyRecord;
 import com.aquasuite.ims.entity.servicedesk.WarrantyTicket;
 import com.aquasuite.ims.enums.servicedesk.WarrantyTicketStatus;
-import com.aquasuite.ims.dto.servicedesk.request.DispatchWarrantyTicketRequest;
+import com.aquasuite.ims.dto.servicedesk.request.CompleteWarrantyTicketRequest;
+import com.aquasuite.ims.exception.servicedesk.ServicedeskErrorCode;
 import com.aquasuite.ims.dto.servicedesk.request.RejectWarrantyTicketRequest;
-import com.aquasuite.ims.dto.servicedesk.response.TechnicalJobDetailResponse;
 import com.aquasuite.ims.repository.servicedesk.WarrantyRecordRepository;
 import com.aquasuite.ims.repository.servicedesk.WarrantyTicketRepository;
-import com.aquasuite.ims.service.servicedesk.TechnicalJobService;
 import com.aquasuite.ims.service.servicedesk.impl.WarrantyTicketServiceImpl;
 import com.aquasuite.ims.exception.AppException;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,6 +25,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -39,7 +39,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit test cho quản lý ticket phía nội bộ: bắn job (dispatch), từ chối tại bàn (reject), cờ hết hạn.
+ * Unit test cho quản lý ticket phía nội bộ: tiếp nhận xử lý, hoàn tất, từ chối tại bàn (reject), cờ hết hạn.
  */
 @ExtendWith(MockitoExtension.class)
 class WarrantyTicketManagementServiceTest {
@@ -47,7 +47,6 @@ class WarrantyTicketManagementServiceTest {
     @Mock private WarrantyTicketRepository warrantyTicketRepository;
     @Mock private WarrantyRecordRepository warrantyRecordRepository;
     @Mock private CatalogLookupService catalogApi;
-    @Mock private TechnicalJobService technicalJobService;
     @Mock private IamQueryService iamApi;
     @Mock private ApplicationEventPublisher eventPublisher;
 
@@ -55,12 +54,10 @@ class WarrantyTicketManagementServiceTest {
             ZoneId.of("UTC"));
     private WarrantyTicketServiceImpl service;
 
-    private final UUID technicianId = UUID.randomUUID();
-
     @BeforeEach
     void setup() {
         service = new WarrantyTicketServiceImpl(
-                warrantyTicketRepository, warrantyRecordRepository, catalogApi, technicalJobService,
+                warrantyTicketRepository, warrantyRecordRepository, catalogApi,
                 iamApi, eventPublisher, clock);
         lenient().when(warrantyTicketRepository.save(any(WarrantyTicket.class))).thenAnswer(inv -> inv.getArgument(0));
         lenient().when(warrantyRecordRepository.findById(any(UUID.class))).thenReturn(Optional.empty());
@@ -82,59 +79,72 @@ class WarrantyTicketManagementServiceTest {
     }
 
     @Test
-    @DisplayName("dispatch: ticket NEW -> tạo job WARRANTY_REPAIR, ticket chuyển IN_PROGRESS + gắn jobId")
-    void dispatchFromNew() {
+    @DisplayName("startProcessing: ticket NEW -> IN_PROGRESS")
+    void startFromNew() {
         WarrantyTicket t = ticket(WarrantyTicketStatus.NEW);
-        UUID jobId = UUID.randomUUID();
         when(warrantyTicketRepository.findById(t.getTicketId())).thenReturn(Optional.of(t));
-        when(technicalJobService.dispatchWarrantyRepairJob(
-                eq(t.getCustomerId()), eq(t.getWarrantyRecordId()), eq(t.getTicketId()),
-                eq(technicianId), any(), eq(t.getIssueDescription()), any()))
-                .thenReturn(TechnicalJobDetailResponse.builder().technicalJobId(jobId).build());
 
-        var res = service.dispatch(t.getTicketId(), new DispatchWarrantyTicketRequest(technicianId, null, null));
+        var res = service.startProcessing(t.getTicketId());
 
         assertThat(res.status()).isEqualTo(WarrantyTicketStatus.IN_PROGRESS);
-        assertThat(res.technicalJobId()).isEqualTo(jobId);
+        verify(warrantyTicketRepository).save(t);
     }
 
     @Test
-    @DisplayName("dispatch: địa chỉ để trống -> dùng địa chỉ khách ghi trên ticket")
-    void dispatchUsesTicketAddressWhenBlank() {
-        WarrantyTicket t = ticket(WarrantyTicketStatus.NEW);
-        when(warrantyTicketRepository.findById(t.getTicketId())).thenReturn(Optional.of(t));
-        when(technicalJobService.dispatchWarrantyRepairJob(any(), any(), any(), any(), any(), any(), any()))
-                .thenReturn(TechnicalJobDetailResponse.builder().technicalJobId(UUID.randomUUID()).build());
-
-        service.dispatch(t.getTicketId(), new DispatchWarrantyTicketRequest(technicianId, null, "  "));
-
-        ArgumentCaptor<String> address = ArgumentCaptor.forClass(String.class);
-        verify(technicalJobService).dispatchWarrantyRepairJob(any(), any(), any(), any(),
-                address.capture(), any(), any());
-        assertThat(address.getValue()).isEqualTo(t.getSiteAddress());
+    @DisplayName("startProcessing: ticket không ở NEW -> SVD_039, không lưu")
+    void startRejectsNonNew() {
+        for (WarrantyTicketStatus st : List.of(WarrantyTicketStatus.IN_PROGRESS, WarrantyTicketStatus.DONE,
+                WarrantyTicketStatus.REJECTED, WarrantyTicketStatus.CANCELLED)) {
+            WarrantyTicket t = ticket(st);
+            when(warrantyTicketRepository.findById(t.getTicketId())).thenReturn(Optional.of(t));
+            assertThatThrownBy(() -> service.startProcessing(t.getTicketId()))
+                    .isInstanceOf(AppException.class)
+                    .satisfies(e -> assertThat(((AppException) e).getErrorCode())
+                            .isEqualTo(ServicedeskErrorCode.WARRANTY_TICKET_NOT_STARTABLE));
+        }
+        verify(warrantyTicketRepository, never()).save(any());
     }
 
     @Test
-    @DisplayName("dispatch: ticket không ở NEW -> lỗi, không tạo job")
-    void dispatchRejectsNonNew() {
-        WarrantyTicket t = ticket(WarrantyTicketStatus.IN_PROGRESS);
-        when(warrantyTicketRepository.findById(t.getTicketId())).thenReturn(Optional.of(t));
-
-        assertThatThrownBy(() -> service.dispatch(t.getTicketId(),
-                new DispatchWarrantyTicketRequest(technicianId, null, null)))
-                .isInstanceOf(AppException.class);
-
-        verify(technicalJobService, never()).dispatchWarrantyRepairJob(any(), any(), any(), any(), any(), any(), any());
-    }
-
-    @Test
-    @DisplayName("dispatch: ticket không tồn tại -> lỗi NOT_FOUND")
-    void dispatchTicketNotFound() {
+    @DisplayName("startProcessing: ticket không tồn tại -> SVD_023")
+    void startTicketNotFound() {
         UUID id = UUID.randomUUID();
         when(warrantyTicketRepository.findById(id)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.dispatch(id, new DispatchWarrantyTicketRequest(technicianId, null, null)))
-                .isInstanceOf(AppException.class);
+        assertThatThrownBy(() -> service.startProcessing(id))
+                .isInstanceOf(AppException.class)
+                .satisfies(e -> assertThat(((AppException) e).getErrorCode())
+                        .isEqualTo(ServicedeskErrorCode.WARRANTY_TICKET_NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("complete: ticket IN_PROGRESS -> DONE, lưu kết quả và thời điểm hoàn tất")
+    void completeFromInProgress() {
+        WarrantyTicket t = ticket(WarrantyTicketStatus.IN_PROGRESS);
+        when(warrantyTicketRepository.findById(t.getTicketId())).thenReturn(Optional.of(t));
+
+        var res = service.complete(t.getTicketId(), new CompleteWarrantyTicketRequest("  Không bảo hành vì lỗi do va đập  "));
+
+        assertThat(res.status()).isEqualTo(WarrantyTicketStatus.DONE);
+        assertThat(t.getResult()).isEqualTo("Không bảo hành vì lỗi do va đập");
+        assertThat(t.getCompletedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("complete: ticket không ở IN_PROGRESS -> SVD_040; thiếu kết quả -> SVD_041")
+    void completeRejectedCases() {
+        WarrantyTicket t = ticket(WarrantyTicketStatus.NEW);
+        when(warrantyTicketRepository.findById(t.getTicketId())).thenReturn(Optional.of(t));
+        assertThatThrownBy(() -> service.complete(t.getTicketId(), new CompleteWarrantyTicketRequest("Đã sửa")))
+                .isInstanceOf(AppException.class)
+                .satisfies(e -> assertThat(((AppException) e).getErrorCode())
+                        .isEqualTo(ServicedeskErrorCode.WARRANTY_TICKET_NOT_COMPLETABLE));
+
+        assertThatThrownBy(() -> service.complete(UUID.randomUUID(), new CompleteWarrantyTicketRequest("   ")))
+                .isInstanceOf(AppException.class)
+                .satisfies(e -> assertThat(((AppException) e).getErrorCode())
+                        .isEqualTo(ServicedeskErrorCode.WARRANTY_TICKET_RESULT_REQUIRED));
+        verify(warrantyTicketRepository, never()).save(any());
     }
 
     @Test

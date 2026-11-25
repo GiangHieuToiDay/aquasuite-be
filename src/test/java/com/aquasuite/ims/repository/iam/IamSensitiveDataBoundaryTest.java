@@ -61,12 +61,12 @@ class IamSensitiveDataBoundaryTest {
     }
 
     @Test
-    @DisplayName("AC-08: REST payload location and encapsulation without external leakage")
+    @DisplayName("AC-08: REST payload nằm trong dto/iam và không còn tham chiếu namespace module cũ")
     void testRestPayloadLocationAndEncapsulation() throws IOException {
-        Path payloadDir = Paths.get("src/main/java/com/aquasuite/ims/module/iam/internal/payload");
-        assertThat(Files.exists(payloadDir)).as("Production payload directory must exist under internal").isTrue();
+        Path payloadDir = Paths.get("src/main/java/com/aquasuite/ims/dto/iam");
+        assertThat(Files.exists(payloadDir)).as("Production payload directory must exist under dto/iam").isTrue();
 
-        // No external module outside IAM should import internal payload
+        // Namespace module.iam.internal.payload đã bị bỏ sau khi chuyển sang 3 lớp
         Path srcMain = Paths.get("src/main/java");
         if (Files.exists(srcMain)) {
             try (Stream<Path> stream = Files.walk(srcMain)) {
@@ -82,7 +82,7 @@ class IamSensitiveDataBoundaryTest {
                             }
                         })
                         .toList();
-                assertThat(violatingFiles).as("No non-IAM file may import internal.payload").isEmpty();
+                assertThat(violatingFiles).as("No file may import the removed module.iam.internal.payload namespace").isEmpty();
             }
         }
     }

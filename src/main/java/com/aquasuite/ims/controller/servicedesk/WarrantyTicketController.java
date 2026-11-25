@@ -25,25 +25,34 @@ public class WarrantyTicketController {
     // ── Staff / Owner endpoints (from WarrantyTicketManagementController) ───
 
     @GetMapping("/api/v1/warranty-tickets")
-    @PreAuthorize("hasAnyRole('SHOP_OWNER','TECHNICAL_STAFF')")
+    @PreAuthorize("hasRole('SHOP_OWNER')")
     public ResponseEntity<ApiResponse<PageResponse<WarrantyTicketListItemResponse>>> list(
             WarrantyTicketFilterRequest filter) {
         return ResponseEntity.ok(ApiResponse.ok(warrantyTicketService.list(filter)));
     }
 
     @GetMapping("/api/v1/warranty-tickets/{id}")
-    @PreAuthorize("hasAnyRole('SHOP_OWNER','TECHNICAL_STAFF')")
+    @PreAuthorize("hasRole('SHOP_OWNER')")
     public ResponseEntity<ApiResponse<WarrantyTicketDetailResponse>> getDetail(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(warrantyTicketService.getById(id)));
     }
 
-    @PostMapping("/api/v1/warranty-tickets/{id}/dispatch")
+    /** Chủ cửa hàng tiếp nhận xử lý yêu cầu bảo hành: NEW → IN_PROGRESS. */
+    @PostMapping("/api/v1/warranty-tickets/{id}/start")
     @PreAuthorize("hasRole('SHOP_OWNER')")
-    public ResponseEntity<ApiResponse<WarrantyTicketDetailResponse>> dispatch(
+    public ResponseEntity<ApiResponse<WarrantyTicketDetailResponse>> startProcessing(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(warrantyTicketService.startProcessing(id),
+                "Đã tiếp nhận xử lý yêu cầu bảo hành"));
+    }
+
+    /** Chủ cửa hàng hoàn tất yêu cầu bảo hành kèm kết quả xử lý: IN_PROGRESS → DONE. */
+    @PostMapping("/api/v1/warranty-tickets/{id}/complete")
+    @PreAuthorize("hasRole('SHOP_OWNER')")
+    public ResponseEntity<ApiResponse<WarrantyTicketDetailResponse>> complete(
             @PathVariable UUID id,
-            @Valid @RequestBody DispatchWarrantyTicketRequest request) {
-        return ResponseEntity.ok(ApiResponse.ok(warrantyTicketService.dispatch(id, request),
-                "Đã bắn công việc sửa chữa bảo hành cho kỹ thuật viên"));
+            @Valid @RequestBody CompleteWarrantyTicketRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(warrantyTicketService.complete(id, request),
+                "Đã hoàn tất yêu cầu bảo hành"));
     }
 
     @PostMapping("/api/v1/warranty-tickets/{id}/reject")
@@ -75,7 +84,7 @@ public class WarrantyTicketController {
             @Valid @RequestBody CreateWarrantyTicketRequest request) {
         WarrantyTicketDetailResponse response = warrantyTicketService.submit(request);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.ok(response, "MSG85: Yêu cầu bảo hành đã được gửi. Đội kỹ thuật sẽ liên hệ bạn trong vòng 4 giờ làm việc."));
+                .body(ApiResponse.ok(response, "MSG85: Yêu cầu bảo hành đã được gửi. Cửa hàng sẽ liên hệ bạn trong vòng 4 giờ làm việc."));
     }
 
     @GetMapping("/api/v1/storefront/warranty-tickets")

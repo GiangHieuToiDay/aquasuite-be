@@ -3,7 +3,7 @@ package com.aquasuite.ims.service.finance;
 import com.aquasuite.ims.entity.finance.Transaction;
 import com.aquasuite.ims.repository.finance.TransactionRepository;
 import com.aquasuite.ims.service.finance.impl.OrderReceivableServiceImpl;
-import com.aquasuite.ims.service.sales.SalesOrderService;
+import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.dto.sales.response.SalesOrderMilestoneDto;
 import com.aquasuite.ims.dto.sales.response.SalesOrderPaymentInfoDto;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,7 +25,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class OrderReceivableApiTest {
     @Mock TransactionRepository transactions;
-    @Mock SalesOrderService sales;
+    @Mock SalesQueryService sales;
     @InjectMocks OrderReceivableServiceImpl api;
 
     UUID orderId;

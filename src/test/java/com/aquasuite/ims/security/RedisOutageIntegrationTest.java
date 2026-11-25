@@ -8,6 +8,7 @@ import com.aquasuite.ims.dto.iam.request.LoginRequest;
 import com.aquasuite.ims.dto.iam.request.RefreshRequest;
 import com.aquasuite.ims.repository.iam.UserRepository;
 import com.aquasuite.ims.security.AccessAuthenticationConverter;
+import com.aquasuite.ims.security.AppUserDetails;
 import com.aquasuite.ims.security.AuthSecurityErrorHandlers;
 import com.aquasuite.ims.security.JwtDecoderConfig;
 import com.aquasuite.ims.service.iam.impl.AuthServiceImpl;
@@ -31,6 +32,7 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -83,7 +85,8 @@ class RedisOutageIntegrationTest {
                         userRepository,
                         jwtTokenService,
                         redisSessionStore,
-                        currentAuthoritiesService);
+                        currentAuthoritiesService,
+                        null, null, null, null, null, null, null);
 
         jwtDecoderConfig = new JwtDecoderConfig(jwtTokenService, redisSessionStore);
         ReflectionTestUtils.setField(jwtDecoderConfig, "issuer", "aquasuite-be");
@@ -152,9 +155,9 @@ class RedisOutageIntegrationTest {
         user.setStatus(UserStatus.ACTIVE);
         user.setRoles(Set.of());
 
-        when(authenticationManager.authenticate(any())).thenReturn(mock(Authentication.class));
-        when(userRepository.findWithRolesAndPermissionsByEmailIgnoreCase(email))
-                .thenReturn(Optional.of(user));
+        Authentication authenticated = mock(Authentication.class);
+        when(authenticated.getPrincipal()).thenReturn(new AppUserDetails(user, List.of()));
+        when(authenticationManager.authenticate(any())).thenReturn(authenticated);
 
         // Redis createSession fails
         doThrow(new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Redis down"))

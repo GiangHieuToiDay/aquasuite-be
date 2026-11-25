@@ -1,0 +1,85 @@
+@startuml UC32_Manage_Goods_Receipt_Sequence
+title UC-32 - Manage Goods Receipt by Purchase Order
+
+hide footbox
+skinparam ParticipantPadding 10
+skinparam BoxPadding 6
+skinparam maxMessageSize 150
+skinparam sequence {
+    ArrowColor #263238
+    ActorBorderColor #263238
+    LifeLineBorderColor #78909C
+    ParticipantBorderColor #1565C0
+    ParticipantBackgroundColor #E3F2FD
+    GroupBorderColor #455A64
+    GroupBackgroundColor #FAFAFA
+}
+
+actor "Shop Owner / Accountant" as Staff
+boundary "goodsReceiptUI: GoodsReceiptUI\n<<boundary>>" as UI
+control "goodsReceiptController:\nGoodsReceiptController\n<<controller>>" as Ctrl
+control "goodsReceiptService:\nGoodsReceiptService\n<<service>>" as GR
+control "purchaseOrderService:\nPurchaseOrderService\n<<service>>" as PO
+entity "goodsReceiptRepository:\nGoodsReceiptRepository\n<<repository>>" as GRRepo
+entity "goodsReceiptItemRepository:\nGoodsReceiptItemRepository\n<<repository>>" as ItemRepo
+entity "inventoryRepository:\nInventoryRepository\n<<repository>>" as InvRepo
+entity "stockMovementRepository:\nStockMovementRepository\n<<repository>>" as MoveRepo
+
+Staff -> UI: 1: Enter quantities received in this delivery
+UI -> Ctrl: 2: POST /api/v1/inventory/goods-receipts\nCreateGoodsReceiptRequest
+
+break request data is invalid
+    Ctrl --> UI: 3: HTTP 400 - ApiResponse(SYS_003)
+    UI --> Staff: 4: Display "Invalid input data"
+end
+
+Ctrl -> GR: 5: createAndConfirm(request, actorUserId)
+activate GR
+GR -> GRRepo: 6: findByIdempotencyKey(idempotencyKey)
+GRRepo --> GR: 7: Existing receipt or empty
+
+break same key and identical request data
+    GR --> Ctrl: 8: Existing GoodsReceiptResponse
+    Ctrl --> UI: 9: HTTP 201 - ApiResponse<GoodsReceiptResponse>
+    UI --> Staff: 10: Display the existing receipt
+end
+
+break same key reused with different request data
+    GR --> Ctrl: 11: throw AppException(INV_019)
+    Ctrl --> UI: 12: HTTP 409 - ApiResponse(INV_019)
+    UI --> Staff: 13: Display "Request key already used with different data"
+end
+
+GR -> PO: 14: lockReceivablePurchaseOrder(purchaseOrderId)
+PO --> GR: 15: ReceivablePurchaseOrderView
+GR -> GR: 16: validateLines(items, remainingQty)
+
+break PO is not receivable or received quantity is invalid
+    GR --> Ctrl: 17: throw AppException(INV_010..INV_016)
+    Ctrl --> UI: 18: HTTP 400 / 404 / 409\nApiResponse(errorCode, errorMessage)
+    UI --> Staff: 19: Display [errorCode] errorMessage
+end
+
+GR -> GRRepo: 20: save(CONFIRMED goodsReceipt)
+
+loop each accepted PO item in this delivery
+    GR -> ItemRepo: 21: save(goodsReceiptItem)
+    GR -> InvRepo: 22: findByVariantIdAndWarehouseCodeForUpdate(...)
+    InvRepo --> GR: 23: Inventory
+    GR -> InvRepo: 24: save(increasedInventory)
+    GR -> MoveRepo: 25: save(GOODS_RECEIPT stockMovement)
+end
+
+GR -> PO: 26: applyGoodsReceipt(purchaseOrderId, receivedByPoItem)
+PO --> GR: 27: PARTIALLY_RECEIVED or COMPLETED
+GR --> Ctrl: 28: GoodsReceiptResponse
+deactivate GR
+Ctrl --> UI: 29: HTTP 201\nApiResponse<GoodsReceiptResponse>, code="SUCCESS"
+UI --> Staff: 30: Display "Goods receipt created and confirmed successfully"
+
+note over GR,PO
+  Receipt, stock, stock movement and PO progress commit together.
+  Any failure rolls back the whole transaction.
+end note
+
+@enduml

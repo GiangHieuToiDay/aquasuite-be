@@ -37,6 +37,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@org.junit.jupiter.api.extension.ExtendWith(com.aquasuite.ims.testsupport.IamSeedRestoreExtension.class)
 @SpringBootTest
 class IamConcurrencyAndRepositoryIntegrationTest extends PostgreSqlIntegrationTestSupport {
 
@@ -130,7 +131,7 @@ class IamConcurrencyAndRepositoryIntegrationTest extends PostgreSqlIntegrationTe
         Permission p = new Permission(UUID.randomUUID(), "WAREHOUSE_READ", "Read warehouse");
         permissionRepository.saveAndFlush(p);
 
-        Role role = roleRepository.findByRoleNameIgnoreCase("TECHNICAL_STAFF").orElseThrow();
+        Role role = roleRepository.findByRoleNameIgnoreCase("SHIPPER").orElseThrow();
 
         int threads = 4;
         ExecutorService executor = Executors.newFixedThreadPool(threads);

@@ -47,6 +47,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -396,7 +397,8 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             throw new AppException(PurchasingErrorCode.CANCEL_REASON_REQUIRED);
         }
 
-        PurchaseOrder po = purchaseOrderRepository.findById(purchaseOrderId)
+        // Khóa dòng PO để tuần tự hóa với nhập kho (UC-32): không hủy chen giữa một phiếu đang ghi.
+        PurchaseOrder po = purchaseOrderRepository.findByIdForUpdate(purchaseOrderId)
                 .orElseThrow(() -> new AppException(PurchasingErrorCode.PO_NOT_FOUND));
 
         if (po.getStatus() != PurchaseOrderStatus.DRAFT && po.getStatus() != PurchaseOrderStatus.CONFIRMED) {
@@ -428,7 +430,8 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             throw new AppException(PurchasingErrorCode.CLOSE_REASON_REQUIRED);
         }
 
-        PurchaseOrder po = purchaseOrderRepository.findById(purchaseOrderId)
+        // Khóa dòng PO để tuần tự hóa với nhập kho (UC-32): không đóng thiếu chen giữa một phiếu đang ghi.
+        PurchaseOrder po = purchaseOrderRepository.findByIdForUpdate(purchaseOrderId)
                 .orElseThrow(() -> new AppException(PurchasingErrorCode.PO_NOT_FOUND));
 
         if (po.getStatus() != PurchaseOrderStatus.PARTIALLY_RECEIVED) {
@@ -718,60 +721,78 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     public Optional<ReceivablePurchaseOrderView> getReceivablePurchaseOrder(UUID purchaseOrderId) {
         if (purchaseOrderId == null) return Optional.empty();
 
-        return purchaseOrderRepository.findById(purchaseOrderId).map(po -> {
-            boolean receivable = OPEN_STATUSES.contains(po.getStatus());
-
-            List<ReceivableItemView> items = po.getItems().stream()
-                    .map(item -> new ReceivableItemView(
-                            item.getPurchaseOrderItemId(),
-                            item.getVariantId(),
-                            item.getSku(),
-                            item.getProductName(),
-                            item.getUnit(),
-                            item.getUnitCost(),
-                            item.getQuantityOrdered(),
-                            item.getQuantityReceived() != null ? item.getQuantityReceived() : BigDecimal.ZERO,
-                            item.getRemainingQty()
-                    ))
-                    .toList();
-
-            return new ReceivablePurchaseOrderView(
-                    po.getPurchaseOrderId(),
-                    po.getPoCode(),
-                    po.getStatus().name(),
-                    receivable,
-                    po.getWarehouseCode(),
-                    po.getSupplierId(),
-                    items
-            );
-        });
+        return purchaseOrderRepository.findById(purchaseOrderId).map(this::toReceivableView);
     }
 
     @Override
-    @Transactional
-    public void onGoodsReceiptConfirmed(UUID purchaseOrderId, Map<UUID, BigDecimal> receivedItems) {
-        if (purchaseOrderId == null || receivedItems == null || receivedItems.isEmpty()) return;
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Optional<ReceivablePurchaseOrderView> lockReceivablePurchaseOrder(UUID purchaseOrderId) {
+        if (purchaseOrderId == null) return Optional.empty();
+        return purchaseOrderRepository.findByIdForUpdate(purchaseOrderId).map(this::toReceivableView);
+    }
 
-        PurchaseOrder po = purchaseOrderRepository.findById(purchaseOrderId)
-                .orElseThrow(() -> new AppException(PurchasingErrorCode.PO_NOT_FOUND));
+    private ReceivablePurchaseOrderView toReceivableView(PurchaseOrder po) {
+        boolean receivable = OPEN_STATUSES.contains(po.getStatus());
 
-        if (po.getStatus() != PurchaseOrderStatus.CONFIRMED && po.getStatus() != PurchaseOrderStatus.PARTIALLY_RECEIVED) {
-            log.warn("PO {} is in status {}, ignoring receipt confirmation", po.getPoCode(), po.getStatus());
-            return;
+        List<ReceivableItemView> items = po.getItems().stream()
+                .map(item -> new ReceivableItemView(
+                        item.getPurchaseOrderItemId(),
+                        item.getVariantId(),
+                        item.getSku(),
+                        item.getProductName(),
+                        item.getUnit(),
+                        item.getUnitCost(),
+                        item.getQuantityOrdered(),
+                        item.getQuantityReceived() != null ? item.getQuantityReceived() : BigDecimal.ZERO,
+                        item.getRemainingQty()
+                ))
+                .toList();
+
+        return new ReceivablePurchaseOrderView(
+                po.getPurchaseOrderId(),
+                po.getPoCode(),
+                po.getStatus().name(),
+                receivable,
+                po.getWarehouseCode(),
+                po.getSupplierId(),
+                items
+        );
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public String applyGoodsReceipt(UUID purchaseOrderId, Map<UUID, BigDecimal> receivedByPurchaseOrderItemId) {
+        if (receivedByPurchaseOrderItemId == null || receivedByPurchaseOrderItemId.isEmpty()) {
+            throw new AppException(PurchasingErrorCode.PO_RECEIPT_ITEM_NOT_IN_PO, "(empty)");
         }
 
+        // Tái nhập khóa: bên gọi đã giữ FOR UPDATE trong cùng transaction nên lời gọi này không chờ.
+        PurchaseOrder po = purchaseOrderRepository.findByIdForUpdate(purchaseOrderId)
+                .orElseThrow(() -> new AppException(PurchasingErrorCode.PO_NOT_FOUND));
+
+        // Không bỏ qua im lặng: PO đã hủy/đóng/đổi trạng thái thì từ chối để cuộn ngược cả phiếu và tồn.
+        if (!OPEN_STATUSES.contains(po.getStatus())) {
+            throw new AppException(PurchasingErrorCode.PO_NOT_RECEIVABLE, po.getStatus().name());
+        }
+
+        Map<UUID, PurchaseOrderItem> itemById = new HashMap<>();
         for (PurchaseOrderItem item : po.getItems()) {
-            BigDecimal qtyReceivedNow = receivedItems.get(item.getVariantId());
-            if (qtyReceivedNow != null && qtyReceivedNow.compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal currentReceived = item.getQuantityReceived() != null ? item.getQuantityReceived() : BigDecimal.ZERO;
-                BigDecimal newReceived = currentReceived.add(qtyReceivedNow);
+            itemById.put(item.getPurchaseOrderItemId(), item);
+        }
 
-                if (newReceived.compareTo(item.getQuantityOrdered()) > 0) {
-                    throw new AppException(PurchasingErrorCode.PO_RECEIPT_EXCEEDS_REMAINING, item.getSku());
-                }
-
-                item.setQuantityReceived(newReceived);
+        for (Map.Entry<UUID, BigDecimal> entry : receivedByPurchaseOrderItemId.entrySet()) {
+            PurchaseOrderItem item = itemById.get(entry.getKey());
+            BigDecimal qtyReceivedNow = entry.getValue();
+            if (item == null || qtyReceivedNow == null || qtyReceivedNow.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new AppException(PurchasingErrorCode.PO_RECEIPT_ITEM_NOT_IN_PO, entry.getKey());
             }
+
+            BigDecimal currentReceived = item.getQuantityReceived() != null ? item.getQuantityReceived() : BigDecimal.ZERO;
+            BigDecimal newReceived = currentReceived.add(qtyReceivedNow);
+            if (newReceived.compareTo(item.getQuantityOrdered()) > 0) {
+                throw new AppException(PurchasingErrorCode.PO_RECEIPT_EXCEEDS_REMAINING, item.getSku());
+            }
+            item.setQuantityReceived(newReceived);
         }
 
         boolean allCompleted = po.getItems().stream()
@@ -786,5 +807,6 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
         purchaseOrderRepository.save(po);
         log.info("Updated PO {} status to {}", po.getPoCode(), po.getStatus());
+        return po.getStatus().name();
     }
 }

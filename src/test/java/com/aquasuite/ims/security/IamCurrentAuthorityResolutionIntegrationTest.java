@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@org.junit.jupiter.api.extension.ExtendWith(com.aquasuite.ims.testsupport.IamSeedRestoreExtension.class)
 @SpringBootTest
 class IamCurrentAuthorityResolutionIntegrationTest extends PostgreSqlIntegrationTestSupport {
 

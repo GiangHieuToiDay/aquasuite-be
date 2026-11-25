@@ -37,7 +37,6 @@ public record WarrantyTicketDetailResponse(
         List<TicketMedia> media,
         WarrantyTicketStatus status,
         boolean canCancel,
-        UUID technicalJobId,
         String result,
         String rejectionReason,
         String cancelReason,

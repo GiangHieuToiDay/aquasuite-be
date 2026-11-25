@@ -184,7 +184,7 @@ class DevelopmentDataInitializerTest {
 
             assertThat(result).isTrue();
             verify(transactionTemplate, times(1)).executeWithoutResult(any());
-            verify(roleRepository, times(6)).save(any(Role.class));
+            verify(roleRepository, times(5)).save(any(Role.class));
             verify(userRepository, times(1)).save(any(User.class));
         }
 
@@ -287,14 +287,14 @@ class DevelopmentDataInitializerTest {
     class RolesSeedTests {
 
         @Test
-        @DisplayName("Seeds exactly 6 canonical roles, never creates GUEST or permissions")
-        void shouldSeedExactSixRoles() {
+        @DisplayName("Seeds exactly 5 canonical roles, never creates GUEST or permissions")
+        void shouldSeedExactFiveRoles() {
             setDevEnvironment();
 
             initializer.initialize();
 
             ArgumentCaptor<Role> roleCaptor = ArgumentCaptor.forClass(Role.class);
-            verify(roleRepository, times(6)).save(roleCaptor.capture());
+            verify(roleRepository, times(5)).save(roleCaptor.capture());
 
             List<Role> savedRoles = roleCaptor.getAllValues();
             Set<String> savedRoleNames =
@@ -305,7 +305,6 @@ class DevelopmentDataInitializerTest {
                             "SHOP_OWNER",
                             "SALES_STAFF",
                             "ACCOUNTANT",
-                            "TECHNICAL_STAFF",
                             "SHIPPER",
                             "CUSTOMER");
 
@@ -741,7 +740,7 @@ class DevelopmentDataInitializerTest {
                     .hasMessageContaining("non-ACTIVE status");
 
             // Verify roles WERE saved in the transaction callback before the owner check failed
-            verify(roleRepository, times(6)).save(any(Role.class));
+            verify(roleRepository, times(5)).save(any(Role.class));
             // Verify owner was NOT saved
             verify(userRepository, never()).save(any());
             // Because the exception escaped the TransactionTemplate callback, the transaction rolls

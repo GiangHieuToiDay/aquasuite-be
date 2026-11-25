@@ -10,12 +10,9 @@ import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.dto.sales.response.SalesOrderWarrantySummaryDto;
 import com.aquasuite.ims.event.servicedesk.WarrantyClaimSubmittedEvent;
 import com.aquasuite.ims.event.servicedesk.WarrantyTicketAuditEvent;
-import com.aquasuite.ims.entity.servicedesk.TechnicalJob;
 import com.aquasuite.ims.entity.servicedesk.TicketMedia;
 import com.aquasuite.ims.entity.servicedesk.WarrantyRecord;
 import com.aquasuite.ims.entity.servicedesk.WarrantyTicket;
-import com.aquasuite.ims.enums.servicedesk.TechnicalJobStatus;
-import com.aquasuite.ims.enums.servicedesk.TechnicalJobType;
 import com.aquasuite.ims.enums.servicedesk.WarrantyStatus;
 import com.aquasuite.ims.enums.servicedesk.WarrantyTicketStatus;
 import com.aquasuite.ims.exception.servicedesk.ServicedeskErrorCode;
@@ -25,7 +22,6 @@ import com.aquasuite.ims.dto.servicedesk.request.WarrantyTicketFilterRequest;
 import com.aquasuite.ims.dto.servicedesk.response.ClaimFormResponse;
 import com.aquasuite.ims.dto.servicedesk.response.WarrantyTicketDetailResponse;
 import com.aquasuite.ims.dto.servicedesk.response.WarrantyTicketListItemResponse;
-import com.aquasuite.ims.repository.servicedesk.TechnicalJobRepository;
 import com.aquasuite.ims.repository.servicedesk.WarrantyRecordRepository;
 import com.aquasuite.ims.repository.servicedesk.WarrantyTicketRepository;
 import com.aquasuite.ims.service.servicedesk.WarrantyTicketService;
@@ -46,10 +42,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
-import com.aquasuite.ims.dto.servicedesk.request.DispatchWarrantyTicketRequest;
+import com.aquasuite.ims.dto.servicedesk.request.CompleteWarrantyTicketRequest;
 import com.aquasuite.ims.dto.servicedesk.request.RejectWarrantyTicketRequest;
-import com.aquasuite.ims.dto.servicedesk.response.TechnicalJobDetailResponse;
-import com.aquasuite.ims.service.servicedesk.TechnicalJobService;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -79,11 +73,6 @@ import java.util.stream.Collectors;
 @Service
 public class WarrantyTicketServiceImpl implements WarrantyTicketService {
 
-    private static final Set<TechnicalJobStatus> OPEN_REPAIR_JOB_STATUSES = Set.of(
-            TechnicalJobStatus.ASSIGNED,
-            TechnicalJobStatus.IN_PROGRESS
-    );
-
     private static final List<WarrantyTicketStatus> OPEN_TICKET_STATUSES = List.of(
             WarrantyTicketStatus.NEW,
             WarrantyTicketStatus.IN_PROGRESS
@@ -91,7 +80,6 @@ public class WarrantyTicketServiceImpl implements WarrantyTicketService {
 
     private final WarrantyTicketRepository warrantyTicketRepository;
     private final WarrantyRecordRepository warrantyRecordRepository;
-    private final TechnicalJobRepository technicalJobRepository;
     private final WarrantyTicketCodeGenerator warrantyTicketCodeGenerator;
     private final ServicedeskMediaStoragePort servicedeskMediaStoragePort;
     private final MediaValidator mediaValidator;
@@ -103,13 +91,11 @@ public class WarrantyTicketServiceImpl implements WarrantyTicketService {
 
     @Qualifier("servicedeskClock")
     private final Clock servicedeskClock;
-    private final TechnicalJobService technicalJobService;
 
     @Autowired
     public WarrantyTicketServiceImpl(
             WarrantyTicketRepository warrantyTicketRepository,
             WarrantyRecordRepository warrantyRecordRepository,
-            TechnicalJobRepository technicalJobRepository,
             WarrantyTicketCodeGenerator warrantyTicketCodeGenerator,
             ServicedeskMediaStoragePort servicedeskMediaStoragePort,
             MediaValidator mediaValidator,
@@ -118,11 +104,9 @@ public class WarrantyTicketServiceImpl implements WarrantyTicketService {
             CatalogLookupService catalogApi,
             SalesQueryService salesWarrantyApi,
             ApplicationEventPublisher eventPublisher,
-            @Qualifier("servicedeskClock") Clock servicedeskClock,
-            TechnicalJobService technicalJobService) {
+            @Qualifier("servicedeskClock") Clock servicedeskClock) {
         this.warrantyTicketRepository = warrantyTicketRepository;
         this.warrantyRecordRepository = warrantyRecordRepository;
-        this.technicalJobRepository = technicalJobRepository;
         this.warrantyTicketCodeGenerator = warrantyTicketCodeGenerator;
         this.servicedeskMediaStoragePort = servicedeskMediaStoragePort;
         this.mediaValidator = mediaValidator;
@@ -132,38 +116,18 @@ public class WarrantyTicketServiceImpl implements WarrantyTicketService {
         this.salesWarrantyApi = salesWarrantyApi;
         this.eventPublisher = eventPublisher;
         this.servicedeskClock = servicedeskClock;
-        this.technicalJobService = technicalJobService;
-    }
-
-    public WarrantyTicketServiceImpl(
-            WarrantyTicketRepository warrantyTicketRepository,
-            WarrantyRecordRepository warrantyRecordRepository,
-            TechnicalJobRepository technicalJobRepository,
-            WarrantyTicketCodeGenerator warrantyTicketCodeGenerator,
-            ServicedeskMediaStoragePort servicedeskMediaStoragePort,
-            MediaValidator mediaValidator,
-            IamQueryService iamApi,
-            CustomerService crmApi,
-            CatalogLookupService catalogApi,
-            SalesQueryService salesWarrantyApi,
-            ApplicationEventPublisher eventPublisher,
-            Clock servicedeskClock) {
-        this(warrantyTicketRepository, warrantyRecordRepository, technicalJobRepository,
-                warrantyTicketCodeGenerator, servicedeskMediaStoragePort, mediaValidator,
-                iamApi, crmApi, catalogApi, salesWarrantyApi, eventPublisher, servicedeskClock, null);
     }
 
     public WarrantyTicketServiceImpl(
             WarrantyTicketRepository warrantyTicketRepository,
             WarrantyRecordRepository warrantyRecordRepository,
             CatalogLookupService catalogApi,
-            TechnicalJobService technicalJobService,
             IamQueryService iamApi,
             ApplicationEventPublisher eventPublisher,
             Clock servicedeskClock) {
-        this(warrantyTicketRepository, warrantyRecordRepository, null,
+        this(warrantyTicketRepository, warrantyRecordRepository,
                 null, null, null,
-                iamApi, null, catalogApi, null, eventPublisher, servicedeskClock, technicalJobService);
+                iamApi, null, catalogApi, null, eventPublisher, servicedeskClock);
     }
 
     @Override
@@ -181,9 +145,6 @@ public class WarrantyTicketServiceImpl implements WarrantyTicketService {
         boolean expired = record.getEndDate() != null && record.getEndDate().isBefore(today);
 
         // Kiểm tra các điều kiện chặn gửi yêu cầu
-        boolean hasOpenJob = technicalJobRepository.findByWarrantyRecordIdOrderByCreatedAtDesc(warrantyRecordId).stream()
-                .anyMatch(j -> j.getJobType() == TechnicalJobType.WARRANTY_REPAIR && OPEN_REPAIR_JOB_STATUSES.contains(j.getStatus()));
-
         Optional<WarrantyTicket> openTicketOpt = warrantyTicketRepository.findFirstByWarrantyRecordIdAndStatusIn(
                 warrantyRecordId, OPEN_TICKET_STATUSES);
 
@@ -194,9 +155,6 @@ public class WarrantyTicketServiceImpl implements WarrantyTicketService {
         if (record.getStatus() == WarrantyStatus.VOIDED) {
             canSubmit = false;
             blockedReason = "Thẻ bảo hành đã bị vô hiệu hóa.";
-        } else if (hasOpenJob) {
-            canSubmit = false;
-            blockedReason = "Thiết bị đang có phiếu sửa chữa bảo hành đang mở.";
         } else if (openTicketCode != null) {
             canSubmit = false;
             blockedReason = "Đang có yêu cầu bảo hành mở: " + openTicketCode;
@@ -289,17 +247,11 @@ public class WarrantyTicketServiceImpl implements WarrantyTicketService {
             throw new AppException(ServicedeskErrorCode.WARRANTY_RECORD_EXPIRED_NOT_ACKNOWLEDGED);
         }
 
-        // 4. Kiểm tra có ticket mở hoặc job bảo hành mở
+        // 4. Kiểm tra có yêu cầu bảo hành đang mở
         Optional<WarrantyTicket> openTicket = warrantyTicketRepository.findFirstByWarrantyRecordIdAndStatusIn(
                 record.getWarrantyRecordId(), OPEN_TICKET_STATUSES);
         if (openTicket.isPresent()) {
             throw new AppException(ServicedeskErrorCode.WARRANTY_TICKET_ALREADY_OPEN, openTicket.get().getTicketCode());
-        }
-
-        boolean hasOpenJob = technicalJobRepository.findByWarrantyRecordIdOrderByCreatedAtDesc(record.getWarrantyRecordId()).stream()
-                .anyMatch(j -> j.getJobType() == TechnicalJobType.WARRANTY_REPAIR && OPEN_REPAIR_JOB_STATUSES.contains(j.getStatus()));
-        if (hasOpenJob) {
-            throw new AppException(ServicedeskErrorCode.WARRANTY_TICKET_ALREADY_OPEN, "JOB_IN_PROGRESS");
         }
 
         // 5. Validate dữ liệu yêu cầu
@@ -518,7 +470,6 @@ public class WarrantyTicketServiceImpl implements WarrantyTicketService {
                 .media(ticket.getMedia() != null ? ticket.getMedia() : List.of())
                 .status(ticket.getStatus())
                 .canCancel(ticket.getStatus() == WarrantyTicketStatus.NEW)
-                .technicalJobId(ticket.getTechnicalJobId())
                 .result(ticket.getResult())
                 .rejectionReason(ticket.getRejectionReason())
                 .cancelReason(ticket.getCancelReason())
@@ -593,33 +544,54 @@ public class WarrantyTicketServiceImpl implements WarrantyTicketService {
 
     @Override
     @Transactional
-    public WarrantyTicketDetailResponse dispatch(UUID ticketId, DispatchWarrantyTicketRequest request) {
+    public WarrantyTicketDetailResponse startProcessing(UUID ticketId) {
         WarrantyTicket ticket = warrantyTicketRepository.findById(ticketId)
                 .orElseThrow(() -> new AppException(ServicedeskErrorCode.WARRANTY_TICKET_NOT_FOUND, ticketId));
 
-        if (ticket.getStatus() != WarrantyTicketStatus.NEW) {
-            throw new AppException(ServicedeskErrorCode.WARRANTY_TICKET_NOT_DISPATCHABLE, ticket.getStatus().name());
-        }
-
-        String serviceAddress = StringUtils.hasText(request.serviceAddress())
-                ? request.serviceAddress().trim()
-                : ticket.getSiteAddress();
-
-        TechnicalJobDetailResponse job = technicalJobService.dispatchWarrantyRepairJob(
-                ticket.getCustomerId(),
-                ticket.getWarrantyRecordId(),
-                ticket.getTicketId(),
-                request.technicianId(),
-                serviceAddress,
-                ticket.getIssueDescription(),
-                request.scheduledAt());
-
-        ticket.markInProgress(job.technicalJobId(), OffsetDateTime.now());
+        OffsetDateTime now = OffsetDateTime.now();
+        ticket.startProcessing(now);
         WarrantyTicket saved = warrantyTicketRepository.save(ticket);
 
+        eventPublisher.publishEvent(new WarrantyTicketAuditEvent(
+                UUID.randomUUID(),
+                saved.getTicketId(),
+                iamApi.getCurrentUserId(),
+                "STARTED",
+                Map.of("status", "NEW"),
+                Map.of("status", "IN_PROGRESS"),
+                now
+        ));
+
         WarrantyRecord record = warrantyRecordRepository.findById(saved.getWarrantyRecordId()).orElse(null);
-        log.info("Đã bắn công việc sửa chữa bảo hành {} cho ticket {} (KTV {})",
-                job.technicalJobId(), saved.getTicketCode(), request.technicianId());
+        log.info("Đã tiếp nhận xử lý yêu cầu bảo hành {}", saved.getTicketCode());
+        return toDetailResponse(saved, record);
+    }
+
+    @Override
+    @Transactional
+    public WarrantyTicketDetailResponse complete(UUID ticketId, CompleteWarrantyTicketRequest request) {
+        if (request == null || !StringUtils.hasText(request.result())) {
+            throw new AppException(ServicedeskErrorCode.WARRANTY_TICKET_RESULT_REQUIRED);
+        }
+        WarrantyTicket ticket = warrantyTicketRepository.findById(ticketId)
+                .orElseThrow(() -> new AppException(ServicedeskErrorCode.WARRANTY_TICKET_NOT_FOUND, ticketId));
+
+        OffsetDateTime now = OffsetDateTime.now();
+        ticket.complete(request.result(), now);
+        WarrantyTicket saved = warrantyTicketRepository.save(ticket);
+
+        eventPublisher.publishEvent(new WarrantyTicketAuditEvent(
+                UUID.randomUUID(),
+                saved.getTicketId(),
+                iamApi.getCurrentUserId(),
+                "COMPLETED",
+                Map.of("status", "IN_PROGRESS"),
+                Map.of("status", "DONE", "result", saved.getResult()),
+                now
+        ));
+
+        WarrantyRecord record = warrantyRecordRepository.findById(saved.getWarrantyRecordId()).orElse(null);
+        log.info("Đã hoàn tất yêu cầu bảo hành {}", saved.getTicketCode());
         return toDetailResponse(saved, record);
     }
 

@@ -98,7 +98,8 @@ class AuthSessionRefreshConcurrencyTest {
                         userRepository,
                         jwtTokenService,
                         redisSessionStore,
-                        currentAuthoritiesService);
+                        currentAuthoritiesService,
+                        null, null, null, null, null, null, null);
 
         userId = UUID.randomUUID();
         Role ownerRole = new Role(UUID.randomUUID(), "SHOP_OWNER", "Chủ cửa hàng", true, null, Set.of());
@@ -261,7 +262,8 @@ class AuthSessionRefreshConcurrencyTest {
                         null,
                         jwtTokenService,
                         concurrentSessionStore,
-                        concurrentAuthoritiesService);
+                        concurrentAuthoritiesService,
+                        null, null, null, null, null, null, null);
 
         int threads = 6;
         ExecutorService executor = Executors.newFixedThreadPool(threads);

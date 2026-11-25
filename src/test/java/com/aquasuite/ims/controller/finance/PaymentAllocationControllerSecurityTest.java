@@ -88,6 +88,9 @@ class PaymentAllocationControllerSecurityTest {
     @MockBean
     private IamQueryService iamApi;
 
+    @MockBean
+    private com.aquasuite.ims.service.finance.PaymentService paymentService;
+
     @Test
     void unauthenticatedRequestsAreRejectedAcrossAllEndpoints() throws Exception {
         mockMvc.perform(get("/api/v1/finance/receipts/unallocated"))

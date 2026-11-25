@@ -50,7 +50,8 @@ public abstract class BundleCoreTestSupport {
 
     static {
         java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"));
-        DB = new PostgreSQLContainer<>("postgres:17.6").withPassword(UUID.randomUUID().toString());
+        DB = new PostgreSQLContainer<>("postgres:17.6").withPassword(UUID.randomUUID().toString())
+                .withCommand("postgres", "-c", "max_connections=500");
         DB.start();
         Runtime.getRuntime().addShutdownHook(new Thread(DB::stop));
     }
@@ -91,6 +92,7 @@ public abstract class BundleCoreTestSupport {
         BundleEvaluationService.class,
         BundleController.class,
         com.aquasuite.ims.service.inventory.impl.InventoryServiceImpl.class,
+        com.aquasuite.ims.service.catalog.impl.CatalogLookupServiceImpl.class,
         BundlePricingService.class,
         BundleMapperImpl.class,
         BundleDetailAssembler.class,

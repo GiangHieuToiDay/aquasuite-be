@@ -22,6 +22,8 @@ class ProjectDepositProfileTest {
         return new ApplicationContextRunner().withUserConfiguration(ProjectDepositDemoConfiguration.class,
                 ProjectDepositService.class, OrderReservationController.class, DemoProjectReservationOrderFactory.class, DemoProjectDepositPaymentService.class,
                 DemoProjectDepositController.class, DemoProjectReservationService.class, DemoProjectStockController.class)
+                .withBean(com.aquasuite.ims.service.sales.OrderReservationService.class, () -> mock(com.aquasuite.ims.service.sales.OrderReservationService.class))
+                .withBean(com.aquasuite.ims.service.sales.helper.ReservationAllocationRecovery.class, () -> mock(com.aquasuite.ims.service.sales.helper.ReservationAllocationRecovery.class))
                 .withBean(IamQueryService.class, () -> mock(IamQueryService.class))
                 .withBean(CatalogLookupService.class, () -> mock(CatalogLookupService.class))
                 .withBean(CustomerService.class, () -> mock(CustomerService.class))
@@ -33,7 +35,7 @@ class ProjectDepositProfileTest {
     @ValueSource(strings = {"default", "prod", "uc29-demo,prod", "uc29-demo,production"})
     void noPrototypeEndpointsOrSimulatorsOutsideExplicitNonProductionProfile(String profiles) {
         context().withPropertyValues("spring.profiles.active="+profiles).run(c -> {
-            assertThat(c).doesNotHaveBean(ProjectDepositService.class).doesNotHaveBean(OrderReservationController.class).doesNotHaveBean(DemoProjectReservationOrderFactory.class)
+            assertThat(c).doesNotHaveBean(ProjectDepositService.class).doesNotHaveBean(DemoProjectReservationOrderFactory.class)
                     .doesNotHaveBean(DemoProjectDepositPaymentService.class).doesNotHaveBean(DemoProjectReservationService.class)
                     .doesNotHaveBean(DemoProjectDepositController.class).doesNotHaveBean(DemoProjectStockController.class);
         });

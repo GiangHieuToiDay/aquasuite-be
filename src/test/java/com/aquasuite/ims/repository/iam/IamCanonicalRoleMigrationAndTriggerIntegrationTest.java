@@ -20,6 +20,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@org.junit.jupiter.api.extension.ExtendWith(com.aquasuite.ims.testsupport.IamSeedRestoreExtension.class)
 @SpringBootTest
 class IamCanonicalRoleMigrationAndTriggerIntegrationTest extends PostgreSqlIntegrationTestSupport {
 
@@ -30,7 +31,6 @@ class IamCanonicalRoleMigrationAndTriggerIntegrationTest extends PostgreSqlInteg
             "SHOP_OWNER", "10000000-0000-4000-8000-000000000001",
             "SALES_STAFF", "10000000-0000-4000-8000-000000000002",
             "ACCOUNTANT", "10000000-0000-4000-8000-000000000003",
-            "TECHNICAL_STAFF", "10000000-0000-4000-8000-000000000004",
             "SHIPPER", "10000000-0000-4000-8000-000000000005",
             "CUSTOMER", "10000000-0000-4000-8000-000000000006"
     );
@@ -64,6 +64,19 @@ class IamCanonicalRoleMigrationAndTriggerIntegrationTest extends PostgreSqlInteg
                 }
                 assertThat(foundRoles).containsExactlyInAnyOrderEntriesOf(EXPECTED_CANONICAL_ROLES);
             }
+        }
+    }
+
+    @Test
+    @DisplayName("V53: TECHNICAL_STAFF role is removed and no longer protected by the canonical-role trigger")
+    void testTechnicalStaffRoleRemoved() throws SQLException {
+        try (Connection conn = dataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT COUNT(*) FROM public.roles WHERE role_name = 'TECHNICAL_STAFF' "
+                             + "OR role_id = '10000000-0000-4000-8000-000000000004'");
+             ResultSet rs = ps.executeQuery()) {
+            rs.next();
+            assertThat(rs.getInt(1)).isZero();
         }
     }
 

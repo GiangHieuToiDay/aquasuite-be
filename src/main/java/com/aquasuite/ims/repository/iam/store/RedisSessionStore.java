@@ -10,7 +10,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.data.redis.RedisSystemException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
@@ -23,15 +22,26 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Supplier;
 
+/**
+ * Kho phiên đăng nhập lưu trên Redis (cơ chế V2): tạo phiên, kiểm tra phiên còn hiệu lực, xoay vòng
+ * refresh token có phát hiện dùng lại (replay) và thu hồi phiên. Các thao tác cần tính nguyên tử được
+ * viết bằng script Lua trong thư mục resources/redis nên an toàn khi nhiều request chạy đồng thời.
+ * Mọi lỗi Redis đều được quy về lỗi AUTH_SERVICE_UNAVAILABLE.
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class RedisSessionStore {
 
+    /** Tiền tố key chứa dữ liệu phiên đang hoạt động. */
     public static final String PREFIX_SESSION = "auth:v2:session:";
+    /** Tiền tố key đánh dấu phiên đã bị thu hồi. */
     public static final String PREFIX_REVOKED = "auth:v2:session-revoked:";
+    /** Tiền tố key đánh dấu refresh token đã dùng, để phát hiện dùng lại. */
     public static final String PREFIX_USED = "auth:v2:refresh-used:";
+    /** Tiền tố key danh sách các phiên của một người dùng. */
     public static final String PREFIX_USER_SESSIONS = "auth:v2:user-sessions:";
 
     public static final int AUTH_GENERATION_V2 = 2;
@@ -40,6 +50,7 @@ public class RedisSessionStore {
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
 
+    /** Thế hệ xác thực hiện hành; phiên khác thế hệ bị coi là không tương thích. */
     @Value("${aquasuite.config.auth-generation:2}")
     private int authGeneration = 2;
 
@@ -48,80 +59,14 @@ public class RedisSessionStore {
     private DefaultRedisScript<String> validateSessionScript;
     private DefaultRedisScript<String> createSessionScript;
 
-    private static final String CREATE_SESSION_LUA =
-            "local sessionKey = KEYS[1]\n"
-            + "local userSessionsKey = KEYS[2]\n"
-            + "local value = ARGV[1]\n"
-            + "local pttl = tonumber(ARGV[2])\n"
-            + "local sessionId = ARGV[3]\n"
-            + "if not sessionKey or not userSessionsKey or not value or not pttl or pttl <= 0 then\n"
-            + "    return cjson.encode({ status = 'INCONSISTENT' })\n"
-            + "end\n"
-            + "if redis.call('EXISTS', sessionKey) == 1 then\n"
-            + "    return cjson.encode({ status = 'CONFLICT' })\n"
-            + "end\n"
-            + "local setRes = redis.call('SET', sessionKey, value, 'PX', pttl, 'NX')\n"
-            + "if not setRes then\n"
-            + "    return cjson.encode({ status = 'CONFLICT' })\n"
-            + "end\n"
-            + "redis.call('SADD', userSessionsKey, sessionId)\n"
-            + "local trackedTtl = redis.call('PTTL', userSessionsKey)\n"
-            + "if trackedTtl < pttl then\n"
-            + "    redis.call('PEXPIRE', userSessionsKey, pttl)\n"
-            + "end\n"
-            + "return cjson.encode({ status = 'SUCCESS' })\n";
-
-    private static final String VALIDATE_SESSION_LUA =
-            "local sessionKey = KEYS[1]\n"
-            + "local revokedKey = KEYS[2]\n"
-            + "local userId = ARGV[1]\n"
-            + "local expectedGen = tonumber(ARGV[2]) or 2\n"
-            + "if redis.call('EXISTS', revokedKey) == 1 then\n"
-            + "    return cjson.encode({ status = 'REVOKED' })\n"
-            + "end\n"
-            + "if redis.call('EXISTS', sessionKey) == 0 then\n"
-            + "    return cjson.encode({ status = 'NOT_FOUND' })\n"
-            + "end\n"
-            + "local sessionType = redis.call('TYPE', sessionKey)\n"
-            + "if not sessionType or sessionType['ok'] ~= 'string' then\n"
-            + "    return cjson.encode({ status = 'INCONSISTENT' })\n"
-            + "end\n"
-            + "local raw = redis.call('GET', sessionKey)\n"
-            + "if not raw then\n"
-            + "    return cjson.encode({ status = 'NOT_FOUND' })\n"
-            + "end\n"
-            + "local sOk, session = pcall(cjson.decode, raw)\n"
-            + "if not sOk or type(session) ~= 'table' then\n"
-            + "    return cjson.encode({ status = 'INCONSISTENT' })\n"
-            + "end\n"
-            + "if tonumber(session.schemaVersion) ~= 2 or tonumber(session.authGeneration) ~= expectedGen then\n"
-            + "    return cjson.encode({ status = 'INCONSISTENT' })\n"
-            + "end\n"
-            + "if session.userId ~= userId then\n"
-            + "    return cjson.encode({ status = 'NOT_FOUND' })\n"
-            + "end\n"
-            + "if session.status ~= 'ACTIVE' then\n"
-            + "    return cjson.encode({ status = 'REVOKED' })\n"
-            + "end\n"
-            + "local pttl = redis.call('PTTL', sessionKey)\n"
-            + "if pttl <= 0 then\n"
-            + "    return cjson.encode({ status = 'EXPIRED' })\n"
-            + "end\n"
-            + "return cjson.encode({ status = 'ACTIVE' })\n";
-
+    /** Nạp bốn script Lua (tạo, kiểm tra, xoay vòng, thu hồi) từ classpath khi khởi động. */
     @PostConstruct
     public void init() {
         try {
-            ClassPathResource rotateResource = new ClassPathResource("redis/rotate-refresh.lua");
-            String rotateLua = new String(rotateResource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            rotateRefreshScript = new DefaultRedisScript<>(rotateLua, String.class);
-
-            ClassPathResource revokeResource = new ClassPathResource("redis/revoke-session.lua");
-            String revokeLua = new String(revokeResource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            revokeSessionScript = new DefaultRedisScript<>(revokeLua, String.class);
-
-            validateSessionScript = new DefaultRedisScript<>(VALIDATE_SESSION_LUA, String.class);
-            createSessionScript = new DefaultRedisScript<>(CREATE_SESSION_LUA, String.class);
+            rotateRefreshScript = loadScript("redis/rotate-refresh.lua");
+            revokeSessionScript = loadScript("redis/revoke-session.lua");
+            validateSessionScript = loadScript("redis/validate-session.lua");
+            createSessionScript = loadScript("redis/create-session.lua");
             log.info("RedisSessionStore initialized successfully with V2 Lua scripts (generation={})", authGeneration);
         } catch (IOException e) {
             log.error("Failed to load Redis Lua scripts", e);
@@ -129,41 +74,99 @@ public class RedisSessionStore {
         }
     }
 
+    /** Đọc một file Lua trong classpath thành script Redis trả về chuỗi JSON. */
+    private static DefaultRedisScript<String> loadScript(String classpathLocation) throws IOException {
+        String lua = new String(
+                new ClassPathResource(classpathLocation).getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        return new DefaultRedisScript<>(lua, String.class);
+    }
+
+    /** Tạo lỗi dịch vụ xác thực tạm thời không khả dụng. */
+    private static AppException unavailable() {
+        return new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Dịch vụ xác thực tạm thời không khả dụng");
+    }
+
+    /** Chạy một script Lua và trả về trường {@code status} trong JSON kết quả. */
+    private String runScript(
+            DefaultRedisScript<String> script, List<String> keys, UUID sessionId, String defaultStatus, Object... args) {
+        String resultJson = redisTemplate.execute(script, keys, args);
+        if (resultJson == null) {
+            log.warn("Null result returned from Redis Lua script for sid: {}", sessionId);
+            throw unavailable();
+        }
+        try {
+            return objectMapper.readTree(resultJson).path("status").asText(defaultStatus);
+        } catch (JsonProcessingException e) {
+            log.error("Unreadable Lua result for sid: {}", sessionId, e);
+            throw unavailable();
+        }
+    }
+
+    /** Đọc một giá trị từ Redis, mọi lỗi Redis được quy về AUTH_SERVICE_UNAVAILABLE. */
+    private <T> T redisRead(String what, Supplier<T> read) {
+        try {
+            return read.get();
+        } catch (Exception e) {
+            log.error("Redis error {}", what, e);
+            throw unavailable();
+        }
+    }
+
+    /** Key dữ liệu của một phiên; dấu ngoặc nhọn giữ các key của cùng phiên trên cùng slot Redis Cluster. */
     public static String buildSessionKey(UUID sid) {
         return PREFIX_SESSION + "{" + sid.toString() + "}";
     }
 
+    /** Key đánh dấu phiên đã bị thu hồi. */
     public static String buildRevokedKey(UUID sid) {
         return PREFIX_REVOKED + "{" + sid.toString() + "}";
     }
 
+    /** Key đánh dấu một refresh token (theo jti) của phiên đã được dùng. */
     public static String buildUsedKey(UUID sid, UUID jti) {
         return PREFIX_USED + "{" + sid.toString() + "}:" + jti.toString();
     }
 
+    /** Key tập hợp ID các phiên của một người dùng. */
     public static String buildUserSessionsKey(UUID userId) {
         return PREFIX_USER_SESSIONS + "{" + userId.toString() + "}";
     }
 
+    /** Kết quả kiểm tra một phiên trong Redis. */
     public enum ValidationState {
+        /** Phiên còn hiệu lực. */
         ACTIVE,
+        /** Phiên đã bị thu hồi. */
         REVOKED,
+        /** Phiên đã hết hạn. */
         EXPIRED,
+        /** Không tìm thấy phiên của người dùng này. */
         NOT_FOUND,
+        /** Dữ liệu phiên sai cấu trúc hoặc sai thế hệ. */
         INCONSISTENT
     }
 
+    /** Kết quả xoay vòng refresh token. */
     public enum RotationOutcome {
+        /** Xoay vòng thành công. */
         SUCCESS,
+        /** Refresh token đã dùng rồi (nghi bị đánh cắp), phiên bị thu hồi. */
         REPLAY,
+        /** Phiên đã bị thu hồi. */
         REVOKED,
+        /** Phiên hoặc token đã hết hạn. */
         EXPIRED,
+        /** Token không thuộc phiên nào đang biết. */
         UNKNOWN_TOKEN,
+        /** Dữ liệu yêu cầu không hợp lệ. */
         INVALID,
+        /** Trạng thái Redis không nhất quán. */
         INCONSISTENT,
+        /** Trạng thái không xác định. */
         UNKNOWN
     }
 
+    /** Dữ liệu một phiên đọc từ Redis. */
     public record SessionData(
             UUID userId,
             Instant loginAt,
@@ -172,10 +175,12 @@ public class RedisSessionStore {
             UUID currentRefreshJti
     ) {}
 
+    /** Tạo phiên mới với jti của refresh token đầu tiên được sinh ngẫu nhiên. */
     public void createSession(UUID sessionId, UUID userId, Instant loginAt, Instant absoluteExpiresAt) {
         createSession(sessionId, userId, UUID.randomUUID(), loginAt, absoluteExpiresAt);
     }
 
+    /** Tạo phiên mới với jti ban đầu dạng chuỗi; chuỗi không phải UUID thì dùng UUID ngẫu nhiên. */
     public void createSession(UUID sessionId, UUID userId, Instant loginAt, Instant absoluteExpiresAt, String initialJtiStr) {
         UUID initialJti;
         try {
@@ -186,8 +191,13 @@ public class RedisSessionStore {
         createSession(sessionId, userId, initialJti, loginAt, absoluteExpiresAt);
     }
 
+    /**
+     * Ghi phiên mới vào Redis một cách nguyên tử với thời sống bằng thời gian còn lại tới hạn tuyệt đối.
+     * Ném lỗi nếu hạn tuyệt đối đã qua, phiên đã tồn tại hoặc Redis không khả dụng.
+     */
     public void createSession(UUID sessionId, UUID userId, UUID initialRefreshJti, Instant loginAt, Instant absoluteExpiresAt) {
         String sessionKey = buildSessionKey(sessionId);
+        // Thời sống của khóa Redis bằng thời gian còn lại tới hạn tuyệt đối của phiên
         Instant now = Instant.now();
         long ttlMillis = Duration.between(now, absoluteExpiresAt).toMillis();
 
@@ -206,25 +216,17 @@ public class RedisSessionStore {
         );
 
         try {
-            String json = objectMapper.writeValueAsString(sessionData);
-            String resultJson = redisTemplate.execute(
+            String status = runScript(
                     createSessionScript,
                     List.of(sessionKey, buildUserSessionsKey(userId)),
-                    json,
+                    sessionId,
+                    "INCONSISTENT",
+                    objectMapper.writeValueAsString(sessionData),
                     String.valueOf(ttlMillis),
-                    sessionId.toString()
-            );
-
-            if (resultJson == null) {
-                log.warn("Null result returned from createSessionScript for sid: {}", sessionId);
-                throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Dịch vụ xác thực tạm thời không khả dụng");
-            }
-
-            JsonNode node = objectMapper.readTree(resultJson);
-            String status = node.path("status").asText("INCONSISTENT");
+                    sessionId.toString());
             if (!"SUCCESS".equals(status)) {
                 log.error("Failed to atomically create session for sid: {}, status: {}", sessionId, status);
-                throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Dịch vụ xác thực tạm thời không khả dụng");
+                throw unavailable();
             }
             log.debug("Atomically created Redis V2 session for sid: {}, userId: {}, absoluteExpiresAt: {}", sessionId, userId, absoluteExpiresAt);
         } catch (AppException e) {
@@ -234,29 +236,18 @@ public class RedisSessionStore {
             throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Lỗi xử lý dữ liệu phiên");
         } catch (Exception e) {
             log.error("Redis error while creating session for sid: {}", sessionId, e);
-            throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Dịch vụ xác thực tạm thời không khả dụng");
+            throw unavailable();
         }
     }
 
+    /** Kiểm tra nguyên tử phiên có thuộc người dùng và còn ACTIVE hay không; trạng thái không nhất quán ném lỗi. */
     public ValidationState validateSession(UUID sessionId, UUID userId) {
-        String sessionKey = buildSessionKey(sessionId);
-        String revokedKey = buildRevokedKey(sessionId);
-        List<String> keys = List.of(sessionKey, revokedKey, buildUserSessionsKey(userId));
-        String[] args = new String[]{
-                userId.toString(),
-                String.valueOf(authGeneration)
-        };
-
+        List<String> keys = List.of(
+                buildSessionKey(sessionId), buildRevokedKey(sessionId), buildUserSessionsKey(userId));
         try {
-            String resultJson = redisTemplate.execute(validateSessionScript, keys, (Object[]) args);
-            if (resultJson == null) {
-                log.warn("Null result returned from validateSessionScript for sid: {}", sessionId);
-                throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Dịch vụ xác thực tạm thời không khả dụng");
-            }
-
-            JsonNode node = objectMapper.readTree(resultJson);
-            String status = node.path("status").asText("NOT_FOUND");
-
+            String status = runScript(
+                    validateSessionScript, keys, sessionId, "NOT_FOUND",
+                    userId.toString(), String.valueOf(authGeneration));
             return switch (status) {
                 case "ACTIVE" -> ValidationState.ACTIVE;
                 case "REVOKED" -> ValidationState.REVOKED;
@@ -268,10 +259,14 @@ public class RedisSessionStore {
             throw e;
         } catch (Exception e) {
             log.error("Redis error while atomically validating session for sid: {}", sessionId, e);
-            throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Dịch vụ xác thực tạm thời không khả dụng");
+            throw unavailable();
         }
     }
 
+    /**
+     * Xoay vòng refresh token: đánh dấu jti cũ đã dùng và thay bằng jti mới, tất cả trong một script Lua.
+     * Dùng lại jti cũ bị coi là replay và thu hồi cả phiên.
+     */
     public RotationOutcome rotateRefresh(
             UUID sessionId,
             UUID userId,
@@ -301,14 +296,7 @@ public class RedisSessionStore {
         };
 
         try {
-            String resultJson = redisTemplate.execute(rotateRefreshScript, keys, (Object[]) args);
-            if (resultJson == null) {
-                log.warn("Null result returned from rotate script for sid: {}", sessionId);
-                throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Dịch vụ xác thực tạm thời không khả dụng");
-            }
-
-            JsonNode node = objectMapper.readTree(resultJson);
-            String status = node.path("status").asText("UNKNOWN");
+            String status = runScript(rotateRefreshScript, keys, sessionId, "UNKNOWN", (Object[]) args);
             log.debug("Rotate script returned status: {} for sid: {}", status, sessionId);
 
             return switch (status) {
@@ -321,18 +309,15 @@ public class RedisSessionStore {
                 case "INCONSISTENT" -> RotationOutcome.INCONSISTENT;
                 default -> RotationOutcome.UNKNOWN;
             };
-        } catch (RedisSystemException e) {
-            log.error("Redis system error during rotate-refresh for sid: {}", sessionId, e);
-            throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Dịch vụ xác thực tạm thời không khả dụng");
+        } catch (AppException e) {
+            throw e;
         } catch (Exception e) {
-            if (e instanceof AppException) {
-                throw (AppException) e;
-            }
             log.error("Error executing rotate-refresh script for sid: {}", sessionId, e);
-            throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Dịch vụ xác thực tạm thời không khả dụng");
+            throw unavailable();
         }
     }
 
+    /** Thu hồi một phiên (ví dụ khi đăng xuất) và ghi lại lý do. */
     public void revokeSession(UUID sessionId, UUID userId, String reason) {
         String sessionKey = buildSessionKey(sessionId);
         String revokedKey = buildRevokedKey(sessionId);
@@ -343,32 +328,26 @@ public class RedisSessionStore {
                 sessionId.toString(),
                 reason != null ? reason : "LOGOUT",
                 String.valueOf(Instant.now().toEpochMilli()),
-                "1296000", // 15 days default TTL upper bound
+                "1296000", // TTL tối đa của dấu thu hồi: 15 ngày
                 String.valueOf(authGeneration)
         };
 
         try {
-            String resultJson = redisTemplate.execute(revokeSessionScript, keys, (Object[]) args);
-            if (resultJson == null) {
-                log.error("Null result returned from revokeSessionScript for sid: {}", sessionId);
-                throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Dịch vụ xác thực tạm thời không khả dụng");
-            }
-            JsonNode node = objectMapper.readTree(resultJson);
-            String status = node.path("status").asText("INCONSISTENT");
+            String status = runScript(revokeSessionScript, keys, sessionId, "INCONSISTENT", (Object[]) args);
             if (!"SUCCESS".equals(status)) {
                 log.warn("Revoke script returned non-success status: {} for sid: {}", status, sessionId);
-                throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Dịch vụ xác thực tạm thời không khả dụng");
+                throw unavailable();
             }
             log.info("Revoked session sid: {}, userId: {}, reason: {}", sessionId, userId, reason);
         } catch (AppException e) {
             throw e;
         } catch (Exception e) {
             log.error("Redis error while revoking session for sid: {}", sessionId, e);
-            throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Dịch vụ xác thực tạm thời không khả dụng");
+            throw unavailable();
         }
     }
 
-    /** Revokes every currently tracked session for a user after an account-level status change. */
+    /** Thu hồi mọi phiên đang theo dõi của một người dùng, dùng khi trạng thái tài khoản thay đổi. */
     public void revokeAllSessions(UUID userId, String reason) {
         String userSessionsKey = buildUserSessionsKey(userId);
         try {
@@ -394,10 +373,11 @@ public class RedisSessionStore {
             throw exception;
         } catch (Exception exception) {
             log.error("Redis error while revoking sessions for userId={}", userId, exception);
-            throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Dịch vụ xác thực tạm thời không khả dụng");
+            throw unavailable();
         }
     }
 
+    /** Cho biết phiên đã bị đánh dấu thu hồi hay chưa. */
     public boolean isRevoked(UUID sessionId) {
         try {
             String raw = redisTemplate.opsForValue().get(buildRevokedKey(sessionId));
@@ -408,10 +388,11 @@ public class RedisSessionStore {
             return node.has("userId") && node.has("status") && "REVOKED".equals(node.path("status").asText());
         } catch (Exception e) {
             log.error("Redis error checking revoked state for sid: {}", sessionId, e);
-            throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Dịch vụ xác thực tạm thời không khả dụng");
+            throw unavailable();
         }
     }
 
+    /** Đọc dữ liệu phiên; trả null nếu không có hoặc phiên sai thế hệ/cấu trúc. */
     public SessionData getSessionData(UUID sessionId) {
         try {
             String raw = redisTemplate.opsForValue().get(buildSessionKey(sessionId));
@@ -432,61 +413,43 @@ public class RedisSessionStore {
             );
         } catch (Exception e) {
             log.error("Redis error reading session data for sid: {}", sessionId, e);
-            throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Dịch vụ xác thực tạm thời không khả dụng");
+            throw unavailable();
         }
     }
 
+    /** Đọc nguyên văn dữ liệu phiên (phục vụ kiểm thử và chẩn đoán). */
     public String getRawSession(UUID sessionId) {
-        try {
-            return redisTemplate.opsForValue().get(buildSessionKey(sessionId));
-        } catch (Exception e) {
-            log.error("Redis error reading raw session for sid: {}", sessionId, e);
-            throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Dịch vụ xác thực tạm thời không khả dụng");
-        }
+        return redisRead("reading raw session for sid " + sessionId,
+                () -> redisTemplate.opsForValue().get(buildSessionKey(sessionId)));
     }
 
+    /** Đọc nguyên văn dấu thu hồi của phiên. */
     public String getRawRevoked(UUID sessionId) {
-        try {
-            return redisTemplate.opsForValue().get(buildRevokedKey(sessionId));
-        } catch (Exception e) {
-            log.error("Redis error reading raw revoked marker for sid: {}", sessionId, e);
-            throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Dịch vụ xác thực tạm thời không khả dụng");
-        }
+        return redisRead("reading raw revoked marker for sid " + sessionId,
+                () -> redisTemplate.opsForValue().get(buildRevokedKey(sessionId)));
     }
 
+    /** Đọc nguyên văn dấu "đã dùng" của một refresh token. */
     public String getRawUsed(UUID sessionId, UUID jti) {
-        try {
-            return redisTemplate.opsForValue().get(buildUsedKey(sessionId, jti));
-        } catch (Exception e) {
-            log.error("Redis error reading raw used marker for sid: {}, jti: {}", sessionId, jti, e);
-            throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Dịch vụ xác thực tạm thời không khả dụng");
-        }
+        return redisRead("reading raw used marker for sid " + sessionId + ", jti " + jti,
+                () -> redisTemplate.opsForValue().get(buildUsedKey(sessionId, jti)));
     }
 
+    /** Thời gian sống còn lại (giây) của key phiên. */
     public Long getSessionTtl(UUID sessionId) {
-        try {
-            return redisTemplate.getExpire(buildSessionKey(sessionId));
-        } catch (Exception e) {
-            log.error("Redis error reading session TTL for sid: {}", sessionId, e);
-            throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Dịch vụ xác thực tạm thời không khả dụng");
-        }
+        return redisRead("reading session TTL for sid " + sessionId,
+                () -> redisTemplate.getExpire(buildSessionKey(sessionId)));
     }
 
+    /** Thời gian sống còn lại (giây) của dấu thu hồi. */
     public Long getRevokedTtl(UUID sessionId) {
-        try {
-            return redisTemplate.getExpire(buildRevokedKey(sessionId));
-        } catch (Exception e) {
-            log.error("Redis error reading revoked TTL for sid: {}", sessionId, e);
-            throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Dịch vụ xác thực tạm thời không khả dụng");
-        }
+        return redisRead("reading revoked TTL for sid " + sessionId,
+                () -> redisTemplate.getExpire(buildRevokedKey(sessionId)));
     }
 
+    /** Thời gian sống còn lại (giây) của dấu "đã dùng" của refresh token. */
     public Long getUsedTtl(UUID sessionId, UUID jti) {
-        try {
-            return redisTemplate.getExpire(buildUsedKey(sessionId, jti));
-        } catch (Exception e) {
-            log.error("Redis error reading used TTL for sid: {}, jti: {}", sessionId, jti, e);
-            throw new AppException(AuthErrorCode.AUTH_SERVICE_UNAVAILABLE, "Dịch vụ xác thực tạm thời không khả dụng");
-        }
+        return redisRead("reading used TTL for sid " + sessionId + ", jti " + jti,
+                () -> redisTemplate.getExpire(buildUsedKey(sessionId, jti)));
     }
 }

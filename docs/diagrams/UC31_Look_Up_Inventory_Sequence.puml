@@ -1,0 +1,107 @@
+@startuml UC31_Look_Up_Inventory_Sequence
+title UC-31 - Look up Inventory Information
+
+hide footbox
+skinparam ParticipantPadding 10
+skinparam BoxPadding 6
+skinparam maxMessageSize 160
+skinparam sequence {
+    ArrowColor #263238
+    ActorBorderColor #263238
+    LifeLineBorderColor #78909C
+    ParticipantBorderColor #1565C0
+    ParticipantBackgroundColor #E3F2FD
+    GroupBorderColor #455A64
+    GroupBackgroundColor #FAFAFA
+}
+
+actor "Shop Owner / Accountant" as Staff
+boundary "inventoryUI: InventoryUI\n<<boundary>>" as UI
+control "inventoryController:\nInventoryController\n<<controller>>" as Ctrl
+control "inventoryService:\nInventoryService\n<<service>>" as Svc
+control "catalogLookupService:\nCatalogLookupService\n<<service>>" as Cat
+entity "inventoryRepository:\nInventoryRepository\n<<repository>>" as InvRepo
+entity "stockMovementRepository:\nStockMovementRepository\n<<repository>>" as MoveRepo
+
+Staff -> UI: 1: Open Inventory Management, enter keyword / status / low-stock filter
+UI -> Ctrl: 2: GET /api/v1/inventory\n?keyword&status&lowStockOnly&page&size
+
+break role is not SHOP_OWNER or ACCOUNTANT
+    Ctrl --> UI: 3: HTTP 403 - ApiResponse(AUTH_002)
+    UI --> Staff: 4: Display "Access denied"
+end
+
+Ctrl -> Svc: 5: searchInventory(keyword, status, lowStockOnly, pageable)
+activate Svc
+alt keyword is provided
+    Svc -> Cat: 6: getAllActiveSkus()
+    Cat --> Svc: 7: List<CatalogSkuSummaryDto>
+    Svc -> Svc: 8: resolveVariantIdsByKeyword(keyword)
+    note right of Svc
+      SKU code, product name or variant name
+      contains the keyword. If nothing matches,
+      an empty page is returned at once.
+    end note
+    Svc -> InvRepo: 9: searchByVariantIds(variantIds, lowStockOnly, status, pageable)
+    InvRepo --> Svc: 10: Page<Inventory>
+else no keyword
+    Svc -> InvRepo: 11: search(lowStockOnly, status, pageable)
+    InvRepo --> Svc: 12: Page<Inventory>
+end
+Svc -> Cat: 13: getSkuSummaries(variantIds)
+Cat --> Svc: 14: Map<variantId, CatalogSkuSummaryDto>
+Svc -> Svc: 15: computeStatus(available = onHand - reserved, minimumQty)
+Svc --> Ctrl: 16: Page<InventoryListItemResponse>
+deactivate Svc
+Ctrl --> UI: 17: HTTP 200 ApiResponse<Page<InventoryListItemResponse>>
+UI --> Staff: 18: Display inventory list with stock status
+
+opt user opens the Low stock view
+    Staff -> UI: 19: Open "Low stock" view
+    UI -> Ctrl: 20: GET /api/v1/inventory/low-stock
+    Ctrl -> Svc: 21: getLowStockItems(pageable)
+    activate Svc
+    Svc -> InvRepo: 22: search(lowStockOnly = true, status = null, pageable)
+    InvRepo --> Svc: 23: Page<Inventory>\n(minimumQty > 0 and available <= minimumQty)
+    Svc -> Cat: 24: getSkuSummaries(variantIds)
+    Cat --> Svc: 25: Map<variantId, CatalogSkuSummaryDto>
+    Svc --> Ctrl: 26: Page<InventoryListItemResponse>
+    deactivate Svc
+    Ctrl --> UI: 27: HTTP 200 ApiResponse<Page<InventoryListItemResponse>>
+    UI --> Staff: 28: Display low-stock SKUs
+end
+
+opt user selects a SKU to view details
+    Staff -> UI: 29: Select a SKU
+    UI -> Ctrl: 30: GET /api/v1/inventory/{variantId}
+    Ctrl -> Svc: 31: getInventoryByVariantId(variantId)
+    activate Svc
+    Svc -> InvRepo: 32: findByVariantId(variantId)
+    InvRepo --> Svc: 33: Optional<Inventory>
+    alt inventory record exists
+        Svc --> Ctrl: 34: StockSummaryDto
+        deactivate Svc
+        Ctrl --> UI: 35: HTTP 200 ApiResponse<StockSummaryDto>
+        UI -> Ctrl: 36: GET /api/v1/inventory/{variantId}/movements
+        Ctrl -> Svc: 37: getMovementsByVariantId(variantId, pageable)
+        activate Svc
+        Svc -> MoveRepo: 38: findByVariantIdOrderByCreatedAtDesc(variantId, pageable)
+        MoveRepo --> Svc: 39: Page<StockMovement>
+        Svc --> Ctrl: 40: Page<StockMovement>
+        deactivate Svc
+        Ctrl --> UI: 41: HTTP 200 ApiResponse<Page<StockMovement>>
+        UI --> Staff: 42: Display stock summary and movement history
+    else inventory record not found
+        activate Svc
+        Svc --> Ctrl: 43: throw AppException(INV_001)
+        deactivate Svc
+        Ctrl --> UI: 44: HTTP 404 - ApiResponse(INV_001)
+        UI --> Staff: 45: Display "Inventory not found"
+    end
+end
+
+note over Svc, MoveRepo
+  Read-only use case: no stock, reservation
+  or threshold data is changed (GB-25).
+end note
+@enduml

@@ -33,6 +33,7 @@ class DeliveryControllerSecurityTest {
     @EnableWebMvc @EnableWebSecurity @EnableMethodSecurity
     static class Config implements WebMvcConfigurer {
         @Bean DeliveryService service() { return mock(DeliveryService.class); }
+        @Bean com.aquasuite.ims.service.fulfillment.DeliveryIssueService issueService() { return mock(com.aquasuite.ims.service.fulfillment.DeliveryIssueService.class); }
         @Bean DeliveryIssueNotePdfService pdfService() { return mock(DeliveryIssueNotePdfService.class); }
         @Bean DeliveryIssueController issueNotes(com.aquasuite.ims.service.fulfillment.DeliveryIssueService dis, DeliveryIssueNotePdfService s) { return new DeliveryIssueController(dis, s); }
         @Bean DeliveryController deliveries(DeliveryService s) { return new DeliveryController(s); }

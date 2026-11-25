@@ -21,6 +21,12 @@ import org.springframework.security.web.SecurityFilterChain;
 
 import java.util.Set;
 
+/**
+ * Cấu hình bảo mật cho toàn bộ API: stateless dùng access JWT (Resource Server), chỉ mở các endpoint
+ * đăng nhập, làm mới token và đăng ký, mọi endpoint còn lại phải xác thực. Khai báo thêm bộ mã hóa
+ * mật khẩu BCrypt, provider đăng nhập và AuthenticationManager; bật phân quyền theo method
+ * ({@code @PreAuthorize}).
+ */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -45,7 +51,7 @@ public class AuthSecurityConfig {
             "/api/v1/iam/register/otp-resends"
     );
 
-    /** Cung cấp BCrypt encoder với cost 12 cho mật khẩu tài khoản. */
+    /** Bộ mã hóa mật khẩu BCrypt với cost 12 cho mật khẩu tài khoản. */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(12);
@@ -91,15 +97,18 @@ public class AuthSecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                // API stateless dùng JWT trong header nên tắt CSRF và không dùng cookie phiên
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // Các endpoint công khai; mọi request còn lại phải có JWT hợp lệ
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/iam/register", "/api/v1/iam/register/verifications", "/api/v1/iam/register/otp-resends").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").authenticated()
                         .anyRequest().authenticated()
                 )
+                // Resource Server: giải mã JWT bằng JwtDecoderConfig rồi dựng quyền từ cơ sở dữ liệu
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .bearerTokenResolver(publicPathAwareBearerTokenResolver())
                         .jwt(jwt -> jwt
@@ -109,6 +118,7 @@ public class AuthSecurityConfig {
                         .authenticationEntryPoint(authSecurityErrorHandlers.authenticationEntryPoint())
                         .accessDeniedHandler(authSecurityErrorHandlers.accessDeniedHandler())
                 )
+                // Chuẩn hóa response 401/403 cho các lỗi ngoài luồng Resource Server
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(authSecurityErrorHandlers.authenticationEntryPoint())
                         .accessDeniedHandler(authSecurityErrorHandlers.accessDeniedHandler())

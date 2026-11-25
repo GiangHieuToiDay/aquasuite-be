@@ -60,6 +60,8 @@ class ProjectDepositWorkflowHttpTest {
                         ProjectDepositService.class, OrderReservationController.class, DemoProjectReservationOrderFactory.class, DemoProjectDepositPaymentService.class,
                         DemoProjectDepositController.class, DemoProjectReservationService.class, DemoProjectStockController.class)
                 .withBean(CatalogLookupService.class, () -> catalog).withBean(CustomerService.class, () -> crm)
+                .withBean(com.aquasuite.ims.service.sales.OrderReservationService.class, () -> mock(com.aquasuite.ims.service.sales.OrderReservationService.class))
+                .withBean(com.aquasuite.ims.service.sales.helper.ReservationAllocationRecovery.class, () -> mock(com.aquasuite.ims.service.sales.helper.ReservationAllocationRecovery.class))
                 .withBean(IamQueryService.class, () -> iam).withBean(ProjectDepositOrderRepository.class, () -> orders)
                 .withBean(ProjectDepositOrderItemRepository.class, () -> items).run(context -> {
                     assertThat(context).hasNotFailed();

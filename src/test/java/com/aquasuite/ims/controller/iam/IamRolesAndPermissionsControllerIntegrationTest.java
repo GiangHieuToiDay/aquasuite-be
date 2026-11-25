@@ -42,6 +42,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+@org.junit.jupiter.api.extension.ExtendWith(com.aquasuite.ims.testsupport.IamSeedRestoreExtension.class)
 @SpringBootTest
 @AutoConfigureMockMvc
 class IamRolesAndPermissionsControllerIntegrationTest extends AuthIntegrationTestSupport {
@@ -137,7 +138,7 @@ class IamRolesAndPermissionsControllerIntegrationTest extends AuthIntegrationTes
     }
 
     @Test
-    @DisplayName("AC-01, AC-17: List canonical roles returns exactly 6 roles in canonical order with permissions")
+    @DisplayName("AC-01, AC-17: List canonical roles returns exactly 5 roles in canonical order with permissions")
     void testListRolesSuccess() throws Exception {
         mockMvc.perform(get("/api/v1/iam/roles")
                         .header("Authorization", "Bearer " + ownerToken))
@@ -145,13 +146,12 @@ class IamRolesAndPermissionsControllerIntegrationTest extends AuthIntegrationTes
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.code").value("SUCCESS"))
                 .andExpect(jsonPath("$.message").value("Thành công"))
-                .andExpect(jsonPath("$.data", hasSize(6)))
+                .andExpect(jsonPath("$.data", hasSize(5)))
                 .andExpect(jsonPath("$.data[0].code").value("SHOP_OWNER"))
                 .andExpect(jsonPath("$.data[1].code").value("SALES_STAFF"))
                 .andExpect(jsonPath("$.data[2].code").value("ACCOUNTANT"))
-                .andExpect(jsonPath("$.data[3].code").value("TECHNICAL_STAFF"))
-                .andExpect(jsonPath("$.data[4].code").value("SHIPPER"))
-                .andExpect(jsonPath("$.data[5].code").value("CUSTOMER"))
+                .andExpect(jsonPath("$.data[3].code").value("SHIPPER"))
+                .andExpect(jsonPath("$.data[4].code").value("CUSTOMER"))
                 .andExpect(jsonPath("$.data[*].permissions[*].createdAt").doesNotExist())
                 .andExpect(jsonPath("$.data[*].permissions[*].updatedAt").doesNotExist())
                 .andExpect(jsonPath("$.timestamp").isNotEmpty());

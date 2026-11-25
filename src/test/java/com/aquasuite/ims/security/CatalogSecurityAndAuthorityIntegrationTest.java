@@ -79,6 +79,8 @@ class CatalogSecurityAndAuthorityIntegrationTest extends AuthIntegrationTestSupp
 
         try (Connection conn = dataSource.getConnection();
              Statement stmt = conn.createStatement()) {
+            // 0. Các test IAM khác xóa dữ liệu seed của Flyway nên phải khôi phục quyền catalog của SHOP_OWNER
+            restoreCatalogPermissionSeed(stmt);
             // 1. Create SHOP_OWNER user via SQL
             stmt.executeUpdate("INSERT INTO public.users (id, username, email, password_hash, status, created_at) " +
                     "VALUES ('" + ownerId + "', 'sec_owner', 'sec_owner@aquasuite.local', '" + encodedPass + "', 'ACTIVE', CURRENT_TIMESTAMP)");
@@ -97,6 +99,24 @@ class CatalogSecurityAndAuthorityIntegrationTest extends AuthIntegrationTestSupp
 
         shopOwnerToken = login("sec_owner@aquasuite.local", "Password123!");
         restrictedToken = login("restricted@aquasuite.local", "Password123!");
+    }
+
+    /** Khôi phục 8 quyền catalog và gán lại cho SHOP_OWNER, đúng như migration V1 đã seed. */
+    private void restoreCatalogPermissionSeed(Statement stmt) throws Exception {
+        stmt.executeUpdate("INSERT INTO public.permissions (id, code, description) VALUES "
+                + "('20000000-0000-4000-8000-000000000001', 'CATALOG_CATEGORY_READ', 'Read catalog categories'),"
+                + "('20000000-0000-4000-8000-000000000002', 'CATALOG_CATEGORY_CREATE', 'Create catalog categories'),"
+                + "('20000000-0000-4000-8000-000000000003', 'CATALOG_CATEGORY_UPDATE', 'Update catalog categories'),"
+                + "('20000000-0000-4000-8000-000000000004', 'CATALOG_CATEGORY_DELETE', 'Delete catalog categories'),"
+                + "('20000000-0000-4000-8000-000000000005', 'CATALOG_BRAND_READ', 'Read catalog brands'),"
+                + "('20000000-0000-4000-8000-000000000006', 'CATALOG_BRAND_CREATE', 'Create catalog brands'),"
+                + "('20000000-0000-4000-8000-000000000007', 'CATALOG_BRAND_UPDATE', 'Update catalog brands'),"
+                + "('20000000-0000-4000-8000-000000000008', 'CATALOG_BRAND_DELETE', 'Delete catalog brands') "
+                + "ON CONFLICT DO NOTHING");
+        stmt.executeUpdate("INSERT INTO public.role_permissions (role_id, permission_id) "
+                + "SELECT r.role_id, p.id FROM public.roles r CROSS JOIN public.permissions p "
+                + "WHERE r.role_name = 'SHOP_OWNER' AND p.id::text LIKE '20000000-0000-4000-8000-0000000000%' "
+                + "ON CONFLICT DO NOTHING");
     }
 
     @AfterEach
@@ -343,31 +363,31 @@ class CatalogSecurityAndAuthorityIntegrationTest extends AuthIntegrationTestSupp
     @Test
     void brandImportChecksPermissionAndOwnerOnEveryRequest() throws Exception {
         UUID jobId = UUID.randomUUID();
-        mockMvc.perform(get("/api/v1/brands/import-template")).andExpect(status().isUnauthorized());
-        mockMvc.perform(get("/api/v1/brands/import-template")
+        mockMvc.perform(get("/api/v1/catalog/brands/import-template")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/catalog/brands/import-template")
                 .header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isForbidden());
-        mockMvc.perform(get("/api/v1/brands/import-jobs/{id}", jobId)
+        mockMvc.perform(get("/api/v1/catalog/brands/import-jobs/{id}", jobId)
                 .header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isForbidden());
 
         UUID createPermission = UUID.fromString("20000000-0000-4000-8000-000000000006");
         grantPermission(createPermission);
-        mockMvc.perform(get("/api/v1/brands/import-template")
+        mockMvc.perform(get("/api/v1/catalog/brands/import-template")
                 .header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isOk());
 
         MockMultipartFile file = new MockMultipartFile("file", "bad.xlsx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", new byte[]{1, 2, 3});
-        MvcResult submitted = mockMvc.perform(multipart("/api/v1/brands/import-jobs")
+        MvcResult submitted = mockMvc.perform(multipart("/api/v1/catalog/brands/import-jobs")
                 .file(file).header("Authorization", "Bearer " + shopOwnerToken))
                 .andExpect(status().isAccepted()).andReturn();
         String ownedJobId = objectMapper.readTree(submitted.getResponse().getContentAsString()).path("data").path("jobId").asText();
-        mockMvc.perform(get("/api/v1/brands/import-jobs/{id}", ownedJobId)
+        mockMvc.perform(get("/api/v1/catalog/brands/import-jobs/{id}", ownedJobId)
                 .header("Authorization", "Bearer " + shopOwnerToken)).andExpect(status().isOk());
-        mockMvc.perform(get("/api/v1/brands/import-jobs/{id}", ownedJobId)
+        mockMvc.perform(get("/api/v1/catalog/brands/import-jobs/{id}", ownedJobId)
                 .header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isNotFound());
-        mockMvc.perform(get("/api/v1/brands/import-jobs/{id}/error-report", ownedJobId)
+        mockMvc.perform(get("/api/v1/catalog/brands/import-jobs/{id}/error-report", ownedJobId)
                 .header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isNotFound());
         revokePermission(createPermission);
-        mockMvc.perform(get("/api/v1/brands/import-jobs/{id}", ownedJobId)
+        mockMvc.perform(get("/api/v1/catalog/brands/import-jobs/{id}", ownedJobId)
                 .header("Authorization", "Bearer " + restrictedToken)).andExpect(status().isForbidden());
     }
 

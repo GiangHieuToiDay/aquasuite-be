@@ -75,7 +75,8 @@ class DisabledUserIntegrationTest {
                         userRepository,
                         jwtTokenService,
                         redisSessionStore,
-                        currentAuthoritiesService);
+                        currentAuthoritiesService,
+                        null, null, null, null, null, null, null);
 
         accessAuthenticationConverter =
                 new AccessAuthenticationConverter(currentAuthoritiesService);

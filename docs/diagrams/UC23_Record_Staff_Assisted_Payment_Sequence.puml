@@ -1,0 +1,82 @@
+@startuml UC23_Record_Staff_Assisted_Payment_Sequence
+title UC-23 - Record Staff-Assisted Payment Receipt
+
+hide footbox
+skinparam ParticipantPadding 32
+skinparam BoxPadding 8
+skinparam maxMessageSize 110
+skinparam sequence {
+    ArrowColor #263238
+    ActorBorderColor #263238
+    LifeLineBorderColor #78909C
+    ParticipantBorderColor #1565C0
+    ParticipantBackgroundColor #E3F2FD
+    GroupBorderColor #455A64
+    GroupBackgroundColor #FAFAFA
+}
+
+actor "Authorized Staff\nSales Staff / Shop Owner" as Staff
+participant "paymentUI: PaymentUI\n<<boundary>>" as UI
+participant "paymentController: PaymentController\n<<controller>>" as Ctrl
+participant "paymentService: PaymentService\n<<service>>" as Pay
+participant "salesQueryService: SalesQueryService\n<<service>>" as Sales
+participant "transactionRepository: TransactionRepository\n<<repository>>" as Repo
+
+Staff -> UI: 1: Enter payment information
+activate UI
+UI -> Ctrl: 1.1: POST /orders/{orderId}/payments\nRecordOrderPaymentRequest
+activate Ctrl
+
+break request is invalid
+    Ctrl --> UI: 1.1.1: HTTP 400 - ApiResponse(SYS_003)
+    UI --> Staff: 1.1.2: Display validation error
+end
+
+Ctrl -> Pay: 1.2: record(orderId, request)
+activate Pay
+Pay -> Sales: 1.2.1: lockPaymentInfo(orderId)
+activate Sales
+Sales --> Pay: 1.2.2: SalesOrderPaymentInfo
+deactivate Sales
+Pay -> Repo: 1.2.3: findByIdempotencyKey(key)
+activate Repo
+Repo --> Pay: 1.2.4: Existing receipt or empty
+deactivate Repo
+Pay -> Repo: 1.2.5: findReceipts(orderId)
+activate Repo
+Repo --> Pay: 1.2.6: Existing receipts
+deactivate Repo
+Pay -> Pay: 1.2.7: Validate order, key and amount\nCalculate remaining
+
+break business validation fails
+    Pay --> Ctrl: 1.2.8: AppException(PAY_001 / PAY_002 / PAY_003 / PAY_004)
+    Ctrl --> UI: 1.2.9: HTTP 404 / 409 - ApiResponse(errorCode)
+    UI --> Staff: 1.2.10: Display payment error
+end
+
+alt paymentMethod = CASH
+    Pay -> Repo: 1.2.11: save VERIFIED receipt
+    activate Repo
+    Repo --> Pay: 1.2.12: Saved receipt
+    deactivate Repo
+    Pay -> Sales: 1.2.13: updatePaymentStatus(PARTIALLY_PAID / PAID)
+else paymentMethod = BANK_TRANSFER
+    Pay -> Repo: 1.2.14: save PENDING receipt
+    activate Repo
+    Repo --> Pay: 1.2.15: Saved receipt
+    deactivate Repo
+end
+
+Pay --> Ctrl: 1.3: OrderPaymentResponse
+deactivate Pay
+Ctrl --> UI: 1.4: HTTP 200 - ApiResponse<OrderPaymentResponse>
+deactivate Ctrl
+UI --> Staff: 1.5: Display payment recorded successfully
+deactivate UI
+
+note over Pay,Repo
+  BANK_TRANSFER remains PENDING for UC-70.
+  ONLINE PayOS and UC-63 invoice allocation are outside UC-23.
+end note
+
+@enduml

@@ -1,0 +1,92 @@
+@startuml UC70_Verify_Staff_Recorded_Bank_Transfer_Sequence
+title UC-70 - Verify Staff-Recorded Bank Transfer
+
+hide footbox
+skinparam ParticipantPadding 52
+skinparam BoxPadding 6
+skinparam maxMessageSize 180
+skinparam sequence {
+    ArrowColor #263238
+    ActorBorderColor #263238
+    LifeLineBorderColor #78909C
+    ParticipantBorderColor #1565C0
+    ParticipantBackgroundColor #E3F2FD
+    GroupBorderColor #455A64
+    GroupBackgroundColor #FAFAFA
+}
+
+actor "Accountant" as Accountant
+boundary ": PaymentVerificationUI" as UI
+control ": PaymentController" as Ctrl
+control ": PaymentService" as Pay
+control ": SalesQueryService" as Sales
+entity ": TransactionRepository" as Repo
+
+Accountant -> UI: 1: Review PENDING transfer\nChoose Verify or Reject
+activate UI
+
+alt decision = VERIFY
+    UI -> Ctrl: 2: POST /payment-verifications/{paymentId}/verify
+    activate Ctrl
+    Ctrl -> Pay: 3: verify(paymentId)
+    activate Pay
+    Pay -> Repo: 4: findOrderIdById(paymentId)
+    activate Repo
+    Repo --> Pay: 5: orderId
+    deactivate Repo
+    Pay -> Sales: 6: lockOrderPaymentInfo(orderId)
+    activate Sales
+    Sales --> Pay: 7: SalesOrderPaymentInfo
+    deactivate Sales
+    Pay -> Repo: 8: findByIdForUpdate(paymentId)\nfindReceipts(orderId)
+    activate Repo
+    Repo --> Pay: 9: Locked transfer and receipts
+    deactivate Repo
+    Pay -> Pay: 10: Validate PENDING transfer\nCalculate verified and remaining
+
+    break verification validation fails
+        Pay --> Ctrl: 11: AppException(PAY_005 / PAY_001 / PAY_002\nVER_001 / VER_002 / VER_003)
+        Ctrl --> UI: 12: HTTP 404 / 409\nApiResponse(success=false, code=errorCode, message=errorMessage)
+        UI --> Accountant: 13: Display errorMessage
+    end
+
+    Pay -> Repo: 14: save VERIFIED receipt\napprovedBy, approvedAt
+    activate Repo
+    Repo --> Pay: 15: Saved receipt
+    deactivate Repo
+    Pay -> Sales: 16: updatePaymentStatus(PARTIALLY_PAID / PAID)
+
+else decision = REJECT
+    UI -> Ctrl: 17: POST /payment-verifications/{paymentId}/reject\nRejectPaymentRequest(reason)
+    Ctrl -> Pay: 18: reject(paymentId, reason)
+    Pay -> Repo: 19: findByIdForUpdate(paymentId)
+    activate Repo
+    Repo --> Pay: 20: Locked transfer
+    deactivate Repo
+    Pay -> Pay: 21: Validate reason and PENDING transfer
+
+    break rejection validation fails
+        Pay --> Ctrl: 22: AppException(SYS_003 / PAY_005\nVER_001 / VER_002 / VER_004)
+        Ctrl --> UI: 23: HTTP 400 / 404 / 409\nApiResponse(success=false, code=errorCode, message=errorMessage)
+        UI --> Accountant: 24: Display errorMessage
+    end
+
+    Pay -> Repo: 25: save REJECTED receipt\nreason, approvedBy, approvedAt
+    activate Repo
+    Repo --> Pay: 26: Saved receipt
+    deactivate Repo
+end
+
+Pay --> Ctrl: 27: PaymentVerificationResponse
+deactivate Pay
+Ctrl --> UI: 28: HTTP 200 - ApiResponse<PaymentVerificationResponse>\ncode = "SUCCESS", message = "Thành công"
+deactivate Ctrl
+UI --> Accountant: 29: Display "Xác minh thanh toán thành công"\nor "Từ chối thanh toán thành công"
+deactivate UI
+
+note over Pay,Repo
+  UC-70 handles only PENDING BANK_TRANSFER decisions.
+  Invoice allocation remains in UC-63.
+end note
+
+@enduml

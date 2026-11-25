@@ -24,6 +24,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@org.junit.jupiter.api.extension.ExtendWith(com.aquasuite.ims.testsupport.IamSeedRestoreExtension.class)
 @SpringBootTest
 class DevelopmentDataInitializerRollbackIntegrationTest extends PostgreSqlIntegrationTestSupport {
 
@@ -67,7 +68,7 @@ class DevelopmentDataInitializerRollbackIntegrationTest extends PostgreSqlIntegr
         userRepository.save(conflictUser);
 
         assertThat(userRepository.count()).isEqualTo(1);
-        assertThat(roleRepository.count()).isEqualTo(6);
+        assertThat(roleRepository.count()).isEqualTo(5);
 
         // 2. Setup initializer with dev environment emulated
         MockEnvironment mockEnv = new MockEnvironment();
@@ -90,7 +91,7 @@ class DevelopmentDataInitializerRollbackIntegrationTest extends PostgreSqlIntegr
                 .hasMessageContaining("non-ACTIVE status");
 
         // 4. Verify transaction rollback: canonical roles preserved from V2, no uncommitted roles or owner created
-        assertThat(roleRepository.count()).isEqualTo(6);
+        assertThat(roleRepository.count()).isEqualTo(5);
         assertThat(roleRepository.findByRoleNameIgnoreCase("SHOP_OWNER")).isPresent();
 
         // Conflict user remains unchanged

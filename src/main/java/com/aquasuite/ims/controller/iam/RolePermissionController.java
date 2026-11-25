@@ -76,19 +76,19 @@ public class RolePermissionController {
             @Valid @RequestBody CreatePermissionRequest request) {
         PermissionResponse response = service.createPermission(request);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.ok(response, "Permission created successfully"));
+                .body(ApiResponse.ok(response));
     }
 
     @PatchMapping("/api/v1/iam/permissions/{permissionId}")
     public ApiResponse<PermissionResponse> updatePermission(
             @PathVariable UUID permissionId,
             @Valid @RequestBody UpdatePermissionRequest request) {
-        return ApiResponse.ok(service.updatePermission(permissionId, request), "Permission updated successfully");
+        return ApiResponse.ok(service.updatePermission(permissionId, request));
     }
 
     @DeleteMapping("/api/v1/iam/permissions/{permissionId}")
     public ResponseEntity<ApiResponse<Void>> deletePermission(@PathVariable UUID permissionId) {
         service.deletePermission(permissionId);
-        return ResponseEntity.ok(ApiResponse.ok(null, "Permission deleted successfully"));
+        return ResponseEntity.ok(ApiResponse.ok(null));
     }
 }

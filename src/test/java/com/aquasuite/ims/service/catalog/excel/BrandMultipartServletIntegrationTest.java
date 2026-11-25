@@ -44,25 +44,25 @@ class BrandMultipartServletIntegrationTest extends AuthIntegrationTestSupport {
     void multipartLimitsThroughRealServletContainer() throws Exception {
         when(iam.getCurrentUserId()).thenReturn(UUID.randomUUID());
         try (HttpClient client = HttpClient.newHttpClient()) {
-            var brandAtLimit = post(client, "/api/v1/brands/import-jobs", "brands.xlsx", "application/octet-stream", FIVE_MIB);
+            var brandAtLimit = post(client, "/api/v1/catalog/brands/import-jobs", "brands.xlsx", "application/octet-stream", FIVE_MIB);
             assertEquals(202, brandAtLimit.statusCode(), brandAtLimit.body());
             assertTrue(brandAtLimit.body().contains("jobId"));
             String jobId = mapper.readTree(brandAtLimit.body()).path("data").path("jobId").asText();
             boolean invalidFile = false;
             for (int attempt = 0; attempt < 40; attempt++) {
                 HttpRequest progress = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port
-                        + "/api/v1/brands/import-jobs/" + jobId)).GET().build();
+                        + "/api/v1/catalog/brands/import-jobs/" + jobId)).GET().build();
                 var snapshot = client.send(progress, HttpResponse.BodyHandlers.ofString());
                 if (snapshot.body().contains("INVALID_FILE")) { invalidFile = true; break; }
                 Thread.sleep(50);
             }
             assertTrue(invalidFile, "Unreadable XLSX must become FAILED / INVALID_FILE after acceptance");
 
-            var brandOverLimit = post(client, "/api/v1/brands/import-jobs", "brands.xlsx", "application/octet-stream", FIVE_MIB + 1);
+            var brandOverLimit = post(client, "/api/v1/catalog/brands/import-jobs", "brands.xlsx", "application/octet-stream", FIVE_MIB + 1);
             assertEquals(413, brandOverLimit.statusCode(), brandOverLimit.body());
             assertTrue(brandOverLimit.body().contains("BRIMP_002"));
 
-            var commonLimit = post(client, "/api/v1/brands/import-jobs", "brands.xlsx", "application/octet-stream", 6 * 1024 * 1024 + 1);
+            var commonLimit = post(client, "/api/v1/catalog/brands/import-jobs", "brands.xlsx", "application/octet-stream", 6 * 1024 * 1024 + 1);
             assertEquals(413, commonLimit.statusCode(), commonLimit.body());
             assertTrue(commonLimit.body().contains("SYS_005"));
 
@@ -95,7 +95,7 @@ class BrandMultipartServletIntegrationTest extends AuthIntegrationTestSupport {
         @Bean
         @Order(0)
         SecurityFilterChain multipartTestChain(HttpSecurity http) throws Exception {
-            return http.securityMatcher("/api/v1/brands/import-jobs", "/api/v1/brands/import-jobs/**", "/api/v1/catalog/import", "/api/v1/profile/avatar")
+            return http.securityMatcher("/api/v1/catalog/brands/import-jobs", "/api/v1/catalog/brands/import-jobs/**", "/api/v1/catalog/import", "/api/v1/profile/avatar")
                     .csrf(csrf -> csrf.disable())
                     .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
                     .addFilterAfter(new OncePerRequestFilter() {

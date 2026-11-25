@@ -1,7 +1,5 @@
 package com.aquasuite.ims.dto.servicedesk.response;
 
-import com.aquasuite.ims.enums.servicedesk.TechnicalJobStatus;
-import com.aquasuite.ims.enums.servicedesk.TechnicalJobType;
 import com.aquasuite.ims.enums.servicedesk.WarrantyDisplayStatus;
 import com.aquasuite.ims.enums.servicedesk.WarrantyStatus;
 import lombok.Builder;
@@ -9,7 +7,6 @@ import lombok.Builder;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.util.List;
 import java.util.UUID;
 
 @Builder
@@ -50,8 +47,7 @@ public record WarrantyRecordDetailResponse(
         String installationAddress,
 
         OrderInvoiceInfo orderInvoice,
-        DeliveryNoteInfo deliveryNote,
-        List<RepairHistoryItem> repairHistory
+        DeliveryNoteInfo deliveryNote
 ) {
     @Builder
     public record OrderInvoiceInfo(
@@ -78,20 +74,6 @@ public record WarrantyRecordDetailResponse(
             String status,
             OffsetDateTime deliveredAt,
             String note
-    ) {
-    }
-
-    @Builder
-    public record RepairHistoryItem(
-            UUID technicalJobId,
-            TechnicalJobType jobType,
-            TechnicalJobStatus status,
-            OffsetDateTime scheduledAt,
-            String issueDescription,
-            String result,
-            UUID technicianId,
-            OffsetDateTime completedAt,
-            OffsetDateTime createdAt
     ) {
     }
 }

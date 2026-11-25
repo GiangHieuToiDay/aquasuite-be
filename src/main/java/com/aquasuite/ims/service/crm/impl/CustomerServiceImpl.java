@@ -190,19 +190,15 @@ public class CustomerServiceImpl implements CustomerService {
             }
 
             // Nếu không có tên riêng hoặc là "Khách lẻ tại quầy": dùng bản ghi mặc định CUS-WALKIN
+            // INSERT ... ON CONFLICT DO NOTHING để hai đơn ẩn danh đồng thời không tạo trùng CUS-WALKIN.
             return customerRepository.findByCustomerCode("CUS-WALKIN")
+                    .or(() -> {
+                        customerRepository.insertUnlinkedCustomer(
+                                UUID.randomUUID(), "CUS-WALKIN", "Khách lẻ tại quầy", "", null);
+                        return customerRepository.findByCustomerCode("CUS-WALKIN");
+                    })
                     .map(this::toSummaryDto)
-                    .orElseGet(() -> {
-                        Customer walkIn = Customer.builder()
-                                .customerId(UUID.randomUUID())
-                                .customerCode("CUS-WALKIN")
-                                .customerName("Khách lẻ tại quầy")
-                                .phone("")
-                                .customerType(CustomerType.RETAIL)
-                                .status("ACTIVE")
-                                .build();
-                        return toSummaryDto(customerRepository.save(walkIn));
-                    });
+                    .orElseThrow(() -> new AppException(CommonErrorCode.DATA_INTEGRITY_VIOLATION));
         }
 
         // Nếu có SĐT: tìm theo SĐT

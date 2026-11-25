@@ -35,11 +35,16 @@ import static com.aquasuite.ims.exception.sales.ProjectDepositErrorCode.*;
 
 @DataJpaTest(showSql=false, properties="spring.datasource.hikari.maximum-pool-size=3")
 @AutoConfigureTestDatabase(replace=AutoConfigureTestDatabase.Replace.NONE)
-@Import({OrderStockReservationService.class,OrderStockReservationStore.class,OrderReceivableServiceImpl.class,com.aquasuite.ims.service.finance.impl.PaymentServiceImpl.class,SalesOrderServiceImpl.class,
+@Import({OrderStockReservationService.class,com.aquasuite.ims.service.sales.impl.SalesQueryServiceImpl.class,OrderStockReservationStore.class,OrderReceivableServiceImpl.class,com.aquasuite.ims.service.finance.impl.PaymentServiceImpl.class,SalesOrderServiceImpl.class,
         StockReservationServiceImpl.class,StockReservationStore.class,InventoryServiceImpl.class,
         OrderStockReservationPostgresTest.Json.class})
 @Transactional(propagation=Propagation.NOT_SUPPORTED)
 class OrderStockReservationPostgresTest extends PostgreSqlIntegrationTestSupport {
+    @org.junit.jupiter.api.AfterEach
+    void clearCommittedFixtures() {
+        com.aquasuite.ims.testsupport.CommittedFixtureCleaner.clear(jdbc);
+    }
+
     @TestConfiguration static class Json {
         @Bean ObjectMapper json() { return new ObjectMapper().findAndRegisterModules(); }
     }
@@ -48,6 +53,11 @@ class OrderStockReservationPostgresTest extends PostgreSqlIntegrationTestSupport
     @Autowired com.aquasuite.ims.service.inventory.StockReservationService reservationApi;
     @Autowired JdbcTemplate jdbc;
     @MockBean IamQueryService iam;
+    @MockBean com.aquasuite.ims.service.sales.helper.OrderCodeGenerator mockOrderCodeGenerator;
+    @MockBean com.aquasuite.ims.mapper.sales.SalesOrderMapper mockSalesOrderMapper;
+    @MockBean com.aquasuite.ims.service.crm.CustomerService mockCustomerService;
+    @MockBean com.aquasuite.ims.service.catalog.CatalogLookupService mockCatalogLookupService;
+    @MockBean com.aquasuite.ims.service.finance.CreditControlService mockCreditControlService;
     @SpyBean StockReservationStore ledger;
     UUID order,item,variant,customer,actor,inventory;
     @BeforeEach void fixture() {

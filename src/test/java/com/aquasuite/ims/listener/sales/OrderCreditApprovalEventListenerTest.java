@@ -5,7 +5,6 @@ import com.aquasuite.ims.service.finance.CreditControlService;
 import com.aquasuite.ims.dto.finance.command.CreditAuthorizationCommand;
 import com.aquasuite.ims.dto.finance.response.CreditAuthorizationDecision;
 import com.aquasuite.ims.service.inventory.InventoryService;
-import com.aquasuite.ims.event.sales.OrderConfirmedEvent;
 import com.aquasuite.ims.entity.sales.Order;
 import com.aquasuite.ims.entity.sales.OrderItem;
 import com.aquasuite.ims.enums.sales.OrderChannel;
@@ -30,7 +29,6 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -62,7 +60,7 @@ class OrderCreditApprovalEventListenerTest {
     private OrderCreditApprovalEventListener listener;
 
     @Test
-    void approvedEvent_whenCreditIsSufficient_transitionsDraftOrderToProcessingAndPublishesOrderConfirmedEvent() {
+    void approvedEvent_whenCreditIsSufficient_transitionsDraftOrderToProcessing() {
         UUID orderId = UUID.randomUUID();
         Order draftOrder = Order.builder()
                 .orderId(orderId)
@@ -100,12 +98,6 @@ class OrderCreditApprovalEventListenerTest {
         assertThat(cmdCaptor.getValue().orderChannel()).isEqualTo(OrderChannel.DIRECT_SALES.name());
         assertThat(cmdCaptor.getValue().orderAmount()).isEqualByComparingTo("80000000.00");
 
-        ArgumentCaptor<OrderConfirmedEvent> eventCaptor = ArgumentCaptor.forClass(OrderConfirmedEvent.class);
-        verify(eventPublisher).publishEvent(eventCaptor.capture());
-        assertThat(eventCaptor.getValue().orderId()).isEqualTo(orderId);
-        assertThat(eventCaptor.getValue().orderCode()).isEqualTo("ORD-PRJ-001");
-        assertThat(eventCaptor.getValue().customerId()).isEqualTo(CUSTOMER_ID);
-        assertThat(eventCaptor.getValue().projectName()).isEqualTo("Biệt thự Riverside");
     }
 
     @Test
@@ -168,9 +160,6 @@ class OrderCreditApprovalEventListenerTest {
         verify(orderRepository).save(order1);
         verify(orderRepository).save(order2);
 
-        ArgumentCaptor<OrderConfirmedEvent> confirmedCaptor = ArgumentCaptor.forClass(OrderConfirmedEvent.class);
-        verify(eventPublisher, times(1)).publishEvent(confirmedCaptor.capture());
-        assertThat(confirmedCaptor.getValue().orderId()).isEqualTo(order1Id);
     }
 
     @Test

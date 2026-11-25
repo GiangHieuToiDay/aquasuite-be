@@ -6,19 +6,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 
 /**
- * Mã lỗi nghiệp vụ của module Servicedesk (FE-13 - Công việc kỹ thuật, UC-59/60/61).
+ * Mã lỗi nghiệp vụ của module Servicedesk (thẻ bảo hành, chính sách bảo hành, yêu cầu bảo hành).
+ * Các mã SVD_001–007, SVD_030, SVD_034–038 của công việc kỹ thuật đã bỏ (2026-11-24) — không tái sử dụng.
  */
 @Getter
 @RequiredArgsConstructor
 public enum ServicedeskErrorCode implements BaseErrorCode {
 
-    TECHNICAL_JOB_NOT_FOUND("SVD_001", "Không tìm thấy công việc kỹ thuật: {0}", HttpStatus.NOT_FOUND),
-    TECHNICAL_JOB_NOT_OWNED("SVD_002", "Bạn không được phân công công việc kỹ thuật này", HttpStatus.FORBIDDEN),
-    INVALID_JOB_STATUS_TRANSITION("SVD_003", "Không thể chuyển trạng thái công việc từ {0} sang {1}", HttpStatus.CONFLICT),
-    REJECTION_REASON_REQUIRED("SVD_004", "Phải nhập lý do khi từ chối công việc kỹ thuật", HttpStatus.BAD_REQUEST),
-    JOB_RESULT_REQUIRED("SVD_005", "Phải nhập kết quả thực hiện khi hoàn tất công việc kỹ thuật", HttpStatus.BAD_REQUEST),
-    INVALID_TECHNICIAN("SVD_006", "Người được phân công không hợp lệ hoặc không phải nhân viên kỹ thuật: {0}", HttpStatus.BAD_REQUEST),
-    JOB_NOT_ASSIGNABLE("SVD_007", "Chỉ có thể phân công công việc đang ở trạng thái chờ tiếp nhận (ASSIGNED) hoặc đã bị từ chối (REJECTED). Trạng thái hiện tại: {0}", HttpStatus.CONFLICT),
     CUSTOMER_NOT_FOUND("SVD_008", "Không tìm thấy khách hàng: {0}", HttpStatus.BAD_REQUEST),
     WARRANTY_POLICY_NOT_FOUND("WPO_001", "Không tìm thấy chính sách bảo hành: {0}", HttpStatus.NOT_FOUND),
     WARRANTY_POLICY_BRAND_NOT_FOUND("WPO_002", "Không tìm thấy hãng đã chọn: {0}", HttpStatus.BAD_REQUEST),
@@ -31,7 +25,7 @@ public enum ServicedeskErrorCode implements BaseErrorCode {
     WARRANTY_POLICY_NOT_APPLICABLE("SVD_012", "Sản phẩm hoặc chính sách bảo hành không áp dụng cấp thẻ bảo hành (thời hạn phải > 0 tháng và ở trạng thái ACTIVE).", HttpStatus.BAD_REQUEST),
     WARRANTY_ALREADY_VOIDED("SVD_013", "Thẻ bảo hành {0} đã bị hủy trước đó.", HttpStatus.CONFLICT),
     WARRANTY_VOID_REASON_REQUIRED("SVD_014", "Vui lòng nhập lý do hủy thẻ bảo hành.", HttpStatus.BAD_REQUEST),
-    WARRANTY_HAS_OPEN_JOB("SVD_015", "Không thể hủy thẻ bảo hành khi đang có phiếu sửa chữa bảo hành chưa hoàn tất.", HttpStatus.CONFLICT),
+    WARRANTY_HAS_OPEN_TICKET("SVD_015", "Không thể hủy thẻ bảo hành khi đang có yêu cầu bảo hành chưa hoàn tất.", HttpStatus.CONFLICT),
     WARRANTY_ORDER_ITEM_NOT_FOUND("SVD_016", "Không tìm thấy dòng sản phẩm trong đơn hàng: {0}", HttpStatus.NOT_FOUND),
     WARRANTY_ORDER_NOT_ELIGIBLE("SVD_017", "Đơn hàng ở trạng thái {0} không đủ điều kiện cấp thẻ bảo hành.", HttpStatus.CONFLICT),
     WARRANTY_QUANTITY_LIMIT_EXCEEDED("SVD_018", "Số lượng thẻ bảo hành đang hiệu lực đã đạt giới hạn số lượng mua trên dòng đơn hàng.", HttpStatus.CONFLICT),
@@ -46,10 +40,12 @@ public enum ServicedeskErrorCode implements BaseErrorCode {
     WARRANTY_TICKET_FORBIDDEN("SVD_027", "Không tìm thấy yêu cầu bảo hành: {0}", HttpStatus.NOT_FOUND),
     WARRANTY_TICKET_NOT_CANCELLABLE("SVD_028", "Chỉ có thể hủy yêu cầu bảo hành khi ở trạng thái Chờ tiếp nhận (NEW).", HttpStatus.CONFLICT),
     MEDIA_UPLOAD_FAILED("SVD_029", "Tải file đính kèm lên Cloudinary thất bại. Vui lòng thử lại sau.", HttpStatus.BAD_GATEWAY),
-    WARRANTY_TICKET_NOT_DISPATCHABLE("SVD_030", "Chỉ có thể bắn công việc kỹ thuật cho yêu cầu bảo hành đang ở trạng thái Chờ tiếp nhận (NEW). Trạng thái hiện tại: {0}", HttpStatus.CONFLICT),
     WARRANTY_TICKET_REJECT_REASON_REQUIRED("SVD_031", "Phải nhập lý do khi từ chối yêu cầu bảo hành.", HttpStatus.BAD_REQUEST),
     WARRANTY_TICKET_NOT_REJECTABLE("SVD_032", "Chỉ có thể từ chối yêu cầu bảo hành đang ở trạng thái Chờ tiếp nhận (NEW). Trạng thái hiện tại: {0}", HttpStatus.CONFLICT),
-    WARRANTY_RECORD_EXPIRED_NOT_ACKNOWLEDGED("SVD_033", "Thẻ bảo hành đã hết hạn. Vui lòng xác nhận vẫn muốn gửi yêu cầu (có thể phát sinh chi phí).", HttpStatus.CONFLICT);
+    WARRANTY_RECORD_EXPIRED_NOT_ACKNOWLEDGED("SVD_033", "Thẻ bảo hành đã hết hạn. Vui lòng xác nhận vẫn muốn gửi yêu cầu (có thể phát sinh chi phí).", HttpStatus.CONFLICT),
+    WARRANTY_TICKET_NOT_STARTABLE("SVD_039", "Chỉ có thể tiếp nhận xử lý yêu cầu bảo hành đang ở trạng thái Chờ tiếp nhận (NEW). Trạng thái hiện tại: {0}", HttpStatus.CONFLICT),
+    WARRANTY_TICKET_NOT_COMPLETABLE("SVD_040", "Chỉ có thể hoàn tất yêu cầu bảo hành đang xử lý (IN_PROGRESS). Trạng thái hiện tại: {0}", HttpStatus.CONFLICT),
+    WARRANTY_TICKET_RESULT_REQUIRED("SVD_041", "Phải nhập kết quả xử lý khi hoàn tất yêu cầu bảo hành.", HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String message;

@@ -11,9 +11,9 @@ import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.dto.sales.response.SalesOrderItemWarrantySnapshotDto;
 import com.aquasuite.ims.dto.sales.response.SalesOrderWarrantySummaryDto;
 import com.aquasuite.ims.event.servicedesk.WarrantyRecordAuditEvent;
+import com.aquasuite.ims.entity.servicedesk.WarrantyTicket;
+import com.aquasuite.ims.enums.servicedesk.WarrantyTicketStatus;
 import com.aquasuite.ims.entity.servicedesk.WarrantyRecord;
-import com.aquasuite.ims.enums.servicedesk.TechnicalJobStatus;
-import com.aquasuite.ims.enums.servicedesk.TechnicalJobType;
 import com.aquasuite.ims.enums.servicedesk.WarrantyDisplayStatus;
 import com.aquasuite.ims.enums.servicedesk.WarrantyStatus;
 import com.aquasuite.ims.exception.servicedesk.ServicedeskErrorCode;
@@ -21,7 +21,6 @@ import com.aquasuite.ims.dto.servicedesk.request.CreateAdHocWarrantyRequest;
 import com.aquasuite.ims.dto.servicedesk.request.CreateDeliveryWarrantyCommand;
 import com.aquasuite.ims.dto.servicedesk.request.CreateWarrantyFromOrderRequest;
 import com.aquasuite.ims.integration.servicedesk.FulfillmentWarrantyPort;
-import com.aquasuite.ims.repository.servicedesk.TechnicalJobRepository;
 import com.aquasuite.ims.repository.servicedesk.WarrantyRecordRepository;
 import com.aquasuite.ims.repository.servicedesk.WarrantyTicketRepository;
 import com.aquasuite.ims.service.servicedesk.helper.WarrantyCodeGenerator;
@@ -49,6 +48,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -61,7 +61,6 @@ class WarrantyRecordServiceTest {
     private static final Clock FIXED_CLOCK = Clock.fixed(Instant.parse("2026-11-12T05:00:00Z"), VN_ZONE);
 
     @Mock private WarrantyRecordRepository warrantyRecordRepository;
-    @Mock private TechnicalJobRepository technicalJobRepository;
     @Mock private WarrantyTicketRepository warrantyTicketRepository;
     @Mock private WarrantyCodeGenerator warrantyCodeGenerator;
     @Mock private CatalogLookupService catalogApi;
@@ -85,7 +84,6 @@ class WarrantyRecordServiceTest {
     void setUp() {
         service = new WarrantyRecordServiceImpl(
                 warrantyRecordRepository,
-                technicalJobRepository,
                 warrantyTicketRepository,
                 warrantyCodeGenerator,
                 catalogApi,
@@ -138,7 +136,6 @@ class WarrantyRecordServiceTest {
                     SalesOrderWarrantySummaryDto.builder().orderId(orderId).orderCode("ORD-001").orderStatus("COMPLETED").paymentStatus("PAID").invoiceCode("INV-001").build()
             ));
         }
-        when(technicalJobRepository.findByWarrantyRecordIdOrderByCreatedAtDesc(any())).thenReturn(List.of());
     }
 
     @Test
@@ -170,7 +167,6 @@ class WarrantyRecordServiceTest {
         when(salesWarrantyApi.getOrderSummaryWithInvoice(orderId)).thenReturn(Optional.of(
                 SalesOrderWarrantySummaryDto.builder().orderId(orderId).orderCode("ORD-001").orderStatus("COMPLETED").build()
         ));
-        when(technicalJobRepository.findByWarrantyRecordIdOrderByCreatedAtDesc(any())).thenReturn(List.of());
 
         var res = service.createFromOrder(new CreateWarrantyFromOrderRequest(
                 orderItemId, "  SN-100  ", LocalDate.of(2026, 11, 12)));
@@ -284,14 +280,13 @@ class WarrantyRecordServiceTest {
                 .status(WarrantyStatus.ACTIVE)
                 .build();
         when(warrantyRecordRepository.findById(recordId)).thenReturn(Optional.of(active));
-        when(technicalJobRepository.existsByWarrantyRecordIdAndJobTypeAndStatusIn(
-                recordId, TechnicalJobType.WARRANTY_REPAIR, List.of(TechnicalJobStatus.ASSIGNED, TechnicalJobStatus.IN_PROGRESS)))
-                .thenReturn(true);
+        when(warrantyTicketRepository.findFirstByWarrantyRecordIdAndStatusIn(eq(recordId), any()))
+                .thenReturn(Optional.of(WarrantyTicket.builder().ticketCode("WT-202611-0001").status(WarrantyTicketStatus.NEW).build()));
 
         assertThatThrownBy(() -> service.voidRecord(recordId, "Nhập nhầm serial"))
                 .isInstanceOf(AppException.class)
                 .extracting("errorCode")
-                .isEqualTo(ServicedeskErrorCode.WARRANTY_HAS_OPEN_JOB);
+                .isEqualTo(ServicedeskErrorCode.WARRANTY_HAS_OPEN_TICKET);
     }
 
     @Test
@@ -311,7 +306,6 @@ class WarrantyRecordServiceTest {
                 .createdAt(OffsetDateTime.now())
                 .build();
         when(warrantyRecordRepository.findById(recordId)).thenReturn(Optional.of(active));
-        when(technicalJobRepository.existsByWarrantyRecordIdAndJobTypeAndStatusIn(any(), any(), any())).thenReturn(false);
         stubDetailRead(active);
 
         var res = service.voidRecord(recordId, "Khách đổi trả hàng");

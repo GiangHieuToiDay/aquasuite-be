@@ -36,7 +36,7 @@ public class SalesInvoiceController {
     private final SalesInvoiceService salesInvoiceService;
 
     @GetMapping("/orders/{orderId}/invoices")
-    @PreAuthorize("hasAnyRole('SALES_STAFF', 'SHOP_OWNER', 'ACCOUNTANT', 'SHIPPER', 'TECHNICAL_STAFF')")
+    @PreAuthorize("hasAnyRole('SALES_STAFF', 'SHOP_OWNER', 'ACCOUNTANT', 'SHIPPER')")
     public ResponseEntity<ApiResponse<List<SalesInvoiceResponse>>> getOrderInvoices(
             @PathVariable UUID orderId
     ) {
@@ -56,7 +56,7 @@ public class SalesInvoiceController {
     }
 
     @GetMapping("/invoices/{invoiceId}")
-    @PreAuthorize("hasAnyRole('SALES_STAFF', 'SHOP_OWNER', 'ACCOUNTANT', 'SHIPPER', 'TECHNICAL_STAFF')")
+    @PreAuthorize("hasAnyRole('SALES_STAFF', 'SHOP_OWNER', 'ACCOUNTANT', 'SHIPPER')")
     public ResponseEntity<ApiResponse<SalesInvoiceResponse>> getInvoiceDetail(
             @PathVariable UUID invoiceId
     ) {

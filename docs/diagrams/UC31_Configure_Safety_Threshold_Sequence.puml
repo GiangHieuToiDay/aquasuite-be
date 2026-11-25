@@ -1,0 +1,85 @@
+@startuml UC31_Configure_Safety_Threshold_Sequence
+title UC-31 - Configure Inventory Safety Threshold (Alternative Flow A3)
+
+hide footbox
+skinparam ParticipantPadding 10
+skinparam BoxPadding 6
+skinparam maxMessageSize 160
+skinparam sequence {
+    ArrowColor #263238
+    ActorBorderColor #263238
+    LifeLineBorderColor #78909C
+    ParticipantBorderColor #1565C0
+    ParticipantBackgroundColor #E3F2FD
+    GroupBorderColor #455A64
+    GroupBackgroundColor #FAFAFA
+}
+
+actor "Shop Owner" as Owner
+boundary "inventoryUI: InventoryUI\n<<boundary>>" as UI
+control "inventoryController:\nInventoryController\n<<controller>>" as Ctrl
+control "inventoryService:\nInventoryService\n<<service>>" as Svc
+entity "inventoryRepository:\nInventoryRepository\n<<repository>>" as InvRepo
+control "thresholdAuditListener:\nInventoryThresholdAuditListener\n<<listener>>" as AuditL
+entity "auditLogRepository:\nAuditLogRepository\n<<repository>>" as AuditRepo
+control "lowStockAlertListener:\nLowStockAlertListener\n<<listener>>" as LowL
+
+Owner -> UI: 1: Enter minimum and maximum quantity for the SKU
+UI -> Ctrl: 2: PATCH /api/v1/inventory/{variantId}/threshold\nUpdateInventoryThresholdRequest
+
+break role is not SHOP_OWNER
+    Ctrl --> UI: 3: HTTP 403 - ApiResponse(AUTH_002)
+    UI --> Owner: 4: Display "Access denied"
+end
+
+break minimumQty missing / negative / more than 2 decimals, or maximumQty negative
+    Ctrl --> UI: 5: HTTP 400 - ApiResponse(SYS_003)
+    UI --> Owner: 6: Display "Invalid input data"
+end
+
+Ctrl -> Svc: 7: updateThreshold(variantId, minimumQty, maximumQty, actorUserId)
+activate Svc
+Svc -> Svc: 8: validateThreshold(minimumQty, maximumQty)
+
+break maximumQty < minimumQty
+    Svc --> Ctrl: 9: throw AppException(INV_018)
+    Ctrl --> UI: 10: HTTP 400 - ApiResponse(INV_018)
+    UI --> Owner: 11: Display "Invalid safety threshold"
+end
+
+Svc -> InvRepo: 12: findByVariantIdForUpdate(variantId)
+InvRepo --> Svc: 13: Optional<Inventory> (row locked)
+
+break inventory record not found
+    Svc --> Ctrl: 14: throw AppException(INV_001)
+    Ctrl --> UI: 15: HTTP 404 - ApiResponse(INV_001)
+    UI --> Owner: 16: Display "Inventory not found"
+end
+
+Svc -> InvRepo: 17: save(inventory with new minimumQty, maximumQty)
+Svc -> Svc: 18: publishEvent(InventoryThresholdChangedEvent\nactor, old/new min-max)
+opt inventory.isLowStock() under the new threshold
+    Svc -> Svc: 19: publishEvent(LowStockAlertEvent)
+end
+
+note over Svc, LowL
+  Transaction commits here. Listeners run AFTER_COMMIT;
+  an audit or alert failure never rolls back the threshold change.
+end note
+
+Svc -> AuditL: 20: onThresholdChanged(InventoryThresholdChangedEvent)
+activate AuditL
+AuditL -> AuditRepo: 21: save(AuditLog UPDATE_THRESHOLD,\nuser, old and new values)
+deactivate AuditL
+opt low-stock alert was raised
+    Svc -> LowL: 22: onLowStockAlert(LowStockAlertEvent)
+    activate LowL
+    LowL -> LowL: 23: Record alert for staff review\n(no purchase order is created, GB-27)
+    deactivate LowL
+end
+
+Svc --> Ctrl: 24: StockSummaryDto
+deactivate Svc
+Ctrl --> UI: 25: HTTP 200 ApiResponse<StockSummaryDto>
+UI --> Owner: 26: Display MSG69 "Inventory safety threshold updated successfully."
+@enduml

@@ -9,13 +9,10 @@ import com.aquasuite.ims.service.iam.IamQueryService;
 import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.event.servicedesk.WarrantyClaimSubmittedEvent;
 import com.aquasuite.ims.event.servicedesk.WarrantyTicketAuditEvent;
-import com.aquasuite.ims.entity.servicedesk.TechnicalJob;
 import com.aquasuite.ims.entity.servicedesk.TicketMedia;
 import com.aquasuite.ims.entity.servicedesk.WarrantyRecord;
 import com.aquasuite.ims.entity.servicedesk.WarrantyTicket;
 import com.aquasuite.ims.enums.servicedesk.PreferredSlot;
-import com.aquasuite.ims.enums.servicedesk.TechnicalJobStatus;
-import com.aquasuite.ims.enums.servicedesk.TechnicalJobType;
 import com.aquasuite.ims.enums.servicedesk.WarrantyStatus;
 import com.aquasuite.ims.enums.servicedesk.WarrantyTicketStatus;
 import com.aquasuite.ims.exception.servicedesk.ServicedeskErrorCode;
@@ -23,7 +20,6 @@ import com.aquasuite.ims.dto.servicedesk.request.CancelWarrantyTicketRequest;
 import com.aquasuite.ims.dto.servicedesk.request.CreateWarrantyTicketRequest;
 import com.aquasuite.ims.dto.servicedesk.response.ClaimFormResponse;
 import com.aquasuite.ims.dto.servicedesk.response.WarrantyTicketDetailResponse;
-import com.aquasuite.ims.repository.servicedesk.TechnicalJobRepository;
 import com.aquasuite.ims.repository.servicedesk.WarrantyRecordRepository;
 import com.aquasuite.ims.repository.servicedesk.WarrantyTicketRepository;
 import com.aquasuite.ims.service.servicedesk.helper.WarrantyTicketCodeGenerator;
@@ -68,7 +64,6 @@ class WarrantyTicketServiceTest {
 
     @Mock private WarrantyTicketRepository warrantyTicketRepository;
     @Mock private WarrantyRecordRepository warrantyRecordRepository;
-    @Mock private TechnicalJobRepository technicalJobRepository;
     @Mock private WarrantyTicketCodeGenerator warrantyTicketCodeGenerator;
     @Mock private ServicedeskMediaStoragePort servicedeskMediaStoragePort;
     @Mock private MediaValidator mediaValidator;
@@ -92,7 +87,6 @@ class WarrantyTicketServiceTest {
         service = new WarrantyTicketServiceImpl(
                 warrantyTicketRepository,
                 warrantyRecordRepository,
-                technicalJobRepository,
                 warrantyTicketCodeGenerator,
                 servicedeskMediaStoragePort,
                 mediaValidator,

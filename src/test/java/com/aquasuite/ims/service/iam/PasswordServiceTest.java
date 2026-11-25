@@ -69,11 +69,8 @@ class PasswordServiceTest {
         List<OtpSenderStrategy> strategies = List.of(emailOtpSender, smsOtpSender);
 
         passwordService = new AuthServiceImpl(
-                userRepository,
-                passwordEncoder,
-                strategies,
-                eventPublisher
-        );
+                null, userRepository, null, null, null, null, passwordEncoder, null, null, null,
+                strategies, eventPublisher);
     }
 
     @AfterEach

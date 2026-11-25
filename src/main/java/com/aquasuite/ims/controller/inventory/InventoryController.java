@@ -105,7 +105,7 @@ public class InventoryController {
         UUID actorUserId = iamApi.getCurrentUserId();
         StockSummaryDto updated = inventoryService.updateThreshold(
                 variantId, request.minimumQty(), request.maximumQty(), actorUserId);
-        return ResponseEntity.ok(ApiResponse.ok(updated, "Inventory safety threshold updated successfully."));
+        return ResponseEntity.ok(ApiResponse.ok(updated, "Cập nhật ngưỡng tồn kho an toàn thành công."));
     }
 
     /**

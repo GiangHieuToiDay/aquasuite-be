@@ -40,7 +40,8 @@ public abstract class PostgreSqlIntegrationTestSupport {
                     new PostgreSQLContainer<>(IMAGE_NAME)
                             .withDatabaseName("aquasuite_test")
                             .withUsername("testuser")
-                            .withPassword("testpass");
+                            .withPassword("testpass")
+                            .withCommand("postgres", "-c", "max_connections=500");
             postgresContainer.start();
         }
     }
