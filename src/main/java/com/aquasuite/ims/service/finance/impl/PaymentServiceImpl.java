@@ -11,6 +11,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -44,6 +46,20 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     public OrderPaymentResponse record(UUID orderId, RecordOrderPaymentRequest request) {
         return orderPaymentService.record(orderId, request);
+    }
+
+    @Override
+    public OrderPaymentResponse ensureOnlinePayosReceiptRecorded(
+            UUID orderId,
+            UUID payosPaymentId,
+            Long payosOrderCode,
+            BigDecimal amount,
+            OffsetDateTime paidAt,
+            UUID actorId) {
+        return orderPaymentService != null
+                ? orderPaymentService.ensureOnlinePayosReceiptRecorded(
+                        orderId, payosPaymentId, payosOrderCode, amount, paidAt, actorId)
+                : null;
     }
 
     @Override

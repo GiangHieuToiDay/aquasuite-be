@@ -6,6 +6,8 @@ import com.aquasuite.ims.dto.finance.response.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -19,6 +21,16 @@ public interface PaymentService {
     // ── Order Payment Operations ─────────────────────────────────────────────
 
     OrderPaymentResponse record(UUID orderId, RecordOrderPaymentRequest request);
+
+    default OrderPaymentResponse ensureOnlinePayosReceiptRecorded(
+            UUID orderId,
+            UUID payosPaymentId,
+            Long payosOrderCode,
+            BigDecimal amount,
+            OffsetDateTime paidAt,
+            UUID actorId) {
+        return null;
+    }
 
     OrderPaymentSummary summary(UUID orderId);
 

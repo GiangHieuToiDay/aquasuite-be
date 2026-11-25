@@ -348,7 +348,7 @@ public class CartPostmanSimulationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(reqJson))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Thành công"))
+                .andExpect(jsonPath("$.message").value("Đã cập nhật số lượng sản phẩm"))
                 .andExpect(jsonPath("$.data.totalQuantity").value(7))
                 .andExpect(jsonPath("$.data.subtotal").value(27000000.0))
                 .andReturn();
@@ -414,12 +414,13 @@ public class CartPostmanSimulationTest {
 
     @Test
     @Order(9)
-    @DisplayName("9. [DELETE /api/v1/sales/cart] Làm trống toàn bộ giỏ hàng -> 200 OK, không trả dữ liệu")
+    @DisplayName("9. [DELETE /api/v1/sales/cart] Làm trống toàn bộ giỏ hàng -> 200 OK, giỏ rỗng")
     void step9_ClearEntireCart() throws Exception {
         MvcResult result = mockMvc.perform(delete("/api/v1/sales/cart"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Đã xóa toàn bộ giỏ hàng"))
-                .andExpect(jsonPath("$.data").doesNotExist())
+                .andExpect(jsonPath("$.message").value("Đã làm trống giỏ hàng"))
+                .andExpect(jsonPath("$.data.totalItems").value(0))
+                .andExpect(jsonPath("$.data.subtotal").value(0))
                 .andReturn();
 
         printHttpResult("9. DELETE /api/v1/sales/cart (Làm trống toàn bộ giỏ hàng)", null, result);

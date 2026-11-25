@@ -98,6 +98,35 @@ public class SalesOrderController {
         return ResponseEntity.ok(ApiResponse.ok(response, "Hoàn tất đơn hàng thành công!"));
     }
 
+    @PatchMapping("/api/v1/sales/orders/{orderId}/confirm")
+    @PreAuthorize("hasAnyRole('SALES_STAFF', 'SHOP_OWNER')")
+    public ResponseEntity<ApiResponse<SalesOrderDetailResponse>> confirmOnlineOrder(
+            @PathVariable UUID orderId,
+            @Valid @RequestBody(required = false) ConfirmOnlineOrderRequest request) {
+        log.info("API: Confirm online sales order orderId={}", orderId);
+        SalesOrderDetailResponse response = salesOrderService.confirmOnlineOrder(orderId, request);
+        return ResponseEntity.ok(ApiResponse.ok(response, "Xác nhận đơn hàng trực tuyến và giữ tồn kho thành công!"));
+    }
+
+    @PatchMapping("/api/v1/sales/orders/{orderId}/reject")
+    @PreAuthorize("hasAnyRole('SALES_STAFF', 'SHOP_OWNER')")
+    public ResponseEntity<ApiResponse<SalesOrderDetailResponse>> rejectOnlineOrder(
+            @PathVariable UUID orderId,
+            @Valid @RequestBody RejectOnlineOrderRequest request) {
+        log.info("API: Reject/Cancel pending online sales order orderId={}", orderId);
+        SalesOrderDetailResponse response = salesOrderService.rejectOnlineOrder(orderId, request);
+        return ResponseEntity.ok(ApiResponse.ok(response, "Đã từ chối/hủy đơn hàng trực tuyến thành công!"));
+    }
+
+    @PostMapping("/api/v1/sales/orders/{orderId}/payos/sync")
+    @PreAuthorize("hasAnyRole('SALES_STAFF', 'SHOP_OWNER', 'ACCOUNTANT')")
+    public ResponseEntity<ApiResponse<SalesOrderDetailResponse>> syncOnlineOrderPayosPayment(
+            @PathVariable UUID orderId) {
+        log.info("API: Sync PayOS payment for online orderId={}", orderId);
+        SalesOrderDetailResponse response = salesOrderService.syncOnlineOrderPayosPayment(orderId);
+        return ResponseEntity.ok(ApiResponse.ok(response, "Đã đồng bộ trạng thái thanh toán PayOS thành công!"));
+    }
+
     // ── Order Modification Requests (/api/v1/sales/order-modification-requests)
 
     @GetMapping("/api/v1/sales/order-modification-requests")

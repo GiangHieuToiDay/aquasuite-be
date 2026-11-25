@@ -340,6 +340,19 @@ public class CustomerServiceImpl implements CustomerService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<UUID> findCustomerIdsByKeyword(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return Collections.emptyList();
+        }
+        String escaped = keyword.trim()
+                .replace("!", "!!")
+                .replace("%", "!%")
+                .replace("_", "!_");
+        return customerRepository.findCustomerIdsBySearchKeyword(escaped);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Map<UUID, CustomerSummaryDto> getCustomersByIds(Collection<UUID> customerIds) {
         if (customerIds == null || customerIds.isEmpty()) {
             return Collections.emptyMap();

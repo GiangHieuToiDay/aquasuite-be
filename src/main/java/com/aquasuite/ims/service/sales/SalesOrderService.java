@@ -53,6 +53,22 @@ public interface SalesOrderService {
      */
     SalesOrderDetailResponse completeSalesOrder(UUID orderId);
 
+    /**
+     * Xác nhận đơn hàng trực tuyến (UC-22: PENDING_CONFIRMATION -> PROCESSING),
+     * đặt giữ tồn kho và khởi tạo hóa đơn cửa hàng nháp (STORE - DRAFT).
+     */
+    SalesOrderDetailResponse confirmOnlineOrder(UUID orderId, ConfirmOnlineOrderRequest request);
+
+    /**
+     * Từ chối hoặc hủy đơn hàng trực tuyến khi đang chờ xác nhận (UC-22: PENDING_CONFIRMATION -> CANCELLED).
+     */
+    SalesOrderDetailResponse rejectOnlineOrder(UUID orderId, RejectOnlineOrderRequest request);
+
+    /**
+     * Đồng bộ trạng thái thanh toán PayOS của đơn hàng trực tuyến dành cho nhân viên (UC-22).
+     */
+    SalesOrderDetailResponse syncOnlineOrderPayosPayment(UUID orderId);
+
     Optional<SalesOrderPaymentInfoDto> getOrderPaymentInfo(UUID orderId);
 
     Optional<SalesOrderPaymentInfoDto> lockOrderPaymentInfo(UUID orderId);

@@ -151,4 +151,34 @@ class OrderPaymentServiceTest {
                         .status("VERIFIED").amount(BigDecimal.TEN).build()));
         assertThatThrownBy(() -> service.summary(orderId)).isInstanceOf(AppException.class);
     }
+
+    @Test void ensureOnlinePayosReceiptRecorded_CreatesVerifiedReceiptAndLinksStoreInvoice() {
+        UUID payosPaymentId = UUID.randomUUID();
+        UUID storeInvoiceId = UUID.randomUUID();
+        var onlineOrder = SalesOrderPaymentInfoDto.builder()
+                .orderId(orderId)
+                .customerId(customerId)
+                .storeInvoiceId(storeInvoiceId)
+                .orderChannel("ONLINE")
+                .paymentStatus("PAID")
+                .totalAmount(new BigDecimal("4000"))
+                .validForPayment(true)
+                .build();
+        when(sales.lockOrderPaymentInfo(orderId)).thenReturn(Optional.of(onlineOrder));
+        when(transactions.findByIdempotencyKey(payosPaymentId)).thenReturn(Optional.empty());
+        when(transactions.findByOrderIdAndTransactionTypeIgnoreCase(orderId, "RECEIPT")).thenReturn(List.of());
+
+        var recorded = service.ensureOnlinePayosReceiptRecorded(
+                orderId, payosPaymentId, 99887766L, new BigDecimal("4000"), null, actorId);
+
+        assertThat(recorded).isNotNull();
+        assertThat(recorded.status()).isEqualTo("VERIFIED");
+        assertThat(recorded.amount()).isEqualByComparingTo("4000");
+        assertThat(recorded.invoiceId()).isEqualTo(storeInvoiceId);
+        verify(transactions).saveAndFlush(argThat(t ->
+                "PAYOS-99887766".equals(t.getTransactionCode())
+                        && "VERIFIED".equals(t.getStatus())
+                        && "BANK_TRANSFER".equals(t.getPaymentMethod())
+                        && storeInvoiceId.equals(t.getInvoiceId())));
+    }
 }

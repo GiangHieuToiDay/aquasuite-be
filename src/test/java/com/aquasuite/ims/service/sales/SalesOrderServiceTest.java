@@ -11,12 +11,14 @@ import com.aquasuite.ims.service.finance.CreditControlService;
 import com.aquasuite.ims.dto.finance.response.CreditAuthorizationDecision;
 import com.aquasuite.ims.service.iam.IamQueryService;
 import com.aquasuite.ims.service.inventory.InventoryService;
+import com.aquasuite.ims.entity.sales.OnlinePayosPayment;
 import com.aquasuite.ims.entity.sales.Order;
 import com.aquasuite.ims.entity.sales.OrderItem;
 import com.aquasuite.ims.entity.sales.OrderPaymentMilestone;
 import com.aquasuite.ims.entity.sales.Quotation;
 import com.aquasuite.ims.entity.sales.QuotationItem;
 import com.aquasuite.ims.entity.sales.QuotationPaymentMilestone;
+import com.aquasuite.ims.entity.sales.SalesInvoice;
 import com.aquasuite.ims.enums.sales.FulfillmentMethod;
 import com.aquasuite.ims.enums.sales.OrderChannel;
 import com.aquasuite.ims.enums.sales.OrderStatus;
@@ -25,15 +27,19 @@ import com.aquasuite.ims.enums.sales.PaymentMethod;
 import com.aquasuite.ims.enums.sales.PaymentStatus;
 import com.aquasuite.ims.enums.sales.QuotationStatus;
 import com.aquasuite.ims.exception.sales.SalesErrorCode;
+import com.aquasuite.ims.integration.sales.PayosClient;
 import com.aquasuite.ims.mapper.sales.SalesOrderMapper;
+import com.aquasuite.ims.dto.sales.request.ConfirmOnlineOrderRequest;
 import com.aquasuite.ims.dto.sales.request.ConvertQuotationToOrderRequest;
 import com.aquasuite.ims.dto.sales.request.CreateComboItemRequest;
 import com.aquasuite.ims.dto.sales.request.CreateOrderItemRequest;
 import com.aquasuite.ims.dto.sales.request.CreateSalesOrderRequest;
+import com.aquasuite.ims.dto.sales.request.RejectOnlineOrderRequest;
 import com.aquasuite.ims.dto.sales.request.SalesOrderFilterRequest;
 import com.aquasuite.ims.dto.sales.request.UpdateOrderFulfillmentRequest;
 import com.aquasuite.ims.dto.sales.response.SalesOrderDetailResponse;
 import com.aquasuite.ims.dto.sales.response.SalesOrderSummaryResponse;
+import com.aquasuite.ims.repository.sales.OnlinePayosPaymentRepository;
 import com.aquasuite.ims.repository.sales.OrderItemRepository;
 import com.aquasuite.ims.repository.sales.OrderPaymentMilestoneRepository;
 import com.aquasuite.ims.repository.sales.OrderRepository;
@@ -45,11 +51,18 @@ import com.aquasuite.ims.repository.sales.SalesInvoiceRepository;
 import com.aquasuite.ims.service.sales.helper.OrderCodeGenerator;
 import com.aquasuite.ims.service.sales.impl.SalesOrderServiceImpl;
 import com.aquasuite.ims.exception.AppException;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Expression;
+import jakarta.persistence.criteria.Path;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mapstruct.factory.Mappers;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
@@ -63,7 +76,10 @@ import org.springframework.data.jpa.domain.Specification;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -71,7 +87,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -121,6 +139,12 @@ class SalesOrderServiceTest {
 
     @Mock
     private OrderPaymentMilestoneRepository orderPaymentMilestoneRepository;
+
+    @Mock
+    private OnlinePayosPaymentRepository onlinePayosPaymentRepository;
+
+    @Mock
+    private PayosClient payosClient;
 
     @InjectMocks
     private SalesOrderServiceImpl salesOrderService;
@@ -859,5 +883,270 @@ class SalesOrderServiceTest {
         assertThatThrownBy(() -> salesOrderService.completeSalesOrder(orderId))
                 .isInstanceOf(AppException.class)
                 .hasFieldOrPropertyWithValue("errorCode", SalesErrorCode.ORDER_CANNOT_COMPLETE);
+    }
+
+    @Test
+    @DisplayName("UC-21 / Search: Batch load khách hàng theo customerIds thay cho N+1 query")
+    @SuppressWarnings("unchecked")
+    void getSalesOrders_batchLoadsCustomersAndSkipsPerRowLookup() {
+        UUID orderId = UUID.randomUUID();
+        Order order = Order.builder()
+                .orderId(orderId)
+                .orderCode("SO-20261123-0001")
+                .customerId(customerId)
+                .orderType(OrderType.RETAIL.name())
+                .orderChannel(OrderChannel.ONLINE.name())
+                .orderStatus(OrderStatus.PENDING_CONFIRMATION.name())
+                .paymentStatus(PaymentStatus.PAID.name())
+                .totalAmount(new BigDecimal("4000"))
+                .build();
+
+        Pageable pageable = PageRequest.of(0, 10);
+        when(orderRepository.findAll(any(Specification.class), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(order), pageable, 1));
+        when(orderItemRepository.findByOrderId(orderId)).thenReturn(List.of());
+        when(crmApi.getCustomersByIds(any())).thenReturn(Map.of(customerId, customerDto));
+
+        Page<SalesOrderSummaryResponse> result = salesOrderService.getSalesOrders(
+                SalesOrderFilterRequest.builder().build(),
+                pageable
+        );
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getCustomerPhone()).isEqualTo("0988776655");
+        assertThat(result.getContent().get(0).getOrderStatus()).isEqualTo("PENDING_CONFIRMATION");
+        verify(crmApi).getCustomersByIds(any());
+        verify(crmApi, never()).getCustomerById(any());
+    }
+
+    @Test
+    @DisplayName("UC-21 / Search: Specification tìm gần đúng SĐT (kể cả có khoảng trắng), tên KH và deliveryAddress")
+    @SuppressWarnings("unchecked")
+    void getSalesOrders_keywordSpecificationMatchesPartialAndCompactPhoneAndDeliveryAddress() {
+        Pageable pageable = PageRequest.of(0, 10);
+        when(orderRepository.findAll(any(Specification.class), eq(pageable)))
+                .thenReturn(Page.empty(pageable));
+        when(crmApi.findCustomerIdsByKeyword("0987 654")).thenReturn(List.of());
+        when(crmApi.findCustomerIdsByKeyword("0987654")).thenReturn(List.of(customerId));
+
+        SalesOrderFilterRequest filter = SalesOrderFilterRequest.builder()
+                .keyword("0987 654")
+                .build();
+
+        salesOrderService.getSalesOrders(filter, pageable);
+
+        ArgumentCaptor<Specification<Order>> specCaptor = ArgumentCaptor.forClass(Specification.class);
+        verify(orderRepository).findAll(specCaptor.capture(), eq(pageable));
+
+        Root<Order> root = mock(Root.class);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+        CriteriaBuilder cb = mock(CriteriaBuilder.class);
+        Path<Object> orderCodePath = mock(Path.class);
+        Path<Object> projectNamePath = mock(Path.class);
+        Path<Object> deliveryAddressPath = mock(Path.class);
+        Path<Object> customerIdPath = mock(Path.class);
+        Expression<String> lowerOrderCode = mock(Expression.class);
+        Expression<String> lowerProjectName = mock(Expression.class);
+        Expression<String> lowerDeliveryAddress = mock(Expression.class);
+
+        when(root.get("orderCode")).thenReturn(orderCodePath);
+        when(root.get("projectName")).thenReturn(projectNamePath);
+        when(root.get("deliveryAddress")).thenReturn(deliveryAddressPath);
+        when(root.get("customerId")).thenReturn(customerIdPath);
+        when(cb.lower(any())).thenReturn(lowerOrderCode, lowerProjectName, lowerDeliveryAddress, lowerDeliveryAddress);
+        when(cb.like(any(Expression.class), anyString(), eq('!'))).thenReturn(mock(Predicate.class));
+        when(customerIdPath.in(any(Collection.class))).thenReturn(mock(Predicate.class));
+        when(cb.or(any(Predicate[].class))).thenReturn(mock(Predicate.class));
+        when(cb.and(any(Predicate[].class))).thenReturn(mock(Predicate.class));
+
+        specCaptor.getValue().toPredicate(root, query, cb);
+
+        verify(crmApi).findCustomerIdsByKeyword("0987 654");
+        verify(crmApi).findCustomerIdsByKeyword("0987654");
+        verify(cb).like(lowerDeliveryAddress, "%0987 654%", '!');
+        verify(cb).like(lowerDeliveryAddress, "%0987654%", '!');
+        verify(customerIdPath).in(eq(java.util.Set.of(customerId)));
+    }
+
+    @Test
+    @DisplayName("UC-21 / Search: Lọc orderChannel=COUNTER bao gồm COUNTER & POS, PENDING_CONFIRMATION và múi giờ +07:00")
+    @SuppressWarnings("unchecked")
+    void getSalesOrders_filterByCounterChannelIncludesCounterAndPos_andVietnamTimezone() {
+        Pageable pageable = PageRequest.of(0, 10);
+        when(orderRepository.findAll(any(Specification.class), eq(pageable)))
+                .thenReturn(Page.empty(pageable));
+
+        SalesOrderFilterRequest filter = SalesOrderFilterRequest.builder()
+                .orderChannel(OrderChannel.COUNTER)
+                .orderStatus(OrderStatus.PENDING_CONFIRMATION)
+                .fromDate(LocalDate.of(2026, 11, 18))
+                .build();
+
+        salesOrderService.getSalesOrders(filter, pageable);
+
+        ArgumentCaptor<Specification<Order>> specCaptor = ArgumentCaptor.forClass(Specification.class);
+        verify(orderRepository).findAll(specCaptor.capture(), eq(pageable));
+
+        Root<Order> root = mock(Root.class);
+        CriteriaQuery<?> query = mock(CriteriaQuery.class);
+        CriteriaBuilder cb = mock(CriteriaBuilder.class);
+        Path<Object> orderStatusPath = mock(Path.class);
+        Path<Object> orderChannelPath = mock(Path.class);
+        Path<Object> orderDatePath = mock(Path.class);
+
+        when(root.get("orderStatus")).thenReturn(orderStatusPath);
+        when(root.get("orderChannel")).thenReturn(orderChannelPath);
+        when(root.get("orderDate")).thenReturn(orderDatePath);
+        when(cb.equal(orderStatusPath, "PENDING_CONFIRMATION")).thenReturn(mock(Predicate.class));
+        when(orderChannelPath.in("COUNTER", "POS")).thenReturn(mock(Predicate.class));
+        when(cb.greaterThanOrEqualTo(any(Expression.class), any(OffsetDateTime.class))).thenReturn(mock(Predicate.class));
+        when(cb.and(any(Predicate[].class))).thenReturn(mock(Predicate.class));
+
+        specCaptor.getValue().toPredicate(root, query, cb);
+
+        verify(cb).equal(orderStatusPath, "PENDING_CONFIRMATION");
+        verify(orderChannelPath).in("COUNTER", "POS");
+        OffsetDateTime expectedFrom = OffsetDateTime.of(2026, 11, 18, 0, 0, 0, 0, ZoneOffset.ofHours(7));
+        verify(cb).greaterThanOrEqualTo(eq((Expression) orderDatePath), eq(expectedFrom));
+    }
+
+    @Test
+    @DisplayName("UC-22: Xác nhận đơn hàng Online COD (PENDING_CONFIRMATION -> PROCESSING), giữ tồn kho và tạo hóa đơn STORE DRAFT")
+    void confirmOnlineOrder_CodOrder_ReservesStockAndCreatesStoreDraftInvoice() {
+        UUID orderId = UUID.randomUUID();
+        Order onlineOrder = Order.builder()
+                .orderId(orderId)
+                .orderCode("SO-20261125-0001")
+                .customerId(customerId)
+                .orderType(OrderType.RETAIL.name())
+                .orderChannel(OrderChannel.ONLINE.name())
+                .orderStatus(OrderStatus.PENDING_CONFIRMATION.name())
+                .paymentStatus(PaymentStatus.UNPAID.name())
+                .paymentMethod(PaymentMethod.CASH.name())
+                .subtotal(new BigDecimal("10000000"))
+                .discountAmount(BigDecimal.ZERO)
+                .totalAmount(new BigDecimal("10000000"))
+                .deliveryAddress("123 Lê Lợi, Q.1, TP.HCM")
+                .build();
+
+        OrderItem orderItem = OrderItem.builder()
+                .orderItemId(UUID.randomUUID())
+                .orderId(orderId)
+                .variantId(variantId)
+                .sku(skuDto.sku())
+                .productName(skuDto.productName())
+                .variantName(skuDto.variantName())
+                .quantity(new BigDecimal("2"))
+                .unitPrice(new BigDecimal("5000000"))
+                .discountAmount(BigDecimal.ZERO)
+                .lineTotal(new BigDecimal("10000000"))
+                .build();
+
+        when(orderRepository.findByIdForUpdate(orderId)).thenReturn(Optional.of(onlineOrder));
+        when(orderRepository.findById(orderId)).thenReturn(Optional.of(onlineOrder));
+        when(orderItemRepository.findByOrderId(orderId)).thenReturn(List.of(orderItem));
+        when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.of(skuDto));
+        when(inventoryApi.checkAvailability(variantId, new BigDecimal("2"))).thenReturn(true);
+        when(salesInvoiceRepository.findByOrderIdAndInvoiceType(orderId, "STORE")).thenReturn(Optional.empty());
+        when(crmApi.getCustomerById(customerId)).thenReturn(Optional.of(customerDto));
+
+        ConfirmOnlineOrderRequest request = ConfirmOnlineOrderRequest.builder()
+                .deliveryAddress("123 Lê Lợi, Phường Bến Nghé, Quận 1, TP.HCM")
+                .deliverySchedule("Giao sáng 26/11")
+                .note("Đã gọi chốt với khách")
+                .build();
+
+        SalesOrderDetailResponse response = salesOrderService.confirmOnlineOrder(orderId, request);
+
+        assertThat(response.getOrderStatus()).isEqualTo("PROCESSING");
+        assertThat(response.getDeliverySchedule()).isEqualTo("Giao sáng 26/11");
+        assertThat(onlineOrder.getSalesStaffId()).isEqualTo(staffId);
+        verify(inventoryApi).reserveStock(variantId, new BigDecimal("2"));
+        ArgumentCaptor<SalesInvoice> invoiceCaptor = ArgumentCaptor.forClass(SalesInvoice.class);
+        verify(salesInvoiceRepository).saveAndFlush(invoiceCaptor.capture());
+        assertThat(invoiceCaptor.getValue().getInvoiceType()).isEqualTo("STORE");
+        assertThat(invoiceCaptor.getValue().getStatus()).isEqualTo("DRAFT");
+    }
+
+    @Test
+    @DisplayName("UC-22: Chặn xác nhận đơn Online chọn BANK_TRANSFER (PayOS) khi chưa thanh toán")
+    void confirmOnlineOrder_PayosUnpaid_ThrowsOnlineOrderPayosUnpaid() {
+        UUID orderId = UUID.randomUUID();
+        Order onlineOrder = Order.builder()
+                .orderId(orderId)
+                .orderCode("SO-20261125-0002")
+                .customerId(customerId)
+                .orderType(OrderType.RETAIL.name())
+                .orderChannel(OrderChannel.ONLINE.name())
+                .orderStatus(OrderStatus.PENDING_CONFIRMATION.name())
+                .paymentStatus(PaymentStatus.UNPAID.name())
+                .paymentMethod(PaymentMethod.BANK_TRANSFER.name())
+                .totalAmount(new BigDecimal("5000000"))
+                .build();
+
+        OnlinePayosPayment payosPayment = OnlinePayosPayment.builder()
+                .payosPaymentId(UUID.randomUUID())
+                .orderId(orderId)
+                .payosOrderCode(12345678L)
+                .status("PENDING")
+                .amount(5000000L)
+                .build();
+
+        when(orderRepository.findByIdForUpdate(orderId)).thenReturn(Optional.of(onlineOrder));
+        when(onlinePayosPaymentRepository.findByOrderId(orderId)).thenReturn(Optional.of(payosPayment));
+        when(payosClient.getPaymentLinkInfo(12345678L))
+                .thenReturn(new PayosClient.PaymentLinkStatusResult(12345678L, "link-1", 5000000L, 0L, 5000000L, "PENDING"));
+
+        assertThatThrownBy(() -> salesOrderService.confirmOnlineOrder(orderId, new ConfirmOnlineOrderRequest()))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode())
+                        .isEqualTo(SalesErrorCode.ONLINE_ORDER_PAYOS_UNPAID));
+
+        verify(inventoryApi, never()).reserveStock(any(), any());
+    }
+
+    @Test
+    @DisplayName("UC-22: Từ chối đơn hàng Online đã thanh toán PayOS tự động tạo yêu cầu hoàn tiền cho Kế toán")
+    void rejectOnlineOrder_AlreadyPaidViaPayos_RecordsReceiptAndCreatesPendingCustomerRefund() {
+        UUID orderId = UUID.randomUUID();
+        UUID payosPaymentId = UUID.randomUUID();
+        Order onlineOrder = Order.builder()
+                .orderId(orderId)
+                .orderCode("SO-20261125-0003")
+                .customerId(customerId)
+                .orderType(OrderType.RETAIL.name())
+                .orderChannel(OrderChannel.ONLINE.name())
+                .orderStatus(OrderStatus.PENDING_CONFIRMATION.name())
+                .paymentStatus(PaymentStatus.PAID.name())
+                .paymentMethod(PaymentMethod.BANK_TRANSFER.name())
+                .totalAmount(new BigDecimal("4000"))
+                .build();
+
+        OnlinePayosPayment payosPayment = OnlinePayosPayment.builder()
+                .payosPaymentId(payosPaymentId)
+                .orderId(orderId)
+                .payosOrderCode(88889999L)
+                .status("PAID")
+                .amount(4000L)
+                .amountPaid(4000L)
+                .build();
+
+        when(orderRepository.findByIdForUpdate(orderId)).thenReturn(Optional.of(onlineOrder));
+        when(orderRepository.findById(orderId)).thenReturn(Optional.of(onlineOrder));
+        when(onlinePayosPaymentRepository.findByOrderId(orderId)).thenReturn(Optional.of(payosPayment));
+        when(orderItemRepository.findByOrderId(orderId)).thenReturn(List.of());
+        when(salesInvoiceRepository.findByOrderIdAndInvoiceType(orderId, "STORE")).thenReturn(Optional.empty());
+
+        RejectOnlineOrderRequest rejectRequest = RejectOnlineOrderRequest.builder()
+                .reason("Sản phẩm tạm ngừng nhập hàng")
+                .build();
+
+        SalesOrderDetailResponse response = salesOrderService.rejectOnlineOrder(orderId, rejectRequest);
+
+        assertThat(response.getOrderStatus()).isEqualTo("CANCELLED");
+        assertThat(onlineOrder.getNote()).contains("Sản phẩm tạm ngừng nhập hàng");
+        verify(orderReceivableApi).ensureOnlinePayosReceiptRecorded(
+                eq(orderId), eq(payosPaymentId), eq(88889999L), eq(new BigDecimal("4000")), any(), eq(staffId));
+        verify(orderReceivableApi).createPendingCustomerRefund(any());
     }
 }

@@ -16,6 +16,7 @@ import com.aquasuite.ims.service.iam.IamQueryService;
 import com.aquasuite.ims.dto.iam.response.UserSummaryDto;
 import com.aquasuite.ims.service.inventory.InventoryService;
 import com.aquasuite.ims.dto.inventory.response.StockSummaryDto;
+import com.aquasuite.ims.entity.sales.OnlinePayosPayment;
 import com.aquasuite.ims.entity.sales.Order;
 import com.aquasuite.ims.entity.sales.OrderItem;
 import com.aquasuite.ims.entity.sales.OrderPaymentMilestone;
@@ -32,6 +33,7 @@ import com.aquasuite.ims.enums.sales.PaymentMethod;
 import com.aquasuite.ims.enums.sales.PaymentStatus;
 import com.aquasuite.ims.enums.sales.QuotationStatus;
 import com.aquasuite.ims.exception.sales.SalesErrorCode;
+import com.aquasuite.ims.integration.sales.PayosClient;
 import com.aquasuite.ims.mapper.sales.SalesOrderMapper;
 import com.aquasuite.ims.dto.sales.request.ConvertQuotationToOrderRequest;
 import com.aquasuite.ims.dto.sales.request.CreateComboItemRequest;
@@ -41,10 +43,12 @@ import com.aquasuite.ims.dto.sales.request.SalesOrderFilterRequest;
 import com.aquasuite.ims.dto.sales.request.UpdateOrderFulfillmentRequest;
 import com.aquasuite.ims.dto.sales.request.*;
 import com.aquasuite.ims.dto.sales.response.OrderModificationRequestResponse;
+import com.aquasuite.ims.dto.sales.response.PayosPaymentLinkResponse;
 import com.aquasuite.ims.dto.sales.response.SalesOrderDetailResponse;
 import com.aquasuite.ims.dto.sales.response.SalesOrderItemResponse;
 import com.aquasuite.ims.dto.sales.response.SalesOrderMilestoneResponse;
 import com.aquasuite.ims.dto.sales.response.SalesOrderSummaryResponse;
+import com.aquasuite.ims.repository.sales.OnlinePayosPaymentRepository;
 import com.aquasuite.ims.repository.sales.OrderItemRepository;
 import com.aquasuite.ims.repository.sales.OrderPaymentMilestoneRepository;
 import com.aquasuite.ims.repository.sales.OrderRepository;
@@ -70,17 +74,26 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /** Tạo đơn tại quầy và cung cấp danh sách, chi tiết đơn hàng bán. */
 @Slf4j
 @Service
 public class SalesOrderServiceImpl implements SalesOrderService {
+
+    private static final ZoneId VIETNAM_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+    private static final Pattern PHONE_CHAR_PATTERN = Pattern.compile("^[0-9+\\s().-]+$");
 
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
@@ -101,6 +114,8 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     private final com.aquasuite.ims.service.finance.PaymentService orderReceivableApi;
     private final org.springframework.context.ApplicationEventPublisher eventPublisher;
     private final OrderModificationRequestServiceImpl modificationService;
+    private final OnlinePayosPaymentRepository onlinePayosPaymentRepository;
+    private final PayosClient payosClient;
 
     @org.springframework.beans.factory.annotation.Autowired
     public SalesOrderServiceImpl(
@@ -122,7 +137,9 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             com.aquasuite.ims.service.sales.impl.OrderStockReservationService orderStockReservationService,
             com.aquasuite.ims.service.finance.PaymentService orderReceivableApi,
             org.springframework.context.ApplicationEventPublisher eventPublisher,
-            @org.springframework.beans.factory.annotation.Autowired(required = false) OrderModificationRequestServiceImpl modificationService) {
+            @org.springframework.beans.factory.annotation.Autowired(required = false) OrderModificationRequestServiceImpl modificationService,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) OnlinePayosPaymentRepository onlinePayosPaymentRepository,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) PayosClient payosClient) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.salesInvoiceRepository = salesInvoiceRepository;
@@ -142,6 +159,35 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         this.orderReceivableApi = orderReceivableApi;
         this.eventPublisher = eventPublisher;
         this.modificationService = modificationService;
+        this.onlinePayosPaymentRepository = onlinePayosPaymentRepository;
+        this.payosClient = payosClient;
+    }
+
+    public SalesOrderServiceImpl(
+            OrderRepository orderRepository,
+            OrderItemRepository orderItemRepository,
+            SalesInvoiceRepository salesInvoiceRepository,
+            SalesInvoiceItemRepository salesInvoiceItemRepository,
+            CreditControlService creditControlApi,
+            CatalogLookupService catalogApi,
+            InventoryService inventoryApi,
+            CustomerService crmApi,
+            IamQueryService iamApi,
+            SalesOrderMapper salesOrderMapper,
+            OrderCodeGenerator orderCodeGenerator,
+            QuotationRepository quotationRepository,
+            QuotationItemRepository quotationItemRepository,
+            QuotationPaymentMilestoneRepository quotationPaymentMilestoneRepository,
+            OrderPaymentMilestoneRepository orderPaymentMilestoneRepository,
+            com.aquasuite.ims.service.sales.impl.OrderStockReservationService orderStockReservationService,
+            com.aquasuite.ims.service.finance.PaymentService orderReceivableApi,
+            org.springframework.context.ApplicationEventPublisher eventPublisher,
+            OrderModificationRequestServiceImpl modificationService) {
+        this(orderRepository, orderItemRepository, salesInvoiceRepository, salesInvoiceItemRepository,
+                creditControlApi, catalogApi, inventoryApi, crmApi, iamApi, salesOrderMapper,
+                orderCodeGenerator, quotationRepository, quotationItemRepository,
+                quotationPaymentMilestoneRepository, orderPaymentMilestoneRepository,
+                orderStockReservationService, orderReceivableApi, eventPublisher, modificationService, null, null);
     }
 
     public SalesOrderServiceImpl(OrderRepository orderRepository,
@@ -166,7 +212,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 creditControlApi, catalogApi, inventoryApi, crmApi, iamApi, salesOrderMapper,
                 orderCodeGenerator, quotationRepository, quotationItemRepository,
                 quotationPaymentMilestoneRepository, orderPaymentMilestoneRepository,
-                orderStockReservationService, orderReceivableApi, eventPublisher, null);
+                orderStockReservationService, orderReceivableApi, eventPublisher, null, null, null);
     }
 
     public SalesOrderServiceImpl(OrderRepository orderRepository,
@@ -175,7 +221,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             OrderPaymentMilestoneRepository orderPaymentMilestoneRepository,
             org.springframework.context.ApplicationEventPublisher eventPublisher) {
         this(orderRepository, orderItemRepository, salesInvoiceRepository, null, null, null, null, null, null, null,
-                null, null, null, null, orderPaymentMilestoneRepository, null, null, eventPublisher, null);
+                null, null, null, null, orderPaymentMilestoneRepository, null, null, eventPublisher, null, null, null);
     }
 
     /**
@@ -866,28 +912,13 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             spec = spec.and((root, query, cb) -> root.get("orderId").in(payments.keySet()));
         }
         Page<Order> orderPage = orderRepository.findAll(spec, pageable);
+        Map<UUID, CustomerSummaryDto> customerMap = loadCustomerSummaries(orderPage.getContent());
 
         return orderPage.map(order -> {
             int itemCount = orderItemRepository.findByOrderId(order.getOrderId()).size();
-            String customerName = "Khách lẻ tại quầy";
-            String customerPhone = null;
-            try {
-                var cusOpt = crmApi.getCustomerById(order.getCustomerId());
-                if (cusOpt.isPresent()) {
-                    String cName = cusOpt.get().customerName();
-                    customerName = (cName != null && !cName.isBlank()
-                            && !"Walk-in Retail Customer".equalsIgnoreCase(cName.trim()))
-                                    ? cName.trim()
-                                    : "Khách lẻ tại quầy";
-                    String cPhone = cusOpt.get().phone();
-                    customerPhone = (cPhone != null && !cPhone.isBlank() && !"0000000000".equals(cPhone.trim()))
-                            ? cPhone.trim()
-                            : null;
-                }
-            } catch (Exception e) {
-                log.debug("Customer {} lookup ignored", order.getCustomerId());
-            }
-
+            CustomerSummaryDto customer = resolveCustomerSummary(customerMap, order.getCustomerId());
+            String customerName = formatCustomerName(customer);
+            String customerPhone = formatCustomerPhone(customer);
             String staffName = getStaffName(order.getSalesStaffId());
 
             var response = salesOrderMapper.toSummaryResponse(
@@ -921,25 +952,9 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
         List<SalesOrderItemResponse> itemResponses = salesOrderMapper.toItemResponseList(items);
 
-        String customerName = "Khách lẻ tại quầy";
-        String customerPhone = null;
-        try {
-            var cusOpt = crmApi.getCustomerById(order.getCustomerId());
-            if (cusOpt.isPresent()) {
-                String cName = cusOpt.get().customerName();
-                customerName = (cName != null && !cName.isBlank()
-                        && !"Walk-in Retail Customer".equalsIgnoreCase(cName.trim()))
-                                ? cName.trim()
-                                : "Khách lẻ tại quầy";
-                String cPhone = cusOpt.get().phone();
-                customerPhone = (cPhone != null && !cPhone.isBlank() && !"0000000000".equals(cPhone.trim()))
-                        ? cPhone.trim()
-                        : null;
-            }
-        } catch (Exception e) {
-            log.debug("Customer {} lookup ignored", order.getCustomerId());
-        }
-
+        CustomerSummaryDto customer = resolveCustomerSummary(Map.of(), order.getCustomerId());
+        String customerName = formatCustomerName(customer);
+        String customerPhone = formatCustomerPhone(customer);
         String staffName = getStaffName(order.getSalesStaffId());
 
         SalesOrderDetailResponse response = salesOrderMapper.toDetailResponse(
@@ -965,6 +980,11 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         }
         applyInvoiceCounts(response, orderInvoices);
         populateDisplayItems(response, order, items, itemResponses);
+        response.setPaymentMethod(order.getPaymentMethod());
+        if (onlinePayosPaymentRepository != null) {
+            onlinePayosPaymentRepository.findByOrderId(orderId)
+                    .ifPresent(payos -> response.setPayosPayment(toPayosPaymentLinkResponse(payos)));
+        }
         return response;
     }
 
@@ -1034,6 +1054,310 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         return getSalesOrderDetail(orderId);
     }
 
+    /**
+     * Xác nhận đơn hàng trực tuyến (UC-22: PENDING_CONFIRMATION -> PROCESSING):
+     * kiểm tra điều kiện thanh toán PayOS (nếu chọn chuyển khoản), kiểm tra và giữ tồn kho,
+     * gán nhân viên phụ trách, cập nhật điều phối giao nhận và khởi tạo hóa đơn cửa hàng nháp (STORE - DRAFT).
+     */
+    @Override
+    @Transactional
+    public SalesOrderDetailResponse confirmOnlineOrder(UUID orderId, ConfirmOnlineOrderRequest request) {
+        Order order = lockOrFindOrder(orderId);
+
+        if (!OrderStatus.PENDING_CONFIRMATION.name().equalsIgnoreCase(order.getOrderStatus())) {
+            log.warn("Cannot confirm online order {} with status {}", order.getOrderCode(), order.getOrderStatus());
+            throw new AppException(SalesErrorCode.ORDER_NOT_PENDING_CONFIRMATION, order.getOrderStatus());
+        }
+
+        OnlinePayosPayment payosPayment = onlinePayosPaymentRepository != null
+                ? onlinePayosPaymentRepository.findByOrderId(orderId).orElse(null)
+                : null;
+
+        if (PaymentMethod.BANK_TRANSFER.name().equalsIgnoreCase(order.getPaymentMethod())) {
+            if (!PaymentStatus.PAID.name().equalsIgnoreCase(order.getPaymentStatus())) {
+                if (payosPayment != null && payosClient != null) {
+                    syncPayosStatusWithGateway(order, payosPayment, false);
+                }
+                if (!PaymentStatus.PAID.name().equalsIgnoreCase(order.getPaymentStatus())) {
+                    log.warn("Blocked confirming online BANK_TRANSFER order {} because paymentStatus is {}",
+                            order.getOrderCode(), order.getPaymentStatus());
+                    throw new AppException(SalesErrorCode.ONLINE_ORDER_PAYOS_UNPAID);
+                }
+            }
+        }
+
+        List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
+        if (items == null || items.isEmpty()) {
+            throw new AppException(SalesErrorCode.ORDER_ITEMS_EMPTY);
+        }
+
+        // Kiểm tra SKU hoạt động và đủ tồn kho khả dụng trước khi đặt giữ
+        for (OrderItem item : items) {
+            CatalogSkuSummaryDto sku = catalogApi.getSkuSummary(item.getVariantId())
+                    .orElseThrow(() -> new AppException(SalesErrorCode.SKU_NOT_FOUND, item.getVariantId()));
+            if (!"ACTIVE".equalsIgnoreCase(sku.status())) {
+                throw new AppException(SalesErrorCode.SKU_NOT_ACTIVE, sku.sku());
+            }
+            if (!inventoryApi.checkAvailability(item.getVariantId(), item.getQuantity())) {
+                throw new AppException(SalesErrorCode.INSUFFICIENT_STOCK,
+                        sku.productName() + " (" + sku.sku() + ")");
+            }
+        }
+
+        // Đặt giữ tồn kho cho toàn bộ mặt hàng trong đơn
+        for (OrderItem item : items) {
+            inventoryApi.reserveStock(item.getVariantId(), item.getQuantity());
+        }
+
+        UUID currentStaffId = resolveCurrentStaffId();
+        if (order.getSalesStaffId() == null && currentStaffId != null) {
+            order.setSalesStaffId(currentStaffId);
+        }
+
+        if (request != null) {
+            if (request.getDeliveryAddress() != null && !request.getDeliveryAddress().isBlank()) {
+                order.setDeliveryAddress(request.getDeliveryAddress().trim());
+            }
+            if (request.getDeliverySchedule() != null) {
+                order.setDeliverySchedule(request.getDeliverySchedule().trim());
+            }
+            if (request.getNote() != null) {
+                order.setNote(request.getNote().trim());
+            }
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        order.setOrderStatus(OrderStatus.PROCESSING.name());
+        order.setUpdatedAt(now);
+        orderRepository.saveAndFlush(order);
+
+        // Khởi tạo hóa đơn cửa hàng nháp (STORE - DRAFT) để sẵn sàng phát hành & tạo phiếu giao hàng (UC-39)
+        Optional<SalesInvoice> existingStoreInvoice = salesInvoiceRepository.findByOrderIdAndInvoiceType(orderId, "STORE");
+        if (existingStoreInvoice.isEmpty()) {
+            UUID invoiceCreatorId = currentStaffId != null ? currentStaffId : order.getSalesStaffId();
+            UUID storeInvoiceId = UUID.randomUUID();
+            salesInvoiceRepository.saveAndFlush(SalesInvoice.builder()
+                    .invoiceId(storeInvoiceId)
+                    .invoiceCode("STORE-" + orderId)
+                    .orderId(orderId)
+                    .customerId(order.getCustomerId())
+                    .invoiceType("STORE")
+                    .batchNo(1)
+                    .batchName("Hóa đơn bán lẻ")
+                    .issueDate(now)
+                    .subtotal(order.getSubtotal() != null ? order.getSubtotal() : order.getTotalAmount())
+                    .discountAmount(order.getDiscountAmount() != null ? order.getDiscountAmount() : BigDecimal.ZERO)
+                    .taxAmount(BigDecimal.ZERO)
+                    .totalAmount(order.getTotalAmount())
+                    .status("DRAFT")
+                    .createdBy(invoiceCreatorId)
+                    .createdAt(now)
+                    .build());
+            if (salesInvoiceItemRepository != null) {
+                salesInvoiceItemRepository.saveAll(items.stream().map(item -> SalesInvoiceItem.builder()
+                        .invoiceItemId(UUID.randomUUID())
+                        .invoiceId(storeInvoiceId)
+                        .orderItemId(item.getOrderItemId())
+                        .variantId(item.getVariantId())
+                        .description(item.getProductName()
+                                + (item.getVariantName() != null && !item.getVariantName().isBlank()
+                                        ? " - " + item.getVariantName()
+                                        : ""))
+                        .quantity(item.getQuantity())
+                        .unitPrice(item.getUnitPrice())
+                        .discountAmount(item.getDiscountAmount() != null ? item.getDiscountAmount() : BigDecimal.ZERO)
+                        .taxRate(BigDecimal.ZERO)
+                        .lineTotal(item.getLineTotal())
+                        .build()).toList());
+            }
+        }
+
+        if (PaymentStatus.PAID.name().equalsIgnoreCase(order.getPaymentStatus())) {
+            recordPayosFinanceReceipt(order, payosPayment, currentStaffId);
+        }
+
+        log.info("Online Order {} confirmed (UC-22): status=PROCESSING, paymentStatus={}, staffId={}",
+                order.getOrderCode(), order.getPaymentStatus(), order.getSalesStaffId());
+
+        return getSalesOrderDetail(orderId);
+    }
+
+    /**
+     * Từ chối hoặc hủy đơn hàng trực tuyến khi đang ở trạng thái PENDING_CONFIRMATION (UC-22).
+     * Nếu đơn có link PayOS chưa thanh toán thì hủy link; nếu khách đã thanh toán PayOS thì
+     * đảm bảo ghi nhận phiếu thu VERIFIED và tạo giao dịch chờ hoàn tiền cho Kế toán.
+     */
+    @Override
+    @Transactional
+    public SalesOrderDetailResponse rejectOnlineOrder(UUID orderId, RejectOnlineOrderRequest request) {
+        if (request == null || request.getReason() == null || request.getReason().isBlank()) {
+            throw new AppException(SalesErrorCode.ORDER_REJECT_REASON_REQUIRED);
+        }
+        String reason = request.getReason().trim();
+
+        Order order = lockOrFindOrder(orderId);
+        if (!OrderStatus.PENDING_CONFIRMATION.name().equalsIgnoreCase(order.getOrderStatus())) {
+            log.warn("Cannot reject online order {} with status {}", order.getOrderCode(), order.getOrderStatus());
+            throw new AppException(SalesErrorCode.ORDER_NOT_PENDING_CONFIRMATION, order.getOrderStatus());
+        }
+
+        UUID currentStaffId = resolveCurrentStaffId();
+        OnlinePayosPayment payosPayment = onlinePayosPaymentRepository != null
+                ? onlinePayosPaymentRepository.findByOrderId(orderId).orElse(null)
+                : null;
+
+        if (payosPayment != null && !PaymentStatus.PAID.name().equalsIgnoreCase(order.getPaymentStatus())
+                && payosClient != null) {
+            syncPayosStatusWithGateway(order, payosPayment, false);
+        }
+
+        if (PaymentStatus.PAID.name().equalsIgnoreCase(order.getPaymentStatus())) {
+            recordPayosFinanceReceipt(order, payosPayment, currentStaffId);
+            if (orderReceivableApi != null && order.getTotalAmount() != null && order.getTotalAmount().signum() > 0) {
+                UUID storeInvoiceId = salesInvoiceRepository.findByOrderIdAndInvoiceType(orderId, "STORE")
+                        .map(SalesInvoice::getInvoiceId)
+                        .orElse(null);
+                orderReceivableApi.createPendingCustomerRefund(
+                        new com.aquasuite.ims.dto.finance.command.PendingCustomerRefundCommand(
+                                order.getCustomerId(),
+                                order.getOrderId(),
+                                storeInvoiceId,
+                                order.getTotalAmount(),
+                                "Hoàn tiền do từ chối/hủy đơn hàng Online " + order.getOrderCode() + ": " + reason,
+                                currentStaffId));
+            }
+        } else if (payosPayment != null && !"CANCELLED".equalsIgnoreCase(payosPayment.getStatus())) {
+            if (payosClient != null && payosPayment.getPayosOrderCode() != null) {
+                try {
+                    payosClient.cancelPaymentLink(payosPayment.getPayosOrderCode(), reason);
+                } catch (Exception ex) {
+                    log.warn("Best-effort cancel PayOS link {} failed: {}",
+                            payosPayment.getPayosOrderCode(), ex.getMessage());
+                }
+            }
+            payosPayment.setStatus("CANCELLED");
+            payosPayment.setUpdatedAt(OffsetDateTime.now());
+            onlinePayosPaymentRepository.save(payosPayment);
+        }
+
+        if (order.getSalesStaffId() == null && currentStaffId != null) {
+            order.setSalesStaffId(currentStaffId);
+        }
+
+        String cancelNote = "[Từ chối/Hủy đơn Online]: " + reason;
+        String existingNote = order.getNote() != null && !order.getNote().isBlank() ? order.getNote().trim() : null;
+        order.setNote(existingNote != null ? existingNote + "\n" + cancelNote : cancelNote);
+        order.setOrderStatus(OrderStatus.CANCELLED.name());
+        order.setUpdatedAt(OffsetDateTime.now());
+        orderRepository.saveAndFlush(order);
+
+        log.info("Online Order {} rejected/cancelled (UC-22): reason={}, paymentStatus={}",
+                order.getOrderCode(), reason, order.getPaymentStatus());
+
+        return getSalesOrderDetail(orderId);
+    }
+
+    /**
+     * Đồng bộ trạng thái thanh toán PayOS cho nhân viên trên trang quản trị đơn hàng (UC-22).
+     */
+    @Override
+    @Transactional
+    public SalesOrderDetailResponse syncOnlineOrderPayosPayment(UUID orderId) {
+        Order order = lockOrFindOrder(orderId);
+        if (onlinePayosPaymentRepository == null) {
+            throw new AppException(SalesErrorCode.ORDER_NOT_PAYABLE_VIA_PAYOS);
+        }
+        OnlinePayosPayment payosPayment = onlinePayosPaymentRepository.findByOrderId(orderId)
+                .orElseThrow(() -> new AppException(SalesErrorCode.ORDER_NOT_PAYABLE_VIA_PAYOS));
+
+        syncPayosStatusWithGateway(order, payosPayment, true);
+        return getSalesOrderDetail(orderId);
+    }
+
+    private Order lockOrFindOrder(UUID orderId) {
+        if (orderId == null) {
+            throw new AppException(SalesErrorCode.ORDER_NOT_FOUND);
+        }
+        return orderRepository.findByIdForUpdate(orderId)
+                .or(() -> orderRepository.findById(orderId))
+                .orElseThrow(() -> new AppException(SalesErrorCode.ORDER_NOT_FOUND));
+    }
+
+    private void syncPayosStatusWithGateway(Order order, OnlinePayosPayment payosPayment, boolean rethrowGatewayError) {
+        UUID currentStaffId = resolveCurrentStaffId();
+        if (payosClient != null && payosPayment.getPayosOrderCode() != null) {
+            try {
+                PayosClient.PaymentLinkStatusResult remote = payosClient.getPaymentLinkInfo(payosPayment.getPayosOrderCode());
+                if (remote != null) {
+                    String statusName = remote.status() != null ? remote.status().toUpperCase(Locale.ROOT) : payosPayment.getStatus();
+                    payosPayment.setStatus(statusName);
+                    payosPayment.setAmountPaid(remote.amountPaid());
+                    payosPayment.setUpdatedAt(OffsetDateTime.now());
+                    onlinePayosPaymentRepository.save(payosPayment);
+                }
+            } catch (Exception ex) {
+                log.warn("Could not sync PayOS status from gateway for order {}: {}",
+                        order.getOrderCode(), ex.getMessage());
+                if (rethrowGatewayError && !PaymentStatus.PAID.name().equalsIgnoreCase(order.getPaymentStatus())
+                        && !"PAID".equalsIgnoreCase(payosPayment.getStatus())) {
+                    if (ex instanceof AppException appEx) {
+                        throw appEx;
+                    }
+                    throw new AppException(SalesErrorCode.PAYOS_API_ERROR, ex.getMessage());
+                }
+            }
+        }
+
+        if ("PAID".equalsIgnoreCase(payosPayment.getStatus())) {
+            if (!PaymentStatus.PAID.name().equalsIgnoreCase(order.getPaymentStatus())) {
+                order.setPaymentStatus(PaymentStatus.PAID.name());
+                order.setUpdatedAt(OffsetDateTime.now());
+                orderRepository.saveAndFlush(order);
+            }
+            recordPayosFinanceReceipt(order, payosPayment, currentStaffId);
+        } else if (PaymentStatus.PAID.name().equalsIgnoreCase(order.getPaymentStatus())) {
+            recordPayosFinanceReceipt(order, payosPayment, currentStaffId);
+        }
+    }
+
+    private void recordPayosFinanceReceipt(Order order, OnlinePayosPayment payosPayment, UUID actorId) {
+        if (orderReceivableApi == null || order == null) {
+            return;
+        }
+        UUID payosPaymentId = payosPayment != null ? payosPayment.getPayosPaymentId() : null;
+        Long payosOrderCode = payosPayment != null ? payosPayment.getPayosOrderCode() : null;
+        OffsetDateTime paidAt = payosPayment != null && payosPayment.getUpdatedAt() != null
+                ? payosPayment.getUpdatedAt()
+                : OffsetDateTime.now();
+        UUID effectiveActor = actorId != null ? actorId : order.getSalesStaffId();
+        orderReceivableApi.ensureOnlinePayosReceiptRecorded(
+                order.getOrderId(),
+                payosPaymentId,
+                payosOrderCode,
+                order.getTotalAmount(),
+                paidAt,
+                effectiveActor);
+    }
+
+    private PayosPaymentLinkResponse toPayosPaymentLinkResponse(OnlinePayosPayment payment) {
+        if (payment == null) {
+            return null;
+        }
+        return PayosPaymentLinkResponse.builder()
+                .payosOrderCode(payment.getPayosOrderCode())
+                .paymentLinkId(payment.getPaymentLinkId())
+                .checkoutUrl(payment.getCheckoutUrl())
+                .qrCode(payment.getQrCode())
+                .bin(payment.getBin())
+                .accountNumber(payment.getAccountNumber())
+                .accountName(payment.getAccountName())
+                .amount(payment.getAmount())
+                .amountPaid(payment.getAmountPaid())
+                .description(payment.getDescription())
+                .status(payment.getStatus())
+                .build();
+    }
+
     // =========================================================================
     // PRIVATE HELPER METHODS
     // =========================================================================
@@ -1093,18 +1417,24 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             if (filter != null) {
                 if (filter.getKeyword() != null && !filter.getKeyword().isBlank()) {
                     String trimmed = filter.getKeyword().trim();
-                    String pattern = "%" + trimmed.toLowerCase() + "%";
-                    List<Predicate> keywordPredicates = new ArrayList<>();
-                    keywordPredicates.add(cb.like(cb.lower(root.get("orderCode")), pattern));
-                    keywordPredicates.add(cb.like(cb.lower(root.get("projectName")), pattern));
+                    String compactPhone = extractCompactPhoneCandidate(trimmed);
+                    List<String> likePatterns = new ArrayList<>();
+                    likePatterns.add(toLikePattern(trimmed));
+                    if (compactPhone != null) {
+                        likePatterns.add(toLikePattern(compactPhone));
+                    }
 
-                    // Tìm kiếm kết hợp theo SĐT khách hàng nếu tìm thấy trong CRM
-                    try {
-                        crmApi.getCustomerByPhone(trimmed).ifPresent(c -> {
-                            keywordPredicates.add(cb.equal(root.get("customerId"), c.customerId()));
-                        });
-                    } catch (Exception e) {
-                        log.debug("Customer lookup for search keyword ignored: {}", e.getMessage());
+                    List<Predicate> keywordPredicates = new ArrayList<>();
+                    keywordPredicates.add(cb.like(cb.lower(root.get("orderCode")), likePatterns.get(0), '!'));
+                    keywordPredicates.add(cb.like(cb.lower(root.get("projectName")), likePatterns.get(0), '!'));
+                    for (String pattern : likePatterns) {
+                        keywordPredicates.add(cb.like(cb.lower(root.get("deliveryAddress")), pattern, '!'));
+                    }
+
+                    // Tìm kiếm kết hợp theo SĐT, tên hoặc mã khách hàng trong CRM (hỗ trợ khớp gần đúng)
+                    Set<UUID> matchedCustomerIds = lookupMatchedCustomerIds(trimmed, compactPhone);
+                    if (!matchedCustomerIds.isEmpty()) {
+                        keywordPredicates.add(root.get("customerId").in(matchedCustomerIds));
                     }
 
                     predicates.add(cb.or(keywordPredicates.toArray(new Predicate[0])));
@@ -1118,18 +1448,116 @@ public class SalesOrderServiceImpl implements SalesOrderService {
                 if (filter.getOrderType() != null) {
                     predicates.add(cb.equal(root.get("orderType"), filter.getOrderType().name()));
                 }
+                if (filter.getOrderChannel() != null) {
+                    if (filter.getOrderChannel() == OrderChannel.COUNTER) {
+                        predicates.add(root.get("orderChannel").in(OrderChannel.COUNTER.name(), OrderChannel.POS.name()));
+                    } else {
+                        predicates.add(cb.equal(root.get("orderChannel"), filter.getOrderChannel().name()));
+                    }
+                }
                 if (filter.getFromDate() != null) {
-                    OffsetDateTime fromDateTime = filter.getFromDate().atStartOfDay().atOffset(ZoneOffset.UTC);
+                    OffsetDateTime fromDateTime = filter.getFromDate().atStartOfDay(VIETNAM_ZONE).toOffsetDateTime();
                     predicates.add(cb.greaterThanOrEqualTo(root.get("orderDate"), fromDateTime));
                 }
                 if (filter.getToDate() != null) {
-                    OffsetDateTime toDateTime = filter.getToDate().atTime(LocalTime.MAX).atOffset(ZoneOffset.UTC);
+                    OffsetDateTime toDateTime = filter.getToDate().atTime(LocalTime.MAX).atZone(VIETNAM_ZONE).toOffsetDateTime();
                     predicates.add(cb.lessThanOrEqualTo(root.get("orderDate"), toDateTime));
                 }
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));
         };
+    }
+
+    private Map<UUID, CustomerSummaryDto> loadCustomerSummaries(List<Order> orders) {
+        if (orders == null || orders.isEmpty()) {
+            return Map.of();
+        }
+        Set<UUID> customerIds = orders.stream()
+                .map(Order::getCustomerId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (customerIds.isEmpty()) {
+            return Map.of();
+        }
+        try {
+            Map<UUID, CustomerSummaryDto> batch = crmApi.getCustomersByIds(customerIds);
+            return batch != null ? batch : Map.of();
+        } catch (Exception e) {
+            log.debug("Batch customer lookup ignored: {}", e.getMessage());
+            return Map.of();
+        }
+    }
+
+    private CustomerSummaryDto resolveCustomerSummary(Map<UUID, CustomerSummaryDto> preloaded, UUID customerId) {
+        if (customerId == null) {
+            return null;
+        }
+        CustomerSummaryDto cached = preloaded != null ? preloaded.get(customerId) : null;
+        if (cached != null) {
+            return cached;
+        }
+        try {
+            return crmApi.getCustomerById(customerId).orElse(null);
+        } catch (Exception e) {
+            log.debug("Customer {} lookup ignored", customerId);
+            return null;
+        }
+    }
+
+    private String formatCustomerName(CustomerSummaryDto customer) {
+        if (customer == null || customer.customerName() == null || customer.customerName().isBlank()
+                || "Walk-in Retail Customer".equalsIgnoreCase(customer.customerName().trim())) {
+            return "Khách lẻ tại quầy";
+        }
+        return customer.customerName().trim();
+    }
+
+    private String formatCustomerPhone(CustomerSummaryDto customer) {
+        if (customer == null || customer.phone() == null || customer.phone().isBlank()
+                || "0000000000".equals(customer.phone().trim())) {
+            return null;
+        }
+        return customer.phone().trim();
+    }
+
+    private Set<UUID> lookupMatchedCustomerIds(String trimmedKeyword, String compactPhone) {
+        Set<UUID> ids = new LinkedHashSet<>();
+        addMatchedCustomerIds(ids, trimmedKeyword);
+        if (compactPhone != null) {
+            addMatchedCustomerIds(ids, compactPhone);
+        }
+        return ids;
+    }
+
+    private void addMatchedCustomerIds(Set<UUID> target, String keyword) {
+        try {
+            List<UUID> found = crmApi.findCustomerIdsByKeyword(keyword);
+            if (found != null) {
+                target.addAll(found);
+            }
+        } catch (Exception e) {
+            log.debug("Customer keyword lookup ignored: {}", e.getMessage());
+        }
+    }
+
+    private String extractCompactPhoneCandidate(String trimmed) {
+        if (trimmed == null || !PHONE_CHAR_PATTERN.matcher(trimmed).matches()) {
+            return null;
+        }
+        String compact = trimmed.replaceAll("[\\s().-]+", "");
+        if (compact.length() < 2 || compact.equals(trimmed)) {
+            return null;
+        }
+        return compact;
+    }
+
+    private String toLikePattern(String keyword) {
+        String escaped = keyword.toLowerCase(Locale.ROOT)
+                .replace("!", "!!")
+                .replace("%", "!%")
+                .replace("_", "!_");
+        return "%" + escaped + "%";
     }
 
     private void populateDisplayItems(SalesOrderDetailResponse response, Order order,
