@@ -27,7 +27,8 @@ public class CreatePaymentAllocationRequest {
     UUID allocationRequestId;
 
     @NotEmpty(message = "At least one invoice allocation is required")
-    List<@Valid PaymentAllocationLineRequest> allocations;
+    @Size(max = 200, message = "Maximum 200 invoice allocations allowed per batch")
+    List<@NotNull(message = "Allocation line must not be null") @Valid PaymentAllocationLineRequest> allocations;
 
     @Size(max = 1000, message = "Reason must not exceed 1000 characters")
     String reason;

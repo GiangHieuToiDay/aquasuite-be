@@ -83,12 +83,14 @@ public class PaymentAllocationServiceImpl implements PaymentAllocationService {
     @Transactional(readOnly = true)
     public Page<PaymentAllocationReceiptResponse> listReceipts(PaymentAllocationReceiptView view, Pageable pageable) {
         PaymentAllocationReceiptView resolved = view == null ? PaymentAllocationReceiptView.UNALLOCATED : view;
+        Pageable safePageable = com.aquasuite.ims.util.PageableUtils.sanitizePageable(
+                pageable, java.util.Set.of("createdAt", "transactionDate", "approvedAt", "amount", "transactionCode"));
         Page<Transaction> receipts = switch (resolved) {
             case UNALLOCATED -> transactionRepository.findVerifiedReceiptsWithRemainingAllocation(
-                    PaymentAllocationStatus.ACTIVE, pageable);
+                    PaymentAllocationStatus.ACTIVE, safePageable);
             case ALLOCATED -> transactionRepository.findFullyAllocatedVerifiedReceipts(
-                    PaymentAllocationStatus.ACTIVE, pageable);
-            case ALL -> transactionRepository.findAllVerifiedOrderReceipts(pageable);
+                    PaymentAllocationStatus.ACTIVE, safePageable);
+            case ALL -> transactionRepository.findAllVerifiedOrderReceipts(safePageable);
         };
         return receipts.map(this::receiptQueueResponse);
     }

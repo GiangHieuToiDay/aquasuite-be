@@ -51,8 +51,23 @@ public class WarrantyPolicyServiceImpl implements WarrantyPolicyService {
     @Transactional(readOnly = true)
     public PageResponse<WarrantyPolicyResponse> search(String keyword, WarrantyPolicyStatus status, Pageable pageable) {
         String normalizedKeyword = StringUtils.hasText(keyword) ? keyword.trim() : null;
+        Pageable safePageable = com.aquasuite.ims.util.PageableUtils.sanitizePageable(
+                pageable,
+                java.util.Map.ofEntries(
+                        java.util.Map.entry("created_at", "created_at"),
+                        java.util.Map.entry("createdAt", "created_at"),
+                        java.util.Map.entry("updated_at", "updated_at"),
+                        java.util.Map.entry("updatedAt", "updated_at"),
+                        java.util.Map.entry("policy_code", "policy_code"),
+                        java.util.Map.entry("policyCode", "policy_code"),
+                        java.util.Map.entry("policy_name", "policy_name"),
+                        java.util.Map.entry("policyName", "policy_name"),
+                        java.util.Map.entry("warranty_period_months", "warranty_period_months"),
+                        java.util.Map.entry("warrantyPeriodMonths", "warranty_period_months"),
+                        java.util.Map.entry("status", "status")
+                ));
         return PageResponse.from(warrantyPolicyRepository.search(normalizedKeyword,
-                status == null ? null : status.name(), pageable), this::toResponse);
+                status == null ? null : status.name(), safePageable), this::toResponse);
     }
 
     @Override

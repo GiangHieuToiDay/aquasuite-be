@@ -62,6 +62,14 @@ public class UserAccountController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String direction) {
+        if (page < 0 || size < 1 || size > 100
+                || (keyword != null && keyword.length() > 100)
+                || (status != null && status.length() > 50)
+                || (!"asc".equalsIgnoreCase(direction) && !"desc".equalsIgnoreCase(direction))
+                || !java.util.Set.of("createdAt", "username", "fullName", "email", "status").contains(sortBy)) {
+            throw new com.aquasuite.ims.exception.AppException(
+                    com.aquasuite.ims.exception.CommonErrorCode.INVALID_REQUEST_PARAM);
+        }
         Sort sort = "asc".equalsIgnoreCase(direction) ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
         return ApiResponse.ok(service.search(keyword, roleId, status, pageable, iamApi.getCurrentUserId()));

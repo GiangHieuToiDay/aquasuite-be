@@ -59,7 +59,7 @@ public class SalesOrderController {
     @PreAuthorize("hasAnyRole('SALES_STAFF', 'SHOP_OWNER')")
     public ResponseEntity<ApiResponse<SalesOrderDetailResponse>> createOrderFromQuotation(
             @PathVariable UUID quotationId,
-            @RequestBody(required = false) ConvertQuotationToOrderRequest request) {
+            @Valid @RequestBody(required = false) ConvertQuotationToOrderRequest request) {
         log.info("API: Create sales order from quotation quotationId={}", quotationId);
         SalesOrderDetailResponse response = salesOrderService.convertQuotationToOrder(quotationId, request);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -69,7 +69,7 @@ public class SalesOrderController {
     @GetMapping("/api/v1/sales/orders")
     @PreAuthorize("hasAnyRole('SALES_STAFF', 'SHOP_OWNER', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<SalesOrderPageResponse>> listOrders(
-            SalesOrderFilterRequest filter,
+            @Valid SalesOrderFilterRequest filter,
             @PageableDefault(sort = "orderDate", direction = Sort.Direction.DESC) Pageable pageable) {
         Page<SalesOrderSummaryResponse> page = salesOrderService.getSalesOrders(filter, pageable);
         return ResponseEntity.ok(ApiResponse.ok(SalesOrderPageResponse.from(page)));

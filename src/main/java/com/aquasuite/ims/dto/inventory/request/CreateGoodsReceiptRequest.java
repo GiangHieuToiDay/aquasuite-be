@@ -3,6 +3,8 @@ package com.aquasuite.ims.dto.inventory.request;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.Builder;
 
 import java.util.List;
@@ -34,12 +36,17 @@ public record CreateGoodsReceiptRequest(
         @NotNull(message = "purchaseOrderId không được để trống")
         UUID purchaseOrderId,
 
+        @Size(max = 100, message = "Số hóa đơn nhà cung cấp không được vượt quá 100 ký tự")
         String supplierInvoiceNo,
 
+        @Size(max = 2048, message = "URL ảnh hóa đơn không được vượt quá 2048 ký tự")
+        @Pattern(regexp = "^(https?://[^\\s]+)?$", message = "URL ảnh hóa đơn phải bắt đầu bằng http:// hoặc https://")
         String invoiceImageUrl,
 
+        @Size(max = 1000, message = "Ghi chú không được vượt quá 1000 ký tự")
         String note,
 
         @NotEmpty(message = "Phiếu nhập phải có ít nhất một dòng hàng")
-        List<@Valid CreateGoodsReceiptItemRequest> items
+        @Size(max = 500, message = "Tối đa 500 dòng hàng trong một phiếu nhập")
+        List<@NotNull(message = "Dòng hàng không được để trống") @Valid CreateGoodsReceiptItemRequest> items
 ) {}

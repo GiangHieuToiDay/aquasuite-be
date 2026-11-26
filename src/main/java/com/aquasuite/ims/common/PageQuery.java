@@ -32,6 +32,7 @@ public class PageQuery {
     /**
      * Public API field name to sort by. Each resource validates and maps it to an entity attribute.
      */
+    @jakarta.validation.constraints.Size(max = 64, message = "Trường sắp xếp không được vượt quá 64 ký tự")
     private String sortBy;
 
     /**

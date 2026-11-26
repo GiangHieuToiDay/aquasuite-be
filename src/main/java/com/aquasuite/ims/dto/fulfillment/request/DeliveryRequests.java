@@ -5,11 +5,19 @@ import java.util.List;
 import java.util.UUID;
 
 public final class DeliveryRequests {
-    private DeliveryRequests() {}
+    private DeliveryRequests() {
+    }
+
     public record Assign(@NotNull UUID shipperId,
-                         @NotEmpty @Size(max = 100) List<@NotNull UUID> deliveryIds) {}
+            @NotEmpty @Size(max = 100) List<@NotNull UUID> deliveryIds) {
+    }
+
     public record Fail(@NotBlank @Size(max = 1000) String reason,
-                       @NotNull @AssertTrue Boolean customerCancellationConfirmed) {}
-    public record Reschedule(java.time.OffsetDateTime scheduledDate,
-                             @NotBlank @Size(max = 1000) String reason) {}
+            @NotNull @AssertTrue Boolean customerCancellationConfirmed) {
+    }
+
+    public record Reschedule(
+            @Future(message = "Ngày hẹn giao lại phải ở tương lai") java.time.OffsetDateTime scheduledDate,
+            @NotBlank @Size(max = 1000) String reason) {
+    }
 }

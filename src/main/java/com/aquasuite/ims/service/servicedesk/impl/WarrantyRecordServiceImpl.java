@@ -166,6 +166,7 @@ public class WarrantyRecordServiceImpl implements WarrantyRecordService {
     @Override
     @Transactional
     public WarrantyRecordDetailResponse createFromOrder(CreateWarrantyFromOrderRequest request) {
+        validateWarrantyStartDate(request.startDate());
         SalesOrderItemWarrantySnapshotDto snapshot = salesQueryService.lockOrderItemForWarranty(request.orderItemId())
                 .orElseThrow(() -> new AppException(
                         ServicedeskErrorCode.WARRANTY_ORDER_ITEM_NOT_FOUND, request.orderItemId()));
@@ -211,6 +212,7 @@ public class WarrantyRecordServiceImpl implements WarrantyRecordService {
     @Override
     @Transactional
     public WarrantyRecordDetailResponse createAdHoc(CreateAdHocWarrantyRequest request) {
+        validateWarrantyStartDate(request.startDate());
         crmApi.getCustomerById(request.customerId())
                 .orElseThrow(() -> new AppException(ServicedeskErrorCode.CUSTOMER_NOT_FOUND, request.customerId()));
 
@@ -237,6 +239,19 @@ public class WarrantyRecordServiceImpl implements WarrantyRecordService {
                 "CREATE_AD_HOC"
         );
         return buildDetailResponse(saved);
+    }
+
+    private void validateWarrantyStartDate(LocalDate startDate) {
+        if (startDate == null) {
+            return;
+        }
+        Clock clock = servicedeskClock != null ? servicedeskClock : Clock.systemDefaultZone();
+        LocalDate today = LocalDate.now(clock);
+        if (startDate.isAfter(today) || startDate.isBefore(LocalDate.of(2000, 1, 1))) {
+            throw new AppException(
+                    com.aquasuite.ims.exception.CommonErrorCode.VALIDATION_ERROR,
+                    "Ngày kích hoạt bảo hành phải từ 01/01/2000 đến hiện tại.");
+        }
     }
 
     @Override

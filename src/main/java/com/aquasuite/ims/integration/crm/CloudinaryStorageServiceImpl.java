@@ -63,6 +63,27 @@ public class CloudinaryStorageServiceImpl implements CloudinaryStorageService {
             log.warn("Avatar upload rejected: unsupported content type {}", contentType);
             throw new AppException(CrmErrorCode.INVALID_AVATAR);
         }
+
+        if (!hasMatchingImageExtension(file.getOriginalFilename(), contentType)) {
+            log.warn("Avatar upload rejected: filename {} does not match content type {}", file.getOriginalFilename(), contentType);
+            throw new AppException(CrmErrorCode.INVALID_AVATAR);
+        }
+    }
+
+    static boolean hasMatchingImageExtension(String originalFilename, String contentType) {
+        if (originalFilename == null || originalFilename.isBlank() || contentType == null) {
+            return true;
+        }
+        String lower = originalFilename.trim().toLowerCase(java.util.Locale.ROOT);
+        int dot = lower.lastIndexOf('.');
+        if (dot < 0) {
+            return true;
+        }
+        String ext = lower.substring(dot);
+        String mime = contentType.toLowerCase(java.util.Locale.ROOT);
+        return ((".jpg".equals(ext) || ".jpeg".equals(ext)) && ("image/jpeg".equals(mime) || "image/jpg".equals(mime)))
+                || (".png".equals(ext) && "image/png".equals(mime))
+                || (".webp".equals(ext) && "image/webp".equals(mime));
     }
 
     private boolean isCloudinaryConfigured() {

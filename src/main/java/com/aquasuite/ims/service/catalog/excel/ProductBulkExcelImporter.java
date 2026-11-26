@@ -158,17 +158,31 @@ public class ProductBulkExcelImporter
         String sku = normalizeCode(getRequiredCell(row, 4, "Mã SKU (sku)"));
         String variantName = getRequiredCell(row, 5, "Tên biến thể (variant_name)");
         String unit = getRequiredCell(row, 6, "Đơn vị tính (unit)");
+        String color = getOptionalCell(row, 7);
+        String size = getOptionalCell(row, 8);
+        String description = getOptionalCell(row, 14);
+
+        if (productCode.length() > 100 || productName.length() > 255
+                || sku.length() > 100 || variantName.length() > 255 || unit.length() > 50
+                || (color != null && color.length() > 100) || (size != null && size.length() > 100)
+                || (description != null && description.length() > 5000)) {
+            throw new IllegalArgumentException("Độ dài dữ liệu vượt quá giới hạn cho phép (productCode<=100, sku<=100, name<=255, unit<=50, color/size<=100, description<=5000)");
+        }
 
         BigDecimal costPrice = parseBigDecimal(row, 9, "Giá vốn (cost_price)", null);
         BigDecimal sellingPrice = parseBigDecimal(row, 10, "Giá bán (selling_price)", null);
-        if (costPrice.compareTo(BigDecimal.ZERO) < 0 || sellingPrice.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("Giá vốn phải >= 0 và Giá bán phải > 0");
+        if (costPrice.compareTo(BigDecimal.ZERO) < 0 || sellingPrice.compareTo(BigDecimal.ZERO) <= 0
+                || costPrice.compareTo(new BigDecimal("9999999999999.99")) > 0
+                || sellingPrice.compareTo(new BigDecimal("9999999999999.99")) > 0) {
+            throw new IllegalArgumentException("Giá vốn phải >= 0, Giá bán phải > 0 và không vượt quá 9999999999999.99");
         }
 
         BigDecimal initialStock = parseBigDecimal(row, 15, "Tồn kho đầu kỳ", BigDecimal.ZERO);
         BigDecimal minimumQty = parseBigDecimal(row, 16, "Định mức tồn tối thiểu", BigDecimal.ZERO);
-        if (initialStock.compareTo(BigDecimal.ZERO) < 0 || minimumQty.compareTo(BigDecimal.ZERO) < 0) {
-            throw new IllegalArgumentException("Tồn kho đầu kỳ và Định mức tồn tối thiểu không được âm");
+        if (initialStock.compareTo(BigDecimal.ZERO) < 0 || minimumQty.compareTo(BigDecimal.ZERO) < 0
+                || initialStock.compareTo(new BigDecimal("9999999999.99")) > 0
+                || minimumQty.compareTo(new BigDecimal("9999999999.99")) > 0) {
+            throw new IllegalArgumentException("Tồn kho đầu kỳ và Định mức tối thiểu phải trong khoảng [0, 9999999999.99]");
         }
 
         return ProductExcelRowDto.builder()
@@ -180,14 +194,14 @@ public class ProductBulkExcelImporter
                 .sku(sku)
                 .variantName(variantName)
                 .unit(unit)
-                .color(getOptionalCell(row, 7))
-                .size(getOptionalCell(row, 8))
+                .color(color)
+                .size(size)
                 .costPrice(costPrice)
                 .sellingPrice(sellingPrice)
                 .serialTracking(parseBoolean(getOptionalCell(row, 11)))
                 .technicalSpec(parseTechnicalSpecToMap(getOptionalCell(row, 12)))
                 .imageUrls(parseImageUrls(getOptionalCell(row, 13)))
-                .description(getOptionalCell(row, 14))
+                .description(description)
                 .initialStock(initialStock)
                 .minimumQty(minimumQty)
                 .build();

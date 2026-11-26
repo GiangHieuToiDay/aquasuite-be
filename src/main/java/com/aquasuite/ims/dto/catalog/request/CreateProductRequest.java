@@ -4,6 +4,7 @@ import com.aquasuite.ims.enums.catalog.ProductStatus;
 import com.aquasuite.ims.enums.catalog.ProductType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Builder;
 
@@ -26,13 +27,16 @@ public record CreateProductRequest(
 
         UUID brandId,
 
+        @Size(max = 5000, message = "Mô tả sản phẩm tối đa 5000 ký tự")
         String description,
 
+        @Size(max = 50, message = "Thông số kỹ thuật tối đa 50 mục")
         Map<String, Object> specifications,
 
         ProductType productType,
 
         ProductStatus status,
 
-        List<String> imageUrls
+        @Size(max = 20, message = "Tối đa 20 ảnh sản phẩm")
+        List<@NotBlank(message = "URL ảnh không được để trống") @Size(max = 2048, message = "URL ảnh tối đa 2048 ký tự") @Pattern(regexp = "^https?://[^\\s]+$", message = "URL ảnh phải bắt đầu bằng http:// hoặc https://") String> imageUrls
 ) {}

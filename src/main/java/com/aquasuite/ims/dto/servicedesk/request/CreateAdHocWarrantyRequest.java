@@ -1,6 +1,7 @@
 package com.aquasuite.ims.dto.servicedesk.request;
 
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
@@ -19,6 +20,7 @@ public record CreateAdHocWarrantyRequest(
         String serialNumber,
 
         @NotNull(message = "Vui lòng chọn ngày kích hoạt bảo hành.")
+        @PastOrPresent(message = "Ngày kích hoạt bảo hành không được ở tương lai.")
         LocalDate startDate
 ) {
 }

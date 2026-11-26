@@ -279,7 +279,9 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     @Transactional(readOnly = true)
     public Page<StockMovement> getMovementsByVariantId(UUID variantId, Pageable pageable) {
-        return stockMovementRepository.findByVariantIdOrderByCreatedAtDesc(variantId, pageable);
+        Pageable safePageable = com.aquasuite.ims.util.PageableUtils.sanitizePageable(
+                pageable, Set.of("createdAt", "movementType", "quantity", "balanceAfter"));
+        return stockMovementRepository.findByVariantIdOrderByCreatedAtDesc(variantId, safePageable);
     }
 
     @Override
@@ -310,27 +312,31 @@ public class InventoryServiceImpl implements InventoryService {
     @Transactional(readOnly = true)
     public Page<InventoryListItemResponse> searchInventory(String keyword, String status, boolean lowStockOnly, Pageable pageable) {
         String normalizedStatus = normalizeStatus(status);
+        Pageable safePageable = com.aquasuite.ims.util.PageableUtils.sanitizePageable(
+                pageable, Set.of("updatedAt", "onHandQty", "reservedQty", "minimumQty", "maximumQty", "warehouseCode"));
 
         // Có từ khóa: phân giải tập variantId khớp (theo mã SKU hoặc tên sản phẩm) từ Catalog trước,
         // để việc phân trang vẫn chính xác ở tầng CSDL.
         if (StringUtils.hasText(keyword)) {
             Set<UUID> matchedVariantIds = resolveVariantIdsByKeyword(keyword.trim());
             if (matchedVariantIds.isEmpty()) {
-                return Page.empty(pageable);
+                return Page.empty(safePageable);
             }
-            Page<Inventory> page = inventoryRepository.searchByVariantIds(matchedVariantIds, lowStockOnly, normalizedStatus, pageable);
+            Page<Inventory> page = inventoryRepository.searchByVariantIds(matchedVariantIds, lowStockOnly, normalizedStatus, safePageable);
             return enrich(page);
         }
 
-        Page<Inventory> page = inventoryRepository.search(lowStockOnly, normalizedStatus, pageable);
+        Page<Inventory> page = inventoryRepository.search(lowStockOnly, normalizedStatus, safePageable);
         return enrich(page);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<InventoryListItemResponse> getLowStockItems(Pageable pageable) {
+        Pageable safePageable = com.aquasuite.ims.util.PageableUtils.sanitizePageable(
+                pageable, Set.of("updatedAt", "onHandQty", "reservedQty", "minimumQty", "maximumQty", "warehouseCode"));
         // Danh sách tồn thấp toàn kho: tái dùng đúng định nghĩa low-stock trong câu truy vấn search.
-        return enrich(inventoryRepository.search(true, null, pageable));
+        return enrich(inventoryRepository.search(true, null, safePageable));
     }
 
     @Override

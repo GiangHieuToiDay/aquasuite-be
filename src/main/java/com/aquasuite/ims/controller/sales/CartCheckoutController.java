@@ -22,6 +22,7 @@ import java.util.UUID;
  * Controller Mua sắm Storefront: Quản lý giỏ hàng và Đặt hàng thanh toán online PayOS.
  */
 @RestController
+@org.springframework.validation.annotation.Validated
 public class CartCheckoutController {
 
     private final CartCheckoutService cartCheckoutService;
@@ -77,7 +78,8 @@ public class CartCheckoutController {
     @PostMapping("/api/v1/sales/checkout/preview")
     @PreAuthorize("hasAnyRole('CUSTOMER', 'SALES_STAFF', 'SHOP_OWNER')")
     public ApiResponse<OnlineCheckoutPreviewResponse> previewCheckout(
-            @RequestBody(required = false) List<UUID> selectedItemIds) {
+            @jakarta.validation.constraints.Size(max = 100, message = "Tối đa 100 sản phẩm thanh toán cùng lúc")
+            @RequestBody(required = false) List<@jakarta.validation.constraints.NotNull(message = "Mã sản phẩm không được rỗng") UUID> selectedItemIds) {
         return ApiResponse.ok(cartCheckoutService.getCheckoutPreview());
     }
 

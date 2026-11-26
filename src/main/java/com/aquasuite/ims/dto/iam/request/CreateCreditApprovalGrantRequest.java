@@ -1,6 +1,8 @@
 package com.aquasuite.ims.dto.iam.request;
 
+import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -24,7 +26,7 @@ public class CreateCreditApprovalGrantRequest {
     @NotNull
     private UUID customerId;
 
-    @NotNull @DecimalMin(value = "0.01")
+    @NotNull @DecimalMin(value = "0.01") @DecimalMax(value = "500000000.00") @Digits(integer = 13, fraction = 2)
     private BigDecimal creditLimit;
 
     @NotNull @Min(1) @Max(30)

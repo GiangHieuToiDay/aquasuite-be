@@ -246,7 +246,9 @@ public class StockCountServiceImpl implements StockCountService {
     @Override
     @Transactional(readOnly = true)
     public Page<StockCountResponse> listStockCounts(Pageable pageable) {
-        return stockCountRepository.findAllByOrderByCreatedAtDesc(pageable)
+        Pageable safePageable = com.aquasuite.ims.util.PageableUtils.sanitizePageable(
+                pageable, java.util.Set.of("createdAt", "updatedAt", "countDate", "stockCountCode", "status", "warehouseCode"));
+        return stockCountRepository.findAllByOrderByCreatedAtDesc(safePageable)
                 .map(sc -> mapToResponse(sc, null));
     }
 

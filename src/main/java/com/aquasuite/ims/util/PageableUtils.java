@@ -173,4 +173,76 @@ public final class PageableUtils {
         }
         return PageRequest.of(safePage, safeSize, sort);
     }
+
+    /**
+     * Sanitizes a {@link Pageable} by capping page/size via {@link #sanitizePage}/{@link #sanitizeSize}
+     * and validating sort properties against an explicit whitelist. Preserves the exact instance when valid.
+     */
+    public static Pageable sanitizePageable(Pageable pageable, java.util.Set<String> allowedSortFields) {
+        if (pageable == null || pageable.isUnpaged()) {
+            return PageRequest.of(0, sanitizeSize(20));
+        }
+        if (pageable.getSort().isSorted()) {
+            for (Sort.Order order : pageable.getSort()) {
+                if (allowedSortFields == null || !allowedSortFields.contains(order.getProperty())) {
+                    throw new com.aquasuite.ims.exception.AppException(
+                            com.aquasuite.ims.exception.CommonErrorCode.INVALID_REQUEST_PARAM,
+                            "Trường sắp xếp không hợp lệ: " + order.getProperty());
+                }
+            }
+        }
+        int safePage = sanitizePage(pageable.getPageNumber());
+        int safeSize = sanitizeSize(pageable.getPageSize());
+        if (safePage == pageable.getPageNumber() && safeSize == pageable.getPageSize()) {
+            return pageable;
+        }
+        return pageable.getSort().isSorted()
+                ? PageRequest.of(safePage, safeSize, pageable.getSort())
+                : PageRequest.of(safePage, safeSize);
+    }
+
+    /**
+     * Sanitizes a {@link Pageable} using an explicit API-to-column sort mapping (e.g. for native queries).
+     * Preserves the exact instance when valid and no property remapping is needed.
+     */
+    public static Pageable sanitizePageable(Pageable pageable, java.util.Map<String, String> sortPropertyMapping) {
+        if (pageable == null || pageable.isUnpaged()) {
+            return PageRequest.of(0, sanitizeSize(20));
+        }
+        boolean needsRemap = false;
+        java.util.List<Sort.Order> mappedOrders = new java.util.ArrayList<>();
+        if (pageable.getSort().isSorted()) {
+            for (Sort.Order order : pageable.getSort()) {
+                String mapped = sortPropertyMapping != null ? sortPropertyMapping.get(order.getProperty()) : null;
+                if (mapped == null) {
+                    throw new com.aquasuite.ims.exception.AppException(
+                            com.aquasuite.ims.exception.CommonErrorCode.INVALID_REQUEST_PARAM,
+                            "Trường sắp xếp không hợp lệ: " + order.getProperty());
+                }
+                if (!mapped.equals(order.getProperty())) {
+                    needsRemap = true;
+                }
+                mappedOrders.add(order.withProperty(mapped));
+            }
+        }
+        int safePage = sanitizePage(pageable.getPageNumber());
+        int safeSize = sanitizeSize(pageable.getPageSize());
+        if (!needsRemap && safePage == pageable.getPageNumber() && safeSize == pageable.getPageSize()) {
+            return pageable;
+        }
+        return mappedOrders.isEmpty()
+                ? PageRequest.of(safePage, safeSize)
+                : PageRequest.of(safePage, safeSize, Sort.by(mappedOrders));
+    }
+
+    /**
+     * Validates that a date range has {@code fromDate <= toDate} when both are provided.
+     */
+    public static void validateDateRange(java.time.LocalDate fromDate, java.time.LocalDate toDate) {
+        if (fromDate != null && toDate != null && fromDate.isAfter(toDate)) {
+            throw new com.aquasuite.ims.exception.AppException(
+                    com.aquasuite.ims.exception.CommonErrorCode.INVALID_REQUEST_PARAM,
+                    "Ngày bắt đầu không được sau ngày kết thúc");
+        }
+    }
 }

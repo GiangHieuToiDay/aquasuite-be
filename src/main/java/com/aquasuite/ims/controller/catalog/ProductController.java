@@ -232,6 +232,22 @@ public class ProductController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> uploadAndImport(
             @RequestParam("file") MultipartFile file,
             @RequestParam(name = "importMode", defaultValue = "SKIP_EXISTING") ImportMode importMode) {
+        if (file == null || file.isEmpty()) {
+            throw new com.aquasuite.ims.exception.AppException(
+                    com.aquasuite.ims.exception.CommonErrorCode.INVALID_REQUEST_PARAM,
+                    "File Excel import không được để trống");
+        }
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || !originalFilename.trim().toLowerCase(java.util.Locale.ROOT).endsWith(".xlsx")) {
+            throw new com.aquasuite.ims.exception.AppException(
+                    com.aquasuite.ims.exception.CommonErrorCode.INVALID_REQUEST_PARAM,
+                    "Chỉ hỗ trợ file Excel định dạng .xlsx");
+        }
+        if (file.getSize() > 5L * 1024 * 1024) {
+            throw new com.aquasuite.ims.exception.AppException(
+                    com.aquasuite.ims.exception.CommonErrorCode.INVALID_REQUEST_PARAM,
+                    "Dung lượng file Excel tối đa 5MB");
+        }
         File tempFile = tempFileManager.saveToTempFile(file, "catalog");
         String jobId = "imp_" + UUID.randomUUID();
 

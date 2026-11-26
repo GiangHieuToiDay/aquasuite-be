@@ -101,6 +101,9 @@ public class CreditEvidenceStorageService {
         if (file == null || file.isEmpty()) throw new AppException(CrmErrorCode.INVALID_CREDIT_EVIDENCE);
         if (file.getSize() > MAX_FILE_SIZE) throw new AppException(CrmErrorCode.CREDIT_EVIDENCE_TOO_LARGE);
         if (file.getContentType() == null || !ALLOWED_CONTENT_TYPES.contains(file.getContentType().toLowerCase(Locale.ROOT))) throw new AppException(CrmErrorCode.INVALID_CREDIT_EVIDENCE);
+        if (!CloudinaryStorageServiceImpl.hasMatchingImageExtension(file.getOriginalFilename(), file.getContentType())) {
+            throw new AppException(CrmErrorCode.INVALID_CREDIT_EVIDENCE);
+        }
     }
 
     private String extensionFor(String contentType) {

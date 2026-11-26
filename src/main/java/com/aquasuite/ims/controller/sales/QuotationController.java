@@ -118,7 +118,7 @@ public class QuotationController {
     @PostMapping("/{quotationId}/approve")
     public ResponseEntity<ApiResponse<QuotationResponse>> approveQuotation(
             @PathVariable UUID quotationId,
-            @RequestBody(required = false) ApproveQuotationRequest request) {
+            @Valid @RequestBody(required = false) ApproveQuotationRequest request) {
         log.info("API: Approve quotation quotationId={}", quotationId);
         QuotationResponse response = quotationService.approveQuotation(quotationId, request);
         return ResponseEntity.ok(ApiResponse.ok(response, "Phê duyệt báo giá thành công"));
@@ -153,7 +153,7 @@ public class QuotationController {
     @PostMapping("/{quotationId}/accept")
     public ResponseEntity<ApiResponse<QuotationResponse>> markAccepted(
             @PathVariable UUID quotationId,
-            @RequestBody(required = false) MarkAcceptedRequest request) {
+            @Valid @RequestBody(required = false) MarkAcceptedRequest request) {
         log.info("API: Mark quotation accepted quotationId={}", quotationId);
         QuotationResponse response = quotationService.markAccepted(quotationId, request);
         return ResponseEntity.ok(ApiResponse.ok(response, "Chốt đơn báo giá thành công"));
@@ -198,7 +198,7 @@ public class QuotationController {
      */
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<QuotationListItemResponse>>> listQuotations(
-            QuotationFilterRequest filterRequest) {
+            @Valid QuotationFilterRequest filterRequest) {
         log.info("API: List quotations with filters");
         PageResponse<QuotationListItemResponse> response = quotationService.listQuotations(filterRequest);
         return ResponseEntity.ok(ApiResponse.ok(response, "Lấy danh sách báo giá thành công"));
@@ -210,7 +210,7 @@ public class QuotationController {
     @PostMapping("/{quotationId}/convert-to-order")
     public ResponseEntity<ApiResponse<SalesOrderDetailResponse>> convertToOrder(
             @PathVariable UUID quotationId,
-            @RequestBody(required = false) ConvertQuotationToOrderRequest request) {
+            @Valid @RequestBody(required = false) ConvertQuotationToOrderRequest request) {
         log.info("API: Convert quotation quotationId={} to sales order", quotationId);
         SalesOrderDetailResponse response = salesOrderService.convertQuotationToOrder(quotationId, request);
         return ResponseEntity.status(HttpStatus.CREATED)

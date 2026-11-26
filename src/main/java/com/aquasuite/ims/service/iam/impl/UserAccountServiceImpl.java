@@ -310,7 +310,11 @@ public class UserAccountServiceImpl implements UserAccountService {
     }
 
     private String validateProvidedTemporaryPassword(String password, String confirmation) {
-        if (password == null || !password.equals(confirmation) || !PASSWORD_POLICY.matcher(password).matches())
+        if (password == null
+                || !password.equals(confirmation)
+                || password.chars().anyMatch(Character::isWhitespace)
+                || password.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72
+                || !PASSWORD_POLICY.matcher(password).matches())
             throw new AppException(UserAccountErrorCode.INVALID_TEMPORARY_PASSWORD);
         return password;
     }

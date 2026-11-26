@@ -70,8 +70,14 @@ public class CustomerController {
     ) {
         String keyword = (search != null && !search.isBlank()) ? search.trim() : null;
         String filterStatus = (status != null && !status.isBlank()) ? status.trim() : null;
+        if ((keyword != null && keyword.length() > 100) || (filterStatus != null && filterStatus.length() > 50)) {
+            throw new com.aquasuite.ims.exception.AppException(
+                    com.aquasuite.ims.exception.CommonErrorCode.INVALID_REQUEST_PARAM);
+        }
+        Pageable safePageable = com.aquasuite.ims.util.PageableUtils.sanitizePageable(
+                pageable, java.util.Set.of("createdAt", "updatedAt", "customerName", "customerCode", "phone", "status"));
 
-        Page<Customer> page = customerRepository.searchCustomers(keyword, filterStatus, pageable);
+        Page<Customer> page = customerRepository.searchCustomers(keyword, filterStatus, safePageable);
         Page<CustomerResponse> mappedPage = page.map(this::toResponse);
         return ResponseEntity.ok(ApiResponse.ok(PageResponse.from(mappedPage)));
     }

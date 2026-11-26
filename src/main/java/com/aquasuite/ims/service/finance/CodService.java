@@ -77,6 +77,7 @@ public class CodService {
         requireRole("SHIPPER");
         UUID actor = actor();
         if (request.collectedAt().isAfter(OffsetDateTime.now().plusMinutes(5))
+                || request.collectedAt().isBefore(OffsetDateTime.of(2000, 1, 1, 0, 0, 0, 0, java.time.ZoneOffset.UTC))
                 || request.amount().signum() <= 0 || request.amount().stripTrailingZeros().scale() > 0) invalid();
         // Same key lock namespace as ordinary payments: keys are shared by transactions.
         locks.lockPaymentKey("order-payment-key:" + request.idempotencyKey());

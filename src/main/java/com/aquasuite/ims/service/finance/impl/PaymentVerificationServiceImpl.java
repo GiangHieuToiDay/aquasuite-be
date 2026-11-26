@@ -56,9 +56,11 @@ public class PaymentVerificationServiceImpl {
     public PaymentVerificationPageResponse list(UUID orderId, String status, int page, int size) {
         String st = (status == null || status.isBlank()) ? STATUS_PENDING : status.trim().toUpperCase();
         // Khoản đang chờ: cũ nhất trước để xử lý theo thứ tự; khoản đã xử lý: mới nhất trước theo thời điểm quyết định.
+        int safePage = com.aquasuite.ims.util.PageableUtils.sanitizePage(page);
+        int safeSize = com.aquasuite.ims.util.PageableUtils.sanitizeSize(size);
         Pageable pageable = STATUS_PENDING.equals(st)
-                ? PageRequest.of(Math.max(page, 0), size <= 0 ? 20 : size, Sort.by(Sort.Direction.ASC, "transactionDate"))
-                : PageRequest.of(Math.max(page, 0), size <= 0 ? 20 : size, Sort.by(Sort.Direction.DESC, "approvedAt"));
+                ? PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.ASC, "transactionDate"))
+                : PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "approvedAt"));
         Page<Transaction> result = orderId == null
                 ? transactions.findByTransactionTypeIgnoreCaseAndPaymentMethodIgnoreCaseAndStatusIgnoreCase(
                         TYPE_RECEIPT, METHOD_TRANSFER, st, pageable)
