@@ -60,6 +60,9 @@ Desktop.ini
 ### Claude Code ###
 .claude/
 
+### Graphify shared local knowledge graph ###
+graphify-out/
+
 # Local environment files
 .env
 .env.*

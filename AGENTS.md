@@ -60,3 +60,17 @@ Mọi Agent hoạt động trong repository này phải tuân thủ nghiêm ng�
    - Mặc dù mang tính chất local-only, Agent vẫn phải bảo đảm tính toàn vẹn của audit trail: tuân thủ nghiêm ngặt tính duy nhất của active plan (`plans/active`), kết quả đánh giá (`reviews`), biên bản bàn giao (`handoffs`) và tài liệu lưu trữ (`archive`).
    - Tuyệt đối bảo toàn và không sửa đổi, xóa hoặc tái cấu trúc các artifact đã archive hoặc cancelled (ví dụ `FEATURE-001`, `FEATURE-003`), và không tự ý sao chép artifact sang project khác.
    - Mọi thao tác stage hoặc commit [`AGENTS.md`](AGENTS.md) thuộc quyền quyết định độc quyền của con người (human-only decision). Agent không tự ý stage hoặc commit tệp này.
+
+## Graphify Rules (Knowledge Graph dùng chung)
+
+Claude Code và Codex dùng chung knowledge graph production-code tại `graphify-out/` (`graph.json`, `GRAPH_REPORT.md`, `graph.html`). Đây là artifact local, được ignore và không commit. Phạm vi mặc định của graph là `src/main`; không tự đưa `src/test`, `docs`, `bruno`, `target`, `.agent`, PDF, Excel hoặc hình ảnh vào graph.
+
+- **Ưu tiên truy vấn graph** khi tìm kiếm code, phân tích kiến trúc, lập kế hoạch, audit, review và xác định phạm vi ảnh hưởng:
+  - `graphify query "<câu hỏi>"`: duyệt ngữ cảnh rộng; thêm `--dfs` để lần theo một luồng cụ thể.
+  - `graphify path "A" "B"`: tìm đường nối ngắn nhất giữa hai thành phần.
+  - `graphify explain "X"`: giải thích một node và các kết nối của nó.
+  - `graphify-out/GRAPH_REPORT.md`: xem god nodes, communities, kết nối bất thường và cảnh báo.
+- **Luôn xác minh bằng source code và contract thực tế** trước khi kết luận, sửa code hoặc báo finding. Graph chỉ dùng để định hướng; edge `INFERRED` hoặc `AMBIGUOUS` phải được kiểm tra lại và graph có thể cũ hơn working tree.
+- **Ưu tiên AST extraction và cập nhật incremental.** Khi `src/main` thay đổi, dùng skill `/graphify src/main --update` từ repository root để giữ output chung tại root. Không chạy CLI `graphify update` trực tiếp vì CLI có thể tạo output lồng trong `src/main/graphify-out/`. Không rebuild toàn bộ nếu graph vẫn dùng được; chỉ dùng full rebuild/`--force` khi graph hỏng, phạm vi hoặc cấu trúc thay đổi lớn, file đã bị xóa cần phản ánh, hoặc người dùng yêu cầu rõ ràng.
+- Nếu chưa có graph hoặc chỉ cần một tra cứu đơn lẻ, dùng tìm kiếm source thông thường; không tự build graph khi chưa được yêu cầu.
+- Giữ nguyên cơ chế lọc file nhạy cảm của Graphify. Không tắt bộ lọc, không ép file secret vào graph và không đưa nội dung graph lên dịch vụ ngoài khi chưa được phép.
