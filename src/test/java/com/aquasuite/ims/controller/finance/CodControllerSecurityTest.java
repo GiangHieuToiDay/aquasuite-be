@@ -77,11 +77,16 @@ class CodControllerSecurityTest {
                 .content("{\"expectedVersion\":0}")).andExpect(status().isOk());
         verify(service).review(org.mockito.ArgumentMatchers.eq(id),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.eq(true));
     }
-    @Test void ownerCanVerifyBankTransfer() throws Exception {
+    @Test void accountantCanVerifyBankTransfer() throws Exception {
         UUID id=UUID.randomUUID();
         mvc.perform(post("/api/v1/finance/payment-verifications/{id}/verify",id)
-                .with(user("owner").roles("SHOP_OWNER"))).andExpect(status().isOk());
+                .with(user("accountant").roles("ACCOUNTANT"))).andExpect(status().isOk());
         verify(verifications).verify(id);
+    }
+    @Test void ownerCannotVerifyBankTransfer() throws Exception {
+        mvc.perform(post("/api/v1/finance/payment-verifications/{id}/verify",UUID.randomUUID())
+                .with(user("owner").roles("SHOP_OWNER"))).andExpect(status().isForbidden());
+        verifyNoInteractions(verifications);
     }
     @Test void salesCannotVerifyBankTransfer() throws Exception {
         mvc.perform(post("/api/v1/finance/payment-verifications/{id}/verify",UUID.randomUUID())

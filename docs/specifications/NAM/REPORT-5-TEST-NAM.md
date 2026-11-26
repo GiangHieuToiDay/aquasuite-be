@@ -149,7 +149,7 @@ Test cases are kept in five shared master workbooks in the team folder (V1), usi
 | Report-5.1 | Report-5.1_Unit Test_Master.xlsx | UT | 144 | Executed on 25/11/2026: 144 Passed |
 | Report-5.2 | Report-5.2_Integration Test_Master.xlsx | IT (including SecurityTest sheet with 22 cases) | 81 | Executed on 25/11/2026: 81 Passed |
 | Report-5.3 | Report-5.3_System Test_FRs_Master.xlsx | ST-FR | 129 | Prepared from the specifications (each business rule is checked inside its flow). Executed on 25/11/2026 at API level: 64 Passed, 0 Failed; 65 screen cases Pending |
-| Report-5.4 | Report-5.4_System Test_NFRs_Master.xlsx | ST-NFR (10 security, 6 performance) | 16 | Executed on 25/11/2026: 9 Passed, 1 Failed, 6 Not Run (security 6 Passed, 1 Failed, 3 Not Run; performance 3 Passed, 3 Not Run) |
+| Report-5.4 | Report-5.4_System Test_NFRs_Master.xlsx | ST-NFR (10 security, 6 performance) | 16 | Executed on 25/11/2026 and re-tested on 26/11/2026: 10 Passed, 0 Failed, 6 Not Run (security 7 Passed, 3 Not Run; performance 3 Passed, 3 Not Run) |
 | Report-5.5 | Report-5.5_Acceptance Test Scripts_Master.xlsx | AT (5 UAT scripts, exploratory log) | 5 | Prepared; not executed yet (acceptance by the business user) |
 
 Distribution of test cases per use case:
@@ -186,7 +186,7 @@ Notes: `WarrantyTicketServiceTest` (claim submission) and the frontend warranty 
 | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-- |
 | Total Defects | 4 | 1 | 0 | 3 | 0 | 8 | See the defect list below |
 | Open Defects (Critical) | 0 | 0 | 0 | 0 | 0 | 0 | |
-| Open Defects (Major) | 0 | 0 | 0 | 0 | 0 | 0 | 3 minor ST defects are open (D-06 to D-08) |
+| Open Defects (Major) | 0 | 0 | 0 | 0 | 0 | 0 | All defects closed |
 
 | ID | Level | Defect | Product | Status |
 | :-: | :-: | :-- | :-- | :-: |
@@ -195,18 +195,18 @@ Notes: `WarrantyTicketServiceTest` (claim submission) and the frontend warranty 
 | D-03 | UT | `DevelopmentDataInitializerTest` still expected 6 canonical roles while the system has 5 | Software Package | Closed |
 | D-04 | Review | Duplicate GBR ids in the Business Rules table and a GBR-WT prefix collision with UC-21.2 (renamed to GBR-WP) | Report 3 | Closed |
 | D-05 | Review | The design specification lacked `goods_receipts.idempotency_key`, `goods_receipts.request_hash` and `warranty_tickets.expired_acknowledged` | Report 4 | Closed |
-| D-06 | ST | Validation messages of the payment recording API are in English ("must not be null", "must be greater than or equal to 0.01", "numeric value out of bounds") instead of Vietnamese (UC-14.2) | Software Package | Open (Minor) |
-| D-07 | ST | The specification of UC-14.1 says only the Accountant verifies bank transfers, but the API also allows the Shop Owner | Report 3 | Open (Minor): align the specification or the API |
-| D-08 | ST | The login error message returned by the system has no final full stop, while the specification of UC-02.1 shows one | Report 3 | Open (Minor) |
+| D-06 | ST | Validation messages of the payment recording API are in English ("must not be null", "must be greater than or equal to 0.01", "numeric value out of bounds") instead of Vietnamese (UC-14.2) | Software Package | Closed (Vietnamese messages added to the payment request) |
+| D-07 | ST | The specification of UC-14.1 says only the Accountant verifies bank transfers, but the API also allows the Shop Owner | Software Package | Closed (API and menu restricted to the Accountant) |
+| D-08 | ST | The login error message returned by the system has no final full stop, while the specification of UC-02.1 shows one | Report 3 | Closed (specification aligned with the system) |
 
 ### 3.3 Work Product's Defects
 
 | Product | Review | UT | IT | ST | AT | Total | Note |
 | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-- |
-| Software Package | 2 | 1 | 0 | 1 | 0 | 4 | D-01, D-02, D-03, D-06 |
+| Software Package | 2 | 1 | 0 | 2 | 0 | 5 | D-01, D-02, D-03, D-06, D-07 |
 | Report 1 (Intro) | 0 | 0 | 0 | 0 | 0 | 0 | |
 | Report 2 (Plan) | 0 | 0 | 0 | 0 | 0 | 0 | |
-| Report 3 (Software Requirement Spec) | 1 | 0 | 0 | 2 | 0 | 3 | D-04, D-07, D-08 |
+| Report 3 (Software Requirement Spec) | 1 | 0 | 0 | 1 | 0 | 2 | D-04, D-08 |
 | Report 4 (Software Design Spec) | 1 | 0 | 0 | 0 | 0 | 1 | D-05 |
 | Report 5 (Test Documentation) | 0 | 0 | 0 | 0 | 0 | 0 | |
 | **Total** | 4 | 1 | 0 | 3 | 0 | 8 | |

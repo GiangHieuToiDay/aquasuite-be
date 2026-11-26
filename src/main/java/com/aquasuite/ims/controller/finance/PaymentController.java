@@ -92,7 +92,7 @@ public class PaymentController {
     // ── Payment Verification endpoints (/api/v1/finance/payment-verifications) 
 
     @GetMapping("/api/v1/finance/payment-verifications")
-    @PreAuthorize("hasAnyRole('ACCOUNTANT','SHOP_OWNER')")
+    @PreAuthorize("hasRole('ACCOUNTANT')")
     public ApiResponse<PaymentVerificationPageResponse> list(
             @RequestParam(required = false) UUID orderId,
             @RequestParam(defaultValue = "PENDING") String status,
@@ -106,19 +106,19 @@ public class PaymentController {
     }
 
     @GetMapping("/api/v1/finance/payment-verifications/{paymentId}")
-    @PreAuthorize("hasAnyRole('ACCOUNTANT','SHOP_OWNER')")
+    @PreAuthorize("hasRole('ACCOUNTANT')")
     public ApiResponse<PaymentVerificationResponse> detail(@PathVariable UUID paymentId) {
         return ApiResponse.ok(paymentService.detail(paymentId));
     }
 
     @PostMapping("/api/v1/finance/payment-verifications/{paymentId}/verify")
-    @PreAuthorize("hasAnyRole('ACCOUNTANT','SHOP_OWNER')")
+    @PreAuthorize("hasRole('ACCOUNTANT')")
     public ApiResponse<PaymentVerificationResponse> verify(@PathVariable UUID paymentId) {
         return ApiResponse.ok(paymentService.verify(paymentId));
     }
 
     @PostMapping("/api/v1/finance/payment-verifications/{paymentId}/reject")
-    @PreAuthorize("hasAnyRole('ACCOUNTANT','SHOP_OWNER')")
+    @PreAuthorize("hasRole('ACCOUNTANT')")
     public ApiResponse<PaymentVerificationResponse> reject(
             @PathVariable UUID paymentId,
             @Valid @RequestBody RejectPaymentRequest request) {

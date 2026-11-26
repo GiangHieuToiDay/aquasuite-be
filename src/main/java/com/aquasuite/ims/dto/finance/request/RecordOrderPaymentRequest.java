@@ -16,11 +16,18 @@ import java.util.UUID;
  * @param description ghi chú thanh toán nếu có
  */
 public record RecordOrderPaymentRequest(
-        @NotNull UUID idempotencyKey,
-        @NotNull @DecimalMin("0.01") @Digits(integer = 13, fraction = 2) BigDecimal amount,
-        @NotNull Method paymentMethod,
-        @Size(max = 255) String referenceNo,
-        @Size(max = 1000) String description) {
+        @NotNull(message = "Thiếu mã yêu cầu ghi nhận thanh toán")
+        UUID idempotencyKey,
+        @NotNull(message = "Vui lòng nhập số tiền")
+        @DecimalMin(value = "0.01", message = "Số tiền phải lớn hơn 0")
+        @Digits(integer = 13, fraction = 2, message = "Số tiền tối đa 13 chữ số phần nguyên và 2 chữ số thập phân")
+        BigDecimal amount,
+        @NotNull(message = "Vui lòng chọn phương thức thanh toán")
+        Method paymentMethod,
+        @Size(max = 255, message = "Mã tham chiếu tối đa 255 ký tự")
+        String referenceNo,
+        @Size(max = 1000, message = "Ghi chú tối đa 1000 ký tự")
+        String description) {
     /** Các phương thức thu tiền được hỗ trợ khi ghi nhận tại quầy. */
     public enum Method {
         /** Tiền mặt nhân viên thực nhận. */

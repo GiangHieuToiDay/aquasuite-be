@@ -476,7 +476,7 @@
 <td style="text-align: left;">Report-5.4_System Test_NFRs_Master.xlsx</td>
 <td style="text-align: center;">ST-NFR (10 security, 6 performance)</td>
 <td style="text-align: center;">16</td>
-<td style="text-align: left;">Executed on 25/11/2026: 9 Passed, 1 Failed, 6 Not Run (security 6 Passed, 1 Failed, 3 Not Run; performance 3 Passed, 3 Not Run)</td>
+<td style="text-align: left;">Executed on 25/11/2026 and re-tested on 26/11/2026: 10 Passed, 0 Failed, 6 Not Run (security 7 Passed, 3 Not Run; performance 3 Passed, 3 Not Run)</td>
 </tr>
 <tr>
 <td style="text-align: center;">Report-5.5</td>
@@ -696,7 +696,7 @@
 <td style="text-align: center;">0</td>
 <td style="text-align: center;">0</td>
 <td style="text-align: center;">0</td>
-<td style="text-align: left;">3 minor ST defects are open (D-06 to D-08)</td>
+<td style="text-align: left;">All defects closed</td>
 </tr>
 </tbody>
 </table>
@@ -751,21 +751,21 @@
 <td style="text-align: center;">ST</td>
 <td style="text-align: left;">Validation messages of the payment recording API are in English ("must not be null", "must be greater than or equal to 0.01", "numeric value out of bounds") instead of Vietnamese (UC-14.2)</td>
 <td style="text-align: left;">Software Package</td>
-<td style="text-align: center;">Open (Minor)</td>
+<td style="text-align: center;">Closed (Vietnamese messages added to the payment request)</td>
 </tr>
 <tr>
 <td style="text-align: center;">D-07</td>
 <td style="text-align: center;">ST</td>
 <td style="text-align: left;">The specification of UC-14.1 says only the Accountant verifies bank transfers, but the API also allows the Shop Owner</td>
-<td style="text-align: left;">Report 3</td>
-<td style="text-align: center;">Open (Minor): align the specification or the API</td>
+<td style="text-align: left;">Software Package</td>
+<td style="text-align: center;">Closed (API and menu restricted to the Accountant)</td>
 </tr>
 <tr>
 <td style="text-align: center;">D-08</td>
 <td style="text-align: center;">ST</td>
 <td style="text-align: left;">The login error message returned by the system has no final full stop, while the specification of UC-02.1 shows one</td>
 <td style="text-align: left;">Report 3</td>
-<td style="text-align: center;">Open (Minor)</td>
+<td style="text-align: center;">Closed (specification aligned with the system)</td>
 </tr>
 </tbody>
 </table>
@@ -789,10 +789,10 @@
 <td style="text-align: center;">2</td>
 <td style="text-align: center;">1</td>
 <td style="text-align: center;">0</td>
-<td style="text-align: center;">1</td>
+<td style="text-align: center;">2</td>
 <td style="text-align: center;">0</td>
-<td style="text-align: center;">4</td>
-<td style="text-align: left;">D-01, D-02, D-03, D-06</td>
+<td style="text-align: center;">5</td>
+<td style="text-align: left;">D-01, D-02, D-03, D-06, D-07</td>
 </tr>
 <tr>
 <td style="text-align: center;">Report 1 (Intro)</td>
@@ -819,10 +819,10 @@
 <td style="text-align: center;">1</td>
 <td style="text-align: center;">0</td>
 <td style="text-align: center;">0</td>
-<td style="text-align: center;">2</td>
+<td style="text-align: center;">1</td>
 <td style="text-align: center;">0</td>
-<td style="text-align: center;">3</td>
-<td style="text-align: left;">D-04, D-07, D-08</td>
+<td style="text-align: center;">2</td>
+<td style="text-align: left;">D-04, D-08</td>
 </tr>
 <tr>
 <td style="text-align: center;">Report 4 (Software Design Spec)</td>
