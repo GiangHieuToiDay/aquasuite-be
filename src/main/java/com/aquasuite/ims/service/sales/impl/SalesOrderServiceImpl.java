@@ -898,6 +898,12 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     @Override
     @Transactional(readOnly = true)
     public Page<SalesOrderSummaryResponse> getSalesOrders(SalesOrderFilterRequest filter, Pageable pageable) {
+        if (filter != null) {
+            com.aquasuite.ims.util.PageableUtils.validateDateRange(filter.getFromDate(), filter.getToDate());
+        }
+        Pageable safePageable = com.aquasuite.ims.util.PageableUtils.sanitizePageable(
+                pageable,
+                java.util.Set.of("orderDate", "createdAt", "updatedAt", "orderCode", "totalAmount", "orderStatus", "paymentStatus", "dueDate"));
         Specification<Order> spec = buildFilterSpecification(filter);
         var payments = new java.util.HashMap<UUID, com.aquasuite.ims.dto.finance.response.OrderReceivableView>();
         if (filter != null && filter.isDepositReservationOnly()) {
@@ -911,7 +917,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             }
             spec = spec.and((root, query, cb) -> root.get("orderId").in(payments.keySet()));
         }
-        Page<Order> orderPage = orderRepository.findAll(spec, pageable);
+        Page<Order> orderPage = orderRepository.findAll(spec, safePageable);
         Map<UUID, CustomerSummaryDto> customerMap = loadCustomerSummaries(orderPage.getContent());
 
         return orderPage.map(order -> {

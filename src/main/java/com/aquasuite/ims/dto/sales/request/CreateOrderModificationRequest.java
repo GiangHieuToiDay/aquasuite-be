@@ -1,6 +1,8 @@
 package com.aquasuite.ims.dto.sales.request;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -22,7 +24,8 @@ public class CreateOrderModificationRequest {
     @NotNull
     private UUID orderId;
 
-    @NotNull
+    @NotBlank
+    @Size(max = 50)
     private String requestType;
 
     @NotBlank
@@ -32,8 +35,8 @@ public class CreateOrderModificationRequest {
     @Size(max = 500)
     private String requestedDeliveryAddress;
 
-    @Valid
-    private List<CreateOrderModificationItemRequest> items;
+    @Size(max = 200)
+    private List<@NotNull @Valid CreateOrderModificationItemRequest> items;
 
     @Data
     @Builder
@@ -43,9 +46,12 @@ public class CreateOrderModificationRequest {
         @NotNull
         private UUID orderItemId;
 
-        @NotNull
+        @NotBlank
+        @Size(max = 50)
         private String changeAction;
 
+        @DecimalMin(value = "0.01", message = "Số lượng yêu cầu phải lớn hơn 0")
+        @Digits(integer = 10, fraction = 2, message = "Số lượng yêu cầu tối đa 10 chữ số nguyên và 2 chữ số thập phân")
         private BigDecimal requestedQuantity;
 
         private UUID requestedVariantId;

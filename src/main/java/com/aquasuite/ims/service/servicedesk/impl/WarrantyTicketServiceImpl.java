@@ -345,8 +345,8 @@ public class WarrantyTicketServiceImpl implements WarrantyTicketService {
     @Transactional(readOnly = true)
     public PageResponse<WarrantyTicketListItemResponse> listMine(WarrantyTicketFilterRequest filter) {
         CustomerSummaryDto customer = currentCustomer();
-        int page = filter != null && filter.getPage() != null && filter.getPage() >= 0 ? filter.getPage() : 0;
-        int size = filter != null && filter.getSize() != null && filter.getSize() > 0 ? filter.getSize() : 20;
+        int page = com.aquasuite.ims.util.PageableUtils.sanitizePage(filter != null && filter.getPage() != null ? filter.getPage() : 0);
+        int size = com.aquasuite.ims.util.PageableUtils.sanitizeSize(filter != null && filter.getSize() != null ? filter.getSize() : 20);
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         Specification<WarrantyTicket> spec = (root, query, cb) -> {
@@ -484,8 +484,8 @@ public class WarrantyTicketServiceImpl implements WarrantyTicketService {
     @Override
     @Transactional(readOnly = true)
     public PageResponse<WarrantyTicketListItemResponse> list(WarrantyTicketFilterRequest filter) {
-        int page = filter != null && filter.getPage() != null && filter.getPage() >= 0 ? filter.getPage() : 0;
-        int size = filter != null && filter.getSize() != null && filter.getSize() > 0 ? filter.getSize() : 20;
+        int page = com.aquasuite.ims.util.PageableUtils.sanitizePage(filter != null && filter.getPage() != null ? filter.getPage() : 0);
+        int size = com.aquasuite.ims.util.PageableUtils.sanitizeSize(filter != null && filter.getSize() != null ? filter.getSize() : 20);
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
         Specification<WarrantyTicket> spec = (root, query, cb) -> {

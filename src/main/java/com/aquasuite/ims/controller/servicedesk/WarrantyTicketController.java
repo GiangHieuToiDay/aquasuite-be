@@ -27,7 +27,7 @@ public class WarrantyTicketController {
     @GetMapping("/api/v1/warranty-tickets")
     @PreAuthorize("hasRole('SHOP_OWNER')")
     public ResponseEntity<ApiResponse<PageResponse<WarrantyTicketListItemResponse>>> list(
-            WarrantyTicketFilterRequest filter) {
+            @Valid WarrantyTicketFilterRequest filter) {
         return ResponseEntity.ok(ApiResponse.ok(warrantyTicketService.list(filter)));
     }
 
@@ -90,7 +90,7 @@ public class WarrantyTicketController {
     @GetMapping("/api/v1/storefront/warranty-tickets")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<ApiResponse<PageResponse<WarrantyTicketListItemResponse>>> listMyTickets(
-            WarrantyTicketFilterRequest filter) {
+            @Valid WarrantyTicketFilterRequest filter) {
         return ResponseEntity.ok(ApiResponse.ok(warrantyTicketService.listMine(filter)));
     }
 
@@ -104,7 +104,7 @@ public class WarrantyTicketController {
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<ApiResponse<WarrantyTicketDetailResponse>> cancelTicket(
             @PathVariable UUID id,
-            @RequestBody(required = false) CancelWarrantyTicketRequest request) {
+            @Valid @RequestBody(required = false) CancelWarrantyTicketRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(warrantyTicketService.cancel(id, request), "Hủy yêu cầu bảo hành thành công."));
     }
 }

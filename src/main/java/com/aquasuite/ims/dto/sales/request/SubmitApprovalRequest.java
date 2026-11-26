@@ -1,6 +1,7 @@
 package com.aquasuite.ims.dto.sales.request;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -15,5 +16,6 @@ import lombok.Setter;
 public class SubmitApprovalRequest {
 
     @NotBlank(message = "Lý do xin phê duyệt không được để trống")
+    @Size(max = 1000, message = "Lý do xin phê duyệt tối đa 1000 ký tự")
     private String approvalNote;
 }

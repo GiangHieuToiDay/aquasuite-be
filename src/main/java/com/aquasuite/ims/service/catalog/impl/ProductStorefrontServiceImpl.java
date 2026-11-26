@@ -55,6 +55,20 @@ public class ProductStorefrontServiceImpl implements ProductStorefrontService {
         Set<UUID> constrainedProductIds = null;
 
         if (criteria != null) {
+            if ((criteria.keyword() != null && criteria.keyword().length() > 100)
+                    || (criteria.categoryCode() != null && criteria.categoryCode().length() > 100)
+                    || (criteria.brandCode() != null && criteria.brandCode().length() > 100)
+                    || (criteria.color() != null && criteria.color().length() > 100)
+                    || (criteria.size() != null && criteria.size().length() > 100)
+                    || (criteria.sortBy() != null && criteria.sortBy().length() > 64)
+                    || (criteria.minPrice() != null && criteria.minPrice().signum() < 0)
+                    || (criteria.maxPrice() != null && criteria.maxPrice().signum() < 0)
+                    || (criteria.minPrice() != null && criteria.maxPrice() != null
+                        && criteria.minPrice().compareTo(criteria.maxPrice()) > 0)) {
+                throw new com.aquasuite.ims.exception.AppException(
+                        com.aquasuite.ims.exception.CommonErrorCode.INVALID_REQUEST_PARAM,
+                        "Tham số tìm kiếm sản phẩm không hợp lệ");
+            }
             // A. Khớp từ khóa tại cấp độ Biến thể (SKU hoặc variantName)
             if (criteria.keyword() != null && !criteria.keyword().trim().isEmpty()) {
                 variantMatchedProductIds = variantRepository.findProductIdsByVariantKeyword(criteria.keyword().trim());
@@ -96,13 +110,16 @@ public class ProductStorefrontServiceImpl implements ProductStorefrontService {
                 kw, catId, brId, variantMatchedProductIds, constrainedProductIds
         );
 
-        Page<Product> productPage = productRepository.findAll(spec, pageable);
+        Pageable safePageable = com.aquasuite.ims.util.PageableUtils.sanitizePageable(
+                pageable, Set.of("createdAt", "updatedAt", "productName", "productCode"));
+
+        Page<Product> productPage = productRepository.findAll(spec, safePageable);
 
         // 3. Xử lý kịch bản Alternative Flow (Step 2 - No Products Found): MSG43 + Popular Categories
         if (productPage.isEmpty()) {
             List<CategoryBriefResponse> popularCategories = getPopularCategories();
             return StorefrontSearchResultResponse.builder()
-                    .products(new PageImpl<>(Collections.emptyList(), pageable, 0))
+                    .products(new PageImpl<>(Collections.emptyList(), safePageable, 0))
                     .message(MSG43_NO_PRODUCTS_FOUND)
                     .popularCategories(popularCategories)
                     .build();

@@ -48,7 +48,7 @@ public class CategoryController {
     @GetMapping
     @PreAuthorize("hasAuthority('CATALOG_CATEGORY_READ')")
     public ApiResponse<PageResponse<CategoryResponse>> listCategories(
-            @ModelAttribute PageQuery pageQuery,
+            @Valid @ModelAttribute PageQuery pageQuery,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String status
     ) {

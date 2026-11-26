@@ -2,6 +2,7 @@ package com.aquasuite.ims.dto.finance.request;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -25,5 +26,6 @@ public class PaymentAllocationLineRequest {
 
     @NotNull(message = "Allocated amount is required")
     @DecimalMin(value = "0.01", message = "Allocated amount must be greater than zero")
+    @Digits(integer = 13, fraction = 2, message = "Allocated amount must have at most 13 integer digits and 2 fraction digits")
     BigDecimal allocatedAmount;
 }

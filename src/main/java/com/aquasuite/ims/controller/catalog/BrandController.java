@@ -48,7 +48,7 @@ public class BrandController {
     @GetMapping
     @PreAuthorize("hasAuthority('CATALOG_BRAND_READ')")
     public ApiResponse<PageResponse<BrandResponse>> listBrands(
-            @ModelAttribute PageQuery pageQuery,
+            @Valid @ModelAttribute PageQuery pageQuery,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String status
     ) {

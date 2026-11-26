@@ -170,7 +170,9 @@ public class CustomerCreditProfileServiceImpl implements CustomerCreditProfileSe
             Pageable pageable) {
         CustomerCreditProfileRequestStatus resolvedStatus = status == null ? CustomerCreditProfileRequestStatus.PENDING
                 : status;
-        return requestRepository.findByStatus(resolvedStatus, pageable)
+        Pageable safePageable = com.aquasuite.ims.util.PageableUtils.sanitizePageable(
+                pageable, java.util.Set.of("createdAt", "updatedAt", "reviewedAt", "requestedCreditLimit", "requestedCreditTermDays", "status"));
+        return requestRepository.findByStatus(resolvedStatus, safePageable)
                 .map(request -> response(request, false,
                         customerOrderHistoryApi.countQualifiedOrders(request.getCustomerId())));
     }

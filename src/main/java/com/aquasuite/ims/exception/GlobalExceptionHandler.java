@@ -32,13 +32,21 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleValidationException(
             MethodArgumentNotValidException ex) {
-        log.warn("Validation failed for {} field(s)", ex.getBindingResult().getFieldErrorCount());
+        log.warn("Validation failed for {} error(s)", ex.getBindingResult().getErrorCount());
         List<FieldErrorDetail> errors =
-                ex.getBindingResult().getFieldErrors().stream()
-                        .map(
-                                error ->
-                                        new FieldErrorDetail(
-                                                error.getField(), error.getDefaultMessage()))
+                java.util.stream.Stream.concat(
+                                ex.getBindingResult().getFieldErrors().stream()
+                                        .map(
+                                                error ->
+                                                        new FieldErrorDetail(
+                                                                error.getField(),
+                                                                error.getDefaultMessage())),
+                                ex.getBindingResult().getGlobalErrors().stream()
+                                        .map(
+                                                error ->
+                                                        new FieldErrorDetail(
+                                                                error.getObjectName(),
+                                                                error.getDefaultMessage())))
                         .toList();
 
         return ResponseEntity.status(CommonErrorCode.VALIDATION_ERROR.getStatus())
@@ -79,7 +87,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({
             MissingServletRequestParameterException.class,
             org.springframework.web.multipart.support.MissingServletRequestPartException.class,
-            HandlerMethodValidationException.class
+            HandlerMethodValidationException.class,
+            org.springframework.data.mapping.PropertyReferenceException.class
     })
     public ResponseEntity<ApiResponse<Void>> handleInvalidRequestParamException(Exception ex) {
         log.warn("Invalid request parameter: {}", ex.getMessage());
@@ -89,6 +98,33 @@ public class GlobalExceptionHandler {
                         CommonErrorCode.INVALID_REQUEST_PARAM.getCode(),
                         CommonErrorCode.INVALID_REQUEST_PARAM.getMessage()
                 ));
+    }
+
+    @ExceptionHandler(jakarta.validation.ConstraintViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleConstraintViolationException(
+            jakarta.validation.ConstraintViolationException ex) {
+        log.warn("Constraint violation for {} item(s)", ex.getConstraintViolations().size());
+        List<FieldErrorDetail> errors =
+                ex.getConstraintViolations().stream()
+                        .map(
+                                violation -> {
+                                    String path = violation.getPropertyPath() != null
+                                            ? violation.getPropertyPath().toString()
+                                            : "request";
+                                    int firstDot = path.indexOf('.');
+                                    String field = firstDot >= 0 && firstDot + 1 < path.length()
+                                            ? path.substring(firstDot + 1)
+                                            : path;
+                                    return new FieldErrorDetail(field, violation.getMessage());
+                                })
+                        .toList();
+        return ResponseEntity
+                .status(CommonErrorCode.VALIDATION_ERROR.getStatus())
+                .body(
+                        ApiResponse.error(
+                                CommonErrorCode.VALIDATION_ERROR.getCode(),
+                                CommonErrorCode.VALIDATION_ERROR.getMessage(),
+                                errors));
     }
 
     @ExceptionHandler(AccessDeniedException.class)

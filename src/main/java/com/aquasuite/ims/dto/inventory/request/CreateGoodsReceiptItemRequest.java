@@ -1,6 +1,7 @@
 package com.aquasuite.ims.dto.inventory.request;
 
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotNull;
 import lombok.Builder;
 
@@ -23,5 +24,6 @@ public record CreateGoodsReceiptItemRequest(
 
         @NotNull(message = "Số lượng nhận không được để trống")
         @DecimalMin(value = "0.0", inclusive = false, message = "Số lượng nhận phải lớn hơn 0")
+        @Digits(integer = 10, fraction = 2, message = "Số lượng nhận tối đa 10 chữ số nguyên và 2 chữ số thập phân")
         BigDecimal quantity
 ) {}

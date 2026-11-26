@@ -21,6 +21,7 @@ import java.util.UUID;
  * Controller Mua sắm Storefront: Quản lý giỏ hàng và Đặt hàng thanh toán online PayOS.
  */
 @RestController
+@org.springframework.validation.annotation.Validated
 public class CartCheckoutController {
 
     private final CartCheckoutService cartCheckoutService;

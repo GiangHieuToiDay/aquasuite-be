@@ -24,6 +24,7 @@ public class UpdateCategoryRequest {
     @Size(max = 5000, message = "Mô tả không được vượt quá 5000 ký tự")
     private String description;
 
+    @Size(max = 32, message = "Trạng thái không được vượt quá 32 ký tự")
     private String status;
     private UUID parentId;
 }

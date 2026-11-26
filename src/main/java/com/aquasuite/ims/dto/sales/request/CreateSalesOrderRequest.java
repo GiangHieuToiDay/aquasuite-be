@@ -52,24 +52,28 @@ public class CreateSalesOrderRequest {
 
     /** Chiết khấu hoặc giảm giá theo chương trình khuyến mãi / promo code */
     @Builder.Default
+    @jakarta.validation.constraints.DecimalMin(value = "0.0", message = "Giảm giá không được âm")
+    @jakarta.validation.constraints.Digits(integer = 13, fraction = 2, message = "Giảm giá tối đa 13 chữ số nguyên và 2 chữ số thập phân")
     private BigDecimal discountAmount = BigDecimal.ZERO;
 
     /** Địa chỉ giao hàng nếu chọn hình thức SCHEDULED_DELIVERY */
+    @jakarta.validation.constraints.Size(max = 500, message = "Địa chỉ giao hàng tối đa 500 ký tự")
     private String deliveryAddress;
 
     /** Ghi chú đơn hàng */
+    @jakarta.validation.constraints.Size(max = 1000, message = "Ghi chú đơn hàng tối đa 1000 ký tự")
     private String note;
 
     /** Customer requests UC29: do not reserve stock until the verified 20% deposit funds selected lines. */
     private boolean reserveStockAfterDeposit;
 
     /** Danh sách SKU lẻ */
-    @Valid
+    @jakarta.validation.constraints.Size(max = 200, message = "Đơn hàng tối đa 200 dòng sản phẩm")
     @Builder.Default
-    private List<CreateOrderItemRequest> items = new ArrayList<>();
+    private List<@NotNull(message = "Dòng sản phẩm không được để trống") @Valid CreateOrderItemRequest> items = new ArrayList<>();
 
     /** Danh sách gói Combo/Bundle */
-    @Valid
+    @jakarta.validation.constraints.Size(max = 100, message = "Đơn hàng tối đa 100 gói combo")
     @Builder.Default
-    private List<CreateComboItemRequest> combos = new ArrayList<>();
+    private List<@NotNull(message = "Gói combo không được để trống") @Valid CreateComboItemRequest> combos = new ArrayList<>();
 }

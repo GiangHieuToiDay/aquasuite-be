@@ -85,6 +85,12 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             throw new AppException(PurchasingErrorCode.SUPPLIER_NOT_ACTIVE, supplier.getSupplierName());
         }
 
+        if (request.getExpectedDate() != null && request.getExpectedDate().isBefore(LocalDate.now())) {
+            throw new AppException(
+                    com.aquasuite.ims.exception.CommonErrorCode.INVALID_REQUEST_PARAM,
+                    "Ngày dự kiến nhận không được ở trong quá khứ");
+        }
+
         if (request.getItems() == null || request.getItems().isEmpty()) {
             throw new AppException(PurchasingErrorCode.PO_ITEMS_EMPTY);
         }
@@ -172,6 +178,13 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
         if (!Objects.equals(po.getVersion(), request.getVersion())) {
             throw new AppException(PurchasingErrorCode.PO_VERSION_CONFLICT);
+        }
+
+        if (request.getExpectedDate() != null && po.getOrderDate() != null
+                && request.getExpectedDate().isBefore(po.getOrderDate())) {
+            throw new AppException(
+                    com.aquasuite.ims.exception.CommonErrorCode.INVALID_REQUEST_PARAM,
+                    "Ngày dự kiến nhận không được trước ngày đặt hàng");
         }
 
         if (request.getItems() == null || request.getItems().isEmpty()) {
@@ -266,6 +279,7 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     @Override
     @Transactional(readOnly = true)
     public PageResponse<PurchaseOrderListItemResponse> listPurchaseOrders(PurchaseOrderFilterRequest filter) {
+        com.aquasuite.ims.util.PageableUtils.validateDateRange(filter.getFromDate(), filter.getToDate());
         Specification<PurchaseOrder> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
@@ -292,9 +306,28 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
-        String sortBy = filter.getSortBy() != null && !filter.getSortBy().isBlank() ? filter.getSortBy() : "createdAt";
-        Sort.Direction direction = "ASC".equalsIgnoreCase(filter.getSortDirection()) ? Sort.Direction.ASC : Sort.Direction.DESC;
-        Pageable pageable = PageRequest.of(filter.getPage(), filter.getSize(), Sort.by(direction, sortBy));
+        String sortBy = filter.getSortBy() != null && !filter.getSortBy().isBlank() ? filter.getSortBy().trim() : "createdAt";
+        if (!Set.of("createdAt", "updatedAt", "orderDate", "expectedDate", "poCode", "totalAmount", "status")
+                .contains(sortBy)) {
+            throw new AppException(
+                    com.aquasuite.ims.exception.CommonErrorCode.INVALID_REQUEST_PARAM,
+                    "Trường sắp xếp không hợp lệ: " + sortBy);
+        }
+        String rawDir = filter.getSortDirection();
+        if (rawDir != null && !rawDir.isBlank()
+                && !"ASC".equalsIgnoreCase(rawDir.trim())
+                && !"DESC".equalsIgnoreCase(rawDir.trim())) {
+            throw new AppException(
+                    com.aquasuite.ims.exception.CommonErrorCode.INVALID_REQUEST_PARAM,
+                    "Hướng sắp xếp không hợp lệ: " + rawDir);
+        }
+        Sort.Direction direction = rawDir != null && "ASC".equalsIgnoreCase(rawDir.trim())
+                ? Sort.Direction.ASC
+                : Sort.Direction.DESC;
+        Pageable pageable = com.aquasuite.ims.util.PageableUtils.createPageable(
+                filter.getPage() != null ? filter.getPage() : 0,
+                filter.getSize() != null ? filter.getSize() : 10,
+                Sort.by(direction, sortBy));
 
         Page<PurchaseOrder> page = purchaseOrderRepository.findAll(spec, pageable);
 

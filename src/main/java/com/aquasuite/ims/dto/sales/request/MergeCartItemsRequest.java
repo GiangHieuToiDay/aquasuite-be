@@ -2,6 +2,7 @@ package com.aquasuite.ims.dto.sales.request;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -21,6 +22,6 @@ public class MergeCartItemsRequest {
 
     @NotEmpty(message = "Danh sách sản phẩm gộp vào giỏ hàng không được trống")
     @Size(max = 50, message = "Tối đa 50 dòng sản phẩm mỗi lần đồng bộ giỏ hàng")
-    private List<@Valid AddCartItemRequest> items;
+    private List<@NotNull(message = "Dòng sản phẩm không được để trống") @Valid AddCartItemRequest> items;
 }
 

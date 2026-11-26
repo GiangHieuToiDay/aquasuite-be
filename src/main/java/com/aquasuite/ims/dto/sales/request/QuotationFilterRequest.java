@@ -2,6 +2,7 @@ package com.aquasuite.ims.dto.sales.request;
 
 import com.aquasuite.ims.enums.sales.QuotationStatus;
 import com.aquasuite.ims.common.PageQuery;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -19,6 +20,7 @@ public class QuotationFilterRequest extends PageQuery {
     /**
      * Tìm kiếm theo mã báo giá (quotationCode) hoặc tên công trình (projectName).
      */
+    @Size(max = 100, message = "Từ khóa tìm kiếm tối đa 100 ký tự")
     private String search;
 
     /**

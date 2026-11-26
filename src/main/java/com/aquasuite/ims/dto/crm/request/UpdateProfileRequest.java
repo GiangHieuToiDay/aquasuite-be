@@ -15,5 +15,6 @@ public record UpdateProfileRequest(
         String phone,
 
         @Size(max = 2048, message = "URL ảnh đại diện không hợp lệ")
+        @Pattern(regexp = "^(https?://[^\\s]+)?$", message = "URL ảnh đại diện phải bắt đầu bằng http:// hoặc https://")
         String avatarUrl
 ) {}

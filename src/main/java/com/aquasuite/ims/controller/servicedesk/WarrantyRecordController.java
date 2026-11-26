@@ -36,7 +36,7 @@ public class WarrantyRecordController {
     @GetMapping("/api/v1/warranty-records")
     @PreAuthorize("hasAnyRole('SHOP_OWNER', 'SALES_STAFF')")
     public ResponseEntity<ApiResponse<PageResponse<WarrantyRecordListItemResponse>>> searchRecords(
-            WarrantyRecordFilterRequest filter
+            @Valid WarrantyRecordFilterRequest filter
     ) {
         return ResponseEntity.ok(ApiResponse.ok(warrantyRecordService.searchRecords(filter)));
     }
@@ -97,7 +97,7 @@ public class WarrantyRecordController {
     @GetMapping("/api/v1/storefront/warranty-records")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<ApiResponse<PageResponse<WarrantyRecordListItemResponse>>> listMyWarranties(
-            WarrantyRecordFilterRequest filter
+            @Valid WarrantyRecordFilterRequest filter
     ) {
         return ResponseEntity.ok(ApiResponse.ok(warrantyRecordService.getMyRecords(filter)));
     }

@@ -51,10 +51,12 @@ public class AuditLogController {
         if (entityId != null && productId != null) {
             throw new AppException(CommonErrorCode.INVALID_REQUEST_PARAM);
         }
+        Pageable safePageable = com.aquasuite.ims.util.PageableUtils.sanitizePageable(
+                pageable, java.util.Set.of("createdAt", "action", "entityType", "entityId", "userId"));
 
         Page<AuditLogResponse> page;
         if (entityId != null) {
-            page = repository.findByEntityTypeAndEntityIdOrderByCreatedAtDesc(normalizedEntityType, entityId, pageable)
+            page = repository.findByEntityTypeAndEntityIdOrderByCreatedAtDesc(normalizedEntityType, entityId, safePageable)
                     .map(auditLogMapper::toResponse);
         } else if (productId != null) {
             if (!"PRODUCT_VARIANT".equals(normalizedEntityType)) {
@@ -62,18 +64,18 @@ public class AuditLogController {
             }
             List<UUID> variantIds = catalogApi.getVariantIdsByProductId(productId);
             page = variantIds.isEmpty()
-                    ? Page.empty(pageable)
-                    : repository.findByEntityTypeAndEntityIdInOrderByCreatedAtDesc(normalizedEntityType, variantIds, pageable)
+                    ? Page.empty(safePageable)
+                    : repository.findByEntityTypeAndEntityIdInOrderByCreatedAtDesc(normalizedEntityType, variantIds, safePageable)
                             .map(auditLogMapper::toResponse);
         } else {
-            page = repository.findByEntityTypeOrderByCreatedAtDesc(normalizedEntityType, pageable)
+            page = repository.findByEntityTypeOrderByCreatedAtDesc(normalizedEntityType, safePageable)
                     .map(auditLogMapper::toResponse);
         }
         return ApiResponse.ok(page.map(this::enrichActorName));
     }
 
     private String normalizeEntityType(String entityType) {
-        if (entityType == null || entityType.isBlank()) {
+        if (entityType == null || entityType.isBlank() || entityType.trim().length() > 100) {
             throw new AppException(CommonErrorCode.INVALID_REQUEST_PARAM);
         }
         return entityType.trim().toUpperCase(Locale.ROOT);

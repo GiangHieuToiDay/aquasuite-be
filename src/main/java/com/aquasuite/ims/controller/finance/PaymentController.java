@@ -98,6 +98,10 @@ public class PaymentController {
             @RequestParam(defaultValue = "PENDING") String status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
+        if (page < 0 || size < 1 || size > 100 || (status != null && status.length() > 32)) {
+            throw new com.aquasuite.ims.exception.AppException(
+                    com.aquasuite.ims.exception.CommonErrorCode.INVALID_REQUEST_PARAM);
+        }
         return ApiResponse.ok(paymentService.list(orderId, status, page, size));
     }
 

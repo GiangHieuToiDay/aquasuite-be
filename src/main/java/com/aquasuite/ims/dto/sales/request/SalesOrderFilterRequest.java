@@ -4,6 +4,7 @@ import com.aquasuite.ims.enums.sales.OrderChannel;
 import com.aquasuite.ims.enums.sales.OrderStatus;
 import com.aquasuite.ims.enums.sales.OrderType;
 import com.aquasuite.ims.enums.sales.PaymentStatus;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -22,6 +23,7 @@ public class SalesOrderFilterRequest {
     private boolean depositReservationOnly;
 
     /** Từ khóa tìm kiếm theo mã đơn hàng hoặc SĐT khách hàng */
+    @Size(max = 100, message = "Từ khóa tìm kiếm tối đa 100 ký tự")
     private String keyword;
 
     /** Lọc theo trạng thái đơn hàng (PROCESSING, COMPLETED, CANCELLED) */

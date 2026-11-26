@@ -100,9 +100,12 @@ public class ProductShopOwnerServiceImpl {
                 keyword, categoryId, brandId, status, productType, true
         );
 
-        Page<Product> productPage = productRepository.findAll(spec, pageable);
+        Pageable safePageable = com.aquasuite.ims.util.PageableUtils.sanitizePageable(
+                pageable, Set.of("createdAt", "updatedAt", "productName", "productCode", "status"));
+
+        Page<Product> productPage = productRepository.findAll(spec, safePageable);
         if (productPage.isEmpty()) {
-            return new PageImpl<>(Collections.emptyList(), pageable, productPage.getTotalElements());
+            return new PageImpl<>(Collections.emptyList(), safePageable, productPage.getTotalElements());
         }
 
         List<Product> products = productPage.getContent();

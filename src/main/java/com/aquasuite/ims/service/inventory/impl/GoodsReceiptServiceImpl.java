@@ -209,7 +209,9 @@ public class GoodsReceiptServiceImpl implements GoodsReceiptService {
     @Override
     @Transactional(readOnly = true)
     public Page<GoodsReceiptResponse> list(Pageable pageable) {
-        return goodsReceiptRepository.findAllByOrderByCreatedAtDesc(pageable)
+        Pageable safePageable = com.aquasuite.ims.util.PageableUtils.sanitizePageable(
+                pageable, java.util.Set.of("createdAt", "updatedAt", "receiptDate", "receiptCode", "status", "totalAmount"));
+        return goodsReceiptRepository.findAllByOrderByCreatedAtDesc(safePageable)
                 .map(gr -> mapToResponse(gr, null));
     }
 

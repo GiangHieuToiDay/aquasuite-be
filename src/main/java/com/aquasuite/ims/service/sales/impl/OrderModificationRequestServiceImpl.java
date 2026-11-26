@@ -76,9 +76,11 @@ public class OrderModificationRequestServiceImpl {
     private final ApplicationEventPublisher events;
     @Transactional(readOnly = true)
     public Page<OrderModificationRequestResponse> list(Pageable page, boolean accountantOnly) {
+        Pageable safePage = com.aquasuite.ims.util.PageableUtils.sanitizePageable(
+                page, java.util.Set.of("createdAt", "updatedAt", "requestStatus", "requestType"));
         Page<OrderModificationRequest> requests = accountantOnly
-                ? requestRepository.findByRequestStatusOrderByCreatedAtDesc(OrderModificationRequestStatus.PENDING_CANCEL, page)
-                : requestRepository.findAllByOrderByCreatedAtDesc(page);
+                ? requestRepository.findByRequestStatusOrderByCreatedAtDesc(OrderModificationRequestStatus.PENDING_CANCEL, safePage)
+                : requestRepository.findAllByOrderByCreatedAtDesc(safePage);
         return requests.map(this::toResponse);
     }
     @Transactional(readOnly = true)

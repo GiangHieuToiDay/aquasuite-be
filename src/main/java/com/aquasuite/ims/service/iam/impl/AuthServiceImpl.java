@@ -606,9 +606,12 @@ public class AuthServiceImpl implements AuthService {
         return new PasswordActionResponse("Your password has been reset successfully. You may now sign in.");
     }
 
-    /** Mật khẩu mới phải trùng phần xác nhận và đạt chính sách mật khẩu. */
+    /** Mật khẩu mới phải trùng phần xác nhận, không chứa khoảng trắng, tối đa 72 byte UTF-8 và đạt chính sách mật khẩu. */
     private void validatePasswordPolicyAndConfirmation(String newPassword, String confirmNewPassword) {
-        if (newPassword == null || !newPassword.equals(confirmNewPassword)
+        if (newPassword == null
+                || !newPassword.equals(confirmNewPassword)
+                || newPassword.chars().anyMatch(Character::isWhitespace)
+                || newPassword.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72
                 || !PASSWORD_POLICY_PATTERN.matcher(newPassword).matches()) {
             throw new AppException(IamPasswordErrorCode.WEAK_OR_MISMATCHED_PASSWORD);
         }

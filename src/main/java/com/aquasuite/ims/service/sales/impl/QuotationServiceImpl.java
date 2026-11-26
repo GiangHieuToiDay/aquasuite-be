@@ -113,8 +113,9 @@ public class QuotationServiceImpl implements QuotationService {
 
         LocalDate today = LocalDate.now();
 
-        // 1. Thẩm định ngày hiệu lực: validUntil không được trước ngày lập (today)
-        if (request.getValidUntil() != null && request.getValidUntil().isBefore(today)) {
+        // 1. Thẩm định ngày hiệu lực: validUntil không được trước ngày lập (today) hoặc quá xa trong tương lai
+        if (request.getValidUntil() != null
+                && (request.getValidUntil().isBefore(today) || request.getValidUntil().getYear() > 2100)) {
             throw new AppException(SalesErrorCode.INVALID_VALID_UNTIL_DATE, request.getValidUntil(), today);
         }
 
@@ -975,6 +976,7 @@ public class QuotationServiceImpl implements QuotationService {
         if (filterRequest == null) {
             filterRequest = new QuotationFilterRequest();
         }
+        PageableUtils.validateDateRange(filterRequest.getFromDate(), filterRequest.getToDate());
 
         Pageable pageable = PageableUtils.createPageable(
                 filterRequest.getPage(),
