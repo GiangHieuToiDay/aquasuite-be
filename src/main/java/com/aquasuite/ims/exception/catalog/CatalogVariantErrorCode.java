@@ -16,7 +16,7 @@ public enum CatalogVariantErrorCode implements BaseErrorCode {
     RETAIL_PRICE_REQUIRED("SKU_006", "Cần có giá bán niêm yết để kích hoạt SKU", HttpStatus.BAD_REQUEST),
     DELETE_BLOCKED("SKU_007", "SKU đã có phát sinh hoặc còn tồn; hãy dùng Ngừng kinh doanh thay thế", HttpStatus.CONFLICT),
     INVALID_DELETE_CONFIRMATION("SKU_008", "Cần xác nhận xóa vĩnh viễn SKU", HttpStatus.BAD_REQUEST),
-    BUNDLE_VARIANT_NOT_ALLOWED("SKU_009", "Sản phẩm Combo không được phép tạo SKU vật lý.", HttpStatus.BAD_REQUEST),
+    BUNDLE_VARIANT_NOT_ALLOWED("SKU_009", "Sản phẩm Combo không được phép tạo Biến thể vật lý.", HttpStatus.BAD_REQUEST),
     INVALID_SORT_FIELD("SKU_010", "Trường sắp xếp biến thể không hợp lệ.", HttpStatus.BAD_REQUEST),
     INVALID_SORT_DIRECTION("SKU_011", "Chiều sắp xếp phải là ASC hoặc DESC.", HttpStatus.BAD_REQUEST),
     INVALID_WAREHOUSE_CODE("SKU_012", "Mã kho không hợp lệ.", HttpStatus.BAD_REQUEST),

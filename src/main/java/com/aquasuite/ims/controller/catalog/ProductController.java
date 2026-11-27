@@ -154,7 +154,7 @@ public class ProductController {
     // ── Variant endpoints ───────────────────────────────────────────────────
 
     @GetMapping("/api/v1/catalog/products/{productId}/variants")
-    @PreAuthorize("hasAnyRole('SHOP_OWNER','ACCOUNTANT','SALES_STAFF','TECHNICAL_STAFF')")
+    @PreAuthorize("hasAnyRole('SHOP_OWNER')")
     public ApiResponse<Page<VariantResponse>> listVariants(
             @PathVariable UUID productId,
             @RequestParam(required = false) String keyword,

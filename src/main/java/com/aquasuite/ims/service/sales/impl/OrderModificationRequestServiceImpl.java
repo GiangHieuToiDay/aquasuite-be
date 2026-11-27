@@ -57,7 +57,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-/** UC-26 review lifecycle. Direct order, reservation and Draft-invoice changes share one transaction. */
+/**  Direct order, reservation and Draft-invoice changes share one transaction. */
 @Service
 @RequiredArgsConstructor
 public class OrderModificationRequestServiceImpl {
