@@ -257,6 +257,16 @@ class UserAccountControllerSecurityTest {
         verifyNoInteractions(accounts);
     }
 
+    @Test
+    @WithMockUser(roles = "SHOP_OWNER")
+    void searchRejectsInvalidSortByWithSys002() throws Exception {
+        mvc.perform(get("/api/v1/iam/users").param("sortBy", "passwordHash"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("SYS_002"));
+
+        verifyNoInteractions(accounts);
+    }
+
     private void assertAllEndpointsForbidden() throws Exception {
         String validPayload = """
                 {

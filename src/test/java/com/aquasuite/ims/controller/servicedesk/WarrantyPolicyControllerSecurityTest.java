@@ -185,6 +185,29 @@ class WarrantyPolicyControllerSecurityTest {
         verifyNoInteractions(warrantyPolicyService);
     }
 
+    @Test
+    @WithMockUser(roles = "SHOP_OWNER")
+    void createRejectsWarrantyPeriodOver600Months() throws Exception {
+        String overMaxBody = """
+                {
+                  "policyName": "Chính sách TOTO",
+                  "brandId": "%s",
+                  "categoryId": "%s",
+                  "warrantyPeriodMonths": 601,
+                  "coverageConditions": "Bảo hành chính hãng",
+                  "status": "ACTIVE"
+                }
+                """.formatted(BRAND_ID, CATEGORY_ID);
+
+        mockMvc.perform(post("/api/v1/warranty-policies")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(overMaxBody))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("SYS_003"));
+
+        verifyNoInteractions(warrantyPolicyService);
+    }
+
     private void assertAllEndpointsForbidden() throws Exception {
         mockMvc.perform(get("/api/v1/warranty-policies"))
                 .andExpect(status().isForbidden())

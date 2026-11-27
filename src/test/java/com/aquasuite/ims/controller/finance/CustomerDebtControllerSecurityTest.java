@@ -276,6 +276,41 @@ class CustomerDebtControllerSecurityTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    @WithMockUser(roles = "ACCOUNTANT")
+    void accountantCanReadBlacklistStatusAndExportStatement() throws Exception {
+        UUID actorId = UUID.fromString("10000000-0000-4000-8000-000000000007");
+        when(iamApi.getCurrentUserId()).thenReturn(actorId);
+        when(customerDebtService.blacklistStatus(CUSTOMER_ID)).thenReturn(
+                new com.aquasuite.ims.dto.finance.response.BlacklistStatusResponse(
+                        CUSTOMER_ID, "ACTIVE", DebtStatus.WITHIN_TERM, false, BigDecimal.ZERO, "OK"));
+        when(customerDebtService.exportStatement(CUSTOMER_ID, actorId)).thenReturn(
+                new com.aquasuite.ims.dto.finance.response.StatementDocument("statement.pdf", new byte[] {1, 2}));
+        when(customerDebtService.emailStatement(CUSTOMER_ID, actorId)).thenReturn(
+                new com.aquasuite.ims.dto.finance.response.StatementEmailResponse("SENT", "Sent"));
+
+        mockMvc.perform(get("/api/v1/finance/customer-debts/{customerId}/blacklist-status", CUSTOMER_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.blacklisted").value(false));
+        mockMvc.perform(get("/api/v1/finance/customer-debts/{customerId}/statement", CUSTOMER_ID))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/finance/customer-debts/{customerId}/statement/email", CUSTOMER_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.emailResult").value("SENT"));
+    }
+
+    @Test
+    @WithMockUser(roles = "SALES_STAFF")
+    void salesStaffCannotReadBlacklistStatusOrStatements() throws Exception {
+        mockMvc.perform(get("/api/v1/finance/customer-debts/{customerId}/blacklist-status", CUSTOMER_ID))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/finance/customer-debts/{customerId}/statement", CUSTOMER_ID))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/v1/finance/customer-debts/{customerId}/statement/email", CUSTOMER_ID))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(customerDebtService);
+    }
+
     @TestConfiguration
     @EnableMethodSecurity
     static class TestSecurityConfig {

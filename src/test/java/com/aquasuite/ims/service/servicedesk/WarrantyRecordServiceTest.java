@@ -333,5 +333,49 @@ class WarrantyRecordServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ServicedeskErrorCode.WARRANTY_FORBIDDEN);
     }
+
+    @Test
+    @DisplayName("getRecordDetail: thẻ ACTIVE có WarrantyTicket NEW/IN_PROGRESS -> displayStatus CLAIMED và canRequestSupport=false")
+    void getRecordDetailWithOpenWarrantyTicketReturnsClaimed() {
+        UUID recordId = UUID.randomUUID();
+        WarrantyRecord active = WarrantyRecord.builder()
+                .warrantyRecordId(recordId)
+                .warrantyCode("WAR-202611-0099")
+                .warrantyPolicyId(policyId)
+                .customerId(customerId)
+                .variantId(variantId)
+                .startDate(LocalDate.of(2026, 1, 1))
+                .endDate(LocalDate.of(2028, 1, 1))
+                .warrantyMonths(24)
+                .status(WarrantyStatus.ACTIVE)
+                .build();
+        when(warrantyRecordRepository.findById(recordId)).thenReturn(Optional.of(active));
+        stubDetailRead(active);
+        when(warrantyTicketRepository.findFirstByWarrantyRecordIdAndStatusIn(eq(recordId), any()))
+                .thenReturn(Optional.of(WarrantyTicket.builder().ticketCode("WT-202611-0077").status(WarrantyTicketStatus.IN_PROGRESS).build()));
+
+        var detail = service.getRecordDetail(recordId);
+
+        assertThat(detail.displayStatus()).isEqualTo(WarrantyDisplayStatus.CLAIMED);
+        assertThat(detail.canRequestSupport()).isFalse();
+        assertThat(detail.openTicketCode()).isEqualTo("WT-202611-0077");
+    }
+
+    @Test
+    @DisplayName("getMyRecords / getRecordDetail: thiếu customer -> SVD_008; không thấy thẻ -> SVD_009")
+    void getMyRecordsAndGetRecordDetailErrorCases() {
+        when(crmApi.getCustomerByUserId(actorId)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.getMyRecords(null))
+                .isInstanceOf(AppException.class)
+                .extracting("errorCode")
+                .isEqualTo(ServicedeskErrorCode.CUSTOMER_NOT_FOUND);
+
+        UUID missingId = UUID.randomUUID();
+        when(warrantyRecordRepository.findById(missingId)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.getRecordDetail(missingId))
+                .isInstanceOf(AppException.class)
+                .extracting("errorCode")
+                .isEqualTo(ServicedeskErrorCode.WARRANTY_NOT_FOUND);
+    }
 }
 

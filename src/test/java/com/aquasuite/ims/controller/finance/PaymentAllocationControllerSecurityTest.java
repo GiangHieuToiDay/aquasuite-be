@@ -270,6 +270,35 @@ class PaymentAllocationControllerSecurityTest {
         verify(paymentAllocationService, never()).reverse(any(), any(), any(), any());
     }
 
+    @Test
+    @WithMockUser(roles = "ACCOUNTANT")
+    void accountantCanAccessPaymentVerificationEndpoints() throws Exception {
+        when(paymentService.list(any(), eq("PENDING"), eq(0), eq(20)))
+                .thenReturn(new com.aquasuite.ims.dto.finance.response.PaymentVerificationPageResponse(List.of(), 0, 20, 0, 0));
+        when(paymentService.verify(RECEIPT_ID))
+                .thenReturn(new com.aquasuite.ims.dto.finance.response.PaymentVerificationResponse(
+                        RECEIPT_ID, "PAY-001", ORDER_ID, CUSTOMER_ID, new BigDecimal("100.00"),
+                        "BANK_TRANSFER", "VERIFIED", "REF", null, null, null, ACTOR_ID, ACTOR_ID, null));
+
+        mockMvc.perform(get("/api/v1/finance/payment-verifications"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+        mockMvc.perform(post("/api/v1/finance/payment-verifications/{paymentId}/verify", RECEIPT_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("VERIFIED"));
+    }
+
+    @Test
+    @WithMockUser(roles = "SHOP_OWNER")
+    void shopOwnerIsForbiddenFromPaymentVerificationEndpoints() throws Exception {
+        mockMvc.perform(get("/api/v1/finance/payment-verifications"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH_002"));
+        mockMvc.perform(post("/api/v1/finance/payment-verifications/{paymentId}/verify", RECEIPT_ID))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH_002"));
+    }
+
     private void assertAllFiveEndpointsForbidden() throws Exception {
         mockMvc.perform(get("/api/v1/finance/receipts/unallocated"))
                 .andExpect(status().isForbidden())

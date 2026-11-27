@@ -352,4 +352,89 @@ class UserAccountServiceImplTest {
         assertThat(canonicalNullEvent.oldData()).isNotNull().isEmpty();
         assertThat(canonicalNullEvent.newData()).isNotNull().isEmpty();
     }
+
+    @Test
+    void create_rejectsInvalidTemporaryPasswordPolicy() {
+        when(userAccountMapper.toNewUser(any(CreateUserAccountRequest.class))).thenAnswer(invocation -> {
+            CreateUserAccountRequest req = invocation.getArgument(0);
+            User user = new User();
+            user.setUsername(req.getUsername().trim());
+            user.setEmail(req.getEmail().trim().toLowerCase(java.util.Locale.ROOT));
+            user.setPhone(req.getPhone().trim());
+            return user;
+        });
+        UUID actorId = UUID.randomUUID();
+        Role staff = role("SALES_STAFF");
+        when(roleRepository.findAllById(Set.of(staff.getRoleId()))).thenReturn(List.of(staff));
+
+        String[] badPasswords = {
+                "Mismatch@1",
+                "Has Space@1",
+                "weakpass",
+                "A".repeat(70) + "a1!"
+        };
+        for (String bad : badPasswords) {
+            String confirm = "Mismatch@1".equals(bad) ? "Other@123" : bad;
+            assertThatThrownBy(() -> service.create(CreateUserAccountRequest.builder()
+                    .username("staff.bad").email("bad@example.com").phone("0901234567")
+                    .roleIds(Set.of(staff.getRoleId()))
+                    .autoGenerateTemporaryPassword(false)
+                    .temporaryPassword(bad)
+                    .confirmTemporaryPassword(confirm)
+                    .build(), actorId))
+                    .isInstanceOf(AppException.class)
+                    .extracting(error -> ((AppException) error).getErrorCode())
+                    .isEqualTo(UserAccountErrorCode.INVALID_TEMPORARY_PASSWORD);
+        }
+        verify(userRepository, never()).saveAndFlush(any(User.class));
+    }
+
+    @Test
+    void changeStatus_rejectsInvalidOrSameOrPendingActivationStatus() {
+        UUID actorId = UUID.randomUUID();
+        UUID targetId = UUID.randomUUID();
+        User target = activeUser(targetId, role("SALES_STAFF"));
+        when(userRepository.findWithRolesAndPermissionsById(targetId)).thenReturn(Optional.of(target));
+
+        for (String badStatus : List.of("ACTIVE", "PENDING_ACTIVATION", "UNKNOWN_STATUS")) {
+            assertThatThrownBy(() -> service.changeStatus(targetId,
+                    ChangeUserStatusRequest.builder().targetStatus(badStatus).build(), actorId))
+                    .isInstanceOf(AppException.class)
+                    .extracting(error -> ((AppException) error).getErrorCode())
+                    .isEqualTo(UserAccountErrorCode.INVALID_STATUS_TRANSITION);
+        }
+        verify(userRepository, never()).saveAndFlush(any(User.class));
+    }
+
+    @Test
+    void create_rejectsInactiveOrMissingRolesAndDetailRejectsMissingUser() {
+        UUID actorId = UUID.randomUUID();
+        UUID missingUserId = UUID.randomUUID();
+        when(userRepository.findWithRolesAndPermissionsById(missingUserId)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.detail(missingUserId, actorId))
+                .isInstanceOf(AppException.class)
+                .extracting(error -> ((AppException) error).getErrorCode())
+                .isEqualTo(UserAccountErrorCode.USER_NOT_FOUND);
+
+        when(userAccountMapper.toNewUser(any(CreateUserAccountRequest.class))).thenAnswer(invocation -> {
+            CreateUserAccountRequest req = invocation.getArgument(0);
+            User user = new User();
+            user.setUsername(req.getUsername().trim());
+            user.setEmail(req.getEmail().trim().toLowerCase(java.util.Locale.ROOT));
+            user.setPhone(req.getPhone().trim());
+            return user;
+        });
+        Role inactiveRole = role("INACTIVE_ROLE");
+        inactiveRole.setActive(false);
+        when(roleRepository.findAllById(Set.of(inactiveRole.getRoleId()))).thenReturn(List.of(inactiveRole));
+
+        assertThatThrownBy(() -> service.create(CreateUserAccountRequest.builder()
+                .username("staff.role").email("role@example.com").phone("0901234567")
+                .roleIds(Set.of(inactiveRole.getRoleId()))
+                .autoGenerateTemporaryPassword(true)
+                .build(), actorId))
+                .isInstanceOf(AppException.class)
+                .extracting(error -> ((AppException) error).getErrorCode())
+                .isEqualTo(UserAccountErrorCode.ROLE_NOT_FOUND);
+    }
 }

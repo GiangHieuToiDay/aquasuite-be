@@ -220,6 +220,16 @@ class OrderModificationRequestControllerSecurityTest {
     }
 
     @Test
+    @WithMockUser(roles = "SHOP_OWNER")
+    void shopOwnerCannotRecordTaxResult() throws Exception {
+        mockMvc.perform(post("/api/v1/sales/order-modification-requests/{requestId}/tax-result", REQUEST_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"taxResultReference\":\"REF-001\","
+                                + "\"resultingInvoiceId\":\"10000000-0000-4000-8000-000000000099\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @WithMockUser(roles = "SALES_STAFF")
     void salesStaffCanSendResultEmail() throws Exception {
         when(iamApi.getCurrentUserId()).thenReturn(UUID.randomUUID());

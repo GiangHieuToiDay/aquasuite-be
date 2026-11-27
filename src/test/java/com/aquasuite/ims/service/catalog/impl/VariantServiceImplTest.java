@@ -47,6 +47,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -73,7 +74,7 @@ class VariantServiceImplTest {
         Product product = new Product();
         product.setProductId(productId);
         product.setStatus(ProductStatus.ACTIVE);
-        when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+        lenient().when(productRepository.findById(productId)).thenReturn(Optional.of(product));
         // deferred to test methods that need it
     }
 
@@ -334,6 +335,67 @@ class VariantServiceImplTest {
                 .containsEntry("cartItemCount", 2L)
                 .containsEntry("purchaseOrderCount", 0L)
                 .containsEntry("deliveryItemCount", 0L);
+    }
+
+    @Test
+    void list_rejectsInvalidSortFieldDirectionAndBlankWarehouse() {
+        assertThatThrownBy(() -> service.list(productId, null, null, false, "unknownField", "DESC", "WH_MAIN", PageRequest.of(0, 10)))
+                .isInstanceOf(AppException.class)
+                .extracting(error -> ((AppException) error).getErrorCode())
+                .isEqualTo(CatalogVariantErrorCode.INVALID_SORT_FIELD);
+
+        assertThatThrownBy(() -> service.list(productId, null, null, false, "sku", "SIDEWAYS", "WH_MAIN", PageRequest.of(0, 10)))
+                .isInstanceOf(AppException.class)
+                .extracting(error -> ((AppException) error).getErrorCode())
+                .isEqualTo(CatalogVariantErrorCode.INVALID_SORT_DIRECTION);
+
+        assertThatThrownBy(() -> service.list(productId, null, null, false, "sku", "ASC", "   ", PageRequest.of(0, 10)))
+                .isInstanceOf(AppException.class)
+                .extracting(error -> ((AppException) error).getErrorCode())
+                .isEqualTo(CatalogVariantErrorCode.INVALID_WAREHOUSE_CODE);
+    }
+
+    @Test
+    void create_rejectsMismatchedOrInactiveWarrantyPolicy() {
+        UUID brandId = UUID.randomUUID();
+        UUID categoryId = UUID.randomUUID();
+        UUID otherCategoryId = UUID.randomUUID();
+        UUID policyId = UUID.randomUUID();
+        Product product = new Product();
+        product.setProductId(productId);
+        product.setStatus(ProductStatus.ACTIVE);
+        product.setProductType(ProductType.NORMAL);
+        product.setBrandId(brandId);
+        product.setCategoryId(categoryId);
+        when(productRepository.findById(productId)).thenReturn(Optional.of(product));
+
+        WarrantyPolicy mismatchedPolicy = new WarrantyPolicy();
+        mismatchedPolicy.setWarrantyPolicyId(policyId);
+        mismatchedPolicy.setBrandId(brandId);
+        mismatchedPolicy.setCategoryId(otherCategoryId);
+        mismatchedPolicy.setStatus("ACTIVE");
+        when(warrantyPolicyRepository.findById(policyId)).thenReturn(Optional.of(mismatchedPolicy));
+
+        VariantUpsertRequest requestWithPolicy = new VariantUpsertRequest(
+                "SKU-NEO-WHT-305", "White 305", "cái", BigDecimal.ONE,
+                "Glossy White", "305mm", BigDecimal.ZERO, Map.of(), new BigDecimal("30000000"),
+                new BigDecimal("45000000"), policyId, false, null, false);
+
+        assertThatThrownBy(() -> service.create(productId, requestWithPolicy))
+                .isInstanceOf(AppException.class)
+                .extracting(error -> ((AppException) error).getErrorCode())
+                .isEqualTo(CatalogVariantErrorCode.WARRANTY_POLICY_NOT_APPLICABLE);
+        verify(variantRepository, never()).saveAndFlush(any(ProductVariant.class));
+    }
+
+    @Test
+    void delete_withoutConfirmation_rejectsWithSku008() {
+        UUID variantId = UUID.randomUUID();
+        assertThatThrownBy(() -> service.delete(productId, variantId, new VariantDeleteRequest(false, "mistake")))
+                .isInstanceOf(AppException.class)
+                .extracting(error -> ((AppException) error).getErrorCode())
+                .isEqualTo(CatalogVariantErrorCode.INVALID_DELETE_CONFIRMATION);
+        verify(variantRepository, never()).delete(any(ProductVariant.class));
     }
 
     private ProductVariant variant(UUID variantId) {

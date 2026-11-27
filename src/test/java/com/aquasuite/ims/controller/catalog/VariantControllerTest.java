@@ -264,39 +264,39 @@ class VariantControllerTest {
 
     @Test
     @WithMockUser(roles = "SALES_STAFF")
-    void salesStaffCanReadVariantsWithMaskedCostPriceAndCannotSortByProfit() throws Exception {
+    void salesStaffIsForbiddenFromListAndStats() throws Exception {
         mvc.perform(get("/api/v1/catalog/products/{productId}/variants", PRODUCT_ID))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content[0].sku").value("SKU-NEO-WHT-305"))
-                .andExpect(jsonPath("$.data.content[0].costPrice").value(Matchers.nullValue()))
-                .andExpect(jsonPath("$.data.content[0].sellingPrice").value(45000000));
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH_002"));
 
         mvc.perform(get("/api/v1/catalog/products/{productId}/variants/stats", PRODUCT_ID))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.total").value(2));
-
-        mvc.perform(get("/api/v1/catalog/products/{productId}/variants", PRODUCT_ID)
-                        .param("sortBy", "profit"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("AUTH_002"));
     }
 
     @Test
     @WithMockUser(roles = "SHOP_OWNER")
-    void shopOwnerReceivesFullCostPriceInList() throws Exception {
+    void shopOwnerReceivesFullCostPriceInListAndStats() throws Exception {
         mvc.perform(get("/api/v1/catalog/products/{productId}/variants", PRODUCT_ID))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content[0].costPrice").value(30000000))
                 .andExpect(jsonPath("$.data.content[0].sellingPrice").value(45000000));
+
+        mvc.perform(get("/api/v1/catalog/products/{productId}/variants/stats", PRODUCT_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(2));
     }
 
     @Test
     @WithMockUser(roles = "ACCOUNTANT")
-    void accountantReceivesFullCostPriceInList() throws Exception {
+    void accountantIsForbiddenFromListAndStats() throws Exception {
         mvc.perform(get("/api/v1/catalog/products/{productId}/variants", PRODUCT_ID))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content[0].costPrice").value(30000000))
-                .andExpect(jsonPath("$.data.content[0].sellingPrice").value(45000000));
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH_002"));
+
+        mvc.perform(get("/api/v1/catalog/products/{productId}/variants/stats", PRODUCT_ID))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH_002"));
     }
 
     @Test
