@@ -10,10 +10,7 @@ import com.aquasuite.ims.dto.sales.response.ReservationManagementView.ReleaseRes
 import com.aquasuite.ims.exception.AppException;
 import com.aquasuite.ims.exception.CommonErrorCode;
 import com.aquasuite.ims.service.sales.OrderReservationService;
-import com.aquasuite.ims.service.sales.impl.OrderStockReservationService;
 import com.aquasuite.ims.service.sales.impl.ProjectDepositService;
-import com.aquasuite.ims.service.sales.impl.ReservationManagementService;
-import com.aquasuite.ims.service.sales.impl.OrderReservationServiceImpl;
 import com.aquasuite.ims.service.sales.helper.ReservationAllocationRecovery;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,15 +36,6 @@ public class OrderReservationController {
         this.orderReservationService = orderReservationService;
         this.allocationRecovery = allocationRecovery;
         this.projectDepositService = projectDepositService;
-    }
-
-    public OrderReservationController(
-            OrderStockReservationService stockReservationService,
-            ReservationAllocationRecovery allocationRecovery,
-            ReservationManagementService reservationManagementService,
-            ProjectDepositService projectDepositService) {
-        this(new OrderReservationServiceImpl(stockReservationService, reservationManagementService),
-                allocationRecovery, projectDepositService);
     }
 
     private ProjectDepositService depositService() {

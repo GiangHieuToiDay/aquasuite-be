@@ -13,7 +13,7 @@ import com.aquasuite.ims.dto.sales.request.OrderStockReservationRequest;
 import com.aquasuite.ims.dto.sales.request.OrderStockReservationRequest.Line;
 import com.aquasuite.ims.dto.sales.response.OrderStockReservationView;
 import com.aquasuite.ims.repository.sales.store.OrderStockReservationStore;
-import com.aquasuite.ims.service.sales.impl.OrderStockReservationService;
+import com.aquasuite.ims.service.sales.impl.OrderReservationServiceImpl;
 import com.aquasuite.ims.exception.*;
 import com.aquasuite.ims.testsupport.PostgreSqlIntegrationTestSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -35,7 +35,7 @@ import static com.aquasuite.ims.exception.sales.ProjectDepositErrorCode.*;
 
 @DataJpaTest(showSql=false, properties="spring.datasource.hikari.maximum-pool-size=3")
 @AutoConfigureTestDatabase(replace=AutoConfigureTestDatabase.Replace.NONE)
-@Import({OrderStockReservationService.class,com.aquasuite.ims.service.sales.impl.SalesQueryServiceImpl.class,OrderStockReservationStore.class,OrderReceivableServiceImpl.class,com.aquasuite.ims.service.finance.impl.PaymentServiceImpl.class,SalesOrderServiceImpl.class,
+@Import({OrderReservationServiceImpl.class, com.aquasuite.ims.repository.sales.store.ReservationReleaseStore.class, com.aquasuite.ims.service.sales.helper.ReservationActorNames.class,com.aquasuite.ims.service.sales.impl.SalesQueryServiceImpl.class,OrderStockReservationStore.class,OrderReceivableServiceImpl.class,com.aquasuite.ims.service.finance.impl.PaymentServiceImpl.class,SalesOrderServiceImpl.class,
         StockReservationServiceImpl.class,StockReservationStore.class,InventoryServiceImpl.class,
         OrderStockReservationPostgresTest.Json.class})
 @Transactional(propagation=Propagation.NOT_SUPPORTED)
@@ -48,7 +48,7 @@ class OrderStockReservationPostgresTest extends PostgreSqlIntegrationTestSupport
     @TestConfiguration static class Json {
         @Bean ObjectMapper json() { return new ObjectMapper().findAndRegisterModules(); }
     }
-    @Autowired OrderStockReservationService service;
+    @Autowired OrderReservationServiceImpl service;
     @Autowired InventoryServiceImpl legacy;
     @Autowired com.aquasuite.ims.service.inventory.StockReservationService reservationApi;
     @Autowired JdbcTemplate jdbc;

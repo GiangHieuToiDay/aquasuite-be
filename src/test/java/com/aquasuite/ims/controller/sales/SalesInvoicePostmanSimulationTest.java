@@ -41,11 +41,9 @@ import com.aquasuite.ims.repository.sales.QuotationPaymentMilestoneRepository;
 import com.aquasuite.ims.repository.sales.QuotationRepository;
 import com.aquasuite.ims.repository.sales.SalesInvoiceItemRepository;
 import com.aquasuite.ims.repository.sales.SalesInvoiceRepository;
-import com.aquasuite.ims.service.sales.impl.OrderStockReservationService;
-import com.aquasuite.ims.service.sales.SalesInvoiceService;
+import com.aquasuite.ims.service.sales.impl.OrderReservationServiceImpl;
 import com.aquasuite.ims.service.sales.SalesOrderService;
 import com.aquasuite.ims.service.sales.helper.OrderCodeGenerator;
-import com.aquasuite.ims.service.sales.impl.SalesInvoiceServiceImpl;
 import com.aquasuite.ims.service.sales.impl.SalesInvoiceServiceImpl;
 import com.aquasuite.ims.service.sales.impl.SalesOrderServiceImpl;
 import com.aquasuite.ims.exception.GlobalExceptionHandler;
@@ -160,7 +158,7 @@ public class SalesInvoicePostmanSimulationTest {
                 CustomerService crmApi = Mockito.mock(CustomerService.class);
                 IamQueryService iamApi = Mockito.mock(IamQueryService.class);
                 OrderCodeGenerator orderCodeGenerator = Mockito.mock(OrderCodeGenerator.class);
-                OrderStockReservationService reservationService = Mockito.mock(OrderStockReservationService.class);
+                OrderReservationServiceImpl reservationService = Mockito.mock(OrderReservationServiceImpl.class);
                 ApplicationEventPublisher eventPublisher = publishedEvents::add;
 
                 customerId = UUID.fromString("11111111-2222-3333-4444-555555555511");

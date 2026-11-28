@@ -110,7 +110,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     private final QuotationItemRepository quotationItemRepository;
     private final QuotationPaymentMilestoneRepository quotationPaymentMilestoneRepository;
     private final OrderPaymentMilestoneRepository orderPaymentMilestoneRepository;
-    private final com.aquasuite.ims.service.sales.impl.OrderStockReservationService orderStockReservationService;
+    private final com.aquasuite.ims.service.sales.impl.OrderReservationServiceImpl orderStockReservationService;
     private final com.aquasuite.ims.service.finance.PaymentService orderReceivableApi;
     private final org.springframework.context.ApplicationEventPublisher eventPublisher;
     private final OrderModificationRequestServiceImpl modificationService;
@@ -134,7 +134,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             QuotationItemRepository quotationItemRepository,
             QuotationPaymentMilestoneRepository quotationPaymentMilestoneRepository,
             OrderPaymentMilestoneRepository orderPaymentMilestoneRepository,
-            com.aquasuite.ims.service.sales.impl.OrderStockReservationService orderStockReservationService,
+            com.aquasuite.ims.service.sales.impl.OrderReservationServiceImpl orderStockReservationService,
             com.aquasuite.ims.service.finance.PaymentService orderReceivableApi,
             org.springframework.context.ApplicationEventPublisher eventPublisher,
             @org.springframework.beans.factory.annotation.Autowired(required = false) OrderModificationRequestServiceImpl modificationService,
@@ -179,7 +179,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             QuotationItemRepository quotationItemRepository,
             QuotationPaymentMilestoneRepository quotationPaymentMilestoneRepository,
             OrderPaymentMilestoneRepository orderPaymentMilestoneRepository,
-            com.aquasuite.ims.service.sales.impl.OrderStockReservationService orderStockReservationService,
+            com.aquasuite.ims.service.sales.impl.OrderReservationServiceImpl orderStockReservationService,
             com.aquasuite.ims.service.finance.PaymentService orderReceivableApi,
             org.springframework.context.ApplicationEventPublisher eventPublisher,
             OrderModificationRequestServiceImpl modificationService) {
@@ -205,7 +205,7 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             QuotationItemRepository quotationItemRepository,
             QuotationPaymentMilestoneRepository quotationPaymentMilestoneRepository,
             OrderPaymentMilestoneRepository orderPaymentMilestoneRepository,
-            com.aquasuite.ims.service.sales.impl.OrderStockReservationService orderStockReservationService,
+            com.aquasuite.ims.service.sales.impl.OrderReservationServiceImpl orderStockReservationService,
             com.aquasuite.ims.service.finance.PaymentService orderReceivableApi,
             org.springframework.context.ApplicationEventPublisher eventPublisher) {
         this(orderRepository, orderItemRepository, salesInvoiceRepository, salesInvoiceItemRepository,

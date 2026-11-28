@@ -10,7 +10,7 @@ import com.aquasuite.ims.controller.sales.OrderReservationController;
 import com.aquasuite.ims.entity.sales.*;
 import com.aquasuite.ims.enums.sales.*;
 import com.aquasuite.ims.repository.sales.*;
-import com.aquasuite.ims.service.sales.impl.ReservationManagementService;
+import com.aquasuite.ims.service.sales.impl.OrderReservationServiceImpl;
 import com.aquasuite.ims.exception.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,7 +33,7 @@ class ReservationManagementTest {
     ReservationReleaseStore releases = mock(ReservationReleaseStore.class);
     StockReservationService inventory = mock(StockReservationService.class);
     IamQueryService iam = mock(IamQueryService.class);
-    ReservationManagementService service = new ReservationManagementService(orders, decisions, items, releases, inventory, iam, new com.aquasuite.ims.service.sales.helper.ReservationActorNames(iam));
+    OrderReservationServiceImpl service = new OrderReservationServiceImpl(orders, mock(OrderItemRepository.class), mock(com.aquasuite.ims.repository.sales.store.OrderStockReservationStore.class), mock(com.aquasuite.ims.service.finance.PaymentService.class), inventory, iam, new ObjectMapper(), decisions, items, releases, new ReservationActorNames(iam));
     UUID order = UUID.randomUUID(), item = UUID.randomUUID(), variant = UUID.randomUUID(),
             reservation = UUID.randomUUID(), decisionId = UUID.randomUUID(), owner = UUID.randomUUID();
     OrderModificationRequest decision;
@@ -53,7 +53,7 @@ class ReservationManagementTest {
         when(decisions.findByIdForUpdate(decisionId)).thenReturn(Optional.of(decision));
         when(decisions.findByOrderIdOrderByCreatedAtAsc(order)).thenReturn(List.of(decision));
         when(inventory.findByOrder(order)).thenReturn(List.of(stock("5", "0")));
-        mvc = MockMvcBuilders.standaloneSetup(new OrderReservationController(null, null, service, null))
+        mvc = MockMvcBuilders.standaloneSetup(new OrderReservationController(service, null, null))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
     }
 

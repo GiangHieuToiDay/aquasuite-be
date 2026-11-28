@@ -25,9 +25,7 @@ import com.aquasuite.ims.repository.sales.OrderItemRepository;
 import com.aquasuite.ims.repository.sales.OrderRepository;
 import com.aquasuite.ims.repository.sales.QuotationItemRepository;
 import com.aquasuite.ims.repository.sales.QuotationRepository;
-import com.aquasuite.ims.service.sales.SalesOrderService;
 import com.aquasuite.ims.service.sales.helper.OrderCodeGenerator;
-import com.aquasuite.ims.service.sales.impl.SalesOrderServiceImpl;
 import com.aquasuite.ims.service.sales.impl.SalesOrderServiceImpl;
 import com.aquasuite.ims.exception.GlobalExceptionHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -277,7 +275,7 @@ public class SalesOrderPostmanSimulationTest {
                 quotationItemRepository,
                 quotationPaymentMilestoneRepository,
                 orderPaymentMilestoneRepository,
-                org.mockito.Mockito.mock(com.aquasuite.ims.service.sales.impl.OrderStockReservationService.class),
+                org.mockito.Mockito.mock(com.aquasuite.ims.service.sales.impl.OrderReservationServiceImpl.class),
                 org.mockito.Mockito.mock(com.aquasuite.ims.service.finance.PaymentService.class),
                 org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class)
         );

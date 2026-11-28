@@ -1,5 +1,5 @@
 package com.aquasuite.ims.service.sales.helper;
-import com.aquasuite.ims.service.sales.impl.OrderStockReservationService;
+import com.aquasuite.ims.service.sales.OrderReservationService;
 
 import com.aquasuite.ims.repository.sales.store.OrderStockReservationStore;
 import com.aquasuite.ims.repository.sales.store.ReservationAllocationStore;
@@ -14,7 +14,7 @@ import java.util.UUID;
 public class ReservationAllocationProcessor {
     private final ReservationAllocationStore jobs;
     private final OrderStockReservationStore selections;
-    private final OrderStockReservationService reservations;
+    private final OrderReservationService reservations;
 
     /** Lock order before job/stock, matching finance's order-first locking protocol. */
     @Transactional(propagation=Propagation.REQUIRES_NEW)

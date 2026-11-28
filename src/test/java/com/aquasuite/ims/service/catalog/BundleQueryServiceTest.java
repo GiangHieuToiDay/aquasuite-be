@@ -8,7 +8,7 @@ import com.aquasuite.ims.entity.catalog.BundleConfiguration;
 import com.aquasuite.ims.mapper.catalog.BundleMapper;
 import com.aquasuite.ims.dto.catalog.response.BundleResponse;
 import com.aquasuite.ims.repository.catalog.*;
-import com.aquasuite.ims.service.catalog.impl.BundleQueryServiceImpl;
+import com.aquasuite.ims.service.catalog.impl.BundleServiceImpl;
 import com.aquasuite.ims.exception.AppException;
 
 import org.junit.jupiter.params.ParameterizedTest;
@@ -64,14 +64,12 @@ class BundleQueryServiceTest {
                                         product, config, List.of(), Map.of(), Map.of())));
         when(assembler.detail(product, config, List.of(), Map.of(), Map.of())).thenReturn(detail);
         var query =
-                new BundleQueryServiceImpl(
-                        mock(ProductRepository.class),
-                        mock(ProductVariantRepository.class),
-                        configs,
-                        repo,
-                        mock(BundleMapper.class),
-                        assembler,
-                        Clock.fixed(from.plusSeconds(offset), ZoneOffset.UTC));
+                new BundleServiceImpl(
+                        mock(ProductRepository.class), mock(ProductVariantRepository.class), configs,
+                        mock(BundleItemRepository.class), mock(CategoryRepository.class),
+                        mock(com.aquasuite.ims.service.catalog.helper.BundlePricingService.class), repo,
+                        Clock.fixed(from.plusSeconds(offset), ZoneOffset.UTC), mock(jakarta.validation.Validator.class),
+                        mock(BundleMapper.class), assembler);
         if (visible) assertThat(query.getPublishedBundleDetails(id)).isSameAs(detail);
         else
             assertThatThrownBy(() -> query.getPublishedBundleDetails(id))

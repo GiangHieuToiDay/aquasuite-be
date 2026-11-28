@@ -1,5 +1,5 @@
 package com.aquasuite.ims.service.sales.helper;
-import com.aquasuite.ims.service.sales.impl.OrderStockReservationService;
+import com.aquasuite.ims.service.sales.OrderReservationService;
 
 import com.aquasuite.ims.repository.sales.store.ReservationAllocationStore;
 import com.aquasuite.ims.dto.sales.response.OrderStockReservationView;
@@ -12,7 +12,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class ReservationAllocationRecovery {
-    private final OrderStockReservationService reservations;
+    private final OrderReservationService reservations;
     private final ReservationAllocationStore jobs;
     private final ReservationAllocationRunner runner;
 

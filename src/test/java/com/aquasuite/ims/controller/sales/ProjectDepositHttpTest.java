@@ -30,7 +30,7 @@ class ProjectDepositHttpTest {
     @Test
     void invalidAmountsAndMissingRequestIdsAreRejectedBeforeCallingService() throws Exception {
         var service = mock(ProjectDepositService.class);
-        var mvc = MockMvcBuilders.standaloneSetup(new OrderReservationController(null, null, null, service))
+        var mvc = MockMvcBuilders.standaloneSetup(new OrderReservationController(null, null, service))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
         String path = "/api/v1/sales/orders/"+UUID.randomUUID()+"/deposits-reservations";
         mvc.perform(post(path+"/deposits").contentType(MediaType.APPLICATION_JSON)

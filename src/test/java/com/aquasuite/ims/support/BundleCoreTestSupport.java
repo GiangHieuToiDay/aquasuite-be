@@ -85,8 +85,6 @@ public abstract class BundleCoreTestSupport {
             })
     @Import({
         com.aquasuite.ims.service.catalog.impl.BundleServiceImpl.class,
-        com.aquasuite.ims.service.catalog.impl.BundleAdminServiceImpl.class,
-        com.aquasuite.ims.service.catalog.impl.BundleQueryServiceImpl.class,
         com.aquasuite.ims.repository.catalog.BundleRepository.class,
         BundleInventoryReader.class,
         BundleEvaluationService.class,

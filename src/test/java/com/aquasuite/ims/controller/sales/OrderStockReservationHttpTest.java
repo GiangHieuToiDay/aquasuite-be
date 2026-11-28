@@ -2,7 +2,7 @@ package com.aquasuite.ims.controller.sales;
 import com.aquasuite.ims.service.sales.helper.ReservationAllocationRecovery;
 
 import com.aquasuite.ims.controller.sales.OrderReservationController;
-import com.aquasuite.ims.service.sales.impl.OrderStockReservationService;
+import com.aquasuite.ims.service.sales.impl.OrderReservationServiceImpl;
 import com.aquasuite.ims.exception.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -14,8 +14,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class OrderStockReservationHttpTest {
     @Test void rejectsMissingKeysInvalidQuantitiesAndInvalidWarehousesBeforeCallingService() throws Exception {
-        var service=mock(OrderStockReservationService.class);
-        var mvc=MockMvcBuilders.standaloneSetup(new OrderReservationController(service, mock(com.aquasuite.ims.service.sales.helper.ReservationAllocationRecovery.class), null, null))
+        var service=mock(OrderReservationServiceImpl.class);
+        var mvc=MockMvcBuilders.standaloneSetup(new OrderReservationController(service, mock(com.aquasuite.ims.service.sales.helper.ReservationAllocationRecovery.class), null))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
         String path="/api/v1/sales/orders/"+UUID.randomUUID()+"/stock-reservations/requests";
         for(String body : new String[]{"{}",
@@ -27,9 +27,9 @@ class OrderStockReservationHttpTest {
         verifyNoInteractions(service);
     }
     @Test void accessDeniedUsesTheStandardEnvelope() throws Exception {
-        var service=mock(OrderStockReservationService.class);UUID order=UUID.randomUUID();
+        var service=mock(OrderReservationServiceImpl.class);UUID order=UUID.randomUUID();
         when(service.get(order)).thenThrow(new AppException(CommonErrorCode.ACCESS_DENIED));
-        MockMvcBuilders.standaloneSetup(new OrderReservationController(service, mock(com.aquasuite.ims.service.sales.helper.ReservationAllocationRecovery.class), null, null))
+        MockMvcBuilders.standaloneSetup(new OrderReservationController(service, mock(com.aquasuite.ims.service.sales.helper.ReservationAllocationRecovery.class), null))
                 .setControllerAdvice(new GlobalExceptionHandler()).build()
                 .perform(get("/api/v1/sales/orders/"+order+"/stock-reservations"))
                 .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("AUTH_002"));

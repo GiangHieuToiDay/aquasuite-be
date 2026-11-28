@@ -64,7 +64,7 @@ class DeliveryIssuePostgresTest extends PostgreSqlIntegrationTestSupport {
         @MockBean
         IamQueryService iam;
         @MockBean com.aquasuite.ims.service.finance.PaymentService mockPaymentService;
-        @MockBean com.aquasuite.ims.service.sales.impl.OrderStockReservationService mockOrderStockReservationService;
+        @MockBean com.aquasuite.ims.service.sales.impl.OrderReservationServiceImpl mockOrderStockReservationService;
         @MockBean com.aquasuite.ims.service.sales.helper.OrderCodeGenerator mockOrderCodeGenerator;
         @MockBean com.aquasuite.ims.mapper.sales.SalesOrderMapper mockSalesOrderMapper;
         @MockBean com.aquasuite.ims.service.crm.CustomerService mockCustomerService;

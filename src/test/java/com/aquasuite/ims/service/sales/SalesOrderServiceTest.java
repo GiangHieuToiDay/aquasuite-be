@@ -1,6 +1,6 @@
 package com.aquasuite.ims.service.sales;
 
-import com.aquasuite.ims.service.sales.impl.OrderStockReservationService;
+import com.aquasuite.ims.service.sales.impl.OrderReservationServiceImpl;
 
 import com.aquasuite.ims.service.catalog.CatalogLookupService;
 import com.aquasuite.ims.dto.catalog.response.CatalogBundleSummaryDto;
@@ -106,7 +106,7 @@ class SalesOrderServiceTest {
     @Mock private SalesInvoiceRepository salesInvoiceRepository;
     @Mock private SalesInvoiceItemRepository salesInvoiceItemRepository;
     @Mock private CreditControlService creditControlApi;
-    @Mock private OrderStockReservationService orderStockReservationService;
+    @Mock private OrderReservationServiceImpl orderStockReservationService;
     @Mock private com.aquasuite.ims.service.finance.PaymentService orderReceivableApi;
     @Mock private org.springframework.context.ApplicationEventPublisher eventPublisher;
 

@@ -16,6 +16,7 @@ public interface OrderReservationService {
     void registerConvertedOrder(Order order, List<OrderItem> source, UUID actorId);
     OrderStockReservationView get(UUID orderId);
     OrderStockReservationView apply(UUID orderId, OrderStockReservationRequest request, boolean isSynchronize);
+    void allocateAutomatically(UUID orderId, UUID operationId);
     ReservationManagementView history(UUID orderId);
     ReservationManagementView.ReleaseResult release(UUID orderId, UUID requestId, String reason);
 }
