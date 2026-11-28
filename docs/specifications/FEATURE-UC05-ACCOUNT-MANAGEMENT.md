@@ -4,7 +4,7 @@
 
 - **Feature ID**: `FEATURE-UC05-ACCOUNT-MANAGEMENT`
 - **Feature Name**: Manage User Accounts and Status
-- **Version**: `0.5.0`
+- **Version**: `0.6.0`
 - **Owner / Author**: AquaSuite Backend Team
 - **Owning Modules**: `iam`, `audit`
 - **Repository Scope**: `BE (aquasuite-be)`
@@ -57,8 +57,8 @@ keyword, role, and status filters; pagination; and account activity history.
 
 | Action | Result |
 |---|---|
-| Create | Validate unique username/email/phone; persist `ACTIVE`, `LOCAL`, `false`; set one or more selected `user_roles` rows; publish a non-sensitive event; send credentials through SMTP after commit. |
-| Edit | Change username, email, phone, avatar URL, and the selected role set; status is immutable through this endpoint. |
+| Create | Validate unique username/email/phone; persist `ACTIVE`, `LOCAL`, `false`; set one or more selected `user_roles` rows; publish a non-sensitive event; send credentials through SMTP after commit. The `CUSTOMER` role cannot be assigned here; customer accounts must use the email-OTP registration flow that creates/links the CRM profile. |
+| Edit | Change username, email, phone, avatar URL, and the selected role set; status is immutable through this endpoint. An already assigned `CUSTOMER` role may be retained or removed, but cannot be newly added to a non-customer account. |
 | Deactivate | `ACTIVE -> INACTIVE`; revoke target sessions after commit. |
 | Lock | `ACTIVE -> LOCKED`; revoke target sessions after commit. |
 | Reactivate | `INACTIVE|LOCKED -> ACTIVE`; does not issue credentials or restore old sessions. |
@@ -119,6 +119,10 @@ All responses use the existing `ApiResponse<T>` convention.
 Create and update payloads require a non-empty `roleIds` set of non-null UUIDs.
 Every selected role must exist and be active. `roleId` is not accepted by the
 UC-05 account endpoints.
+Assigning `CUSTOMER` through create, or adding it through update, returns
+`IAM_ACC_009` (`400 BAD_REQUEST`). Existing customer accounts may still be
+edited while retaining their current role. This guard prevents IAM-only
+accounts without a linked CRM profile; it does not repair legacy accounts.
 
 Duplicate username, email, or phone returns the approved MSG25 business error.
 Unauthorized access returns the centralized authorization error envelope.
@@ -151,6 +155,8 @@ runtime implementation.
 - [ ] Only one User entity/repository/status model is outside `internal/legacy`.
 - [ ] Store Owner can manage account list/detail/create/edit/status only through
   the documented endpoints and receives the existing API envelope.
+- [x] UC-05 cannot create a `CUSTOMER` account or add `CUSTOMER` to an existing
+  non-customer account; an existing customer role can be retained during edits.
 - [ ] New account is active, local, unverified, has every selected active role, and
   does not leak a temporary password.
 - [ ] The SMTP credential notification is sent after commit without logging the

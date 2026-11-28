@@ -8,6 +8,7 @@ At checkout create/reuse a CRM customer without an IAM account. Orders reference
 At email-OTP registration activation, attach the new user to the existing ACTIVE customer with the same trimmed Vietnamese mobile phone. If absent, create a profile and link it in the same transaction.
 Existing CRM names, emails, addresses, credit profile, customer_id/code, orders and payments remain unchanged.
 No retrospective reassignment of anonymous walk-in orders: their original phone is not reliably recorded.
+Shop Owner account management does not create or link customer profiles. New customer accounts must use email-OTP registration; this avoids linking an account to an existing phone-matched profile without the registration flow's explicit ownership policy.
 
 ## Actors and security
 Existing sales order role checks remain. Registration keeps current email OTP, terms/password and CUSTOMER-role rules.

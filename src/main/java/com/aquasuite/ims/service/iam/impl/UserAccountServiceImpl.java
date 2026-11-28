@@ -167,6 +167,7 @@ public class UserAccountServiceImpl implements UserAccountService {
         User user = userAccountMapper.toNewUser(request);
         assertCreateUnique(user.getUsername(), user.getEmail(), user.getPhone());
         Set<Role> roles = resolveRoles(request.getRoleIds());
+        assertCustomerRoleMayBeAssigned(Set.of(), roles);
         String rawPassword = request.isAutoGenerateTemporaryPassword() ? generateTemporaryPassword()
                 : validateProvidedTemporaryPassword(request.getTemporaryPassword(), request.getConfirmTemporaryPassword());
 
@@ -191,6 +192,7 @@ public class UserAccountServiceImpl implements UserAccountService {
         User user = findUser(id);
         Map<String, Object> oldData = accountSnapshot(user);
         Set<Role> roles = resolveRoles(request.getRoleIds());
+        assertCustomerRoleMayBeAssigned(user.getRoles(), roles);
         assertRoleChangeAllowed(user, roles, actorId);
         userAccountMapper.updateUser(request, user);
         assertUpdateUnique(user.getId(), user.getUsername(), user.getEmail(), user.getPhone());
@@ -265,6 +267,19 @@ public class UserAccountServiceImpl implements UserAccountService {
 
     private boolean isShopOwner(User user) { return isShopOwner(user.getRoles()); }
     private List<UUID> activeShopOwnerIdsLocked() { return userRepository.lockActiveShopOwnerIds(); }
+
+    private void assertCustomerRoleMayBeAssigned(Collection<Role> currentRoles, Collection<Role> replacementRoles) {
+        if (!hasCustomerRole(currentRoles) && hasCustomerRole(replacementRoles)) {
+            throw new AppException(UserAccountErrorCode.CUSTOMER_ROLE_REQUIRES_REGISTRATION);
+        }
+    }
+
+    private boolean hasCustomerRole(Collection<Role> roles) {
+        return roles.stream().map(Role::getRoleName).filter(Objects::nonNull)
+                .map(name -> name.trim().toUpperCase(Locale.ROOT))
+                .anyMatch(name -> name.equals("CUSTOMER") || name.equals("ROLE_CUSTOMER"));
+    }
+
     private boolean isShopOwner(Collection<Role> roles) {
         return roles.stream().map(Role::getRoleName).filter(Objects::nonNull)
                 .map(name -> name.trim().toUpperCase(Locale.ROOT))

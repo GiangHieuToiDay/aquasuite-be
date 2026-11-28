@@ -122,6 +122,58 @@ class UserAccountServiceImplTest {
     }
 
     @Test
+    void create_rejectsCustomerRoleOutsideRegistrationFlow() {
+        Role customer = role("CUSTOMER");
+        when(userAccountMapper.toNewUser(any(CreateUserAccountRequest.class))).thenReturn(new User());
+        when(roleRepository.findAllById(Set.of(customer.getRoleId()))).thenReturn(List.of(customer));
+
+        assertThatThrownBy(() -> service.create(CreateUserAccountRequest.builder()
+                .username("customer.one").email("customer.one@example.com").phone("0901234567")
+                .roleIds(Set.of(customer.getRoleId())).autoGenerateTemporaryPassword(true).build(), UUID.randomUUID()))
+                .isInstanceOf(AppException.class)
+                .extracting(error -> ((AppException) error).getErrorCode())
+                .isEqualTo(UserAccountErrorCode.CUSTOMER_ROLE_REQUIRES_REGISTRATION);
+        verify(userRepository, never()).saveAndFlush(any(User.class));
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    void update_rejectsAddingCustomerRoleToNonCustomerAccount() {
+        UUID actorId = UUID.randomUUID();
+        UUID targetId = UUID.randomUUID();
+        Role staff = role("SALES_STAFF");
+        Role customer = role("ROLE_CUSTOMER");
+        when(userRepository.findWithRolesAndPermissionsById(targetId))
+                .thenReturn(Optional.of(activeUser(targetId, staff)));
+        when(roleRepository.findAllById(Set.of(customer.getRoleId()))).thenReturn(List.of(customer));
+
+        assertThatThrownBy(() -> service.update(targetId, UpdateUserAccountRequest.builder()
+                .username("staff").email("staff@example.com").phone("0901234567")
+                .roleIds(Set.of(customer.getRoleId())).build(), actorId))
+                .isInstanceOf(AppException.class)
+                .extracting(error -> ((AppException) error).getErrorCode())
+                .isEqualTo(UserAccountErrorCode.CUSTOMER_ROLE_REQUIRES_REGISTRATION);
+        verify(userRepository, never()).saveAndFlush(any(User.class));
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    void update_allowsKeepingCustomerRoleOnExistingCustomerAccount() {
+        UUID actorId = UUID.randomUUID();
+        UUID targetId = UUID.randomUUID();
+        Role customer = role("CUSTOMER");
+        User target = activeUser(targetId, customer);
+        when(userRepository.findWithRolesAndPermissionsById(targetId)).thenReturn(Optional.of(target));
+        when(roleRepository.findAllById(Set.of(customer.getRoleId()))).thenReturn(List.of(customer));
+
+        service.update(targetId, UpdateUserAccountRequest.builder()
+                .username("customer").email("customer@example.com").phone("0901234567")
+                .roleIds(Set.of(customer.getRoleId())).build(), actorId);
+
+        verify(userRepository).saveAndFlush(target);
+    }
+
+    @Test
     void cannotDeactivateOwnAccount() {
         UUID userId = UUID.randomUUID();
         User currentUser = activeUser(userId, role("SHOP_OWNER"));
