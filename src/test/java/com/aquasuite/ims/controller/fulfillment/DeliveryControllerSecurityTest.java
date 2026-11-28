@@ -140,4 +140,18 @@ class DeliveryControllerSecurityTest {
         when(service.search(any(), any(), any(), any(), any(), any(), any())).thenReturn(Page.empty(org.springframework.data.domain.PageRequest.of(0, 20)));
         mvc.perform(get("/api/v1/fulfillment/deliveries")).andExpect(status().isOk());
     }
+    @Test @WithMockUser(roles = "CUSTOMER") void customerCanTrackOwnDeliveriesAndReadPhoto() throws Exception {
+        UUID photoId = UUID.randomUUID();
+        when(service.myCustomerDeliveries()).thenReturn(List.of());
+        when(service.readCustomerPhoto(UUID.fromString(id), photoId))
+                .thenReturn(new com.aquasuite.ims.integration.fulfillment.DeliveryPhotoStorage.Content(new byte[]{1, 2}, "image/png"));
+        mvc.perform(get("/api/v1/fulfillment/customer/deliveries")).andExpect(status().isOk());
+        mvc.perform(get("/api/v1/fulfillment/customer/deliveries/" + id + "/photos/" + photoId))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType("image/png"));
+    }
+    @Test @WithMockUser(roles = "SHIPPER") void shipperCannotCallCustomerTrackingEndpoint() throws Exception {
+        mvc.perform(get("/api/v1/fulfillment/customer/deliveries")).andExpect(status().isForbidden());
+        verifyNoInteractions(service);
+    }
 }

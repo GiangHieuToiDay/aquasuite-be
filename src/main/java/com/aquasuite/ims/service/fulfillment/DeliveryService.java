@@ -10,10 +10,16 @@ import com.aquasuite.ims.integration.fulfillment.DeliveryPhotoStorage;
 import com.aquasuite.ims.service.iam.IamQueryService;
 import com.aquasuite.ims.dto.iam.response.UserSummaryDto;
 import com.aquasuite.ims.service.catalog.CatalogLookupService;
+import com.aquasuite.ims.service.crm.CustomerService;
+import com.aquasuite.ims.dto.crm.response.CustomerSummaryDto;
+import com.aquasuite.ims.service.sales.SalesQueryService;
+import com.aquasuite.ims.dto.sales.response.SalesOrderDebtDto;
 import com.aquasuite.ims.exception.*;
 import jakarta.persistence.criteria.Predicate;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +30,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.*;
 import java.util.*;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,14 +44,23 @@ public class DeliveryService {
     private final CatalogLookupService catalog;
     private final DeliveryPhotoStorage storage;
     private final TransactionTemplate transaction;
+    private final CustomerService crm;
+    private final SalesQueryService salesQuery;
 
     public DeliveryService(DeliveryRepository deliveries, DeliveryItemRepository items, IamQueryService iam, CatalogLookupService catalog, DeliveryPhotoStorage storage, PlatformTransactionManager manager) {
+        this(deliveries, items, iam, catalog, storage, manager, null, null);
+    }
+
+    @Autowired
+    public DeliveryService(DeliveryRepository deliveries, DeliveryItemRepository items, IamQueryService iam, CatalogLookupService catalog, DeliveryPhotoStorage storage, PlatformTransactionManager manager, @Nullable CustomerService crm, @Nullable SalesQueryService salesQuery) {
         this.deliveries = deliveries;
         this.items = items;
         this.iam = iam;
         this.catalog = catalog;
         this.storage = storage;
         this.transaction = new TransactionTemplate(manager);
+        this.crm = crm;
+        this.salesQuery = salesQuery;
     }
 
     @Transactional(readOnly = true)
@@ -237,6 +253,45 @@ public class DeliveryService {
     @Transactional(readOnly = true)
     public DeliveryPhotoStorage.Content readPhoto(UUID id, UUID photoId) {
         Delivery d = required(id); authorizeRead(d);
+        return readPhotoContent(d, photoId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<DeliveryView.CustomerTracking> myCustomerDeliveries() {
+        CustomerSummaryDto customer = resolveCustomerProfile(false);
+        if (customer == null || salesQuery == null) {
+            return List.of();
+        }
+        List<SalesOrderDebtDto> orders = salesQuery.findOrdersByCustomerIds(Set.of(customer.customerId()));
+        if (orders == null || orders.isEmpty()) {
+            return List.of();
+        }
+        Map<UUID, String> orderCodes = orders.stream()
+                .collect(Collectors.toMap(SalesOrderDebtDto::orderId, SalesOrderDebtDto::orderCode, (a, b) -> a));
+        List<Delivery> customerDeliveries = deliveries.findByOrderIdInOrderByUpdatedAtDesc(orderCodes.keySet());
+        Map<UUID, UserSummaryDto> shipperCache = new HashMap<>();
+        return customerDeliveries.stream()
+                .filter(d -> !"DRAFT".equalsIgnoreCase(d.getDeliveryStatus()))
+                .map(d -> viewCustomer(d, orderCodes.get(d.getOrderId()), shipperCache))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public DeliveryPhotoStorage.Content readCustomerPhoto(UUID id, UUID photoId) {
+        CustomerSummaryDto customer = resolveCustomerProfile(true);
+        Delivery d = required(id);
+        if ("DRAFT".equalsIgnoreCase(d.getDeliveryStatus()) || salesQuery == null) {
+            throw new AppException(CommonErrorCode.ACCESS_DENIED);
+        }
+        boolean ownsOrder = salesQuery.findOrdersByCustomerIds(Set.of(customer.customerId())).stream()
+                .anyMatch(o -> o.orderId().equals(d.getOrderId()));
+        if (!ownsOrder) {
+            throw new AppException(CommonErrorCode.ACCESS_DENIED);
+        }
+        return readPhotoContent(d, photoId);
+    }
+
+    private DeliveryPhotoStorage.Content readPhotoContent(Delivery d, UUID photoId) {
         Delivery.Photo photo = (d.getProofPhotos() == null ? List.<Delivery.Photo>of() : d.getProofPhotos()).stream()
                 .filter(p -> p.photoId().equals(photoId)).findFirst().orElseThrow(this::notFound);
         DeliveryPhotoStorage.Content content;
@@ -244,6 +299,22 @@ public class DeliveryService {
         catch (RuntimeException ex) { throw new AppException(FulfillmentErrorCode.STORAGE_UNAVAILABLE); }
         if (content == null || content.bytes() == null) throw new AppException(FulfillmentErrorCode.STORAGE_UNAVAILABLE);
         return new DeliveryPhotoStorage.Content(content.bytes(), photo.mimeType());
+    }
+
+    private CustomerSummaryDto resolveCustomerProfile(boolean requiredProfile) {
+        UserSummaryDto user = iam.getCurrentUser();
+        if (user == null || user.id() == null) throw new AppException(CommonErrorCode.UNAUTHORIZED);
+        boolean isCustomer = user.roles() != null && (user.roles().contains("CUSTOMER") || user.roles().contains("ROLE_CUSTOMER"));
+        if (!isCustomer) throw new AppException(CommonErrorCode.ACCESS_DENIED);
+        if (crm == null) {
+            if (requiredProfile) throw new AppException(CommonErrorCode.ACCESS_DENIED);
+            return null;
+        }
+        Optional<CustomerSummaryDto> profile = crm.getCustomerByUserId(user.id());
+        if (profile.isEmpty() && requiredProfile) {
+            throw new AppException(CommonErrorCode.ACCESS_DENIED);
+        }
+        return profile.orElse(null);
     }
 
     private DeliveryView.Summary write(UUID id, java.util.function.Consumer<Delivery> change) {
@@ -273,19 +344,42 @@ public class DeliveryService {
         own(d, user.id());
     }
     private DeliveryView.Detail view(Delivery d) {
+        var views = buildItemViews(d);
+        UserSummaryDto shipper = d.getShipperId() == null ? null : iam.getUserById(d.getShipperId());
+        var photos = buildPhotoViews(d, "/api/v1/fulfillment/deliveries/");
+        return new DeliveryView.Detail(summary(d), d.getAssignedBy(), shipper == null ? null : shipper.fullName(),
+                shipper == null ? null : shipper.phone(), views, photos);
+    }
+
+    private DeliveryView.CustomerTracking viewCustomer(Delivery d, String orderCode, Map<UUID, UserSummaryDto> shipperCache) {
+        var views = buildItemViews(d);
+        UserSummaryDto shipper = d.getShipperId() == null ? null
+                : shipperCache.computeIfAbsent(d.getShipperId(), id -> {
+                    try { return iam.getUserById(id); }
+                    catch (RuntimeException ex) { return null; }
+                });
+        var photos = buildPhotoViews(d, "/api/v1/fulfillment/customer/deliveries/");
+        return new DeliveryView.CustomerTracking(summary(d), orderCode,
+                shipper == null ? null : shipper.fullName(),
+                shipper == null ? null : shipper.phone(),
+                views, photos);
+    }
+
+    private List<DeliveryView.Item> buildItemViews(Delivery d) {
         var lines = items.findByDeliveryIdOrderByDeliveryItemId(d.getDeliveryId());
         var skus = catalog.getSkuSummaries(lines.stream().map(i -> i.getVariantId()).distinct().toList());
-        var views = lines.stream().map(i -> {
+        return lines.stream().map(i -> {
             var sku = skus.get(i.getVariantId());
             return new DeliveryView.Item(i.getDeliveryItemId(), i.getOrderItemId(), i.getVariantId(),
                     sku == null ? null : sku.sku(), sku == null ? null : sku.productName(),
                     sku == null ? null : sku.variantName(), i.getQuantity(), i.getSerialNumbers());
         }).toList();
-        UserSummaryDto shipper = d.getShipperId() == null ? null : iam.getUserById(d.getShipperId());
-        var photos = (d.getProofPhotos() == null ? List.<Delivery.Photo>of() : d.getProofPhotos()).stream()
-                .map(p -> new DeliveryView.Photo(p.photoId(), "/api/v1/fulfillment/deliveries/" + d.getDeliveryId() + "/photos/" + p.photoId())).toList();
-        return new DeliveryView.Detail(summary(d), d.getAssignedBy(), shipper == null ? null : shipper.fullName(),
-                shipper == null ? null : shipper.phone(), views, photos);
+    }
+
+    private List<DeliveryView.Photo> buildPhotoViews(Delivery d, String basePath) {
+        return (d.getProofPhotos() == null ? List.<Delivery.Photo>of() : d.getProofPhotos()).stream()
+                .map(p -> new DeliveryView.Photo(p.photoId(), basePath + d.getDeliveryId() + "/photos/" + p.photoId()))
+                .toList();
     }
     private DeliveryView.Summary summary(Delivery d) {
         return new DeliveryView.Summary(d.getDeliveryId(), d.getDeliveryCode(), d.getOrderId(), d.getBatchNo(),

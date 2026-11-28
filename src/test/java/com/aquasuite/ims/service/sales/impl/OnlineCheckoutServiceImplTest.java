@@ -1,6 +1,7 @@
 package com.aquasuite.ims.service.sales.impl;
 
 import com.aquasuite.ims.service.catalog.CatalogLookupService;
+import com.aquasuite.ims.dto.catalog.response.CatalogBundleSummaryDto;
 import com.aquasuite.ims.dto.catalog.response.CatalogSkuSummaryDto;
 import com.aquasuite.ims.service.crm.CustomerService;
 import com.aquasuite.ims.dto.crm.response.CustomerAddressDto;
@@ -509,5 +510,149 @@ class OnlineCheckoutServiceImplTest {
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getOrderCode()).isEqualTo("SO-20261118-0099");
         assertThat(result.get(0).getItems()).hasSize(1);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void placeOnlineOrder_withComboCartItem_allocatesPackagePriceIntoOrderItems() {
+        mockAuthenticatedCustomer();
+        UUID comboId = UUID.randomUUID();
+        UUID comp2Id = UUID.randomUUID();
+
+        CartItem comboCart = CartItem.builder()
+                .cartItemId(UUID.randomUUID())
+                .customerId(customerId)
+                .comboId(comboId)
+                .quantity(new BigDecimal("2"))
+                .unitPrice(new BigDecimal("18500000"))
+                .build();
+
+        CatalogBundleSummaryDto bundle = CatalogBundleSummaryDto.builder()
+                .bundleId(comboId)
+                .bundleCode("CB-HOTEL-4STAR")
+                .bundleName("Combo Khách sạn 4 Sao")
+                .packagePrice(new BigDecimal("18500000"))
+                .status("ACTIVE")
+                .publicationStatus("PUBLISHED")
+                .items(List.of(
+                        CatalogBundleSummaryDto.CatalogBundleItemDto.builder()
+                                .variantId(variantId)
+                                .sku("TOTO-LT4706-W")
+                                .variantName("Chậu rửa TOTO")
+                                .quantity(1)
+                                .sellingPrice(new BigDecimal("3200000"))
+                                .sellable(true)
+                                .build(),
+                        CatalogBundleSummaryDto.CatalogBundleItemDto.builder()
+                                .variantId(comp2Id)
+                                .sku("TOTO-CS886-B")
+                                .variantName("Bồn cầu TOTO")
+                                .quantity(1)
+                                .sellingPrice(new BigDecimal("17500000"))
+                                .sellable(true)
+                                .build()
+                ))
+                .build();
+
+        when(cartItemRepository.findAllByCustomerIdOrderByUpdatedAtDesc(customerId))
+                .thenReturn(List.of(comboCart));
+        when(catalogApi.getBundleSummaries(any())).thenReturn(Map.of(comboId, bundle));
+        when(inventoryApi.getStockSummaries(any())).thenReturn(Map.of(
+                variantId, StockSummaryDto.builder().variantId(variantId).availableQty(new BigDecimal("5")).build(),
+                comp2Id, StockSummaryDto.builder().variantId(comp2Id).availableQty(new BigDecimal("5")).build()
+        ));
+        when(crmApi.getDeliveryAddressesByCustomerId(customerId))
+                .thenReturn(List.of(buildSavedAddress(true)));
+        when(orderRepository.saveAndFlush(any(Order.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(orderItemRepository.saveAllAndFlush(anyList()))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        PlaceOnlineOrderRequest req = new PlaceOnlineOrderRequest();
+        req.setAddressId(addressId);
+        req.setPaymentMethod(PaymentMethod.CASH);
+
+        OnlineOrderCheckoutResponse res = onlineCheckoutService.placeOnlineOrder(req);
+
+        assertThat(res.getTotalAmount()).isEqualByComparingTo("37000000.00");
+        assertThat(res.getItems()).hasSize(2);
+        assertThat(res.getItems().get(0).getComboId()).isEqualTo(comboId);
+        ArgumentCaptor<List<OrderItem>> itemsCaptor = ArgumentCaptor.forClass(List.class);
+        verify(orderItemRepository).saveAllAndFlush(itemsCaptor.capture());
+        List<OrderItem> saved = itemsCaptor.getValue();
+        assertThat(saved.stream().map(OrderItem::getLineTotal).reduce(BigDecimal.ZERO, BigDecimal::add))
+                .isEqualByComparingTo("37000000.00");
+        assertThat(saved.get(0).getComboGroupId()).isNotNull();
+        assertThat(saved.get(0).getComboQuantity()).isEqualByComparingTo("2");
+        verify(cartItemRepository).deleteAllByCustomerId(customerId);
+    }
+
+    @Test
+    void placeOnlineOrder_mixedComboAndStandaloneExceedingSharedSkuStock_throwsInsufficientStock() {
+        mockAuthenticatedCustomer();
+        UUID comboId = UUID.randomUUID();
+        CartItem standalone = CartItem.builder()
+                .cartItemId(UUID.randomUUID())
+                .customerId(customerId)
+                .variantId(variantId)
+                .quantity(new BigDecimal("4"))
+                .unitPrice(new BigDecimal("3200000"))
+                .build();
+        CartItem comboCart = CartItem.builder()
+                .cartItemId(UUID.randomUUID())
+                .customerId(customerId)
+                .comboId(comboId)
+                .quantity(new BigDecimal("2"))
+                .unitPrice(new BigDecimal("18500000"))
+                .build();
+
+        CatalogSkuSummaryDto skuDto = CatalogSkuSummaryDto.builder()
+                .variantId(variantId)
+                .productId(productId)
+                .sku("TOTO-LT4706-W")
+                .productName("Chậu rửa TOTO")
+                .variantName("Trắng sứ")
+                .unit("Cái")
+                .sellingPrice(new BigDecimal("3200000"))
+                .status("ACTIVE")
+                .build();
+        CatalogBundleSummaryDto bundle = CatalogBundleSummaryDto.builder()
+                .bundleId(comboId)
+                .bundleCode("CB-HOTEL-4STAR")
+                .bundleName("Combo Khách sạn 4 Sao")
+                .packagePrice(new BigDecimal("18500000"))
+                .status("ACTIVE")
+                .publicationStatus("PUBLISHED")
+                .items(List.of(
+                        CatalogBundleSummaryDto.CatalogBundleItemDto.builder()
+                                .variantId(variantId)
+                                .sku("TOTO-LT4706-W")
+                                .variantName("Chậu rửa TOTO")
+                                .quantity(1)
+                                .sellingPrice(new BigDecimal("3200000"))
+                                .sellable(true)
+                                .build()
+                ))
+                .build();
+
+        when(cartItemRepository.findAllByCustomerIdOrderByUpdatedAtDesc(customerId))
+                .thenReturn(List.of(standalone, comboCart));
+        when(catalogApi.getSkuSummaries(any())).thenReturn(Map.of(variantId, skuDto));
+        when(catalogApi.getBundleSummaries(any())).thenReturn(Map.of(comboId, bundle));
+        // Tổng nhu cầu = 4 (lẻ) + 2 (combo) = 6 > 5 tồn kho
+        when(inventoryApi.getStockSummaries(any())).thenReturn(Map.of(
+                variantId, StockSummaryDto.builder().variantId(variantId).availableQty(new BigDecimal("5")).build()
+        ));
+        when(crmApi.getDeliveryAddressesByCustomerId(customerId))
+                .thenReturn(List.of(buildSavedAddress(true)));
+
+        PlaceOnlineOrderRequest req = new PlaceOnlineOrderRequest();
+        req.setAddressId(addressId);
+        req.setPaymentMethod(PaymentMethod.CASH);
+
+        assertThatThrownBy(() -> onlineCheckoutService.placeOnlineOrder(req))
+                .isInstanceOf(AppException.class)
+                .extracting(ex -> ((AppException) ex).getErrorCode())
+                .isEqualTo(SalesErrorCode.INSUFFICIENT_STOCK);
     }
 }

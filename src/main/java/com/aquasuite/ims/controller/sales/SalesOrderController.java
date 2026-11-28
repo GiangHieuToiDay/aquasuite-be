@@ -185,6 +185,22 @@ public class SalesOrderController {
         return ApiResponse.ok(null, "Order modification result email accepted for delivery.");
     }
 
+    @GetMapping("/api/v1/sales/orders/me")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<ApiResponse<java.util.List<SalesOrderSummaryResponse>>> getMyOrders() {
+        return ResponseEntity.ok(ApiResponse.ok(
+                salesOrderService.getMyCustomerOrders(),
+                "Lấy danh sách đơn hàng của bạn thành công"));
+    }
+
+    @GetMapping("/api/v1/sales/orders/me/{orderId}")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<ApiResponse<SalesOrderDetailResponse>> getMyOrderDetail(@PathVariable UUID orderId) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                salesOrderService.getMyCustomerOrderDetail(orderId),
+                "Lấy chi tiết đơn hàng thành công"));
+    }
+
     private SalesOrderService getModService() {
         return salesOrderService;
     }

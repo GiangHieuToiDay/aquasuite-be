@@ -218,4 +218,20 @@ class SalesOrderControllerTest {
                                 .andExpect(jsonPath("$.success").value(true))
                                 .andExpect(jsonPath("$.data.orderId").value(sampleOrderId.toString()));
         }
+
+        @Test
+        @DisplayName("GET /api/v1/sales/orders/me và /me/{orderId} -> Trả về đơn hàng của khách hàng 200")
+        void getMyCustomerOrdersAndDetail_Success() throws Exception {
+                when(salesOrderService.getMyCustomerOrders()).thenReturn(List.of());
+                when(salesOrderService.getMyCustomerOrderDetail(sampleOrderId)).thenReturn(sampleDetailResponse);
+
+                mockMvc.perform(get("/api/v1/sales/orders/me"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.success").value(true));
+
+                mockMvc.perform(get("/api/v1/sales/orders/me/{orderId}", sampleOrderId))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.success").value(true))
+                                .andExpect(jsonPath("$.data.orderId").value(sampleOrderId.toString()));
+        }
 }

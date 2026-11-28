@@ -31,6 +31,11 @@ public interface CustomerDebtService {
     /** Xem đơn, hóa đơn và khoản thu trong chi tiết công nợ của một khách. */
     CustomerDebtDetailResponse detail(UUID customerId);
 
+    /** Khách hàng tự xem chi tiết công nợ, hóa đơn và biên lai đã xác nhận của chính mình. */
+    default CustomerDebtDetailResponse myDebtDetail(UUID userId) {
+        throw new UnsupportedOperationException("myDebtDetail is not implemented");
+    }
+
     /**
      * Trả về snapshot tín dụng tối thiểu cho luồng tạo đơn; không lộ chứng từ,
      * lịch sử nhắc nợ hay audit của màn quản lý công nợ.

@@ -94,4 +94,12 @@ public interface SalesOrderService {
     OrderModificationRequestResponse recordTaxResult(UUID requestId, RecordOrderModificationTaxResultRequest request, UUID actorId);
 
     void sendResultEmail(UUID requestId, UUID actorId);
+
+    default java.util.List<SalesOrderSummaryResponse> getMyCustomerOrders() {
+        throw new UnsupportedOperationException("getMyCustomerOrders is not implemented");
+    }
+
+    default SalesOrderDetailResponse getMyCustomerOrderDetail(UUID orderId) {
+        throw new UnsupportedOperationException("getMyCustomerOrderDetail is not implemented");
+    }
 }

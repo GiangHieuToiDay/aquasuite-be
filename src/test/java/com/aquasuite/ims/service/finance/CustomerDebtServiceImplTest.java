@@ -478,6 +478,39 @@ class CustomerDebtServiceImplTest {
                 event != null && "STATEMENT_EMAIL_FAILED".equals(event.action()) && CUSTOMER_ID.equals(event.entityId())));
     }
 
+    @Test
+    void myDebtDetailResolvesCustomerByUserIdAndStripsInternalReminderHistory() {
+        UUID userId = UUID.randomUUID();
+        when(crmApi.getCustomerByUserId(userId)).thenReturn(Optional.of(
+                com.aquasuite.ims.dto.crm.response.CustomerSummaryDto.builder()
+                        .customerId(CUSTOMER_ID)
+                        .userId(userId)
+                        .customerCode("KH-001")
+                        .customerName("An Khang")
+                        .status("ACTIVE")
+                        .build()));
+        when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(Optional.of(customer));
+        when(transactionRepository.findByCustomerIdInAndStatusIgnoreCase(any(), eq("VERIFIED"))).thenReturn(List.of());
+        when(auditQueryApi.findByEntity(any(), any())).thenReturn(List.of());
+
+        var result = service.myDebtDetail(userId);
+
+        assertMoney("200.00", result.summary().outstandingBalance());
+        assertEquals(1, result.invoices().size());
+        assertEquals(1, result.orders().size());
+        assertTrue(result.reminderHistory().isEmpty());
+        verify(crmApi).getCustomerByUserId(userId);
+    }
+
+    @Test
+    void myDebtDetailThrowsCustomerNotFoundWhenProfileMissing() {
+        UUID userId = UUID.randomUUID();
+        when(crmApi.getCustomerByUserId(userId)).thenReturn(Optional.empty());
+
+        AppException ex = assertThrows(AppException.class, () -> service.myDebtDetail(userId));
+        assertEquals(CustomerDebtErrorCode.CUSTOMER_NOT_FOUND, ex.getErrorCode());
+    }
+
     private Transaction receipt(UUID invoiceId, UUID orderId, BigDecimal amount) {
         return Transaction.builder().transactionId(UUID.randomUUID()).transactionCode("TXT-100")
                 .transactionType("RECEIPT").category("CUSTOMER_PAYMENT").customerId(CUSTOMER_ID)

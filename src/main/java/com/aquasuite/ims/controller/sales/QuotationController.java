@@ -20,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -215,5 +216,27 @@ public class QuotationController {
         SalesOrderDetailResponse response = salesOrderService.convertQuotationToOrder(quotationId, request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok(response, "Chuyển báo giá thành đơn hàng công trình thành công!"));
+    }
+
+    /**
+     * 15. Khách hàng tự xem danh sách báo giá đã phát hành cho mình
+     */
+    @GetMapping("/me")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<ApiResponse<List<QuotationListItemResponse>>> getMyQuotations() {
+        return ResponseEntity.ok(ApiResponse.ok(
+                quotationService.getMyQuotations(),
+                "Lấy danh sách báo giá của bạn thành công"));
+    }
+
+    /**
+     * 16. Khách hàng tự xem chi tiết báo giá của chính mình
+     */
+    @GetMapping("/me/{quotationId}")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<ApiResponse<QuotationResponse>> getMyQuotationDetail(@PathVariable UUID quotationId) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                quotationService.getMyQuotationDetail(quotationId),
+                "Lấy chi tiết báo giá thành công"));
     }
 }

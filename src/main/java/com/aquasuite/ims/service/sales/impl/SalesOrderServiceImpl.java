@@ -923,23 +923,71 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         return orderPage.map(order -> {
             int itemCount = orderItemRepository.findByOrderId(order.getOrderId()).size();
             CustomerSummaryDto customer = resolveCustomerSummary(customerMap, order.getCustomerId());
-            String customerName = formatCustomerName(customer);
-            String customerPhone = formatCustomerPhone(customer);
-            String staffName = getStaffName(order.getSalesStaffId());
-
-            var response = salesOrderMapper.toSummaryResponse(
-                    order,
-                    itemCount,
-                    customerName,
-                    customerPhone,
-                    staffName);
-            var payment = payments.get(order.getOrderId());
-            if (payment != null) {
-                response.setPayment(payment);
-                response.setDepositStatus(payment.depositSatisfied() ? "SATISFIED" : "AWAITING_DEPOSIT");
-            }
-            return response;
+            return buildSummaryResponse(order, itemCount, customer, payments.get(order.getOrderId()));
         });
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SalesOrderSummaryResponse> getMyCustomerOrders() {
+        UUID userId = iamApi.getCurrentUserId();
+        if (userId == null) {
+            return List.of();
+        }
+        Optional<CustomerSummaryDto> customerOpt = crmApi.getCustomerByUserId(userId);
+        if (customerOpt.isEmpty()) {
+            return List.of();
+        }
+        CustomerSummaryDto customer = customerOpt.get();
+        List<Order> orders = orderRepository.findByCustomerIdOrderByOrderDateDesc(customer.customerId());
+        return orders.stream().map(order -> {
+            int itemCount = orderItemRepository.findByOrderId(order.getOrderId()).size();
+            com.aquasuite.ims.dto.finance.response.OrderReceivableView payment = null;
+            if (orderReceivableApi != null && !OrderStatus.CANCELLED.name().equalsIgnoreCase(order.getOrderStatus())) {
+                payment = orderReceivableApi.getOrderReceivable(order.getOrderId())
+                        .filter(p -> p.depositRequired() != null && p.depositRequired().signum() > 0)
+                        .orElse(null);
+            }
+            return buildSummaryResponse(order, itemCount, customer, payment);
+        }).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SalesOrderDetailResponse getMyCustomerOrderDetail(UUID orderId) {
+        UUID userId = iamApi.getCurrentUserId();
+        CustomerSummaryDto customer = userId == null ? null
+                : crmApi.getCustomerByUserId(userId).orElse(null);
+        if (customer == null) {
+            throw new AppException(SalesErrorCode.ORDER_NOT_FOUND);
+        }
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new AppException(SalesErrorCode.ORDER_NOT_FOUND));
+        if (order.getCustomerId() == null || !customer.customerId().equals(order.getCustomerId())) {
+            throw new AppException(SalesErrorCode.ORDER_NOT_FOUND);
+        }
+        return buildOrderDetail(order);
+    }
+
+    private SalesOrderSummaryResponse buildSummaryResponse(
+            Order order,
+            int itemCount,
+            CustomerSummaryDto customer,
+            com.aquasuite.ims.dto.finance.response.OrderReceivableView payment) {
+        String customerName = formatCustomerName(customer);
+        String customerPhone = formatCustomerPhone(customer);
+        String staffName = getStaffName(order.getSalesStaffId());
+        var response = salesOrderMapper.toSummaryResponse(
+                order,
+                itemCount,
+                customerName,
+                customerPhone,
+                staffName);
+        if (payment != null) {
+            response.setPayment(payment);
+            response.setDepositStatus(payment.depositSatisfied() ? "SATISFIED" : "AWAITING_DEPOSIT");
+        }
+        return response;
     }
 
     /**
@@ -954,6 +1002,11 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     public SalesOrderDetailResponse getSalesOrderDetail(UUID orderId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new AppException(SalesErrorCode.ORDER_NOT_FOUND));
+        return buildOrderDetail(order);
+    }
+
+    private SalesOrderDetailResponse buildOrderDetail(Order order) {
+        UUID orderId = order.getOrderId();
 
         List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
         List<SalesOrderItemResponse> itemResponses = salesOrderMapper.toItemResponseList(items);

@@ -1,6 +1,7 @@
 package com.aquasuite.ims.service.sales.impl;
 
 import com.aquasuite.ims.service.catalog.CatalogLookupService;
+import com.aquasuite.ims.dto.catalog.response.CatalogBundleSummaryDto;
 import com.aquasuite.ims.dto.catalog.response.CatalogSkuSummaryDto;
 import com.aquasuite.ims.service.crm.CustomerService;
 import com.aquasuite.ims.dto.crm.response.CustomerAddressDto;
@@ -33,6 +34,7 @@ import com.aquasuite.ims.repository.sales.OnlinePayosPaymentRepository;
 import com.aquasuite.ims.repository.sales.OrderItemRepository;
 import com.aquasuite.ims.repository.sales.OrderRepository;
 import com.aquasuite.ims.service.finance.PaymentService;
+import com.aquasuite.ims.service.sales.helper.CartComboSupport;
 import com.aquasuite.ims.service.sales.helper.OrderCodeGenerator;
 import com.aquasuite.ims.exception.AppException;
 import lombok.extern.slf4j.Slf4j;
@@ -42,8 +44,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -379,12 +385,108 @@ public class OnlineCheckoutServiceImpl {
     }
 
     private List<OrderItem> buildAndValidateOrderItems(List<CartItem> cartItems) {
-        Set<UUID> variantIds = cartItems.stream().map(CartItem::getVariantId).collect(Collectors.toSet());
-        Map<UUID, CatalogSkuSummaryDto> skuMap = catalogApi.getSkuSummaries(variantIds);
-        Map<UUID, StockSummaryDto> stockMap = inventoryApi.getStockSummaries(variantIds);
+        Set<UUID> standaloneVariantIds = cartItems.stream()
+                .map(CartItem::getVariantId)
+                .filter(id -> id != null)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<UUID> comboIds = cartItems.stream()
+                .map(CartItem::getComboId)
+                .filter(id -> id != null)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
 
-        List<OrderItem> items = new ArrayList<>(cartItems.size());
+        Map<UUID, CatalogSkuSummaryDto> skuMap = standaloneVariantIds.isEmpty()
+                ? Collections.emptyMap()
+                : catalogApi.getSkuSummaries(standaloneVariantIds);
+        Map<UUID, CatalogBundleSummaryDto> bundleMap = comboIds.isEmpty()
+                ? Collections.emptyMap()
+                : catalogApi.getBundleSummaries(comboIds);
+
+        Set<UUID> allStockVariantIds = new LinkedHashSet<>(standaloneVariantIds);
+        for (CatalogBundleSummaryDto bundle : bundleMap.values()) {
+            if (bundle == null || bundle.items() == null) continue;
+            for (CatalogBundleSummaryDto.CatalogBundleItemDto comp : bundle.items()) {
+                if (comp != null && comp.variantId() != null) {
+                    allStockVariantIds.add(comp.variantId());
+                }
+            }
+        }
+        Map<UUID, StockSummaryDto> stockMap = allStockVariantIds.isEmpty()
+                ? Collections.emptyMap()
+                : inventoryApi.getStockSummaries(allStockVariantIds);
+
+        Map<UUID, BigDecimal> cumulativeVariantDemand = new LinkedHashMap<>();
+        List<OrderItem> items = new ArrayList<>();
+        Instant now = Instant.now();
+
         for (CartItem cartItem : cartItems) {
+            if (cartItem.getComboId() != null) {
+                CatalogBundleSummaryDto bundle = bundleMap.get(cartItem.getComboId());
+                if (bundle == null) {
+                    throw new AppException(SalesErrorCode.COMBO_NOT_FOUND, cartItem.getComboId());
+                }
+                if (!CartComboSupport.isComboActiveAndPublished(bundle, now)) {
+                    throw new AppException(SalesErrorCode.INVALID_COMBO,
+                            bundle.bundleName() != null ? bundle.bundleName() : cartItem.getComboId());
+                }
+
+                BigDecimal rawQty = defaultAmount(cartItem.getQuantity());
+                if (rawQty.compareTo(BigDecimal.ZERO) <= 0 || rawQty.stripTrailingZeros().scale() > 0) {
+                    throw new AppException(SalesErrorCode.INVALID_CART_QUANTITY);
+                }
+                int comboQty = rawQty.intValueExact();
+                UUID comboGroupId = UUID.randomUUID();
+                List<OrderItem> comboOrderItems = new ArrayList<>(bundle.items().size());
+
+                for (CatalogBundleSummaryDto.CatalogBundleItemDto comp : bundle.items()) {
+                    BigDecimal totalCompQty = BigDecimal.valueOf((long) comp.quantity() * comboQty);
+                    BigDecimal newDemand = cumulativeVariantDemand.getOrDefault(comp.variantId(), BigDecimal.ZERO)
+                            .add(totalCompQty);
+                    BigDecimal availableQty = Optional.ofNullable(stockMap.get(comp.variantId()))
+                            .map(StockSummaryDto::availableQty)
+                            .orElse(BigDecimal.ZERO);
+                    if (availableQty.compareTo(newDemand) < 0) {
+                        throw new AppException(SalesErrorCode.INSUFFICIENT_STOCK,
+                                comp.sku() + " (thuộc combo " + bundle.bundleName() + ")");
+                    }
+                    cumulativeVariantDemand.put(comp.variantId(), newDemand);
+
+                    BigDecimal compUnitPrice = defaultAmount(comp.sellingPrice());
+                    BigDecimal compLineTotal = compUnitPrice.multiply(totalCompQty).setScale(2, RoundingMode.HALF_UP);
+
+                    comboOrderItems.add(OrderItem.builder()
+                            .orderItemId(UUID.randomUUID())
+                            .comboId(bundle.bundleId())
+                            .comboGroupId(comboGroupId)
+                            .comboQuantity(BigDecimal.valueOf(comboQty))
+                            .comboSku(bundle.bundleCode())
+                            .comboUnitPrice(bundle.packagePrice())
+                            .variantId(comp.variantId())
+                            .sku(comp.sku())
+                            .productName(bundle.bundleName())
+                            .variantName(comp.variantName())
+                            .quantity(totalCompQty)
+                            .unitPrice(compUnitPrice)
+                            .discountAmount(BigDecimal.ZERO)
+                            .lineTotal(compLineTotal)
+                            .build());
+                }
+
+                Map<UUID, BigDecimal> weights = comboOrderItems.stream()
+                        .collect(Collectors.toMap(OrderItem::getOrderItemId, OrderItem::getLineTotal));
+                BigDecimal packageTotal = defaultAmount(bundle.packagePrice())
+                        .multiply(BigDecimal.valueOf(comboQty));
+                Map<UUID, BigDecimal> allocated = CartComboSupport.allocateComboNetPrices(packageTotal, weights);
+
+                for (OrderItem comboOrderItem : comboOrderItems) {
+                    BigDecimal net = allocated.get(comboOrderItem.getOrderItemId());
+                    BigDecimal gross = comboOrderItem.getLineTotal();
+                    comboOrderItem.setDiscountAmount(gross.subtract(net).max(BigDecimal.ZERO));
+                    comboOrderItem.setLineTotal(net);
+                    items.add(comboOrderItem);
+                }
+                continue;
+            }
+
             CatalogSkuSummaryDto sku = skuMap.get(cartItem.getVariantId());
             if (sku == null) {
                 throw new AppException(SalesErrorCode.SKU_NOT_FOUND, cartItem.getVariantId());
@@ -393,13 +495,16 @@ public class OnlineCheckoutServiceImpl {
                 throw new AppException(SalesErrorCode.SKU_NOT_ACTIVE, sku.sku());
             }
 
+            BigDecimal quantity = defaultAmount(cartItem.getQuantity());
+            BigDecimal newDemand = cumulativeVariantDemand.getOrDefault(cartItem.getVariantId(), BigDecimal.ZERO)
+                    .add(quantity);
             BigDecimal availableQty = Optional.ofNullable(stockMap.get(cartItem.getVariantId()))
                     .map(StockSummaryDto::availableQty)
                     .orElse(BigDecimal.ZERO);
-            BigDecimal quantity = defaultAmount(cartItem.getQuantity());
-            if (availableQty.compareTo(quantity) < 0) {
+            if (availableQty.compareTo(newDemand) < 0) {
                 throw new AppException(SalesErrorCode.INSUFFICIENT_STOCK, sku.sku());
             }
+            cumulativeVariantDemand.put(cartItem.getVariantId(), newDemand);
 
             BigDecimal unitPrice = defaultAmount(sku.sellingPrice());
             BigDecimal lineTotal = unitPrice.multiply(quantity).setScale(2, RoundingMode.HALF_UP);
@@ -428,11 +533,18 @@ public class OnlineCheckoutServiceImpl {
         String description = buildPayosDescription(order.getOrderCode());
 
         List<PayosClient.PaymentItemData> payosItems = items.stream()
-                .map(i -> new PayosClient.PaymentItemData(
-                        i.getVariantName() != null && !i.getVariantName().isBlank() ? i.getVariantName() : i.getSku(),
-                        Math.max(1, i.getQuantity().intValue()),
-                        i.getUnitPrice().setScale(0, RoundingMode.HALF_UP).longValue(),
-                        "Cái"))
+                .map(i -> {
+                    int qty = Math.max(1, i.getQuantity().intValue());
+                    long itemUnitPrice = i.getComboId() != null
+                            ? Math.max(0L, defaultAmount(i.getLineTotal())
+                                    .divide(BigDecimal.valueOf(qty), 0, RoundingMode.HALF_UP)
+                                    .longValue())
+                            : i.getUnitPrice().setScale(0, RoundingMode.HALF_UP).longValue();
+                    String itemName = i.getVariantName() != null && !i.getVariantName().isBlank()
+                            ? i.getVariantName()
+                            : i.getSku();
+                    return new PayosClient.PaymentItemData(itemName, qty, itemUnitPrice, "Cái");
+                })
                 .toList();
 
         String returnUrl = appendOrderIdQuery(payosProperties.getReturnUrl(), order.getOrderId());

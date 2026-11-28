@@ -1030,25 +1030,88 @@ public class QuotationServiceImpl implements QuotationService {
         };
 
         Page<Quotation> pageResult = quotationRepository.findAll(spec, pageable);
+        List<QuotationListItemResponse> items = mapQuotationsToListItems(pageResult.getContent(), false);
 
+        return PageResponse.of(
+                items,
+                pageResult.getNumber(),
+                pageResult.getSize(),
+                pageResult.getTotalElements(),
+                pageResult.getTotalPages()
+        );
+    }
+
+    private static final Set<QuotationStatus> CUSTOMER_EXCLUDED_STATUSES = Set.of(
+            QuotationStatus.DRAFT,
+            QuotationStatus.PENDING_APPROVAL,
+            QuotationStatus.REJECTED
+    );
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<QuotationListItemResponse> getMyQuotations() {
+        UUID userId = iamApi.getCurrentUserId();
+        if (userId == null) {
+            return List.of();
+        }
+        Optional<CustomerSummaryDto> customerOpt = crmApi.getCustomerByUserId(userId);
+        if (customerOpt.isEmpty()) {
+            return List.of();
+        }
+        List<Quotation> quotations = quotationRepository.findByCustomerIdAndStatusNotInOrderByCreatedAtDesc(
+                customerOpt.get().customerId(),
+                CUSTOMER_EXCLUDED_STATUSES
+        );
+        return mapQuotationsToListItems(quotations, true);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public QuotationResponse getMyQuotationDetail(UUID quotationId) {
+        UUID userId = iamApi.getCurrentUserId();
+        CustomerSummaryDto customer = userId == null ? null
+                : crmApi.getCustomerByUserId(userId).orElse(null);
+        if (customer == null) {
+            throw new AppException(SalesErrorCode.QUOTATION_NOT_FOUND, quotationId);
+        }
+        Quotation quotation = quotationRepository.findById(quotationId)
+                .orElseThrow(() -> new AppException(SalesErrorCode.QUOTATION_NOT_FOUND, quotationId));
+        if (!customer.customerId().equals(quotation.getCustomerId())
+                || CUSTOMER_EXCLUDED_STATUSES.contains(quotation.getStatus())) {
+            throw new AppException(SalesErrorCode.QUOTATION_NOT_FOUND, quotationId);
+        }
+        List<QuotationItem> items = quotationItemRepository.findByQuotationIdOrderBySortOrderAsc(quotationId);
+        QuotationResponse response = assembleResponse(quotation, items, null, false);
+        response.setApproval(null);
+        return response;
+    }
+
+    private List<QuotationListItemResponse> mapQuotationsToListItems(
+            List<Quotation> quotations,
+            boolean maskInternalApproval) {
+        if (quotations == null || quotations.isEmpty()) {
+            return List.of();
+        }
         Map<UUID, String> customerNameCache = new HashMap<>();
         Map<UUID, String> userNameCache = new HashMap<>();
 
-        List<UUID> quotationIds = pageResult.getContent().stream().map(Quotation::getQuotationId).toList();
+        List<UUID> quotationIds = quotations.stream().map(Quotation::getQuotationId).toList();
         Map<UUID, Boolean> approvalMap = new HashMap<>();
         Map<UUID, Order> ordersByQuotationId = new HashMap<>();
         if (!quotationIds.isEmpty()) {
-            List<QuotationItem> pageItems = quotationItemRepository.findByQuotationIdIn(quotationIds);
-            Map<UUID, List<BigDecimal>> discountsByQuotationId = pageItems.stream()
-                    .filter(i -> i.getParentItemId() == null && i.getDiscountRate() != null)
-                    .collect(Collectors.groupingBy(
-                            QuotationItem::getQuotationId,
-                            Collectors.mapping(QuotationItem::getDiscountRate, Collectors.toList())
-                    ));
-            for (UUID qId : quotationIds) {
-                List<BigDecimal> rates = discountsByQuotationId.getOrDefault(qId, Collections.emptyList());
-                boolean requiresApproval = discountPolicyChecker.check(rates, DEFAULT_STAFF_DISCOUNT_LIMIT).requiresApproval();
-                approvalMap.put(qId, requiresApproval);
+            if (!maskInternalApproval) {
+                List<QuotationItem> pageItems = quotationItemRepository.findByQuotationIdIn(quotationIds);
+                Map<UUID, List<BigDecimal>> discountsByQuotationId = pageItems.stream()
+                        .filter(i -> i.getParentItemId() == null && i.getDiscountRate() != null)
+                        .collect(Collectors.groupingBy(
+                                QuotationItem::getQuotationId,
+                                Collectors.mapping(QuotationItem::getDiscountRate, Collectors.toList())
+                        ));
+                for (UUID qId : quotationIds) {
+                    List<BigDecimal> rates = discountsByQuotationId.getOrDefault(qId, Collections.emptyList());
+                    boolean requiresApproval = discountPolicyChecker.check(rates, DEFAULT_STAFF_DISCOUNT_LIMIT).requiresApproval();
+                    approvalMap.put(qId, requiresApproval);
+                }
             }
 
             if (orderRepository != null) {
@@ -1065,7 +1128,7 @@ public class QuotationServiceImpl implements QuotationService {
             }
         }
 
-        List<QuotationListItemResponse> items = pageResult.getContent().stream().map(q -> {
+        return quotations.stream().map(q -> {
             String customerName = customerNameCache.computeIfAbsent(q.getCustomerId(), id ->
                     crmApi.getCustomerById(id).map(CustomerSummaryDto::customerName).orElse(null)
             );
@@ -1077,7 +1140,7 @@ public class QuotationServiceImpl implements QuotationService {
                     return null;
                 }
             });
-            Boolean requiresApproval = approvalMap.getOrDefault(q.getQuotationId(), false);
+            Boolean requiresApproval = maskInternalApproval ? null : approvalMap.getOrDefault(q.getQuotationId(), false);
             QuotationListItemResponse itemResp = quotationMapper.toListItemResponse(q, customerName, createdByName, requiresApproval);
             Order linkedOrder = ordersByQuotationId.get(q.getQuotationId());
             if (linkedOrder != null) {
@@ -1086,14 +1149,6 @@ public class QuotationServiceImpl implements QuotationService {
             }
             return itemResp;
         }).toList();
-
-        return PageResponse.of(
-                items,
-                pageResult.getNumber(),
-                pageResult.getSize(),
-                pageResult.getTotalElements(),
-                pageResult.getTotalPages()
-        );
     }
 
     // =========================================================================
@@ -1109,6 +1164,14 @@ public class QuotationServiceImpl implements QuotationService {
     }
 
     private QuotationResponse assembleFullResponse(Quotation quotation, List<QuotationItem> items, DiscountCheckResult discountCheck) {
+        return assembleResponse(quotation, items, discountCheck, isShopOwner());
+    }
+
+    private QuotationResponse assembleResponse(
+            Quotation quotation,
+            List<QuotationItem> items,
+            DiscountCheckResult discountCheck,
+            boolean includeOwnerData) {
         String customerName = crmApi.getCustomerById(quotation.getCustomerId())
                 .map(CustomerSummaryDto::customerName)
                 .orElse(null);
@@ -1125,7 +1188,6 @@ public class QuotationServiceImpl implements QuotationService {
 
         List<QuotationPaymentMilestone> milestones = quotationPaymentMilestoneRepository.findByQuotationIdOrderBySortOrderAsc(quotation.getQuotationId());
 
-        boolean isOwner = isShopOwner();
         QuotationResponse resp = quotationMapper.toResponse(
                 quotation,
                 items,
@@ -1134,7 +1196,7 @@ public class QuotationServiceImpl implements QuotationService {
                 discountCheck,
                 customerName,
                 skuNames,
-                isOwner
+                includeOwnerData
         );
         if (orderRepository != null && quotation.getQuotationId() != null) {
             try {

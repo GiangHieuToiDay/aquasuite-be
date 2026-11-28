@@ -23,6 +23,7 @@ import com.aquasuite.ims.repository.finance.TransactionRepository;
 import com.aquasuite.ims.repository.finance.FinanceLockRepository;
 import com.aquasuite.ims.repository.finance.PaymentInvoiceAllocationRepository;
 import com.aquasuite.ims.repository.finance.PaymentReceiptRefundSettlementRepository;
+import com.aquasuite.ims.dto.crm.response.CustomerSummaryDto;
 import com.aquasuite.ims.service.finance.CustomerDebtService;
 import com.aquasuite.ims.service.sales.SalesQueryService;
 import com.aquasuite.ims.dto.sales.response.SalesInvoiceDebtDto;
@@ -128,6 +129,27 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
                 .availableCredit(summary.availableCredit())
                 .debtStatus(summary.debtStatus())
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CustomerDebtDetailResponse myDebtDetail(UUID userId) {
+        if (userId == null) {
+            throw new AppException(CustomerDebtErrorCode.CUSTOMER_NOT_FOUND);
+        }
+        CustomerSummaryDto customer = crmApi.getCustomerByUserId(userId)
+                .orElseThrow(() -> new AppException(CustomerDebtErrorCode.CUSTOMER_NOT_FOUND));
+        CustomerDebtDetailResponse full = detail(customer.customerId());
+        return new CustomerDebtDetailResponse(
+                full.customer(),
+                full.summary(),
+                full.invoices(),
+                full.orders(),
+                full.verifiedReceipts(),
+                full.unallocatedOrderReceipts(),
+                full.unallocatedVerifiedReceiptAmount(),
+                List.of()
+        );
     }
 
     @Override

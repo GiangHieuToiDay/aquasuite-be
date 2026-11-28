@@ -24,6 +24,7 @@ public interface CartMapper {
 
     @Mapping(target = "cartItemId", source = "cartItem.cartItemId")
     @Mapping(target = "variantId", source = "cartItem.variantId")
+    @Mapping(target = "comboId", source = "cartItem.comboId")
     @Mapping(target = "productId", source = "productId")
     @Mapping(target = "sku", source = "sku")
     @Mapping(target = "productName", source = "productName")
@@ -38,6 +39,8 @@ public interface CartMapper {
     @Mapping(target = "variantStatus", source = "variantStatus")
     @Mapping(target = "inStock", source = "inStock")
     @Mapping(target = "priceChanged", source = "priceChanged")
+    @Mapping(target = "isCombo", source = "isCombo")
+    @Mapping(target = "components", source = "components")
     @Mapping(target = "updatedAt", source = "cartItem.updatedAt")
     CartItemResponse toItemResponse(
             CartItem cartItem,
@@ -52,8 +55,44 @@ public interface CartMapper {
             BigDecimal availableQty,
             String variantStatus,
             boolean inStock,
-            boolean priceChanged
+            boolean priceChanged,
+            boolean isCombo,
+            List<String> components
     );
+
+    default CartItemResponse toItemResponse(
+            CartItem cartItem,
+            UUID productId,
+            String sku,
+            String productName,
+            String variantName,
+            String imageUrl,
+            String unit,
+            BigDecimal currentSellingPrice,
+            BigDecimal lineTotal,
+            BigDecimal availableQty,
+            String variantStatus,
+            boolean inStock,
+            boolean priceChanged
+    ) {
+        return toItemResponse(
+                cartItem,
+                productId,
+                sku,
+                productName,
+                variantName,
+                imageUrl,
+                unit,
+                currentSellingPrice,
+                lineTotal,
+                availableQty,
+                variantStatus,
+                inStock,
+                priceChanged,
+                cartItem != null && cartItem.getComboId() != null,
+                null
+        );
+    }
 
     @Mapping(target = "customerId", source = "customerId")
     @Mapping(target = "items", source = "items")
@@ -70,4 +109,3 @@ public interface CartMapper {
             boolean hasInvalidItems
     );
 }
-

@@ -311,6 +311,27 @@ class CustomerDebtControllerSecurityTest {
         verifyNoInteractions(customerDebtService);
     }
 
+    @Test
+    @WithMockUser(roles = "CUSTOMER")
+    void customerCanReadOwnDebtDetail() throws Exception {
+        UUID userId = UUID.fromString("10000000-0000-4000-8000-000000000099");
+        when(iamApi.getCurrentUserId()).thenReturn(userId);
+
+        mockMvc.perform(get("/api/v1/finance/customer-debts/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(customerDebtService).myDebtDetail(userId);
+    }
+
+    @Test
+    @WithMockUser(roles = "SALES_STAFF")
+    void staffCannotCallCustomerSelfServiceDebtEndpoint() throws Exception {
+        mockMvc.perform(get("/api/v1/finance/customer-debts/me"))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(customerDebtService);
+    }
+
     @TestConfiguration
     @EnableMethodSecurity
     static class TestSecurityConfig {

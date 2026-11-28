@@ -1149,4 +1149,55 @@ class SalesOrderServiceTest {
                 eq(orderId), eq(payosPaymentId), eq(88889999L), eq(new BigDecimal("4000")), any(), eq(staffId));
         verify(orderReceivableApi).createPendingCustomerRefund(any());
     }
+
+    @Test
+    @DisplayName("Khách hàng xem được toàn bộ đơn mọi kênh của mình và bị chặn khi truy cập đơn khách khác")
+    void getMyCustomerOrders_ReturnsOwnOrdersAcrossChannelsAndBlocksForeignOrder() {
+        UUID userId = UUID.randomUUID();
+        UUID ownOrderId = UUID.randomUUID();
+        UUID foreignOrderId = UUID.randomUUID();
+
+        Order counterOrder = Order.builder()
+                .orderId(ownOrderId)
+                .orderCode("SO-POS-01")
+                .customerId(customerId)
+                .orderType(OrderType.RETAIL.name())
+                .orderChannel(OrderChannel.COUNTER.name())
+                .orderStatus(OrderStatus.PROCESSING.name())
+                .paymentStatus(PaymentStatus.PAID.name())
+                .totalAmount(new BigDecimal("1200000"))
+                .orderDate(OffsetDateTime.now())
+                .build();
+
+        Order foreignOrder = Order.builder()
+                .orderId(foreignOrderId)
+                .orderCode("SO-FOREIGN")
+                .customerId(UUID.randomUUID())
+                .orderType(OrderType.RETAIL.name())
+                .orderChannel(OrderChannel.ONLINE.name())
+                .orderStatus(OrderStatus.PROCESSING.name())
+                .paymentStatus(PaymentStatus.UNPAID.name())
+                .totalAmount(new BigDecimal("990000"))
+                .build();
+
+        when(iamApi.getCurrentUserId()).thenReturn(userId);
+        when(crmApi.getCustomerByUserId(userId)).thenReturn(Optional.of(CustomerSummaryDto.builder()
+                .customerId(customerId).userId(userId).customerName("Khách A").phone("0901234567").status("ACTIVE").build()));
+        when(orderRepository.findByCustomerIdOrderByOrderDateDesc(customerId)).thenReturn(List.of(counterOrder));
+        when(orderItemRepository.findByOrderId(ownOrderId)).thenReturn(List.of());
+        when(orderRepository.findById(ownOrderId)).thenReturn(Optional.of(counterOrder));
+        when(orderRepository.findById(foreignOrderId)).thenReturn(Optional.of(foreignOrder));
+        when(salesInvoiceRepository.findByOrderIdOrderByBatchNoAscCreatedAtAsc(ownOrderId)).thenReturn(List.of());
+        when(salesInvoiceRepository.findByOrderIdAndInvoiceType(ownOrderId, "STORE")).thenReturn(Optional.empty());
+
+        List<SalesOrderSummaryResponse> list = salesOrderService.getMyCustomerOrders();
+        SalesOrderDetailResponse ownDetail = salesOrderService.getMyCustomerOrderDetail(ownOrderId);
+
+        assertThat(list).hasSize(1);
+        assertThat(list.getFirst().getOrderChannel()).isEqualTo("COUNTER");
+        assertThat(ownDetail.getOrderCode()).isEqualTo("SO-POS-01");
+        assertThatThrownBy(() -> salesOrderService.getMyCustomerOrderDetail(foreignOrderId))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(SalesErrorCode.ORDER_NOT_FOUND));
+    }
 }

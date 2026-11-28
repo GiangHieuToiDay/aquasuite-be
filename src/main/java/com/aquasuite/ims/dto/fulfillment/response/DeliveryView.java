@@ -18,4 +18,6 @@ public final class DeliveryView {
     public record Photo(UUID photoId, String contentUrl) {}
     public record Detail(Summary delivery, UUID assignedBy, String shipperName, String shipperPhone,
         List<Item> items, List<Photo> photos) {}
+    public record CustomerTracking(Summary delivery, String orderCode, String shipperName, String shipperPhone,
+        List<Item> items, List<Photo> photos) {}
 }

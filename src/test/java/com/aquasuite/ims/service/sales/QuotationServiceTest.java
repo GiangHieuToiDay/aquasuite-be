@@ -1399,4 +1399,46 @@ class QuotationServiceTest {
         assertNull(response.getItems().get(0).getCustomerName());
         assertNull(response.getItems().get(0).getCreatedByName());
     }
+
+    @Test
+    @DisplayName("getMyQuotations & getMyQuotationDetail: Lọc trạng thái nội bộ và ẩn dữ liệu lợi nhuận / approval nội bộ")
+    void testGetMyQuotationsAndDetail_MasksInternalData() {
+        UUID quotationId = UUID.randomUUID();
+        Quotation sent = Quotation.builder()
+                .quotationId(quotationId)
+                .quotationCode("BG-202611-0008")
+                .revisionNo(1)
+                .customerId(customerId)
+                .projectName("Dự án Palm Heights")
+                .status(QuotationStatus.SENT)
+                .createdBy(currentUserId)
+                .totalAmount(BigDecimal.valueOf(25_000_000))
+                .build();
+        Quotation draft = Quotation.builder()
+                .quotationId(UUID.randomUUID())
+                .quotationCode("BG-202611-DRAFT")
+                .customerId(customerId)
+                .status(QuotationStatus.DRAFT)
+                .build();
+
+        when(iamApi.getCurrentUserId()).thenReturn(currentUserId);
+        when(crmApi.getCustomerByUserId(currentUserId)).thenReturn(Optional.of(CustomerSummaryDto.builder()
+                .customerId(customerId).userId(currentUserId).customerName("Khách Dự Án").status("ACTIVE").build()));
+        when(crmApi.getCustomerById(customerId)).thenReturn(Optional.of(CustomerSummaryDto.builder()
+                .customerId(customerId).customerName("Khách Dự Án").status("ACTIVE").build()));
+        when(quotationRepository.findByCustomerIdAndStatusNotInOrderByCreatedAtDesc(eq(customerId), any()))
+                .thenReturn(List.of(sent));
+        when(quotationRepository.findById(quotationId)).thenReturn(Optional.of(sent));
+        when(quotationRepository.findById(draft.getQuotationId())).thenReturn(Optional.of(draft));
+        when(quotationItemRepository.findByQuotationIdOrderBySortOrderAsc(quotationId)).thenReturn(List.of());
+
+        List<QuotationListItemResponse> list = quotationService.getMyQuotations();
+        QuotationResponse detail = quotationService.getMyQuotationDetail(quotationId);
+
+        assertEquals(1, list.size());
+        assertNull(list.getFirst().getRequiresApproval());
+        assertNull(detail.getOwnerData());
+        assertNull(detail.getApproval());
+        assertThrows(AppException.class, () -> quotationService.getMyQuotationDetail(draft.getQuotationId()));
+    }
 }
