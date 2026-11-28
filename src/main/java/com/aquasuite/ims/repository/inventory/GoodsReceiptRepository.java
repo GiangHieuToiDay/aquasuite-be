@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -17,6 +18,8 @@ import java.util.UUID;
 @Repository
 public interface GoodsReceiptRepository extends JpaRepository<GoodsReceipt, UUID> {
     List<GoodsReceipt> findByPurchaseOrderId(UUID purchaseOrderId);
+    List<GoodsReceipt> findByPurchaseOrderIdInOrderByCreatedAtDesc(Collection<UUID> purchaseOrderIds);
+    List<GoodsReceipt> findByReceiptCodeIn(Collection<String> receiptCodes);
     boolean existsByPurchaseOrderIdAndStatus(UUID purchaseOrderId, String status);
     boolean existsByPurchaseOrderIdAndStatusNot(UUID purchaseOrderId, String status);
     long countByPurchaseOrderIdAndStatus(UUID purchaseOrderId, String status);
