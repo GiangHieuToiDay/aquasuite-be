@@ -22,6 +22,8 @@ import com.aquasuite.ims.entity.sales.SalesInvoice;
 import com.aquasuite.ims.enums.sales.FulfillmentMethod;
 import com.aquasuite.ims.enums.sales.OrderChannel;
 import com.aquasuite.ims.enums.sales.OrderStatus;
+import com.aquasuite.ims.enums.sales.OrderModificationRequestStatus;
+import com.aquasuite.ims.enums.sales.OrderModificationRequestType;
 import com.aquasuite.ims.enums.sales.OrderType;
 import com.aquasuite.ims.enums.sales.PaymentMethod;
 import com.aquasuite.ims.enums.sales.PaymentStatus;
@@ -35,10 +37,12 @@ import com.aquasuite.ims.dto.sales.request.CreateComboItemRequest;
 import com.aquasuite.ims.dto.sales.request.CreateOrderItemRequest;
 import com.aquasuite.ims.dto.sales.request.CreateSalesOrderRequest;
 import com.aquasuite.ims.dto.sales.request.RejectOnlineOrderRequest;
+import com.aquasuite.ims.dto.sales.request.ApproveOrderModificationRequest;
 import com.aquasuite.ims.dto.sales.request.SalesOrderFilterRequest;
 import com.aquasuite.ims.dto.sales.request.UpdateOrderFulfillmentRequest;
 import com.aquasuite.ims.dto.sales.response.SalesOrderDetailResponse;
 import com.aquasuite.ims.dto.sales.response.SalesOrderSummaryResponse;
+import com.aquasuite.ims.dto.sales.response.OrderModificationRequestResponse;
 import com.aquasuite.ims.repository.sales.OnlinePayosPaymentRepository;
 import com.aquasuite.ims.repository.sales.OrderItemRepository;
 import com.aquasuite.ims.repository.sales.OrderPaymentMilestoneRepository;
@@ -50,6 +54,7 @@ import com.aquasuite.ims.repository.sales.SalesInvoiceItemRepository;
 import com.aquasuite.ims.repository.sales.SalesInvoiceRepository;
 import com.aquasuite.ims.service.sales.helper.OrderCodeGenerator;
 import com.aquasuite.ims.service.sales.impl.SalesOrderServiceImpl;
+import com.aquasuite.ims.service.sales.impl.OrderModificationRequestServiceImpl;
 import com.aquasuite.ims.exception.AppException;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
@@ -91,6 +96,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -109,6 +115,7 @@ class SalesOrderServiceTest {
     @Mock private OrderReservationServiceImpl orderStockReservationService;
     @Mock private com.aquasuite.ims.service.finance.PaymentService orderReceivableApi;
     @Mock private org.springframework.context.ApplicationEventPublisher eventPublisher;
+    @Mock private OrderModificationRequestServiceImpl modificationService;
 
     @Mock
     private CatalogLookupService catalogApi;
@@ -146,6 +153,7 @@ class SalesOrderServiceTest {
     @Mock
     private PayosClient payosClient;
 
+    @Spy
     @InjectMocks
     private SalesOrderServiceImpl salesOrderService;
 
@@ -1041,10 +1049,19 @@ class SalesOrderServiceTest {
                 .discountAmount(BigDecimal.ZERO)
                 .lineTotal(new BigDecimal("10000000"))
                 .build();
+        OrderItem removedItem = OrderItem.builder()
+                .orderItemId(UUID.randomUUID())
+                .orderId(orderId)
+                .variantId(UUID.randomUUID())
+                .quantity(BigDecimal.ZERO)
+                .unitPrice(new BigDecimal("1000000"))
+                .discountAmount(BigDecimal.ZERO)
+                .lineTotal(BigDecimal.ZERO)
+                .build();
 
         when(orderRepository.findByIdForUpdate(orderId)).thenReturn(Optional.of(onlineOrder));
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(onlineOrder));
-        when(orderItemRepository.findByOrderId(orderId)).thenReturn(List.of(orderItem));
+        when(orderItemRepository.findByOrderId(orderId)).thenReturn(List.of(orderItem, removedItem));
         when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.of(skuDto));
         when(inventoryApi.checkAvailability(variantId, new BigDecimal("2"))).thenReturn(true);
         when(salesInvoiceRepository.findByOrderIdAndInvoiceType(orderId, "STORE")).thenReturn(Optional.empty());
@@ -1066,6 +1083,73 @@ class SalesOrderServiceTest {
         verify(salesInvoiceRepository).saveAndFlush(invoiceCaptor.capture());
         assertThat(invoiceCaptor.getValue().getInvoiceType()).isEqualTo("STORE");
         assertThat(invoiceCaptor.getValue().getStatus()).isEqualTo("DRAFT");
+    }
+
+    @Test
+    void confirmOnlineOrder_IsBlockedWhileModificationRequestIsActive() {
+        UUID orderId = UUID.randomUUID();
+        Order onlineOrder = Order.builder().orderId(orderId).orderCode("SO-PENDING-REQUEST")
+                .orderStatus(OrderStatus.PENDING_CONFIRMATION.name())
+                .paymentStatus(PaymentStatus.UNPAID.name())
+                .paymentMethod(PaymentMethod.CASH.name()).build();
+        when(orderRepository.findByIdForUpdate(orderId)).thenReturn(Optional.of(onlineOrder));
+        when(modificationService.hasActiveRequest(orderId)).thenReturn(true);
+
+        assertThatThrownBy(() -> salesOrderService.confirmOnlineOrder(orderId, new ConfirmOnlineOrderRequest()))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode())
+                        .isEqualTo(SalesErrorCode.ORDER_BLOCKED_BY_PENDING_MODIFICATION_REQUEST));
+
+        verify(inventoryApi, never()).reserveStock(any(), any());
+        verify(modificationService).hasActiveRequest(orderId);
+    }
+
+    @Test
+    void rejectOnlineOrder_IsBlockedWhileModificationRequestIsActive() {
+        UUID orderId = UUID.randomUUID();
+        Order onlineOrder = Order.builder().orderId(orderId).orderCode("SO-PENDING-REQUEST")
+                .orderStatus(OrderStatus.PENDING_CONFIRMATION.name())
+                .paymentStatus(PaymentStatus.UNPAID.name())
+                .paymentMethod(PaymentMethod.CASH.name()).build();
+        when(orderRepository.findByIdForUpdate(orderId)).thenReturn(Optional.of(onlineOrder));
+        when(modificationService.hasActiveRequest(orderId)).thenReturn(true);
+
+        assertThatThrownBy(() -> salesOrderService.rejectOnlineOrder(orderId,
+                RejectOnlineOrderRequest.builder().reason("Reject order").build()))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode())
+                        .isEqualTo(SalesErrorCode.ORDER_BLOCKED_BY_PENDING_MODIFICATION_REQUEST));
+
+        verify(orderReceivableApi, never()).createPendingCustomerRefund(any());
+        verify(modificationService).hasActiveRequest(orderId);
+    }
+
+    @Test
+    void approvingPendingConfirmationCancellationRunsUc22RejectionFlow() {
+        UUID requestId = UUID.randomUUID();
+        UUID orderId = UUID.randomUUID();
+        Order order = Order.builder().orderId(orderId)
+                .orderStatus(OrderStatus.PENDING_CONFIRMATION.name()).build();
+        OrderModificationRequestResponse approved = OrderModificationRequestResponse.builder()
+                .id(requestId).orderId(orderId)
+                .requestType(OrderModificationRequestType.FULL_CANCELLATION)
+                .requestStatus(OrderModificationRequestStatus.APPROVED)
+                .decisionNote("Customer requested cancellation").build();
+        ApproveOrderModificationRequest review = new ApproveOrderModificationRequest();
+        review.setDecisionNote("Approved");
+        SalesOrderDetailResponse cancellationResult = new SalesOrderDetailResponse();
+
+        when(modificationService.approve(requestId, review, staffId, true)).thenReturn(approved);
+        when(orderRepository.findByIdForUpdate(orderId)).thenReturn(Optional.of(order));
+        doReturn(cancellationResult).when(salesOrderService)
+                .rejectOnlineOrder(eq(orderId), any(RejectOnlineOrderRequest.class));
+
+        OrderModificationRequestResponse response = salesOrderService.approve(requestId, review, staffId, true);
+
+        assertThat(response).isSameAs(approved);
+        ArgumentCaptor<RejectOnlineOrderRequest> rejection = ArgumentCaptor.forClass(RejectOnlineOrderRequest.class);
+        verify(salesOrderService).rejectOnlineOrder(eq(orderId), rejection.capture());
+        assertThat(rejection.getValue().getReason()).contains(requestId.toString(), "Customer requested cancellation");
     }
 
     @Test

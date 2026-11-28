@@ -28,6 +28,8 @@ import com.aquasuite.ims.entity.sales.SalesInvoiceItem;
 import com.aquasuite.ims.enums.sales.FulfillmentMethod;
 import com.aquasuite.ims.enums.sales.OrderChannel;
 import com.aquasuite.ims.enums.sales.OrderStatus;
+import com.aquasuite.ims.enums.sales.OrderModificationRequestStatus;
+import com.aquasuite.ims.enums.sales.OrderModificationRequestType;
 import com.aquasuite.ims.enums.sales.OrderType;
 import com.aquasuite.ims.enums.sales.PaymentMethod;
 import com.aquasuite.ims.enums.sales.PaymentStatus;
@@ -1128,6 +1130,9 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             log.warn("Cannot confirm online order {} with status {}", order.getOrderCode(), order.getOrderStatus());
             throw new AppException(SalesErrorCode.ORDER_NOT_PENDING_CONFIRMATION, order.getOrderStatus());
         }
+        if (modificationService != null && modificationService.hasActiveRequest(orderId)) {
+            throw new AppException(SalesErrorCode.ORDER_BLOCKED_BY_PENDING_MODIFICATION_REQUEST);
+        }
 
         OnlinePayosPayment payosPayment = onlinePayosPaymentRepository != null
                 ? onlinePayosPaymentRepository.findByOrderId(orderId).orElse(null)
@@ -1146,8 +1151,14 @@ public class SalesOrderServiceImpl implements SalesOrderService {
             }
         }
 
-        List<OrderItem> items = orderItemRepository.findByOrderId(orderId);
-        if (items == null || items.isEmpty()) {
+        List<OrderItem> orderItems = orderItemRepository.findByOrderId(orderId);
+        if (orderItems == null || orderItems.isEmpty()) {
+            throw new AppException(SalesErrorCode.ORDER_ITEMS_EMPTY);
+        }
+        List<OrderItem> items = orderItems.stream()
+                .filter(item -> item.getQuantity() != null && item.getQuantity().signum() > 0)
+                .toList();
+        if (items.isEmpty()) {
             throw new AppException(SalesErrorCode.ORDER_ITEMS_EMPTY);
         }
 
@@ -1259,6 +1270,9 @@ public class SalesOrderServiceImpl implements SalesOrderService {
         if (!OrderStatus.PENDING_CONFIRMATION.name().equalsIgnoreCase(order.getOrderStatus())) {
             log.warn("Cannot reject online order {} with status {}", order.getOrderCode(), order.getOrderStatus());
             throw new AppException(SalesErrorCode.ORDER_NOT_PENDING_CONFIRMATION, order.getOrderStatus());
+        }
+        if (modificationService != null && modificationService.hasActiveRequest(orderId)) {
+            throw new AppException(SalesErrorCode.ORDER_BLOCKED_BY_PENDING_MODIFICATION_REQUEST);
         }
 
         UUID currentStaffId = resolveCurrentStaffId();
@@ -1810,9 +1824,24 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     }
 
     @Override
+    @Transactional
     public OrderModificationRequestResponse approve(UUID requestId, ApproveOrderModificationRequest request,
             UUID actorId, boolean shopOwner) {
-        return modificationService != null ? modificationService.approve(requestId, request, actorId, shopOwner) : null;
+        if (modificationService == null) {
+            return null;
+        }
+        OrderModificationRequestResponse approved = modificationService.approve(requestId, request, actorId, shopOwner);
+        if (approved != null
+                && approved.getRequestStatus() == OrderModificationRequestStatus.APPROVED
+                && approved.getRequestType() == OrderModificationRequestType.FULL_CANCELLATION) {
+            Order order = orderRepository.findByIdForUpdate(approved.getOrderId())
+                    .orElseThrow(() -> new AppException(SalesErrorCode.ORDER_NOT_FOUND));
+            if (OrderStatus.PENDING_CONFIRMATION.name().equalsIgnoreCase(order.getOrderStatus())) {
+                String reason = "UC-26 request " + requestId + " approved. " + approved.getDecisionNote();
+                rejectOnlineOrder(order.getOrderId(), RejectOnlineOrderRequest.builder().reason(reason).build());
+            }
+        }
+        return approved;
     }
 
     @Override

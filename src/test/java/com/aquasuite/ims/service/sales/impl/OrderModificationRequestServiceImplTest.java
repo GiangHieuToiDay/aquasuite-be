@@ -31,6 +31,7 @@ import com.aquasuite.ims.repository.sales.SalesInvoiceItemRepository;
 import com.aquasuite.ims.repository.sales.SalesInvoiceRepository;
 import com.aquasuite.ims.exception.AppException;
 import com.aquasuite.ims.exception.CommonErrorCode;
+import com.aquasuite.ims.exception.sales.OrderModificationErrorCode;
 import org.springframework.context.ApplicationEventPublisher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -564,6 +565,182 @@ class OrderModificationRequestServiceImplTest {
         assertNotNull(response);
         verify(requestRepository).save(any(OrderModificationRequest.class));
         verify(events).publishEvent((Object) any());
+    }
+
+    @Test
+    void customerCanRequestAddressChangeForPendingConfirmationOrder() {
+        UUID orderId = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        Order order = Order.builder().orderId(orderId).customerId(customerId)
+                .orderStatus("PENDING_CONFIRMATION").build();
+        when(orderRepository.findByIdForUpdate(orderId)).thenReturn(Optional.of(order));
+        when(deliveries.lockByOrderId(orderId)).thenReturn(List.of());
+        when(requestRepository.existsByOrderIdAndRequestStatusIn(eq(orderId), any())).thenReturn(false);
+        when(requestRepository.save(any(OrderModificationRequest.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(mapper.toResponse(any(OrderModificationRequest.class)))
+                .thenReturn(OrderModificationRequestResponse.builder().id(UUID.randomUUID()).build());
+        when(itemRepository.findByModificationRequestIdOrderByCreatedAtAsc(any())).thenReturn(List.of());
+        when(mapper.toItemResponses(any())).thenReturn(List.of());
+
+        OrderModificationRequestResponse response = service.createForCustomer(
+                CreateOrderModificationRequest.builder()
+                        .orderId(orderId)
+                        .requestType("ADDRESS_CHANGE")
+                        .customerReason("Update delivery location")
+                        .requestedDeliveryAddress("456 New Road")
+                        .build(),
+                userId,
+                customerId);
+
+        assertNotNull(response);
+        verify(requestRepository).save(any(OrderModificationRequest.class));
+    }
+
+    @Test
+    void pendingBankTransferOrderCannotSubmitItemChangeRequest() {
+        UUID orderId = UUID.randomUUID();
+        Order order = Order.builder().orderId(orderId).customerId(UUID.randomUUID())
+                .orderStatus("PENDING_CONFIRMATION").paymentMethod("BANK_TRANSFER")
+                .paymentStatus("UNPAID").build();
+        CreateOrderModificationRequest body = CreateOrderModificationRequest.builder()
+                .orderId(orderId).requestType("ITEM_CHANGE").customerReason("Change product")
+                .items(List.of(CreateOrderModificationRequest.CreateOrderModificationItemRequest.builder()
+                        .orderItemId(UUID.randomUUID()).changeAction("REMOVE").build()))
+                .build();
+        when(orderRepository.findByIdForUpdate(orderId)).thenReturn(Optional.of(order));
+        when(deliveries.lockByOrderId(orderId)).thenReturn(List.of());
+
+        AppException exception = assertThrows(AppException.class, () -> service.create(body, UUID.randomUUID()));
+
+        assertEquals(OrderModificationErrorCode.PENDING_CONFIRMATION_ITEM_CHANGE_NOT_SUPPORTED,
+                exception.getErrorCode());
+        verify(requestRepository, never()).save(any(OrderModificationRequest.class));
+    }
+
+    @Test
+    void pendingCashItemChangeUpdatesOrderLinesAndTotalsBeforeConfirmation() {
+        UUID requestId = UUID.randomUUID();
+        UUID orderId = UUID.randomUUID();
+        UUID orderItemId = UUID.randomUUID();
+        UUID variantId = UUID.randomUUID();
+        OrderModificationRequest request = OrderModificationRequest.builder()
+                .modificationRequestId(requestId).orderId(orderId).customerId(UUID.randomUUID())
+                .requestStatus(OrderModificationRequestStatus.PENDING_REVIEW)
+                .requestType(OrderModificationRequestType.ITEM_CHANGE).build();
+        Order order = Order.builder().orderId(orderId).orderStatus("PENDING_CONFIRMATION")
+                .paymentMethod("CASH").paymentStatus("UNPAID")
+                .subtotal(new BigDecimal("90.00")).discountAmount(new BigDecimal("10.00"))
+                .shippingFee(new BigDecimal("5.00")).totalAmount(new BigDecimal("95.00")).build();
+        OrderItem orderItem = OrderItem.builder().orderItemId(orderItemId).orderId(orderId).variantId(variantId)
+                .quantity(new BigDecimal("2.00")).unitPrice(new BigDecimal("50.00"))
+                .discountAmount(new BigDecimal("10.00")).lineTotal(new BigDecimal("90.00")).build();
+        OrderModificationRequestItem requested = OrderModificationRequestItem.builder()
+                .modificationRequestId(requestId).orderItemId(orderItemId).originalVariantId(variantId)
+                .changeAction(OrderModificationItemAction.REDUCE).originalQuantity(new BigDecimal("2.00"))
+                .requestedQuantity(BigDecimal.ONE).unitPriceSnapshot(new BigDecimal("50.00")).build();
+        ApproveOrderModificationRequest approve = new ApproveOrderModificationRequest();
+        approve.setDecisionNote("Reduce quantity");
+
+        when(requestRepository.findByIdForUpdate(requestId)).thenReturn(Optional.of(request));
+        when(orderRepository.findByIdForUpdate(orderId)).thenReturn(Optional.of(order));
+        when(deliveries.lockByOrderId(orderId)).thenReturn(List.of());
+        when(invoiceRepository.findByOrderIdForUpdate(orderId)).thenReturn(List.of());
+        when(payments.getVerifiedPaymentSummary(orderId))
+                .thenReturn(new VerifiedPaymentSummary(orderId, BigDecimal.ZERO));
+        when(itemRepository.findByModificationRequestIdOrderByCreatedAtAsc(requestId)).thenReturn(List.of(requested));
+        when(orderItemRepository.findByOrderIdForUpdate(orderId)).thenReturn(List.of(orderItem));
+        when(mapper.toResponse(request)).thenReturn(new OrderModificationRequestResponse());
+        when(mapper.toItemResponses(any())).thenReturn(List.of());
+
+        service.approve(requestId, approve, UUID.randomUUID(), true);
+
+        assertEquals(OrderModificationRequestStatus.APPROVED, request.getRequestStatus());
+        assertEquals(0, BigDecimal.ONE.compareTo(orderItem.getQuantity()));
+        assertEquals(new BigDecimal("45.00"), orderItem.getLineTotal());
+        assertEquals(new BigDecimal("45.00"), order.getSubtotal());
+        assertEquals(new BigDecimal("5.00"), order.getDiscountAmount());
+        assertEquals(new BigDecimal("50.00"), order.getTotalAmount());
+        assertEquals(new BigDecimal("-45.00"), request.getPriceDifference());
+    }
+
+    @Test
+    void pendingCashItemSwapUpdatesExistingLineWithoutLeavingZeroQuantityItem() {
+        UUID requestId = UUID.randomUUID();
+        UUID orderId = UUID.randomUUID();
+        UUID orderItemId = UUID.randomUUID();
+        UUID oldVariantId = UUID.randomUUID();
+        UUID newVariantId = UUID.randomUUID();
+        OrderModificationRequest request = OrderModificationRequest.builder()
+                .modificationRequestId(requestId).orderId(orderId).customerId(UUID.randomUUID())
+                .requestStatus(OrderModificationRequestStatus.PENDING_REVIEW)
+                .requestType(OrderModificationRequestType.ITEM_CHANGE).build();
+        Order order = Order.builder().orderId(orderId).orderStatus("PENDING_CONFIRMATION")
+                .paymentMethod("CASH").paymentStatus("UNPAID").totalAmount(new BigDecimal("100.00")).build();
+        OrderItem orderItem = OrderItem.builder().orderItemId(orderItemId).orderId(orderId).variantId(oldVariantId)
+                .sku("OLD").productName("Old product").variantName("Old variant")
+                .quantity(BigDecimal.ONE).unitPrice(new BigDecimal("100.00"))
+                .discountAmount(BigDecimal.ZERO).lineTotal(new BigDecimal("100.00")).build();
+        OrderModificationRequestItem requested = OrderModificationRequestItem.builder()
+                .modificationRequestId(requestId).orderItemId(orderItemId).originalVariantId(oldVariantId)
+                .requestedVariantId(newVariantId).changeAction(OrderModificationItemAction.SWAP)
+                .originalQuantity(BigDecimal.ONE).unitPriceSnapshot(new BigDecimal("100.00")).build();
+        CatalogSkuSummaryDto replacement = CatalogSkuSummaryDto.builder().variantId(newVariantId)
+                .sku("NEW").productName("New product").variantName("New variant")
+                .sellingPrice(new BigDecimal("120.00")).status("ACTIVE").build();
+        ApproveOrderModificationRequest approve = new ApproveOrderModificationRequest();
+        approve.setDecisionNote("Swap product");
+
+        when(requestRepository.findByIdForUpdate(requestId)).thenReturn(Optional.of(request));
+        when(orderRepository.findByIdForUpdate(orderId)).thenReturn(Optional.of(order));
+        when(deliveries.lockByOrderId(orderId)).thenReturn(List.of());
+        when(invoiceRepository.findByOrderIdForUpdate(orderId)).thenReturn(List.of());
+        when(payments.getVerifiedPaymentSummary(orderId))
+                .thenReturn(new VerifiedPaymentSummary(orderId, BigDecimal.ZERO));
+        when(itemRepository.findByModificationRequestIdOrderByCreatedAtAsc(requestId)).thenReturn(List.of(requested));
+        when(orderItemRepository.findByOrderIdForUpdate(orderId)).thenReturn(List.of(orderItem));
+        when(catalogApi.getSkuSummary(newVariantId)).thenReturn(Optional.of(replacement));
+        when(mapper.toResponse(request)).thenReturn(new OrderModificationRequestResponse());
+        when(mapper.toItemResponses(any())).thenReturn(List.of());
+
+        service.approve(requestId, approve, UUID.randomUUID(), true);
+
+        assertEquals(newVariantId, orderItem.getVariantId());
+        assertEquals("NEW", orderItem.getSku());
+        assertEquals(BigDecimal.ONE, orderItem.getQuantity());
+        assertEquals(new BigDecimal("120.00"), order.getTotalAmount());
+        assertEquals(new BigDecimal("20.00"), request.getPriceDifference());
+        verify(orderItemRepository, never()).save(any(OrderItem.class));
+    }
+
+    @Test
+    void pendingOrderFullCancellationIsApprovedForUc22Execution() {
+        UUID requestId = UUID.randomUUID();
+        UUID orderId = UUID.randomUUID();
+        OrderModificationRequest request = OrderModificationRequest.builder()
+                .modificationRequestId(requestId).orderId(orderId).customerId(UUID.randomUUID())
+                .requestStatus(OrderModificationRequestStatus.PENDING_REVIEW)
+                .requestType(OrderModificationRequestType.FULL_CANCELLATION).build();
+        Order order = Order.builder().orderId(orderId).orderStatus("PENDING_CONFIRMATION")
+                .paymentMethod("CASH").paymentStatus("UNPAID")
+                .totalAmount(new BigDecimal("100.00")).build();
+        ApproveOrderModificationRequest approve = new ApproveOrderModificationRequest();
+        approve.setDecisionNote("Customer requested cancellation");
+
+        when(requestRepository.findByIdForUpdate(requestId)).thenReturn(Optional.of(request));
+        when(orderRepository.findByIdForUpdate(orderId)).thenReturn(Optional.of(order));
+        when(deliveries.lockByOrderId(orderId)).thenReturn(List.of());
+        when(invoiceRepository.findByOrderIdForUpdate(orderId)).thenReturn(List.of());
+        when(payments.getVerifiedPaymentSummary(orderId))
+                .thenReturn(new VerifiedPaymentSummary(orderId, BigDecimal.ZERO));
+        when(mapper.toResponse(request)).thenReturn(new OrderModificationRequestResponse());
+        when(mapper.toItemResponses(any())).thenReturn(List.of());
+        when(itemRepository.findByModificationRequestIdOrderByCreatedAtAsc(requestId)).thenReturn(List.of());
+
+        service.approve(requestId, approve, UUID.randomUUID(), true);
+
+        assertEquals(OrderModificationRequestStatus.APPROVED, request.getRequestStatus());
+        assertEquals("PENDING_CONFIRMATION", order.getOrderStatus());
     }
 
     @Test

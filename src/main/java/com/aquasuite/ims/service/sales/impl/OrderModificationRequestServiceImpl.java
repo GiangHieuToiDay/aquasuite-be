@@ -19,6 +19,8 @@ import com.aquasuite.ims.entity.sales.SalesInvoiceItem;
 import com.aquasuite.ims.enums.sales.OrderModificationItemAction;
 import com.aquasuite.ims.enums.sales.OrderModificationRequestStatus;
 import com.aquasuite.ims.enums.sales.OrderModificationRequestType;
+import com.aquasuite.ims.enums.sales.PaymentMethod;
+import com.aquasuite.ims.enums.sales.PaymentStatus;
 import com.aquasuite.ims.enums.sales.OrderStatus;
 import com.aquasuite.ims.enums.sales.SalesInvoiceStatus;
 import com.aquasuite.ims.exception.sales.OrderModificationErrorCode;
@@ -116,12 +118,19 @@ public class OrderModificationRequestServiceImpl {
             throw new AppException(CommonErrorCode.ACCESS_DENIED);
         }
 
-        // Check order eligibility: PROCESSING and no dispatched deliveries
+        boolean pendingConfirmation = OrderStatus.PENDING_CONFIRMATION.name()
+                .equalsIgnoreCase(order.getOrderStatus());
+        boolean processing = OrderStatus.PROCESSING.name().equalsIgnoreCase(order.getOrderStatus());
         boolean dispatched = deliveries.lockByOrderId(order.getOrderId()).stream()
                 .map(delivery -> delivery.status() == null ? "" : delivery.status().toUpperCase())
                 .anyMatch(status -> List.of("DISPATCHED", "IN_TRANSIT", "DELIVERED").contains(status));
-        if (!OrderStatus.PROCESSING.name().equalsIgnoreCase(order.getOrderStatus()) || dispatched) {
+        if ((!pendingConfirmation && !processing) || dispatched) {
             throw new AppException(OrderModificationErrorCode.ORDER_NOT_ELIGIBLE);
+        }
+        if (pendingConfirmation && requestType == OrderModificationRequestType.ITEM_CHANGE
+                && (!PaymentMethod.CASH.name().equalsIgnoreCase(order.getPaymentMethod())
+                || !PaymentStatus.UNPAID.name().equalsIgnoreCase(order.getPaymentStatus()))) {
+            throw new AppException(OrderModificationErrorCode.PENDING_CONFIRMATION_ITEM_CHANGE_NOT_SUPPORTED);
         }
 
         // Block duplicate active requests
@@ -171,8 +180,12 @@ public class OrderModificationRequestServiceImpl {
                 OrderModificationItemAction action = parseItemAction(itemReq.getChangeAction());
 
                 if (!seen.add(itemReq.getOrderItemId()) || current == null
-                        || !order.getOrderId().equals(current.getOrderId())) {
+                        || !order.getOrderId().equals(current.getOrderId())
+                        || current.getQuantity() == null || current.getQuantity().signum() <= 0) {
                     throw new AppException(OrderModificationErrorCode.INVALID_REQUESTED_ITEM);
+                }
+                if (pendingConfirmation && (current.getComboId() != null || current.getComboGroupId() != null)) {
+                    throw new AppException(OrderModificationErrorCode.INVALID_ITEM_CHANGE);
                 }
 
                 // Validate action-specific constraints
@@ -195,15 +208,18 @@ public class OrderModificationRequestServiceImpl {
                     CatalogSkuSummaryDto sku = catalogApi.getSkuSummary(itemReq.getRequestedVariantId())
                             .filter(s -> s.status() == null || "ACTIVE".equalsIgnoreCase(s.status()))
                             .orElseThrow(() -> new AppException(OrderModificationErrorCode.REPLACEMENT_SKU_NOT_FOUND));
-                    delta = delta.add(amount(sku.sellingPrice()).subtract(current.getUnitPrice())
-                            .multiply(current.getQuantity()));
+                    delta = delta.add(lineTotal(amount(sku.sellingPrice()), current.getQuantity(), BigDecimal.ZERO)
+                            .subtract(amount(current.getLineTotal())));
                 }
 
                 if (action == OrderModificationItemAction.REMOVE) {
-                    delta = delta.subtract(current.getUnitPrice().multiply(current.getQuantity()));
+                    delta = delta.subtract(amount(current.getLineTotal()));
                 } else if (action == OrderModificationItemAction.REDUCE) {
-                    delta = delta.subtract(current.getUnitPrice()
-                            .multiply(current.getQuantity().subtract(itemReq.getRequestedQuantity())));
+                    BigDecimal requestedDiscount = proportionalDiscount(
+                            current.getDiscountAmount(), itemReq.getRequestedQuantity(), current.getQuantity());
+                    BigDecimal requestedTotal = lineTotal(
+                            current.getUnitPrice(), itemReq.getRequestedQuantity(), requestedDiscount);
+                    delta = delta.add(requestedTotal.subtract(amount(current.getLineTotal())));
                 }
 
                 OrderModificationRequestItem item = OrderModificationRequestItem.builder()
@@ -282,10 +298,29 @@ public class OrderModificationRequestServiceImpl {
                 .allMatch(invoice -> SalesInvoiceStatus.DRAFT.name().equalsIgnoreCase(invoice.getStatus()));
         OrderModificationRequestStatus previous = request.getRequestStatus();
 
-        // FIX: ADDRESS_CHANGE is handled first regardless of verifiedAmount or taxLinked
-        if (request.getRequestType() == OrderModificationRequestType.ADDRESS_CHANGE) {
+        boolean pendingConfirmation = OrderStatus.PENDING_CONFIRMATION.name()
+                .equalsIgnoreCase(order.getOrderStatus());
+        if (pendingConfirmation && request.getRequestType() == OrderModificationRequestType.FULL_CANCELLATION) {
+            if (!invoices.isEmpty()) {
+                throw new AppException(OrderModificationErrorCode.DRAFT_INVOICE_REQUIRED);
+            }
+            request.setPriceDifference(PaymentStatus.PAID.name().equalsIgnoreCase(order.getPaymentStatus())
+                    ? amount(order.getTotalAmount()).negate() : verifiedAmount.negate());
+            request.setRequestStatus(OrderModificationRequestStatus.APPROVED);
+        } else if (request.getRequestType() == OrderModificationRequestType.ADDRESS_CHANGE) {
             order.setDeliveryAddress(request.getRequestedDeliveryAddress());
             request.setPriceDifference(BigDecimal.ZERO);
+            request.setRequestStatus(OrderModificationRequestStatus.APPROVED);
+        } else if (pendingConfirmation && request.getRequestType() == OrderModificationRequestType.ITEM_CHANGE) {
+            if (!PaymentMethod.CASH.name().equalsIgnoreCase(order.getPaymentMethod())
+                    || !PaymentStatus.UNPAID.name().equalsIgnoreCase(order.getPaymentStatus())
+                    || verifiedAmount.signum() != 0) {
+                throw new AppException(OrderModificationErrorCode.PENDING_CONFIRMATION_ITEM_CHANGE_NOT_SUPPORTED);
+            }
+            if (!invoices.isEmpty()) {
+                throw new AppException(OrderModificationErrorCode.DRAFT_INVOICE_REQUIRED);
+            }
+            applyPendingConfirmationItemChange(order, request);
             request.setRequestStatus(OrderModificationRequestStatus.APPROVED);
         } else if (request.getRequestType() == OrderModificationRequestType.ITEM_CHANGE
                 && !taxLinked && verifiedAmount.signum() == 0) {
@@ -453,6 +488,7 @@ public class OrderModificationRequestServiceImpl {
             OrderItem current = currentItems.get(requested.getOrderItemId());
             if (!seen.add(requested.getOrderItemId()) || current == null || !orderId.equals(current.getOrderId())
                     || !requested.getOriginalVariantId().equals(current.getVariantId())
+                    || current.getQuantity() == null || current.getQuantity().signum() <= 0
                     || requested.getOriginalQuantity().compareTo(current.getQuantity()) != 0) {
                 throw new AppException(OrderModificationErrorCode.INVALID_ITEM_CHANGE);
             }
@@ -650,10 +686,85 @@ public class OrderModificationRequestServiceImpl {
         boolean dispatched = deliveries.lockByOrderId(order.getOrderId()).stream()
                 .map(delivery -> delivery.status() == null ? "" : delivery.status().toUpperCase())
                 .anyMatch(status -> List.of("DISPATCHED", "IN_TRANSIT", "DELIVERED").contains(status));
-        if (!OrderStatus.PROCESSING.name().equalsIgnoreCase(order.getOrderStatus()) || dispatched) {
+        boolean eligibleStatus = OrderStatus.PROCESSING.name().equalsIgnoreCase(order.getOrderStatus())
+                || OrderStatus.PENDING_CONFIRMATION.name().equalsIgnoreCase(order.getOrderStatus());
+        if (!eligibleStatus || dispatched) {
             throw new AppException(OrderModificationErrorCode.ORDER_NOT_ELIGIBLE);
         }
         return order;
+    }
+
+    public boolean hasActiveRequest(UUID orderId) {
+        return requestRepository.existsByOrderIdAndRequestStatusIn(orderId,
+                List.of(OrderModificationRequestStatus.PENDING_REVIEW, OrderModificationRequestStatus.PENDING_CANCEL));
+    }
+
+    private void applyPendingConfirmationItemChange(Order order, OrderModificationRequest request) {
+        List<OrderModificationRequestItem> requestedItems = requestItemRepository
+                .findByModificationRequestIdOrderByCreatedAtAsc(request.getModificationRequestId());
+        if (requestedItems.isEmpty()) {
+            throw new AppException(OrderModificationErrorCode.INVALID_ITEM_CHANGE);
+        }
+        List<OrderItem> currentItems = orderItemRepository.findByOrderIdForUpdate(order.getOrderId());
+        Map<UUID, OrderItem> currentItemsById = currentItems.stream()
+                .collect(Collectors.toMap(OrderItem::getOrderItemId, item -> item));
+        validateRequestedItems(requestedItems, currentItemsById, order.getOrderId());
+
+        BigDecimal previousTotal = amount(order.getTotalAmount());
+        for (OrderModificationRequestItem requested : requestedItems) {
+            OrderItem current = currentItemsById.get(requested.getOrderItemId());
+            if (current.getComboId() != null || current.getComboGroupId() != null) {
+                throw new AppException(OrderModificationErrorCode.INVALID_ITEM_CHANGE);
+            }
+            switch (requested.getChangeAction()) {
+                case REMOVE -> {
+                    current.setQuantity(BigDecimal.ZERO);
+                    current.setDiscountAmount(BigDecimal.ZERO);
+                    current.setLineTotal(BigDecimal.ZERO);
+                }
+                case REDUCE -> {
+                    BigDecimal quantity = requested.getRequestedQuantity();
+                    BigDecimal discount = proportionalDiscount(current.getDiscountAmount(), quantity, current.getQuantity());
+                    current.setQuantity(quantity);
+                    current.setDiscountAmount(discount);
+                    current.setLineTotal(lineTotal(current.getUnitPrice(), quantity, discount));
+                }
+                case SWAP -> replacePendingOrderItem(current, requested);
+            }
+        }
+
+        List<OrderItem> updatedItems = orderItemRepository.findByOrderIdForUpdate(order.getOrderId());
+        if (updatedItems.stream().noneMatch(item -> amount(item.getQuantity()).signum() > 0)) {
+            throw new AppException(OrderModificationErrorCode.INVALID_ITEM_CHANGE);
+        }
+        BigDecimal subtotal = updatedItems.stream()
+                .map(item -> amount(item.getLineTotal())).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal discount = updatedItems.stream()
+                .map(item -> amount(item.getDiscountAmount())).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal total = subtotal.add(amount(order.getShippingFee()));
+        order.setSubtotal(subtotal);
+        order.setDiscountAmount(discount);
+        order.setTotalAmount(total);
+        if (order.getRemainingDebtAmount() != null || order.getDepositAmount() != null) {
+            order.setRemainingDebtAmount(total.subtract(amount(order.getDepositAmount())).max(BigDecimal.ZERO));
+        }
+        request.setPriceDifference(total.subtract(previousTotal));
+    }
+
+    private void replacePendingOrderItem(OrderItem current, OrderModificationRequestItem requested) {
+        CatalogSkuSummaryDto replacement = catalogApi.getSkuSummary(requested.getRequestedVariantId())
+                .filter(sku -> sku.status() == null || "ACTIVE".equalsIgnoreCase(sku.status()))
+                .orElseThrow(() -> new AppException(OrderModificationErrorCode.REPLACEMENT_SKU_NOT_FOUND));
+        BigDecimal quantity = current.getQuantity();
+        BigDecimal unitPrice = amount(replacement.sellingPrice());
+        current.setVariantId(replacement.variantId());
+        current.setSku(replacement.sku());
+        current.setProductName(replacement.productName() != null
+                ? replacement.productName() : replacement.variantName());
+        current.setVariantName(replacement.variantName());
+        current.setUnitPrice(unitPrice);
+        current.setDiscountAmount(BigDecimal.ZERO);
+        current.setLineTotal(lineTotal(unitPrice, quantity, BigDecimal.ZERO));
     }
 
     private BigDecimal proposedTotal(OrderModificationRequest request, BigDecimal currentTotal) {

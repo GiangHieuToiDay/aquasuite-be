@@ -45,6 +45,7 @@ public enum SalesErrorCode implements BaseErrorCode {
     ORDER_NOT_PENDING_CONFIRMATION("SALES_036", "Thao tác chỉ áp dụng cho đơn hàng đang ở trạng thái Chờ xác nhận (PENDING_CONFIRMATION), trạng thái hiện tại: {0}", HttpStatus.BAD_REQUEST),
     ONLINE_ORDER_PAYOS_UNPAID("SALES_037", "Đơn hàng thanh toán trực tuyến qua PayOS chưa hoàn tất thanh toán. Vui lòng kiểm tra/đồng bộ thanh toán trước khi xác nhận đơn", HttpStatus.BAD_REQUEST),
     ORDER_REJECT_REASON_REQUIRED("SALES_038", "Vui lòng nhập lý do từ chối hoặc hủy đơn hàng", HttpStatus.BAD_REQUEST),
+    ORDER_BLOCKED_BY_PENDING_MODIFICATION_REQUEST("SALES_039", "Đơn hàng có yêu cầu đổi/hủy đang chờ xử lý; hãy duyệt yêu cầu trước khi cập nhật trạng thái đơn", HttpStatus.CONFLICT),
     CUSTOMER_NOT_ACTIVE("QUOTATION_002", "Khách hàng không ở trạng thái hoạt động: {0}", HttpStatus.BAD_REQUEST),
     SKU_INACTIVE("QUOTATION_004", "Biến thể sản phẩm đã ngừng kinh doanh: {0}", HttpStatus.BAD_REQUEST),
     DUPLICATE_SKU_ITEM("QUOTATION_005", "Biến thể sản phẩm {0} chỉ được xuất hiện một lần trong danh sách dòng báo giá", HttpStatus.BAD_REQUEST),
