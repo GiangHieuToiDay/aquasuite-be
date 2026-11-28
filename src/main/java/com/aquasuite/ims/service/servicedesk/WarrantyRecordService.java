@@ -1,6 +1,7 @@
 package com.aquasuite.ims.service.servicedesk;
 
 import com.aquasuite.ims.dto.catalog.response.CatalogWarrantyPolicyDto;
+import com.aquasuite.ims.dto.servicedesk.request.AutoIssueWarrantyCommand;
 import com.aquasuite.ims.dto.servicedesk.request.CreateAdHocWarrantyRequest;
 import com.aquasuite.ims.dto.servicedesk.request.CreateDeliveryWarrantyCommand;
 import com.aquasuite.ims.dto.servicedesk.request.CreateWarrantyFromOrderRequest;
@@ -25,6 +26,8 @@ public interface WarrantyRecordService {
     WarrantyRecordDetailResponse createAdHoc(CreateAdHocWarrantyRequest request);
 
     WarrantyRecordDetailResponse createFromDelivery(CreateDeliveryWarrantyCommand command);
+
+    boolean autoIssueIfEligible(AutoIssueWarrantyCommand command);
 
     WarrantyRecordDetailResponse voidRecord(UUID warrantyRecordId, String reason);
 

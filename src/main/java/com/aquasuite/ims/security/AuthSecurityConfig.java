@@ -105,6 +105,11 @@ public class AuthSecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/iam/register", "/api/v1/iam/register/verifications", "/api/v1/iam/register/otp-resends").permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/sales/catalog-items",
+                                "/api/v1/catalog/sales-items",
+                                "/api/v1/catalog/storefront/**"
+                        ).permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/logout").authenticated()
                         .anyRequest().authenticated()
                 )

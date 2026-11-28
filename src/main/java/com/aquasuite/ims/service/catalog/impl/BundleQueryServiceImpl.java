@@ -113,13 +113,15 @@ public class BundleQueryServiceImpl {
                                 b.or(
                                         b.gt(b.locate(b.lower(r.get("productCode")), q), 0),
                                         b.gt(b.locate(b.lower(r.get("productName")), q), 0)));
+                    var sub = c.subquery(UUID.class);
+                    var cfg = sub.from(BundleConfiguration.class);
                     if (publicationStatus != null) {
-                        var sub = c.subquery(UUID.class);
-                        var cfg = sub.from(BundleConfiguration.class);
                         sub.select(cfg.get("bundleProductId"))
                                 .where(b.equal(cfg.get("publicationStatus"), publicationStatus));
-                        predicates.add(r.get("productId").in(sub));
+                    } else {
+                        sub.select(cfg.get("bundleProductId"));
                     }
+                    predicates.add(r.get("productId").in(sub));
                     return b.and(predicates.toArray(jakarta.persistence.criteria.Predicate[]::new));
                 };
         var result =

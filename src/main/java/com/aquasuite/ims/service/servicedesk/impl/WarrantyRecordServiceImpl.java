@@ -18,6 +18,7 @@ import com.aquasuite.ims.enums.servicedesk.WarrantyDisplayStatus;
 import com.aquasuite.ims.enums.servicedesk.WarrantyStatus;
 import com.aquasuite.ims.enums.servicedesk.WarrantyTicketStatus;
 import com.aquasuite.ims.exception.servicedesk.ServicedeskErrorCode;
+import com.aquasuite.ims.dto.servicedesk.request.AutoIssueWarrantyCommand;
 import com.aquasuite.ims.dto.servicedesk.request.CreateAdHocWarrantyRequest;
 import com.aquasuite.ims.dto.servicedesk.request.CreateDeliveryWarrantyCommand;
 import com.aquasuite.ims.dto.servicedesk.request.CreateWarrantyFromOrderRequest;
@@ -36,7 +37,7 @@ import com.aquasuite.ims.util.PageableUtils;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
-import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -45,6 +46,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
@@ -68,6 +70,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Set;
 import java.util.UUID;
 
+@Slf4j
 @Service
 public class WarrantyRecordServiceImpl implements WarrantyRecordService {
 
@@ -340,6 +343,105 @@ public class WarrantyRecordServiceImpl implements WarrantyRecordService {
     }
 
     @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public boolean autoIssueIfEligible(AutoIssueWarrantyCommand command) {
+        if (command == null || command.orderItemId() == null) {
+            return false;
+        }
+        Optional<SalesOrderItemWarrantySnapshotDto> snapshotOpt =
+                salesQueryService.lockOrderItemForWarranty(command.orderItemId());
+        if (snapshotOpt.isEmpty()) {
+            return false;
+        }
+        SalesOrderItemWarrantySnapshotDto snapshot = snapshotOpt.get();
+
+        if (command.deliveryId() == null) {
+            if (!"COMPLETED".equalsIgnoreCase(snapshot.orderStatus())) {
+                return false;
+            }
+        } else if ("CANCELLED".equalsIgnoreCase(snapshot.orderStatus())
+                || "DRAFT".equalsIgnoreCase(snapshot.orderStatus())) {
+            return false;
+        }
+
+        Optional<CatalogWarrantyPolicyDto> policyOpt =
+                catalogWarrantyApi.getWarrantyInfoByVariantId(snapshot.variantId());
+        if (policyOpt.isEmpty() || !isPolicyEligible(policyOpt.get())) {
+            return false;
+        }
+        CatalogWarrantyPolicyDto variantPolicy = policyOpt.get();
+
+        String normalizedSerial = normalizeSerial(command.serialNumber());
+        if (Boolean.TRUE.equals(variantPolicy.serialTracking()) && normalizedSerial == null) {
+            return false;
+        }
+
+        if (command.deliveryId() != null) {
+            if (normalizedSerial != null) {
+                if (warrantyRecordRepository.existsByOrderItemIdAndDeliveryIdAndSerialNumberIgnoreCase(
+                        command.orderItemId(), command.deliveryId(), normalizedSerial)) {
+                    return false;
+                }
+                if (warrantyRecordRepository.existsActiveByVariantIdAndSerialNumber(
+                        snapshot.variantId(), normalizedSerial, WarrantyStatus.ACTIVE)) {
+                    log.warn("Skip auto-issuance due to existing active serial variantId={}, serial={}",
+                            snapshot.variantId(), normalizedSerial);
+                    return false;
+                }
+            } else if (warrantyRecordRepository.existsByOrderItemIdAndDeliveryIdAndSerialNumberIsNull(
+                    command.orderItemId(), command.deliveryId())) {
+                return false;
+            }
+        } else {
+            if (warrantyRecordRepository.existsByOrderItemId(command.orderItemId())) {
+                return false;
+            }
+            if (normalizedSerial != null && warrantyRecordRepository.existsActiveByVariantIdAndSerialNumber(
+                    snapshot.variantId(), normalizedSerial, WarrantyStatus.ACTIVE)) {
+                return false;
+            }
+        }
+
+        int maxAllowed = snapshot.quantity() != null && snapshot.quantity().intValue() > 0
+                ? snapshot.quantity().intValue()
+                : 1;
+        long existingActiveCount = warrantyRecordRepository.countByOrderItemIdAndStatus(
+                snapshot.orderItemId(), WarrantyStatus.ACTIVE);
+        if (existingActiveCount >= maxAllowed) {
+            return false;
+        }
+
+        Clock clock = servicedeskClock != null ? servicedeskClock : Clock.systemDefaultZone();
+        LocalDate activationDate = command.activationDate() != null
+                ? command.activationDate()
+                : LocalDate.now(clock);
+        String auditAction = command.deliveryId() != null ? "AUTO_ISSUE_FROM_DELIVERY" : "AUTO_ISSUE_FROM_ORDER";
+
+        try {
+            persistNewRecord(
+                    snapshot.customerId(),
+                    snapshot.orderId(),
+                    snapshot.orderItemId(),
+                    command.deliveryId(),
+                    snapshot.variantId(),
+                    variantPolicy,
+                    normalizedSerial,
+                    activationDate,
+                    command.actorId(),
+                    auditAction
+            );
+            return true;
+        } catch (AppException ex) {
+            if (ex.getErrorCode() == ServicedeskErrorCode.WARRANTY_DUPLICATE_ACTIVE_SERIAL) {
+                log.warn("Skip duplicate warranty auto-issuance for orderItemId={}, deliveryId={}, serial={}",
+                        command.orderItemId(), command.deliveryId(), normalizedSerial);
+                return false;
+            }
+            throw ex;
+        }
+    }
+
+    @Override
     @Transactional
     public WarrantyRecordDetailResponse voidRecord(UUID warrantyRecordId, String reason) {
         if (reason == null || reason.isBlank()) {
@@ -438,13 +540,17 @@ public class WarrantyRecordServiceImpl implements WarrantyRecordService {
     }
 
     private void assertPolicyEligible(CatalogWarrantyPolicyDto policy) {
-        if (policy == null
-                || policy.warrantyPolicyId() == null
-                || policy.warrantyMonths() == null
-                || policy.warrantyMonths() <= 0
-                || !"ACTIVE".equalsIgnoreCase(policy.policyStatus())) {
+        if (!isPolicyEligible(policy)) {
             throw new AppException(ServicedeskErrorCode.WARRANTY_POLICY_NOT_APPLICABLE);
         }
+    }
+
+    static boolean isPolicyEligible(CatalogWarrantyPolicyDto policy) {
+        return policy != null
+                && policy.warrantyPolicyId() != null
+                && policy.warrantyMonths() != null
+                && policy.warrantyMonths() > 0
+                && "ACTIVE".equalsIgnoreCase(policy.policyStatus());
     }
 
     private void validateSerialRule(CatalogWarrantyPolicyDto variantInfo, String normalizedSerial) {

@@ -36,6 +36,7 @@ class SalesCatalogControllerTest {
         when(bundles.getBundleList(any())).thenAnswer(call -> {
             var request = (com.aquasuite.ims.dto.catalog.request.BundlePageRequest) call.getArgument(0);
             assertThat(request.getProductStatus()).isEqualTo(ProductStatus.ACTIVE);
+            assertThat(request.getPublicationStatus()).isEqualTo(BundleConfiguration.PublicationStatus.PUBLISHED);
             return PageResponse.of(List.of(bundle), request.getPage(), 100, 101, 2);
         });
         when(inventory.getStockSummaries(any())).thenReturn(Map.of(componentId,
@@ -72,6 +73,28 @@ class SalesCatalogControllerTest {
         assertThat(result.getFirst().variantId()).isEqualTo(normal.getVariantId());
         assertThat(result.getLast().variantId()).isEqualTo(bundleId);
         assertThat(result.getLast().availableStock()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    void skipsExpiredOrNotYetStartedPublishedBundles() {
+        UUID expiredId = UUID.randomUUID();
+        UUID activeId = UUID.randomUUID();
+        var now = java.time.Instant.now();
+        BundleResponse expired = new BundleResponse(
+                expiredId, "CB-OLD", "Expired", "ACTIVE", "PUBLISHED", 1L, 0, null, BigDecimal.TEN,
+                null, null, null, null, null, null, null, null, List.of(),
+                now.minusSeconds(3600), now.minusSeconds(60));
+        BundleResponse active = new BundleResponse(
+                activeId, "CB-NOW", "Active", "ACTIVE", "PUBLISHED", 1L, 0, null, BigDecimal.TEN,
+                null, null, null, null, null, null, null, null, List.of(),
+                now.minusSeconds(60), now.plusSeconds(3600));
+        when(bundles.getBundleList(any())).thenReturn(PageResponse.of(List.of(expired, active), 0, 100, 2, 1));
+
+        var result = controller.getSalesCatalogItems().getBody().getData();
+
+        assertThat(result).hasSize(1);
+        assertThat(result.getFirst().variantId()).isEqualTo(activeId);
+        assertThat(result.getFirst().isCombo()).isTrue();
     }
 
     /** BundleResponse là record (final) nên dựng đối tượng thật thay vì mock. */

@@ -121,9 +121,9 @@ if session.currentRefreshJti == oldJti then
     }
     redis.call('SET', usedOldKey, cjson.encode(usedData), 'PX', markerPttl)
 
-    -- Update session with newJti
+    -- Update session with newJti (PX sessionPttl works identically on Redis 3.0+ and Redis 6+ unlike KEEPTTL)
     session.currentRefreshJti = newJti
-    redis.call('SET', sessionKey, cjson.encode(session), 'KEEPTTL')
+    redis.call('SET', sessionKey, cjson.encode(session), 'PX', sessionPttl)
 
     return cjson.encode({ status = "SUCCESS" })
 else

@@ -30,6 +30,17 @@ public interface WarrantyRecordRepository extends JpaRepository<WarrantyRecord, 
     Optional<WarrantyRecord> findFirstByOrderItemIdAndDeliveryIdAndSerialNumberIsNullAndStatus(
             UUID orderItemId, UUID deliveryId, WarrantyStatus status);
 
+    boolean existsByOrderItemId(UUID orderItemId);
+
+    boolean existsByOrderItemIdAndDeliveryIdAndSerialNumberIsNull(UUID orderItemId, UUID deliveryId);
+
+    @Query("select count(w) > 0 from WarrantyRecord w where w.orderItemId = :orderItemId "
+            + "and w.deliveryId = :deliveryId and upper(trim(w.serialNumber)) = upper(trim(:serialNumber))")
+    boolean existsByOrderItemIdAndDeliveryIdAndSerialNumberIgnoreCase(
+            @Param("orderItemId") UUID orderItemId,
+            @Param("deliveryId") UUID deliveryId,
+            @Param("serialNumber") String serialNumber);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select w from WarrantyRecord w where w.warrantyRecordId = :id")
     Optional<WarrantyRecord> findByIdForUpdate(@Param("id") UUID id);

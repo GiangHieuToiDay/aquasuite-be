@@ -37,6 +37,7 @@ import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -345,18 +346,37 @@ public class ProductController {
                     .build());
         }
 
-        // Truy vấn các gói Combo (Bundle) đã phát hành từ Database
+        // Truy vấn các gói Combo (Bundle) đã công bố (PUBLISHED) từ Database
         try {
             int page = 0;
+            Instant now = Instant.now();
             com.aquasuite.ims.common.PageResponse<BundleResponse> bundlePage;
             do {
-                bundlePage = bundleQueryService.getBundleList(new BundlePageRequest(page++, 100, null, ProductStatus.ACTIVE, null));
+                bundlePage = bundleQueryService.getBundleList(
+                        new BundlePageRequest(page++, 100, null, ProductStatus.ACTIVE, BundleConfiguration.PublicationStatus.PUBLISHED));
                 if (bundlePage == null || bundlePage.getItems() == null) {
                     break;
                 }
                 for (BundleResponse b : bundlePage.getItems()) {
-                    String bundleBrand = b.brandId() != null ? brandNameMap.getOrDefault(b.brandId(), "TOTO") : "TOTO";
+                    if (b == null) {
+                        continue;
+                    }
+                    if (b.validFrom() != null && b.validFrom().isAfter(now)) {
+                        continue;
+                    }
+                    if (b.validUntil() != null && !b.validUntil().isAfter(now)) {
+                        continue;
+                    }
+                    String bundleBrand = b.brandId() != null ? brandNameMap.getOrDefault(b.brandId(), "AQUA-COMBO") : "AQUA-COMBO";
                     String imgUrl = imageMap.get(b.bundleId());
+                    if (imgUrl == null && b.items() != null) {
+                        for (BundleResponse.Item it : b.items()) {
+                            imgUrl = imageMap.get(it.variantId());
+                            if (imgUrl != null) {
+                                break;
+                            }
+                        }
+                    }
 
                     BigDecimal minComboStock = BigDecimal.ZERO;
                     List<String> components = new ArrayList<>();

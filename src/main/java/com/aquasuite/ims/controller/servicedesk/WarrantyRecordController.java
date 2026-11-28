@@ -9,11 +9,14 @@ import com.aquasuite.ims.dto.servicedesk.response.WarrantyLookupResponse;
 import com.aquasuite.ims.dto.servicedesk.response.WarrantyPolicySummaryResponse;
 import com.aquasuite.ims.dto.servicedesk.response.WarrantyRecordDetailResponse;
 import com.aquasuite.ims.dto.servicedesk.response.WarrantyRecordListItemResponse;
+import com.aquasuite.ims.service.servicedesk.WarrantyAutoIssuanceService;
 import com.aquasuite.ims.service.servicedesk.WarrantyRecordService;
 import com.aquasuite.ims.common.ApiResponse;
 import com.aquasuite.ims.common.PageResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -25,11 +28,15 @@ import java.util.UUID;
 /**
  * Controller Quản lý thẻ bảo hành điện tử (UC-45) dành cho nhân viên, chủ cửa hàng và khách hàng.
  */
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 public class WarrantyRecordController {
 
     private final WarrantyRecordService warrantyRecordService;
+
+    @Autowired(required = false)
+    private WarrantyAutoIssuanceService warrantyAutoIssuanceService;
 
     // ── Staff & Shop Owner endpoints ─────────────────────────────────────────
 
@@ -38,6 +45,7 @@ public class WarrantyRecordController {
     public ResponseEntity<ApiResponse<PageResponse<WarrantyRecordListItemResponse>>> searchRecords(
             @Valid WarrantyRecordFilterRequest filter
     ) {
+        syncAutoWarrantiesSafely();
         return ResponseEntity.ok(ApiResponse.ok(warrantyRecordService.searchRecords(filter)));
     }
 
@@ -99,6 +107,7 @@ public class WarrantyRecordController {
     public ResponseEntity<ApiResponse<PageResponse<WarrantyRecordListItemResponse>>> listMyWarranties(
             @Valid WarrantyRecordFilterRequest filter
     ) {
+        syncAutoWarrantiesSafely();
         return ResponseEntity.ok(ApiResponse.ok(warrantyRecordService.getMyRecords(filter)));
     }
 
@@ -113,6 +122,18 @@ public class WarrantyRecordController {
     @GetMapping("/api/v1/customer/warranties")
     @PreAuthorize("hasRole('CUSTOMER')")
     public ApiResponse<List<WarrantyLookupResponse>> findMine(@RequestParam(required = false) String keyword) {
+        syncAutoWarrantiesSafely();
         return ApiResponse.ok(warrantyRecordService.findMine(keyword));
+    }
+
+    private void syncAutoWarrantiesSafely() {
+        if (warrantyAutoIssuanceService == null) {
+            return;
+        }
+        try {
+            warrantyAutoIssuanceService.syncEligibleRecords();
+        } catch (RuntimeException ex) {
+            log.warn("On-demand warranty auto-issuance skipped: {}", ex.getMessage());
+        }
     }
 }
