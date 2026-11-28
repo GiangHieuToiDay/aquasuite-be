@@ -4,6 +4,7 @@ import com.aquasuite.ims.entity.inventory.GoodsReceiptItem;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -13,4 +14,7 @@ public interface GoodsReceiptItemRepository extends JpaRepository<GoodsReceiptIt
 
     /** Lấy toàn bộ dòng của một phiếu nhập kho. */
     List<GoodsReceiptItem> findByGoodsReceiptId(UUID goodsReceiptId);
+
+    /** Lấy các dòng của một biến thể trên tập phiếu nhập kho. */
+    List<GoodsReceiptItem> findByGoodsReceiptIdInAndVariantId(Collection<UUID> goodsReceiptIds, UUID variantId);
 }

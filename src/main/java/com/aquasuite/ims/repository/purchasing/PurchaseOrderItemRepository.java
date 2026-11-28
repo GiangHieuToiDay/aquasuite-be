@@ -28,5 +28,26 @@ public interface PurchaseOrderItemRepository extends JpaRepository<PurchaseOrder
             @Param("statuses") Collection<PurchaseOrderStatus> statuses
     );
 
+    @Query("""
+            SELECT poi FROM PurchaseOrderItem poi
+            JOIN FETCH poi.purchaseOrder po
+            WHERE poi.variantId IN :variantIds
+              AND po.status IN :statuses
+            ORDER BY po.createdAt DESC
+            """)
+    List<PurchaseOrderItem> findItemsWithOrderByVariantIdsAndStatuses(
+            @Param("variantIds") Collection<UUID> variantIds,
+            @Param("statuses") Collection<PurchaseOrderStatus> statuses
+    );
+
+    @Query("""
+            SELECT poi FROM PurchaseOrderItem poi
+            JOIN FETCH poi.purchaseOrder po
+            WHERE po.status IN :statuses
+            """)
+    List<PurchaseOrderItem> findAllItemsWithOrderByStatuses(
+            @Param("statuses") Collection<PurchaseOrderStatus> statuses
+    );
+
     long countByVariantId(UUID variantId);
 }
