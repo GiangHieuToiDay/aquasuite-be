@@ -480,4 +480,197 @@ class PurchaseOrderServiceTest {
         assertEquals(new BigDecimal("15"), s.getSuggestedQty());
         assertEquals(new BigDecimal("900000.00"), s.getLastSupplyPrice());
     }
+
+    @Test
+    @DisplayName("Create Draft PO - Unknown supplier throws SUPPLIER_NOT_FOUND")
+    void testCreateDraft_SupplierNotFound_Throws() {
+        when(supplierRepository.findById(supplierId)).thenReturn(Optional.empty());
+
+        CreatePurchaseOrderRequest request = CreatePurchaseOrderRequest.builder()
+                .supplierId(supplierId)
+                .items(List.of(CreatePurchaseOrderRequest.CreatePurchaseOrderItemRequest.builder()
+                        .variantId(variantId1)
+                        .quantity(BigDecimal.ONE)
+                        .build()))
+                .build();
+
+        AppException ex = assertThrows(AppException.class, () -> purchaseOrderService.createDraft(request));
+        assertEquals(PurchasingErrorCode.SUPPLIER_NOT_FOUND, ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Create Draft PO - Missing or inactive SKU throws SKU_NOT_FOUND / SKU_NOT_ACTIVE")
+    void testCreateDraft_MissingOrInactiveSku_Throws() {
+        when(supplierRepository.findById(supplierId)).thenReturn(Optional.of(activeSupplier));
+        when(catalogApi.getSkuSummaries(List.of(variantId1))).thenReturn(Map.of());
+
+        CreatePurchaseOrderRequest request = CreatePurchaseOrderRequest.builder()
+                .supplierId(supplierId)
+                .items(List.of(CreatePurchaseOrderRequest.CreatePurchaseOrderItemRequest.builder()
+                        .variantId(variantId1)
+                        .quantity(BigDecimal.ONE)
+                        .build()))
+                .build();
+
+        AppException missingEx = assertThrows(AppException.class, () -> purchaseOrderService.createDraft(request));
+        assertEquals(PurchasingErrorCode.SKU_NOT_FOUND, missingEx.getErrorCode());
+
+        CatalogSkuSummaryDto inactiveSku = CatalogSkuSummaryDto.builder()
+                .variantId(variantId1)
+                .sku("SKU-INACTIVE")
+                .unit("cái")
+                .status("INACTIVE")
+                .build();
+        when(catalogApi.getSkuSummaries(List.of(variantId1))).thenReturn(Map.of(variantId1, inactiveSku));
+
+        AppException inactiveEx = assertThrows(AppException.class, () -> purchaseOrderService.createDraft(request));
+        assertEquals(PurchasingErrorCode.SKU_NOT_ACTIVE, inactiveEx.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Update Draft PO - Not found or non-DRAFT status throws PO_NOT_FOUND / PO_CANNOT_EDIT")
+    void testUpdateDraft_NotFoundOrNotDraft_Throws() {
+        UUID poId = UUID.randomUUID();
+        UpdatePurchaseOrderRequest request = UpdatePurchaseOrderRequest.builder()
+                .version(0)
+                .items(List.of(UpdatePurchaseOrderRequest.UpdatePurchaseOrderItemRequest.builder()
+                        .variantId(variantId1)
+                        .quantity(BigDecimal.ONE)
+                        .build()))
+                .build();
+
+        when(purchaseOrderRepository.findById(poId)).thenReturn(Optional.empty());
+        AppException notFoundEx = assertThrows(AppException.class, () -> purchaseOrderService.updateDraft(poId, request));
+        assertEquals(PurchasingErrorCode.PO_NOT_FOUND, notFoundEx.getErrorCode());
+
+        PurchaseOrder confirmedPo = PurchaseOrder.builder()
+                .purchaseOrderId(poId)
+                .status(PurchaseOrderStatus.CONFIRMED)
+                .version(0)
+                .build();
+        when(purchaseOrderRepository.findById(poId)).thenReturn(Optional.of(confirmedPo));
+        AppException notDraftEx = assertThrows(AppException.class, () -> purchaseOrderService.updateDraft(poId, request));
+        assertEquals(PurchasingErrorCode.PO_CANNOT_EDIT, notDraftEx.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Update Draft PO - Expected date before orderDate or negative unitCost throws validation error")
+    void testUpdateDraft_InvalidDateOrNegativeCost_Throws() {
+        UUID poId = UUID.randomUUID();
+        LocalDate orderDate = LocalDate.of(2026, 11, 20);
+        PurchaseOrder po = PurchaseOrder.builder()
+                .purchaseOrderId(poId)
+                .supplierId(supplierId)
+                .status(PurchaseOrderStatus.DRAFT)
+                .version(0)
+                .orderDate(orderDate)
+                .build();
+        when(purchaseOrderRepository.findById(poId)).thenReturn(Optional.of(po));
+
+        UpdatePurchaseOrderRequest badDateReq = UpdatePurchaseOrderRequest.builder()
+                .version(0)
+                .expectedDate(orderDate.minusDays(1))
+                .items(List.of(UpdatePurchaseOrderRequest.UpdatePurchaseOrderItemRequest.builder()
+                        .variantId(variantId1)
+                        .quantity(BigDecimal.ONE)
+                        .build()))
+                .build();
+
+        AppException badDateEx = assertThrows(AppException.class, () -> purchaseOrderService.updateDraft(poId, badDateReq));
+        assertEquals(com.aquasuite.ims.exception.CommonErrorCode.INVALID_REQUEST_PARAM, badDateEx.getErrorCode());
+
+        when(catalogApi.getSkuSummaries(List.of(variantId1))).thenReturn(Map.of(variantId1, skuDto1));
+        UpdatePurchaseOrderRequest negativeCostReq = UpdatePurchaseOrderRequest.builder()
+                .version(0)
+                .expectedDate(orderDate.plusDays(2))
+                .items(List.of(UpdatePurchaseOrderRequest.UpdatePurchaseOrderItemRequest.builder()
+                        .variantId(variantId1)
+                        .quantity(BigDecimal.ONE)
+                        .unitCost(new BigDecimal("-100"))
+                        .build()))
+                .build();
+
+        AppException negCostEx = assertThrows(AppException.class, () -> purchaseOrderService.updateDraft(poId, negativeCostReq));
+        assertEquals(PurchasingErrorCode.INVALID_UNIT_COST, negCostEx.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Cancel PO - DRAFT PO cancelled successfully with trimmed reason")
+    void testCancel_Draft_Success() {
+        UUID poId = UUID.randomUUID();
+        PurchaseOrder po = PurchaseOrder.builder()
+                .purchaseOrderId(poId)
+                .poCode("PO-202611-0099")
+                .supplierId(supplierId)
+                .status(PurchaseOrderStatus.DRAFT)
+                .build();
+
+        when(purchaseOrderRepository.findByIdForUpdate(poId)).thenReturn(Optional.of(po));
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(supplierRepository.findById(supplierId)).thenReturn(Optional.of(activeSupplier));
+
+        PurchaseOrderResponse res = purchaseOrderService.cancelPurchaseOrder(
+                poId, CancelPurchaseOrderRequest.builder().cancelReason("  Đổi nhà cung cấp  ").build());
+
+        assertEquals(PurchaseOrderStatus.CANCELLED, res.getStatus());
+        assertEquals("Đổi nhà cung cấp", res.getCancelReason());
+        assertEquals(userId, res.getCancelledBy());
+    }
+
+    @Test
+    @DisplayName("Cancel PO - Blank reason, COMPLETED status, or CONFIRMED with draft receipt throws")
+    void testCancel_InvalidReasonStatusOrDraftReceipt_Throws() {
+        UUID poId = UUID.randomUUID();
+        AppException blankEx = assertThrows(AppException.class, () ->
+                purchaseOrderService.cancelPurchaseOrder(poId, CancelPurchaseOrderRequest.builder().cancelReason("   ").build()));
+        assertEquals(PurchasingErrorCode.CANCEL_REASON_REQUIRED, blankEx.getErrorCode());
+
+        PurchaseOrder completedPo = PurchaseOrder.builder()
+                .purchaseOrderId(poId)
+                .status(PurchaseOrderStatus.COMPLETED)
+                .build();
+        when(purchaseOrderRepository.findByIdForUpdate(poId)).thenReturn(Optional.of(completedPo));
+        AppException statusEx = assertThrows(AppException.class, () ->
+                purchaseOrderService.cancelPurchaseOrder(poId, CancelPurchaseOrderRequest.builder().cancelReason("Hủy").build()));
+        assertEquals(PurchasingErrorCode.PO_CANNOT_CANCEL_STATUS, statusEx.getErrorCode());
+
+        PurchaseOrder confirmedPo = PurchaseOrder.builder()
+                .purchaseOrderId(poId)
+                .status(PurchaseOrderStatus.CONFIRMED)
+                .build();
+        when(purchaseOrderRepository.findByIdForUpdate(poId)).thenReturn(Optional.of(confirmedPo));
+        when(inventoryApi.hasConfirmedGoodsReceipt(poId)).thenReturn(false);
+        when(inventoryApi.hasDraftGoodsReceipt(poId)).thenReturn(true);
+        AppException draftReceiptEx = assertThrows(AppException.class, () ->
+                purchaseOrderService.cancelPurchaseOrder(poId, CancelPurchaseOrderRequest.builder().cancelReason("Hủy").build()));
+        assertEquals(PurchasingErrorCode.PO_CANNOT_CANCEL_RECEIPT_EXISTS, draftReceiptEx.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Close PO - Blank reason, wrong status, or existing draft receipt throws")
+    void testClose_ValidationAndGuards_Throws() {
+        UUID poId = UUID.randomUUID();
+        AppException blankEx = assertThrows(AppException.class, () ->
+                purchaseOrderService.closePurchaseOrder(poId, ClosePurchaseOrderRequest.builder().closeReason("  ").build()));
+        assertEquals(PurchasingErrorCode.CLOSE_REASON_REQUIRED, blankEx.getErrorCode());
+
+        PurchaseOrder confirmedPo = PurchaseOrder.builder()
+                .purchaseOrderId(poId)
+                .status(PurchaseOrderStatus.CONFIRMED)
+                .build();
+        when(purchaseOrderRepository.findByIdForUpdate(poId)).thenReturn(Optional.of(confirmedPo));
+        AppException statusEx = assertThrows(AppException.class, () ->
+                purchaseOrderService.closePurchaseOrder(poId, ClosePurchaseOrderRequest.builder().closeReason("Chốt thiếu").build()));
+        assertEquals(PurchasingErrorCode.PO_CANNOT_CLOSE_STATUS, statusEx.getErrorCode());
+
+        PurchaseOrder partialPo = PurchaseOrder.builder()
+                .purchaseOrderId(poId)
+                .status(PurchaseOrderStatus.PARTIALLY_RECEIVED)
+                .build();
+        when(purchaseOrderRepository.findByIdForUpdate(poId)).thenReturn(Optional.of(partialPo));
+        when(inventoryApi.hasDraftGoodsReceipt(poId)).thenReturn(true);
+        AppException draftEx = assertThrows(AppException.class, () ->
+                purchaseOrderService.closePurchaseOrder(poId, ClosePurchaseOrderRequest.builder().closeReason("Chốt thiếu").build()));
+        assertEquals(PurchasingErrorCode.PO_CANNOT_CLOSE_DRAFT_RECEIPT, draftEx.getErrorCode());
+    }
 }

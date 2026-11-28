@@ -860,4 +860,202 @@ class SalesOrderServiceTest {
                 .isInstanceOf(AppException.class)
                 .hasFieldOrPropertyWithValue("errorCode", SalesErrorCode.ORDER_CANNOT_COMPLETE);
     }
+
+    @Test
+    @DisplayName("UC-13.4: Báo giá có công nợ & đủ hạn mức tín dụng -> gọi CreditControl authorize và tạo đơn PROCESSING")
+    void convertQuotationToOrder_WithDebtAndCreditApproved_CreatesProcessingOrder() {
+        UUID quotationId = UUID.randomUUID();
+        Quotation quotation = Quotation.builder()
+                .quotationId(quotationId)
+                .quotationCode("BG-202611-0100")
+                .revisionNo(1)
+                .customerId(customerId)
+                .status(QuotationStatus.APPROVED)
+                .creditTermDays(30)
+                .depositPercent(new BigDecimal("20.00"))
+                .depositAmount(new BigDecimal("2000000"))
+                .remainingDebtAmount(new BigDecimal("8000000"))
+                .totalAmount(new BigDecimal("10000000"))
+                .createdBy(staffId)
+                .build();
+
+        QuotationItem qItem = QuotationItem.builder()
+                .quotationItemId(UUID.randomUUID())
+                .quotationId(quotationId)
+                .variantId(variantId)
+                .sku("SKU-TOILET-01")
+                .quantity(BigDecimal.valueOf(2))
+                .unitPrice(new BigDecimal("5000000"))
+                .discountRate(BigDecimal.ZERO)
+                .build();
+
+        when(quotationRepository.findById(quotationId)).thenReturn(Optional.of(quotation));
+        when(orderRepository.findByQuotationId(quotationId)).thenReturn(Optional.empty());
+        when(quotationItemRepository.findByQuotationIdOrderBySortOrderAsc(quotationId)).thenReturn(List.of(qItem));
+        when(crmApi.getCustomerById(customerId)).thenReturn(Optional.of(customerDto));
+        when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.of(skuDto));
+        when(orderCodeGenerator.generateOrderCode()).thenReturn("SO-20261127-0100");
+        when(creditControlApi.authorize(any())).thenReturn(new CreditAuthorizationDecision(true, null, new BigDecimal("20000000")));
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(orderItemRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        SalesOrderDetailResponse response = salesOrderService.convertQuotationToOrder(quotationId, null);
+
+        assertThat(response.getOrderStatus()).isEqualTo(OrderStatus.PROCESSING.name());
+        assertThat(response.getRemainingDebtAmount()).isEqualByComparingTo("8000000");
+        verify(creditControlApi).requireCustomerOrderAllowed(customerId);
+        verify(creditControlApi).authorize(org.mockito.ArgumentMatchers.argThat(cmd ->
+                cmd.customerId().equals(customerId)
+                        && cmd.orderAmount().compareTo(new BigDecimal("8000000")) == 0));
+    }
+
+    @Test
+    @DisplayName("UC-13.4: Vượt hạn mức công nợ và không xin tăng hạn mức -> ném CREDIT_LIMIT_EXCEEDED")
+    void convertQuotationToOrder_CreditExceededWithoutRequestIncrease_Throws() {
+        UUID quotationId = UUID.randomUUID();
+        Quotation quotation = Quotation.builder()
+                .quotationId(quotationId)
+                .quotationCode("BG-202611-0101")
+                .revisionNo(1)
+                .customerId(customerId)
+                .status(QuotationStatus.ACCEPTED)
+                .creditTermDays(30)
+                .remainingDebtAmount(new BigDecimal("5000000"))
+                .totalAmount(new BigDecimal("5000000"))
+                .createdBy(staffId)
+                .build();
+
+        QuotationItem qItem = QuotationItem.builder()
+                .quotationItemId(UUID.randomUUID())
+                .quotationId(quotationId)
+                .variantId(variantId)
+                .quantity(BigDecimal.ONE)
+                .unitPrice(new BigDecimal("5000000"))
+                .discountRate(BigDecimal.ZERO)
+                .build();
+
+        when(quotationRepository.findById(quotationId)).thenReturn(Optional.of(quotation));
+        when(orderRepository.findByQuotationId(quotationId)).thenReturn(Optional.empty());
+        when(quotationItemRepository.findByQuotationIdOrderBySortOrderAsc(quotationId)).thenReturn(List.of(qItem));
+        when(crmApi.getCustomerById(customerId)).thenReturn(Optional.of(customerDto));
+        when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.of(skuDto));
+        when(orderCodeGenerator.generateOrderCode()).thenReturn("SO-20261127-0101");
+        when(creditControlApi.authorize(any())).thenReturn(
+                new CreditAuthorizationDecision(false, "LIMIT_EXCEEDED", new BigDecimal("1000000")));
+
+        assertThatThrownBy(() -> salesOrderService.convertQuotationToOrder(quotationId,
+                ConvertQuotationToOrderRequest.builder().requestCreditIncrease(false).build()))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", SalesErrorCode.CREDIT_LIMIT_EXCEEDED);
+        verify(orderRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("UC-13.4: Vượt hạn mức nhưng bật requestCreditIncrease=true -> tạo đơn DRAFT và gửi đề xuất CRM")
+    void convertQuotationToOrder_CreditExceededWithRequestIncrease_CreatesDraftOrder() {
+        UUID quotationId = UUID.randomUUID();
+        UUID creditReqId = UUID.randomUUID();
+        Quotation quotation = Quotation.builder()
+                .quotationId(quotationId)
+                .quotationCode("BG-202611-0102")
+                .revisionNo(1)
+                .customerId(customerId)
+                .status(QuotationStatus.APPROVED)
+                .creditTermDays(45)
+                .remainingDebtAmount(new BigDecimal("5000000"))
+                .totalAmount(new BigDecimal("5000000"))
+                .createdBy(staffId)
+                .build();
+
+        QuotationItem qItem = QuotationItem.builder()
+                .quotationItemId(UUID.randomUUID())
+                .quotationId(quotationId)
+                .variantId(variantId)
+                .quantity(BigDecimal.ONE)
+                .unitPrice(new BigDecimal("5000000"))
+                .discountRate(BigDecimal.ZERO)
+                .build();
+
+        when(quotationRepository.findById(quotationId)).thenReturn(Optional.of(quotation));
+        when(orderRepository.findByQuotationId(quotationId)).thenReturn(Optional.empty());
+        when(quotationItemRepository.findByQuotationIdOrderBySortOrderAsc(quotationId)).thenReturn(List.of(qItem));
+        when(crmApi.getCustomerById(customerId)).thenReturn(Optional.of(customerDto));
+        when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.of(skuDto));
+        when(orderCodeGenerator.generateOrderCode()).thenReturn("SO-20261127-0102");
+        when(creditControlApi.authorize(any())).thenReturn(
+                new CreditAuthorizationDecision(false, "LIMIT_EXCEEDED", new BigDecimal("1000000")));
+        when(crmApi.getDebtProfile(customerId)).thenReturn(Optional.of(
+                new com.aquasuite.ims.dto.crm.response.CustomerDebtProfileDto(
+                        customerId, "CUS-001", "Khách A", "0900", "a@b.com",
+                        "PROJECT", null, null, List.of(), List.of(),
+                        new BigDecimal("3000000"), 30, "ACTIVE")));
+        when(crmApi.submitCreditProfileRequestFromQuotation(
+                eq(customerId), eq(new BigDecimal("7000000")), eq(45), eq("Xin mở hạn mức"), eq(staffId)))
+                .thenReturn(creditReqId);
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(orderItemRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        ConvertQuotationToOrderRequest req = ConvertQuotationToOrderRequest.builder()
+                .requestCreditIncrease(true)
+                .creditIncreaseReason("Xin mở hạn mức")
+                .build();
+        SalesOrderDetailResponse res = salesOrderService.convertQuotationToOrder(quotationId, req);
+
+        assertThat(res.getOrderStatus()).isEqualTo(OrderStatus.DRAFT.name());
+        assertThat(res.getNote()).contains("Chờ Chủ duyệt tăng hạn mức công nợ");
+        verify(orderRepository).save(org.mockito.ArgumentMatchers.argThat(o ->
+                creditReqId.equals(o.getCreditRequestId())));
+    }
+
+    @Test
+    @DisplayName("UC-13.4: Truyền batches giao theo đợt -> đặt cờ stagedDelivery=true trên đơn tạo mới")
+    void convertQuotationToOrder_WithStagedBatches_SetsStagedDelivery() {
+        UUID quotationId = UUID.randomUUID();
+        Quotation quotation = Quotation.builder()
+                .quotationId(quotationId)
+                .quotationCode("BG-202611-0103")
+                .revisionNo(1)
+                .customerId(customerId)
+                .status(QuotationStatus.ACCEPTED)
+                .totalAmount(new BigDecimal("20000000"))
+                .createdBy(staffId)
+                .build();
+
+        QuotationItem qItem = QuotationItem.builder()
+                .quotationItemId(UUID.randomUUID())
+                .quotationId(quotationId)
+                .variantId(variantId)
+                .quantity(new BigDecimal("4"))
+                .unitPrice(new BigDecimal("5000000"))
+                .discountRate(BigDecimal.ZERO)
+                .build();
+
+        when(quotationRepository.findById(quotationId)).thenReturn(Optional.of(quotation));
+        when(orderRepository.findByQuotationId(quotationId)).thenReturn(Optional.empty());
+        when(quotationItemRepository.findByQuotationIdOrderBySortOrderAsc(quotationId)).thenReturn(List.of(qItem));
+        when(crmApi.getCustomerById(customerId)).thenReturn(Optional.of(customerDto));
+        when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.of(skuDto));
+        when(orderCodeGenerator.generateOrderCode()).thenReturn("SO-20261127-0103");
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(orderItemRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        ConvertQuotationToOrderRequest req = ConvertQuotationToOrderRequest.builder()
+                .batches(List.of(
+                        com.aquasuite.ims.dto.sales.request.InitialInvoiceBatchRequest.builder()
+                                .batchName("Đợt 1")
+                                .items(List.of(com.aquasuite.ims.dto.sales.request.InitialInvoiceBatchRequest.BatchItemRequest.builder()
+                                        .variantId(variantId).quantity(new BigDecimal("2")).build()))
+                                .build(),
+                        com.aquasuite.ims.dto.sales.request.InitialInvoiceBatchRequest.builder()
+                                .batchName("Đợt 2")
+                                .items(List.of(com.aquasuite.ims.dto.sales.request.InitialInvoiceBatchRequest.BatchItemRequest.builder()
+                                        .variantId(variantId).quantity(new BigDecimal("2")).build()))
+                                .build()
+                ))
+                .build();
+
+        salesOrderService.convertQuotationToOrder(quotationId, req);
+
+        verify(orderRepository).save(org.mockito.ArgumentMatchers.argThat(Order::isStagedDelivery));
+    }
 }

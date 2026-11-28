@@ -334,4 +334,165 @@ class PasswordServiceTest {
                 .isInstanceOf(AppException.class)
                 .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(IamPasswordErrorCode.SAME_AS_CURRENT_PASSWORD));
     }
+
+    @Test
+    @DisplayName("Change password fails when authenticated user ID does not exist in repository")
+    void testChangePassword_UserNotFound() {
+        UUID missingUserId = UUID.randomUUID();
+        authenticateUser(missingUserId);
+        when(userRepository.findById(missingUserId)).thenReturn(Optional.empty());
+
+        ChangePasswordRequest req = new ChangePasswordRequest(RAW_OLD_PWD, RAW_NEW_PWD, RAW_NEW_PWD);
+        assertThatThrownBy(() -> passwordService.changePassword(req))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(IamPasswordErrorCode.USER_NOT_FOUND));
+        verify(userRepository, never()).save(any());
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    @DisplayName("Change password fails when stored passwordHash is null")
+    void testChangePassword_NullPasswordHash() {
+        UUID userId = UUID.randomUUID();
+        authenticateUser(userId);
+        User user = new User();
+        user.setId(userId);
+        user.setPasswordHash(null);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        ChangePasswordRequest req = new ChangePasswordRequest(RAW_OLD_PWD, RAW_NEW_PWD, RAW_NEW_PWD);
+        assertThatThrownBy(() -> passwordService.changePassword(req))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(IamPasswordErrorCode.INCORRECT_CURRENT_PASSWORD));
+    }
+
+    @Test
+    @DisplayName("Change password rejects whitespace or passwords exceeding 72 UTF-8 bytes")
+    void testChangePassword_WhitespaceOrOver72Bytes() {
+        UUID userId = UUID.randomUUID();
+        authenticateUser(userId);
+        User user = new User();
+        user.setId(userId);
+        user.setPasswordHash(passwordEncoder.encode(RAW_OLD_PWD));
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        ChangePasswordRequest withSpace = new ChangePasswordRequest(RAW_OLD_PWD, "New Pass@456", "New Pass@456");
+        assertThatThrownBy(() -> passwordService.changePassword(withSpace))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(IamPasswordErrorCode.WEAK_OR_MISMATCHED_PASSWORD));
+
+        String over72Bytes = "Aa1@" + "x".repeat(69);
+        ChangePasswordRequest tooLong = new ChangePasswordRequest(RAW_OLD_PWD, over72Bytes, over72Bytes);
+        assertThatThrownBy(() -> passwordService.changePassword(tooLong))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(IamPasswordErrorCode.WEAK_OR_MISMATCHED_PASSWORD));
+    }
+
+    @Test
+    @DisplayName("Request password recovery resets daily counter on a new day")
+    void testRequestPasswordRecovery_ResetsDailyCounterOnNewDay() {
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setEmail("user@example.com");
+        user.setEmailSentDate(LocalDate.now().minusDays(1));
+        user.setEmailSentCount(5);
+
+        when(userRepository.findByEmailIgnoreCase("user@example.com")).thenReturn(Optional.of(user));
+
+        PasswordActionResponse response = passwordService.requestPasswordRecovery(
+                new ForgotPasswordRequest("user@example.com", RecoveryChannel.EMAIL));
+
+        assertThat(response.message()).isEqualTo("A password reset code has been sent to your email.");
+        assertThat(user.getEmailSentDate()).isEqualTo(LocalDate.now());
+        assertThat(user.getEmailSentCount()).isEqualTo(1);
+        verify(emailOtpSender).sendRecoveryOtp(eq("user@example.com"), anyString());
+    }
+
+    @Test
+    @DisplayName("Request password recovery via SMS fails when phone does not belong to any user")
+    void testRequestPasswordRecovery_SmsUserNotFound() {
+        when(userRepository.findByPhone("0999888777")).thenReturn(Optional.empty());
+
+        ForgotPasswordRequest req = new ForgotPasswordRequest("0999888777", RecoveryChannel.SMS);
+        assertThatThrownBy(() -> passwordService.requestPasswordRecovery(req))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(IamPasswordErrorCode.USER_NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("Reset password with OTP accepts phone identifier fallback when email lookup is empty")
+    void testResetPasswordWithOtp_PhoneIdentifierSuccess() {
+        String rawOtp = "654321";
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setPhone("0909123456");
+        user.setPasswordHash(passwordEncoder.encode(RAW_OLD_PWD));
+        user.setVerificationCode(passwordEncoder.encode(rawOtp));
+        user.setVerificationExpiredAt(Instant.now().plus(5, ChronoUnit.MINUTES));
+        user.setStatus(UserStatus.ACTIVE);
+
+        when(userRepository.findByEmailIgnoreCase("0909123456")).thenReturn(Optional.empty());
+        when(userRepository.findByPhone("0909123456")).thenReturn(Optional.of(user));
+
+        ResetPasswordWithOtpRequest req = new ResetPasswordWithOtpRequest(
+                "0909123456", rawOtp, RAW_NEW_PWD, RAW_NEW_PWD);
+        PasswordActionResponse res = passwordService.resetPasswordWithOtp(req);
+
+        assertThat(res.message()).contains("reset successfully");
+        assertThat(passwordEncoder.matches(RAW_NEW_PWD, user.getPasswordHash())).isTrue();
+        assertThat(user.getVerificationCode()).isNull();
+        verify(eventPublisher).publishEvent(any(PasswordChangedEvent.class));
+    }
+
+    @Test
+    @DisplayName("Reset password fails when OTP code does not match stored hash")
+    void testResetPasswordWithOtp_WrongOtpCode() {
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setEmail("user@example.com");
+        user.setVerificationCode(passwordEncoder.encode("123456"));
+        user.setVerificationExpiredAt(Instant.now().plus(5, ChronoUnit.MINUTES));
+
+        when(userRepository.findByEmailIgnoreCase("user@example.com")).thenReturn(Optional.of(user));
+
+        ResetPasswordWithOtpRequest req = new ResetPasswordWithOtpRequest(
+                "user@example.com", "999999", RAW_NEW_PWD, RAW_NEW_PWD);
+        assertThatThrownBy(() -> passwordService.resetPasswordWithOtp(req))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(IamPasswordErrorCode.INVALID_OR_EXPIRED_OTP));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Reset password fails when user is not found by email or phone")
+    void testResetPasswordWithOtp_UserNotFound() {
+        when(userRepository.findByEmailIgnoreCase("missing@example.com")).thenReturn(Optional.empty());
+        when(userRepository.findByPhone("missing@example.com")).thenReturn(Optional.empty());
+
+        ResetPasswordWithOtpRequest req = new ResetPasswordWithOtpRequest(
+                "missing@example.com", "123456", RAW_NEW_PWD, RAW_NEW_PWD);
+        assertThatThrownBy(() -> passwordService.resetPasswordWithOtp(req))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(IamPasswordErrorCode.USER_NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("Reset password rejects weak new password even when OTP is valid")
+    void testResetPasswordWithOtp_WeakPassword() {
+        String rawOtp = "123456";
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setEmail("user@example.com");
+        user.setPasswordHash(passwordEncoder.encode(RAW_OLD_PWD));
+        user.setVerificationCode(passwordEncoder.encode(rawOtp));
+        user.setVerificationExpiredAt(Instant.now().plus(5, ChronoUnit.MINUTES));
+
+        when(userRepository.findByEmailIgnoreCase("user@example.com")).thenReturn(Optional.of(user));
+
+        ResetPasswordWithOtpRequest req = new ResetPasswordWithOtpRequest(
+                "user@example.com", rawOtp, "weak", "weak");
+        assertThatThrownBy(() -> passwordService.resetPasswordWithOtp(req))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(IamPasswordErrorCode.WEAK_OR_MISMATCHED_PASSWORD));
+    }
 }

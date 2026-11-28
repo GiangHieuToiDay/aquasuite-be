@@ -1399,4 +1399,128 @@ class QuotationServiceTest {
         assertNull(response.getItems().get(0).getCustomerName());
         assertNull(response.getItems().get(0).getCreatedByName());
     }
+
+    @Test
+    @DisplayName("createQuotation: Khách hàng không tồn tại hoặc INACTIVE -> ném CUSTOMER_NOT_FOUND / CUSTOMER_NOT_ACTIVE")
+    void testCreateQuotation_CustomerNotFoundOrInactive() {
+        QuotationUpsertRequest request = QuotationUpsertRequest.builder()
+                .customerId(customerId)
+                .projectName("Dự án Khách Lỗi")
+                .build();
+
+        when(crmApi.getCustomerById(customerId)).thenReturn(Optional.empty());
+        AppException notFoundEx = assertThrows(AppException.class, () -> quotationService.createQuotation(request));
+        assertEquals(SalesErrorCode.CUSTOMER_NOT_FOUND, notFoundEx.getErrorCode());
+
+        when(crmApi.getCustomerById(customerId)).thenReturn(Optional.of(
+                CustomerSummaryDto.builder().customerId(customerId).customerCode("CUS-OFF").status("INACTIVE").build()
+        ));
+        AppException inactiveEx = assertThrows(AppException.class, () -> quotationService.createQuotation(request));
+        assertEquals(SalesErrorCode.CUSTOMER_NOT_ACTIVE, inactiveEx.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("createQuotation: Fallback địa chỉ mặc định CRM, tự tính cọc/công nợ và lưu payment milestones")
+    void testCreateQuotation_DefaultAddressDepositCreditAndMilestones() {
+        QuotationUpsertRequest request = QuotationUpsertRequest.builder()
+                .customerId(customerId)
+                .projectName("Dự án Vinhomes")
+                .vatRate(BigDecimal.valueOf(10))
+                .shippingFee(BigDecimal.ZERO)
+                .depositPercent(BigDecimal.valueOf(30))
+                .creditTermDays(30)
+                .items(List.of(QuotationItemRequest.builder()
+                        .variantId(variantId1)
+                        .quantity(BigDecimal.valueOf(2))
+                        .discountRate(BigDecimal.ZERO)
+                        .build()))
+                .milestones(List.of(
+                        com.aquasuite.ims.dto.sales.request.QuotationPaymentMilestoneRequest.builder()
+                                .stageName("Đợt 1 cọc").percent(BigDecimal.valueOf(30)).build(),
+                        com.aquasuite.ims.dto.sales.request.QuotationPaymentMilestoneRequest.builder()
+                                .stageName("Đợt 2 quyết toán").percent(BigDecimal.valueOf(70)).build()
+                ))
+                .build();
+
+        when(crmApi.getCustomerById(customerId)).thenReturn(Optional.of(
+                CustomerSummaryDto.builder().customerId(customerId).customerName("Khách Dự Án").status("ACTIVE").build()
+        ));
+        when(crmApi.getDefaultDeliveryAddress(customerId)).thenReturn(Optional.of(
+                com.aquasuite.ims.dto.crm.response.CustomerAddressDto.builder().addressText("Vinhomes Ocean Park").build()
+        ));
+        when(catalogApi.getSkuSummaries(Set.of(variantId1))).thenReturn(Map.of(
+                variantId1, CatalogSkuSummaryDto.builder()
+                        .variantId(variantId1).sku("SKU-PUMP").unit("cái")
+                        .sellingPrice(BigDecimal.valueOf(5000000)).costPrice(BigDecimal.valueOf(3000000)).status("ACTIVE").build()
+        ));
+        when(inventoryApi.getStockSummaries(Set.of(variantId1))).thenReturn(Map.of(
+                variantId1, StockSummaryDto.builder().variantId(variantId1).availableQty(BigDecimal.TEN).build()
+        ));
+        when(iamApi.getCurrentUserId()).thenReturn(currentUserId);
+        when(iamApi.getCurrentUser()).thenReturn(UserSummaryDto.builder().id(currentUserId).username("staff").roles(List.of("SALES_STAFF")).build());
+        when(quotationRepository.findTopByQuotationCodeStartingWithOrderByQuotationCodeDesc(anyString())).thenReturn(Optional.empty());
+        when(quotationRepository.save(any(Quotation.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(quotationPaymentMilestoneRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        QuotationResponse res = quotationService.createQuotation(request);
+
+        assertEquals("Vinhomes Ocean Park", res.getDeliveryAddress());
+        // Net = 10,000,000, VAT 10% = 1,000,000 -> Grand = 11,000,000; 30% deposit = 3,300,000; debt = 7,700,000
+        assertEquals(0, new BigDecimal("3300000.00").compareTo(res.getDepositAmount()));
+        assertEquals(0, new BigDecimal("7700000.00").compareTo(res.getRemainingDebtAmount()));
+        assertEquals(2, res.getMilestones().size());
+        verify(quotationPaymentMilestoneRepository).saveAll(anyList());
+    }
+
+    @Test
+    @DisplayName("createRevision: Tạo Rev 2 thành công từ bản APPROVED bởi SHOP_OWNER dù người khác lập")
+    void testCreateRevision_FromApprovedByOwner_Success() {
+        UUID sourceId = UUID.randomUUID();
+        UUID originalCreator = UUID.randomUUID();
+        Quotation source = Quotation.builder()
+                .quotationId(sourceId)
+                .quotationCode("QT-202611-0022")
+                .revisionNo(1)
+                .status(QuotationStatus.APPROVED)
+                .createdBy(originalCreator)
+                .customerId(customerId)
+                .projectName("Dự án Landmark")
+                .vatRate(BigDecimal.valueOf(10))
+                .shippingFee(BigDecimal.ZERO)
+                .build();
+
+        when(quotationRepository.findById(sourceId)).thenReturn(Optional.of(source));
+        when(iamApi.getCurrentUserId()).thenReturn(currentUserId);
+        when(iamApi.getCurrentUser()).thenReturn(UserSummaryDto.builder().id(currentUserId).username("owner").roles(List.of("SHOP_OWNER")).build());
+        when(quotationRepository.existsByQuotationCodeAndStatusIn(eq("QT-202611-0022"), anyList())).thenReturn(false);
+        when(quotationRepository.findByQuotationCodeOrderByRevisionNoDesc("QT-202611-0022")).thenReturn(List.of(source));
+        when(quotationItemRepository.findByQuotationIdOrderBySortOrderAsc(sourceId)).thenReturn(Collections.emptyList());
+        when(quotationRepository.save(any(Quotation.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        QuotationResponse response = quotationService.createRevision(sourceId);
+
+        assertEquals(2, response.getRevisionNo());
+        assertEquals(QuotationStatus.DRAFT, response.getStatus());
+        assertEquals(sourceId, response.getParentQuotationId());
+    }
+
+    @Test
+    @DisplayName("createRevision: Nhân viên khác không phải người tạo -> ném FORBIDDEN_QUOTATION_ACCESS")
+    void testCreateRevision_ForbiddenForOtherStaff() {
+        UUID sourceId = UUID.randomUUID();
+        UUID anotherStaffId = UUID.randomUUID();
+        Quotation source = Quotation.builder()
+                .quotationId(sourceId)
+                .quotationCode("QT-202611-0023")
+                .status(QuotationStatus.SENT)
+                .createdBy(anotherStaffId)
+                .build();
+
+        when(quotationRepository.findById(sourceId)).thenReturn(Optional.of(source));
+        when(iamApi.getCurrentUserId()).thenReturn(currentUserId);
+        when(iamApi.getCurrentUser()).thenReturn(UserSummaryDto.builder().id(currentUserId).username("staff2").roles(List.of("SALES_STAFF")).build());
+
+        AppException ex = assertThrows(AppException.class, () -> quotationService.createRevision(sourceId));
+        assertEquals(SalesErrorCode.FORBIDDEN_QUOTATION_ACCESS, ex.getErrorCode());
+    }
 }

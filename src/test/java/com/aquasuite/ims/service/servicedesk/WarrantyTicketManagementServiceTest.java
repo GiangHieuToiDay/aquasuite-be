@@ -219,4 +219,62 @@ class WarrantyTicketManagementServiceTest {
 
         assertThat(res.warrantyExpired()).isFalse();
     }
+
+    @Test
+    @DisplayName("getById: không tìm thấy ticket -> ném WARRANTY_TICKET_NOT_FOUND")
+    void getByIdThrowsWhenNotFound() {
+        UUID missingId = UUID.randomUUID();
+        when(warrantyTicketRepository.findById(missingId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.getById(missingId))
+                .isInstanceOf(AppException.class)
+                .satisfies(e -> assertThat(((AppException) e).getErrorCode())
+                        .isEqualTo(ServicedeskErrorCode.WARRANTY_TICKET_NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("list: phân trang, lọc trạng thái và bổ sung thông tin thẻ bảo hành / SKU")
+    @SuppressWarnings("unchecked")
+    void listEnrichesRecordAndSku() {
+        WarrantyTicket t = ticket(WarrantyTicketStatus.NEW);
+        UUID variantId = UUID.randomUUID();
+        WarrantyRecord record = WarrantyRecord.builder()
+                .warrantyRecordId(t.getWarrantyRecordId())
+                .warrantyCode("WAR-202611-0077")
+                .variantId(variantId)
+                .serialNumber("SN-777")
+                .build();
+
+        org.springframework.data.domain.Page<WarrantyTicket> page = new org.springframework.data.domain.PageImpl<>(
+                List.of(t),
+                org.springframework.data.domain.PageRequest.of(0, 20),
+                1
+        );
+        when(warrantyTicketRepository.findAll(
+                any(org.springframework.data.jpa.domain.Specification.class),
+                any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(page);
+        when(warrantyRecordRepository.findAllById(any())).thenReturn(List.of(record));
+        when(catalogApi.getSkuSummaries(java.util.Set.of(variantId))).thenReturn(java.util.Map.of(
+                variantId,
+                com.aquasuite.ims.dto.catalog.response.CatalogSkuSummaryDto.builder()
+                        .variantId(variantId)
+                        .productName("Bồn cầu TOTO")
+                        .variantName("Trắng sứ")
+                        .build()
+        ));
+
+        var filter = new com.aquasuite.ims.dto.servicedesk.request.WarrantyTicketFilterRequest();
+        filter.setStatus(WarrantyTicketStatus.NEW);
+        var res = service.list(filter);
+
+        assertThat(res.getItems()).hasSize(1);
+        var item = res.getItems().get(0);
+        assertThat(item.ticketCode()).isEqualTo("TCK-WAR-202611-0001");
+        assertThat(item.warrantyCode()).isEqualTo("WAR-202611-0077");
+        assertThat(item.serialNumber()).isEqualTo("SN-777");
+        assertThat(item.productName()).isEqualTo("Bồn cầu TOTO");
+        assertThat(item.variantName()).isEqualTo("Trắng sứ");
+        assertThat(item.canCancel()).isFalse();
+    }
 }

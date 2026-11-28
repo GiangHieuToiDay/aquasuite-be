@@ -408,5 +408,77 @@ class WarrantyTicketServiceTest {
                 .isInstanceOf(AppException.class)
                 .matches(ex -> ((AppException) ex).getErrorCode() == ServicedeskErrorCode.WARRANTY_TICKET_NOT_CANCELLABLE);
     }
+
+    @Test
+    @DisplayName("uploadMedia: định tuyến ảnh sang uploadImage, video sang uploadVideo, từ chối file rỗng hoặc PDF")
+    void uploadMedia_RoutingAndValidation() {
+        MockMultipartFile emptyFile = new MockMultipartFile("file", "empty.jpg", "image/jpeg", new byte[0]);
+        assertThatThrownBy(() -> service.uploadMedia(emptyFile))
+                .isInstanceOf(AppException.class)
+                .matches(ex -> ((AppException) ex).getErrorCode() == ServicedeskErrorCode.INVALID_MEDIA_FILE);
+
+        MockMultipartFile pdfFile = new MockMultipartFile("file", "doc.pdf", "application/pdf", new byte[128]);
+        assertThatThrownBy(() -> service.uploadMedia(pdfFile))
+                .isInstanceOf(AppException.class)
+                .matches(ex -> ((AppException) ex).getErrorCode() == ServicedeskErrorCode.INVALID_MEDIA_FILE);
+
+        MockMultipartFile imgFile = new MockMultipartFile("file", "img.jpg", "image/jpeg", new byte[128]);
+        StoredMedia imgRes = new StoredMedia("IMAGE", "https://cdn/img.jpg", "p-img", "image/jpeg", 128);
+        when(servicedeskMediaStoragePort.uploadImage(imgFile, customerId)).thenReturn(imgRes);
+        assertThat(service.uploadMedia(imgFile)).isEqualTo(imgRes);
+
+        MockMultipartFile vidFile = new MockMultipartFile("file", "vid.mp4", "video/mp4", new byte[256]);
+        StoredMedia vidRes = new StoredMedia("VIDEO", "https://cdn/vid.mp4", "p-vid", "video/mp4", 256);
+        when(servicedeskMediaStoragePort.uploadVideo(vidFile, customerId)).thenReturn(vidRes);
+        assertThat(service.uploadMedia(vidFile)).isEqualTo(vidRes);
+    }
+
+    @Test
+    @DisplayName("getClaimForm: ưu tiên địa chỉ giao hàng từ đơn gốc khi thẻ gắn orderId")
+    void getClaimForm_PrefersOrderDeliveryAddress() {
+        UUID orderId = UUID.randomUUID();
+        WarrantyRecord rec = activeRecord(LocalDate.of(2026, 1, 1), LocalDate.of(2028, 1, 1));
+        rec.setOrderId(orderId);
+        when(warrantyRecordRepository.findById(recordId)).thenReturn(Optional.of(rec));
+        when(salesWarrantyApi.getOrderSummaryWithInvoice(orderId)).thenReturn(Optional.of(
+                com.aquasuite.ims.dto.sales.response.SalesOrderWarrantySummaryDto.builder()
+                        .orderId(orderId)
+                        .deliveryAddress("  45 Nguyễn Huệ, Q1  ")
+                        .build()
+        ));
+        when(crmApi.getDeliveryAddressesByCustomerId(customerId)).thenReturn(List.of(
+                CustomerAddressDto.builder().addressId(UUID.randomUUID()).addressText("Địa chỉ phụ CRM").build()
+        ));
+
+        ClaimFormResponse form = service.getClaimForm(recordId);
+
+        assertThat(form.suggestedSiteAddress()).isEqualTo("45 Nguyễn Huệ, Q1");
+        assertThat(form.customerAddresses()).containsExactly("Địa chỉ phụ CRM");
+    }
+
+    @Test
+    @DisplayName("submit: thẻ không tồn tại hoặc thuộc khách hàng khác -> ném WARRANTY_NOT_FOUND / WARRANTY_FORBIDDEN")
+    void submit_NotFoundOrForbidden() {
+        UUID missingRecord = UUID.randomUUID();
+        when(warrantyRecordRepository.findByIdForUpdate(missingRecord)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.submit(CreateWarrantyTicketRequest.builder()
+                .warrantyRecordId(missingRecord)
+                .issueDescription("Mô tả chi tiết lỗi đủ 10 ký tự")
+                .siteAddress("123 Đường A")
+                .build()))
+                .isInstanceOf(AppException.class)
+                .matches(ex -> ((AppException) ex).getErrorCode() == ServicedeskErrorCode.WARRANTY_NOT_FOUND);
+
+        WarrantyRecord otherCustomerRecord = activeRecord(LocalDate.of(2026, 1, 1), LocalDate.of(2028, 1, 1));
+        otherCustomerRecord.setCustomerId(UUID.randomUUID());
+        when(warrantyRecordRepository.findByIdForUpdate(recordId)).thenReturn(Optional.of(otherCustomerRecord));
+        assertThatThrownBy(() -> service.submit(CreateWarrantyTicketRequest.builder()
+                .warrantyRecordId(recordId)
+                .issueDescription("Mô tả chi tiết lỗi đủ 10 ký tự")
+                .siteAddress("123 Đường A")
+                .build()))
+                .isInstanceOf(AppException.class)
+                .matches(ex -> ((AppException) ex).getErrorCode() == ServicedeskErrorCode.WARRANTY_FORBIDDEN);
+    }
 }
 

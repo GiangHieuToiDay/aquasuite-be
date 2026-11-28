@@ -100,5 +100,55 @@ class MediaValidatorTest {
                 .isInstanceOf(AppException.class)
                 .matches(ex -> ((AppException) ex).getErrorCode() == ServicedeskErrorCode.MEDIA_COUNT_LIMIT_EXCEEDED);
     }
+
+    @Test
+    @DisplayName("validateImage: File rỗng hoặc sai đuôi mở rộng -> ném INVALID_MEDIA_FILE")
+    void validateImage_emptyOrBadExtension() {
+        MockMultipartFile emptyFile = new MockMultipartFile("file", "photo.jpg", "image/jpeg", new byte[0]);
+        assertThatThrownBy(() -> validator.validateImage(emptyFile))
+                .isInstanceOf(AppException.class)
+                .matches(ex -> ((AppException) ex).getErrorCode() == ServicedeskErrorCode.INVALID_MEDIA_FILE);
+
+        MockMultipartFile spoofedFile = new MockMultipartFile("file", "payload.exe", "image/jpeg", new byte[128]);
+        assertThatThrownBy(() -> validator.validateImage(spoofedFile))
+                .isInstanceOf(AppException.class)
+                .matches(ex -> ((AppException) ex).getErrorCode() == ServicedeskErrorCode.INVALID_MEDIA_FILE);
+    }
+
+    @Test
+    @DisplayName("validateVideo: File rỗng hoặc sai đuôi mở rộng -> ném INVALID_MEDIA_FILE")
+    void validateVideo_emptyOrBadExtension() {
+        MockMultipartFile emptyVideo = new MockMultipartFile("file", "clip.mp4", "video/mp4", new byte[0]);
+        assertThatThrownBy(() -> validator.validateVideo(emptyVideo))
+                .isInstanceOf(AppException.class)
+                .matches(ex -> ((AppException) ex).getErrorCode() == ServicedeskErrorCode.INVALID_MEDIA_FILE);
+
+        MockMultipartFile badExtVideo = new MockMultipartFile("file", "clip.avi", "video/mp4", new byte[512]);
+        assertThatThrownBy(() -> validator.validateVideo(badExtVideo))
+                .isInstanceOf(AppException.class)
+                .matches(ex -> ((AppException) ex).getErrorCode() == ServicedeskErrorCode.INVALID_MEDIA_FILE);
+    }
+
+    @Test
+    @DisplayName("validateMediaList: Thiếu URL/publicId hoặc URL ngoài thư mục khách hàng -> ném INVALID_MEDIA_FILE")
+    void validateMediaList_missingUrlOrWrongOwnerFolder() {
+        List<TicketMedia> missingUrl = List.of(TicketMedia.builder()
+                .type("IMAGE").url(" ").publicId("abc").build());
+        assertThatThrownBy(() -> validator.validateMediaList(missingUrl, customerId))
+                .isInstanceOf(AppException.class)
+                .matches(ex -> ((AppException) ex).getErrorCode() == ServicedeskErrorCode.INVALID_MEDIA_FILE);
+
+        UUID otherCustomer = UUID.randomUUID();
+        List<TicketMedia> wrongFolder = List.of(TicketMedia.builder()
+                .type("IMAGE")
+                .url("https://res.cloudinary.com/demo/aquasuite/warranty-tickets/" + otherCustomer + "/img.jpg")
+                .publicId("aquasuite/warranty-tickets/" + otherCustomer + "/img")
+                .build());
+        assertThatThrownBy(() -> validator.validateMediaList(wrongFolder, customerId))
+                .isInstanceOf(AppException.class)
+                .matches(ex -> ((AppException) ex).getErrorCode() == ServicedeskErrorCode.INVALID_MEDIA_FILE);
+
+        assertThatCode(() -> validator.validateMediaList(null, customerId)).doesNotThrowAnyException();
+    }
 }
 

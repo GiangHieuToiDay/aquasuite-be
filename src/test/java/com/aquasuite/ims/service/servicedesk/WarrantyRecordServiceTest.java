@@ -333,5 +333,156 @@ class WarrantyRecordServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ServicedeskErrorCode.WARRANTY_FORBIDDEN);
     }
+
+    @Test
+    @DisplayName("createFromOrder: thiếu orderItem, đơn CANCELLED hoặc vượt số lượng mua -> ném lỗi đúng")
+    void createFromOrder_validationGuards_throwExpectedErrors() {
+        UUID missingItemId = UUID.randomUUID();
+        when(salesWarrantyApi.lockOrderItemForWarranty(missingItemId)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.createFromOrder(new CreateWarrantyFromOrderRequest(
+                missingItemId, "SN-1", LocalDate.of(2026, 11, 12))))
+                .isInstanceOf(AppException.class)
+                .extracting("errorCode")
+                .isEqualTo(ServicedeskErrorCode.WARRANTY_ORDER_ITEM_NOT_FOUND);
+
+        var cancelledOrderSnapshot = SalesOrderItemWarrantySnapshotDto.builder()
+                .orderItemId(orderItemId).orderId(orderId).orderStatus("CANCELLED")
+                .customerId(customerId).variantId(variantId).quantity(BigDecimal.ONE).build();
+        when(salesWarrantyApi.lockOrderItemForWarranty(orderItemId)).thenReturn(Optional.of(cancelledOrderSnapshot));
+        assertThatThrownBy(() -> service.createFromOrder(new CreateWarrantyFromOrderRequest(
+                orderItemId, "SN-1", LocalDate.of(2026, 11, 12))))
+                .isInstanceOf(AppException.class)
+                .extracting("errorCode")
+                .isEqualTo(ServicedeskErrorCode.WARRANTY_ORDER_NOT_ELIGIBLE);
+
+        var activeSnapshot = SalesOrderItemWarrantySnapshotDto.builder()
+                .orderItemId(orderItemId).orderId(orderId).orderStatus("COMPLETED")
+                .customerId(customerId).variantId(variantId).quantity(BigDecimal.ONE).build();
+        when(salesWarrantyApi.lockOrderItemForWarranty(orderItemId)).thenReturn(Optional.of(activeSnapshot));
+        when(catalogWarrantyApi.getWarrantyInfoByVariantId(variantId)).thenReturn(Optional.of(activePolicy(24, false)));
+        when(warrantyRecordRepository.countByOrderItemIdAndStatus(orderItemId, WarrantyStatus.ACTIVE)).thenReturn(1L);
+        assertThatThrownBy(() -> service.createFromOrder(new CreateWarrantyFromOrderRequest(
+                orderItemId, null, LocalDate.of(2026, 11, 12))))
+                .isInstanceOf(AppException.class)
+                .extracting("errorCode")
+                .isEqualTo(ServicedeskErrorCode.WARRANTY_QUANTITY_LIMIT_EXCEEDED);
+    }
+
+    @Test
+    @DisplayName("createAdHoc: cấp thẻ ad-hoc với override policy thành công, không yêu cầu serial khi serialTracking=false")
+    void createAdHoc_WithOverridePolicy_Success() {
+        UUID overridePolicyId = UUID.randomUUID();
+        CatalogWarrantyPolicyDto overridePolicy = CatalogWarrantyPolicyDto.builder()
+                .variantId(variantId).warrantyPolicyId(overridePolicyId)
+                .policyCode("WP-36M").policyName("Bảo hành mở rộng 36 tháng")
+                .warrantyMonths(36).policyStatus("ACTIVE").serialTracking(false).build();
+
+        when(crmApi.getCustomerById(customerId)).thenReturn(Optional.of(
+                CustomerSummaryDto.builder().customerId(customerId).customerName("Nguyễn Văn A").phone("0901234567").build()
+        ));
+        when(catalogWarrantyApi.getWarrantyInfoByVariantId(variantId)).thenReturn(Optional.of(activePolicy(12, false)));
+        when(catalogWarrantyApi.getWarrantyPolicyById(overridePolicyId)).thenReturn(Optional.of(overridePolicy));
+        when(warrantyCodeGenerator.nextCode(LocalDate.of(2026, 11, 12))).thenReturn("WAR-202611-0099");
+        when(catalogApi.getSkuSummary(variantId)).thenReturn(Optional.of(
+                CatalogSkuSummaryDto.builder().variantId(variantId).sku("TOTO-CS886").serialTracking(false).build()
+        ));
+        when(crmApi.getDeliveryAddressesByCustomerId(customerId)).thenReturn(List.of());
+
+        var res = service.createAdHoc(new CreateAdHocWarrantyRequest(
+                customerId, variantId, overridePolicyId, null, LocalDate.of(2026, 11, 12)));
+
+        assertThat(res.warrantyCode()).isEqualTo("WAR-202611-0099");
+        assertThat(res.endDate()).isEqualTo(LocalDate.of(2029, 11, 12));
+        assertThat(res.displayStatus()).isEqualTo(WarrantyDisplayStatus.ACTIVE);
+        verify(eventPublisher).publishEvent(any(WarrantyRecordAuditEvent.class));
+    }
+
+    @Test
+    @DisplayName("searchRecords: số điện thoại không khớp khách hàng -> trả trang rỗng không query repository")
+    void searchRecords_UnknownPhone_ReturnsEmptyWithoutQuery() {
+        when(crmApi.findCustomerIdsByPhoneKeyword("0999000111")).thenReturn(List.of());
+        var filter = new com.aquasuite.ims.dto.servicedesk.request.WarrantyRecordFilterRequest();
+        filter.setPhone("0999000111");
+
+        var res = service.searchRecords(filter);
+
+        assertThat(res.getItems()).isEmpty();
+        assertThat(res.getTotalElements()).isZero();
+        verify(warrantyRecordRepository, never()).findAll(
+                any(org.springframework.data.jpa.domain.Specification.class),
+                any(org.springframework.data.domain.Pageable.class));
+    }
+
+    @Test
+    @DisplayName("searchRecords: phân trang, map CLAIMED displayStatus và trả openTicketCode")
+    @SuppressWarnings("unchecked")
+    void searchRecords_EnrichesOpenTicketAndClaimedStatus() {
+        UUID recId = UUID.randomUUID();
+        WarrantyRecord record = WarrantyRecord.builder()
+                .warrantyRecordId(recId)
+                .warrantyCode("WAR-202611-0010")
+                .customerId(customerId)
+                .orderId(orderId)
+                .variantId(variantId)
+                .serialNumber("SN-CLAIM-1")
+                .startDate(LocalDate.of(2026, 1, 1))
+                .endDate(LocalDate.of(2028, 1, 1))
+                .warrantyMonths(24)
+                .status(WarrantyStatus.ACTIVE)
+                .build();
+
+        org.springframework.data.domain.Page<WarrantyRecord> page = new org.springframework.data.domain.PageImpl<>(
+                List.of(record), org.springframework.data.domain.PageRequest.of(0, 10), 1);
+        when(warrantyRecordRepository.findAll(
+                any(org.springframework.data.jpa.domain.Specification.class),
+                any(org.springframework.data.domain.Pageable.class))).thenReturn(page);
+        when(catalogApi.getSkuSummaries(any())).thenReturn(java.util.Map.of(
+                variantId, CatalogSkuSummaryDto.builder().variantId(variantId).sku("TOTO-1").productName("Sen TOTO").variantName("Bạc").build()
+        ));
+        when(crmApi.getCustomersByIds(any())).thenReturn(java.util.Map.of(
+                customerId, CustomerSummaryDto.builder().customerId(customerId).customerName("Trần Thị B").phone("0912345678").build()
+        ));
+        when(salesWarrantyApi.getOrderCodesByIds(any())).thenReturn(java.util.Map.of(orderId, "ORD-010"));
+        when(warrantyTicketRepository.findTicketsByWarrantyRecordIdsAndStatuses(any(), any())).thenReturn(List.of(
+                WarrantyTicket.builder().warrantyRecordId(recId).ticketCode("TCK-WAR-202611-0010").build()
+        ));
+
+        var filter = new com.aquasuite.ims.dto.servicedesk.request.WarrantyRecordFilterRequest();
+        filter.setPage(0);
+        filter.setSize(10);
+        var res = service.searchRecords(filter);
+
+        assertThat(res.getItems()).hasSize(1);
+        var item = res.getItems().get(0);
+        assertThat(item.displayStatus()).isEqualTo(WarrantyDisplayStatus.CLAIMED);
+        assertThat(item.canRequestSupport()).isFalse();
+        assertThat(item.openTicketCode()).isEqualTo("TCK-WAR-202611-0010");
+        assertThat(item.orderCode()).isEqualTo("ORD-010");
+    }
+
+    @Test
+    @DisplayName("voidRecord & getRecordDetail: lý do trống, thẻ đã VOIDED, hoặc không tìm thấy thẻ -> ném lỗi đúng")
+    void voidRecord_andGetDetail_ErrorGuards() {
+        UUID missingId = UUID.randomUUID();
+        when(warrantyRecordRepository.findById(missingId)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> service.getRecordDetail(missingId))
+                .isInstanceOf(AppException.class)
+                .extracting("errorCode")
+                .isEqualTo(ServicedeskErrorCode.WARRANTY_NOT_FOUND);
+
+        assertThatThrownBy(() -> service.voidRecord(missingId, "   "))
+                .isInstanceOf(AppException.class)
+                .extracting("errorCode")
+                .isEqualTo(ServicedeskErrorCode.WARRANTY_VOID_REASON_REQUIRED);
+
+        UUID voidedId = UUID.randomUUID();
+        WarrantyRecord alreadyVoided = WarrantyRecord.builder()
+                .warrantyRecordId(voidedId).warrantyCode("WAR-VOID").status(WarrantyStatus.VOIDED).build();
+        when(warrantyRecordRepository.findById(voidedId)).thenReturn(Optional.of(alreadyVoided));
+        assertThatThrownBy(() -> service.voidRecord(voidedId, "Hủy lại"))
+                .isInstanceOf(AppException.class)
+                .extracting("errorCode")
+                .isEqualTo(ServicedeskErrorCode.WARRANTY_ALREADY_VOIDED);
+    }
 }
 
