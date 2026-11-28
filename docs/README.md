@@ -37,6 +37,8 @@ Hệ thống tài liệu backend bao gồm các tài liệu chuyên đề sau:
   - Quy chuẩn đặt tên URI và phương thức HTTP cho các Feature Spec tương lai.
 
 ### 3. Specifications and Templates
+- [`specifications/FEATURE-UC26-ORDER-MODIFICATION-CANCELLATION.md`](specifications/FEATURE-UC26-ORDER-MODIFICATION-CANCELLATION.md): UC-26 review/execution flow plus approved customer request API for owned `PROCESSING` orders; direct cancellation of `PENDING_CONFIRMATION` remains out of scope.
+- [`specifications/FEATURE-UC24-CUSTOMER-SELF-SERVICE-DEBT.md`](specifications/FEATURE-UC24-CUSTOMER-SELF-SERVICE-DEBT.md): phạm vi đã duyệt cho API khách hàng xem công nợ của chính mình; chỉ trả tổng quan và dư nợ đơn/hóa đơn qua DTO riêng.
 - [WORK-020: tự giữ sau xác minh cọc](specifications/WORK-020-auto-deposit-reservations.md): luồng UC29 theo quyết định người dùng 07/11/2026; dùng API xác minh UC70 hiện có, hàng đợi phân bổ bền vững và trạng thái cọc/giữ riêng.
 - [`specifications/WORK-019-uc70-pending-payment-verifications.md`](specifications/WORK-019-uc70-pending-payment-verifications.md): Dự thảo thiết kế BE UC-70 xác minh chuyển khoản đang chờ; các quyết định về quyền và contract còn mở, Design Review PENDING.
 - [UC29 cơ bản trên đơn có sẵn](contracts/uc29-basic.md): chọn phần hàng, kiểm tra khoản thu VERIFIED và giữ PostgreSQL; có giới hạn đối chiếu tồn giữ legacy. Phạm vi mới tại UC29 mục 13, không thay bản demo thành production bằng cách bỏ profile.

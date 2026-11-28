@@ -43,6 +43,7 @@ import com.aquasuite.ims.dto.sales.request.SalesOrderFilterRequest;
 import com.aquasuite.ims.dto.sales.request.UpdateOrderFulfillmentRequest;
 import com.aquasuite.ims.dto.sales.request.*;
 import com.aquasuite.ims.dto.sales.response.OrderModificationRequestResponse;
+import com.aquasuite.ims.dto.sales.response.CustomerOrderModificationRequestResponse;
 import com.aquasuite.ims.dto.sales.response.PayosPaymentLinkResponse;
 import com.aquasuite.ims.dto.sales.response.SalesOrderDetailResponse;
 import com.aquasuite.ims.dto.sales.response.SalesOrderItemResponse;
@@ -1775,6 +1776,31 @@ public class SalesOrderServiceImpl implements SalesOrderService {
     @Override
     public OrderModificationRequestResponse create(CreateOrderModificationRequest body, UUID actorId) {
         return modificationService != null ? modificationService.create(body, actorId) : null;
+    }
+
+    @Override
+    @Transactional
+    public CustomerOrderModificationRequestResponse createMyOrderModificationRequest(
+            UUID orderId, CreateCustomerOrderModificationRequest request, UUID userId) {
+        if (modificationService == null) {
+            throw new IllegalStateException("Order modification service is not configured");
+        }
+        CustomerSummaryDto customer = userId == null ? null : crmApi.getCustomerByUserId(userId).orElse(null);
+        if (customer == null) {
+            throw new AppException(SalesErrorCode.CUSTOMER_NOT_FOUND);
+        }
+        CreateOrderModificationRequest createRequest = CreateOrderModificationRequest.builder()
+                .orderId(orderId)
+                .requestType(request.getRequestType())
+                .customerReason(request.getCustomerReason())
+                .requestedDeliveryAddress(request.getRequestedDeliveryAddress())
+                .items(request.getItems())
+                .build();
+        OrderModificationRequestResponse created =
+                modificationService.createForCustomer(createRequest, userId, customer.customerId());
+        return new CustomerOrderModificationRequestResponse(
+                created.getId(), created.getOrderId(), created.getRequestType(),
+                created.getRequestStatus(), created.getCustomerReason(), created.getCreatedAt());
     }
 
     @Override

@@ -479,7 +479,7 @@ class CustomerDebtServiceImplTest {
     }
 
     @Test
-    void myDebtDetailResolvesCustomerByUserIdAndStripsInternalReminderHistory() {
+    void myDebtDetailResolvesCustomerByUserIdAndReturnsOnlyCustomerFacingDebtData() {
         UUID userId = UUID.randomUUID();
         when(crmApi.getCustomerByUserId(userId)).thenReturn(Optional.of(
                 com.aquasuite.ims.dto.crm.response.CustomerSummaryDto.builder()
@@ -491,14 +491,17 @@ class CustomerDebtServiceImplTest {
                         .build()));
         when(crmApi.getDebtProfile(CUSTOMER_ID)).thenReturn(Optional.of(customer));
         when(transactionRepository.findByCustomerIdInAndStatusIgnoreCase(any(), eq("VERIFIED"))).thenReturn(List.of());
-        when(auditQueryApi.findByEntity(any(), any())).thenReturn(List.of());
 
         var result = service.myDebtDetail(userId);
 
-        assertMoney("200.00", result.summary().outstandingBalance());
+        assertMoney("200.00", result.outstandingBalance());
+        assertMoney("200.00", result.issuedInvoiceReceivable());
         assertEquals(1, result.invoices().size());
         assertEquals(1, result.orders().size());
-        assertTrue(result.reminderHistory().isEmpty());
+        assertEquals("INV-100", result.invoices().getFirst().invoiceCode());
+        assertEquals("ORD-100", result.invoices().getFirst().orderCode());
+        assertEquals("ORD-100", result.orders().getFirst().orderCode());
+        verify(auditQueryApi, never()).findByEntity(any(), any());
         verify(crmApi).getCustomerByUserId(userId);
     }
 

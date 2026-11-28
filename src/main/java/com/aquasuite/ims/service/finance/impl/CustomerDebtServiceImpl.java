@@ -133,23 +133,45 @@ public class CustomerDebtServiceImpl implements CustomerDebtService {
 
     @Override
     @Transactional(readOnly = true)
-    public CustomerDebtDetailResponse myDebtDetail(UUID userId) {
+    public CustomerDebtSelfServiceResponse myDebtDetail(UUID userId) {
         if (userId == null) {
             throw new AppException(CustomerDebtErrorCode.CUSTOMER_NOT_FOUND);
         }
         CustomerSummaryDto customer = crmApi.getCustomerByUserId(userId)
                 .orElseThrow(() -> new AppException(CustomerDebtErrorCode.CUSTOMER_NOT_FOUND));
-        CustomerDebtDetailResponse full = detail(customer.customerId());
-        return new CustomerDebtDetailResponse(
-                full.customer(),
-                full.summary(),
-                full.invoices(),
-                full.orders(),
-                full.verifiedReceipts(),
-                full.unallocatedOrderReceipts(),
-                full.unallocatedVerifiedReceiptAmount(),
-                List.of()
-        );
+        CustomerDebtProfileDto debtProfile = getCustomer(customer.customerId());
+        DebtCalculation calculation = calculate(debtProfile, documentsFor(Set.of(customer.customerId())));
+        Map<UUID, String> orderCodes = calculation.orders().stream()
+                .collect(Collectors.toMap(OrderDebtResponse::orderId, OrderDebtResponse::orderCode));
+        CustomerDebtSummaryResponse summary = calculation.summary();
+        return new CustomerDebtSelfServiceResponse(
+                summary.outstandingBalance(),
+                summary.overdueBalance(),
+                summary.issuedInvoiceReceivable(),
+                summary.unallocatedAdvanceAmount(),
+                summary.nearestDueDate(),
+                calculation.invoices().stream()
+                        .map(invoice -> new CustomerDebtSelfServiceResponse.Invoice(
+                                invoice.invoiceId(),
+                                invoice.invoiceCode(),
+                                invoice.orderId(),
+                                orderCodes.get(invoice.orderId()),
+                                invoice.issueDate(),
+                                invoice.dueDate(),
+                                invoice.status(),
+                                invoice.totalAmount(),
+                                invoice.verifiedPaidAmount(),
+                                invoice.outstandingAmount()))
+                        .toList(),
+                calculation.orders().stream()
+                        .map(order -> new CustomerDebtSelfServiceResponse.Order(
+                                order.orderId(),
+                                order.orderCode(),
+                                order.orderStatus(),
+                                order.totalAmount(),
+                                order.verifiedPaidAmount(),
+                                order.outstandingAmount()))
+                        .toList());
     }
 
     @Override

@@ -2,6 +2,7 @@ package com.aquasuite.ims.controller.sales;
 
 import com.aquasuite.ims.common.ApiResponse;
 import com.aquasuite.ims.dto.sales.request.*;
+import com.aquasuite.ims.dto.sales.response.CustomerOrderModificationRequestResponse;
 import com.aquasuite.ims.dto.sales.response.OrderModificationRequestResponse;
 import com.aquasuite.ims.dto.sales.response.SalesOrderDetailResponse;
 import com.aquasuite.ims.dto.sales.response.SalesOrderPageResponse;
@@ -199,6 +200,17 @@ public class SalesOrderController {
         return ResponseEntity.ok(ApiResponse.ok(
                 salesOrderService.getMyCustomerOrderDetail(orderId),
                 "Lấy chi tiết đơn hàng thành công"));
+    }
+
+    @PostMapping("/api/v1/sales/orders/me/{orderId}/modification-requests")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<ApiResponse<CustomerOrderModificationRequestResponse>> createMyOrderModificationRequest(
+            @PathVariable UUID orderId,
+            @Valid @RequestBody CreateCustomerOrderModificationRequest request) {
+        CustomerOrderModificationRequestResponse response =
+                salesOrderService.createMyOrderModificationRequest(orderId, request, iamApi.getCurrentUserId());
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok(response, "Yêu cầu điều chỉnh đơn hàng đã được gửi."));
     }
 
     private SalesOrderService getModService() {

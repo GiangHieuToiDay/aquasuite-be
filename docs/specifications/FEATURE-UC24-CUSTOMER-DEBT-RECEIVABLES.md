@@ -25,6 +25,7 @@ Internal staff need an explainable, current view of customer receivables without
 - Email reminder and simulated/manual phone-call result; SMS is a future adapter.
 - PDF statement download and optional email delivery.
 - Shop Owner decision to set `customers.status` to `BLOCKED`, and manual restore to `ACTIVE`.
+- Read-only customer self-service debt view that resolves the customer from the authenticated account and exposes only a customer-facing debt summary plus that customer's order/invoice balances.
 - Forward-only migration that aligns the running CRM customer/invoice model with the supplied `Database.docx` fields needed by this use case.
 
 ### Out of Scope
@@ -33,7 +34,6 @@ Internal staff need an explainable, current view of customer receivables without
 - Recording or verifying payments: UC-23 and UC-70.
 - Allocating a general order payment across invoices: UC-63.
 - Formal debt reconciliation/confirmation, provisions, reporting dashboards, or scheduled collection: UC-65, UC-68, and UC-53.
-- A self-service customer debt portal.
 - A live SMS provider integration, automatic reminder scheduler, or retry/outbox worker.
 
 ## 2. Actors and Security
@@ -43,8 +43,11 @@ Internal staff need an explainable, current view of customer receivables without
 | Sales Staff | View debt, run a counter-order credit check, send email reminder, record a reminder call | `SALES_STAFF` | Internal customer financial data only |
 | Accountant | View debt/detail and export/download statement | `ACCOUNTANT` | Cannot send reminder/call, override, block, or restore |
 | Shop Owner | All UC-24 operations | `SHOP_OWNER` | May override one order; may block/restore a customer |
+| Customer | View own debt summary and order/invoice balances | `CUSTOMER` | Identity is derived from the authenticated account; no customer ID input; no internal profile, receipt, reminder, audit, or credit-limit data |
 
-- Endpoints are authenticated. The controller uses role checks matching this table; no Customer/Guest route is exposed.
+- Endpoints are authenticated. The controller uses role checks matching this table; the customer self-service route is restricted to `CUSTOMER`.
+- Customer self-service resolves the profile through the CRM service contract from the authenticated IAM user ID. Missing customer linkage returns not found and does not create a profile.
+- Customer self-service is read-only and uses a dedicated response DTO; it does not expose customer contact details, receipt records/proofs, reminders, audit history, credit limits, or internal debt classifications.
 - A PDF, email payload, audit JSON, and logs must not contain credentials, payment proof URLs, or unmasked secrets.
 - Customer status is persisted only as `ACTIVE`, `INACTIVE`, or `BLOCKED`. `BLOCKED` is the business state called “Banned” in the SRS: it blocks every new order, including immediate-payment orders.
 - `WITHIN_TERM`, `OVERDUE`, `CREDIT_BLOCKED`, and `BLACKLISTED` are derived response states; they are not written to `customers.status`.
@@ -110,6 +113,8 @@ All endpoints return `ApiResponse<T>` except PDF download, which returns `applic
 | `GET /api/v1/finance/customer-debts/{customerId}/blacklist-status` | Sales Staff, Accountant, Shop Owner | Derived blacklist explanation |
 | `PATCH /api/v1/finance/customer-debts/{customerId}/block` | Shop Owner | Persist `customers.status = BLOCKED` |
 | `PATCH /api/v1/finance/customer-debts/{customerId}/restore` | Shop Owner | Restore customer to `ACTIVE` with reason |
+| `GET /api/v1/customer/debts` | Customer | Own debt summary and order/invoice balances; identity from authenticated user |
+| `GET /api/v1/finance/customer-debts/me` | Customer | Backward-compatible alias of the self-service endpoint |
 
 `MSG62` remains the success message for a fully configured successful reminder dispatch. `MSG63` remains the credit-block error. The UC-24 blacklist response uses a new finance error code rather than reusing `MSG69`, because `MSG69` is already assigned to UC-31.
 

@@ -6,6 +6,7 @@ import com.aquasuite.ims.dto.finance.request.DebtReminderRequest;
 import com.aquasuite.ims.dto.finance.request.ReasonRequest;
 import com.aquasuite.ims.dto.finance.response.CustomerCreditSummaryResponse;
 import com.aquasuite.ims.dto.finance.response.CustomerDebtPageResponse;
+import com.aquasuite.ims.dto.finance.response.CustomerDebtSelfServiceResponse;
 import com.aquasuite.ims.dto.finance.response.DebtReminderResponse;
 import com.aquasuite.ims.service.finance.CustomerDebtService;
 import com.aquasuite.ims.service.iam.IamQueryService;
@@ -313,23 +314,58 @@ class CustomerDebtControllerSecurityTest {
 
     @Test
     @WithMockUser(roles = "CUSTOMER")
-    void customerCanReadOwnDebtDetail() throws Exception {
+    void customerCanReadOwnLimitedDebtViewFromBothPaths() throws Exception {
         UUID userId = UUID.fromString("10000000-0000-4000-8000-000000000099");
         when(iamApi.getCurrentUserId()).thenReturn(userId);
+        when(customerDebtService.myDebtDetail(userId)).thenReturn(new CustomerDebtSelfServiceResponse(
+                BigDecimal.valueOf(100), BigDecimal.valueOf(25), BigDecimal.valueOf(80),
+                BigDecimal.valueOf(20), java.time.LocalDate.of(2026, 12, 1),
+                List.of(new CustomerDebtSelfServiceResponse.Invoice(
+                        UUID.randomUUID(), "INV-001", ORDER_ID, "ORD-001",
+                        java.time.OffsetDateTime.parse("2026-11-01T10:00:00Z"),
+                        java.time.LocalDate.of(2026, 12, 1), "ISSUED",
+                        BigDecimal.valueOf(80), BigDecimal.ZERO, BigDecimal.valueOf(80))),
+                List.of(new CustomerDebtSelfServiceResponse.Order(
+                        ORDER_ID, "ORD-001", "CONFIRMED", BigDecimal.valueOf(100),
+                        BigDecimal.ZERO, BigDecimal.valueOf(100)))));
 
+        mockMvc.perform(get("/api/v1/customer/debts").param("customerId", CUSTOMER_ID.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.outstandingBalance").value(100))
+                .andExpect(jsonPath("$.data.invoices[0].orderCode").value("ORD-001"))
+                .andExpect(jsonPath("$.data.orders[0].orderCode").value("ORD-001"))
+                .andExpect(jsonPath("$.data.customer").doesNotExist())
+                .andExpect(jsonPath("$.data.verifiedReceipts").doesNotExist())
+                .andExpect(jsonPath("$.data.reminderHistory").doesNotExist())
+                .andExpect(jsonPath("$.data.creditLimit").doesNotExist());
         mockMvc.perform(get("/api/v1/finance/customer-debts/me"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
+                .andExpect(jsonPath("$.data.outstandingBalance").value(100))
+                .andExpect(jsonPath("$.data.invoices[0].orderCode").value("ORD-001"))
+                .andExpect(jsonPath("$.data.orders[0].orderCode").value("ORD-001"))
+                .andExpect(jsonPath("$.data.customer").doesNotExist())
+                .andExpect(jsonPath("$.data.verifiedReceipts").doesNotExist())
+                .andExpect(jsonPath("$.data.reminderHistory").doesNotExist())
+                .andExpect(jsonPath("$.data.creditLimit").doesNotExist());
 
-        verify(customerDebtService).myDebtDetail(userId);
+        verify(customerDebtService, org.mockito.Mockito.times(2)).myDebtDetail(userId);
     }
 
     @Test
     @WithMockUser(roles = "SALES_STAFF")
     void staffCannotCallCustomerSelfServiceDebtEndpoint() throws Exception {
+        mockMvc.perform(get("/api/v1/customer/debts"))
+                .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/v1/finance/customer-debts/me"))
                 .andExpect(status().isForbidden());
         verifyNoInteractions(customerDebtService);
+    }
+
+    @Test
+    void unauthenticatedCustomerSelfServiceDebtRequestIsRejected() throws Exception {
+        mockMvc.perform(get("/api/v1/customer/debts"))
+                .andExpect(status().isUnauthorized());
     }
 
     @TestConfiguration

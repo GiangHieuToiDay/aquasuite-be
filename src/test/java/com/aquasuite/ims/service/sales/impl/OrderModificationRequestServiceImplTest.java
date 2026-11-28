@@ -70,6 +70,66 @@ class OrderModificationRequestServiceImplTest {
     @Mock private ApplicationEventPublisher events;
     @InjectMocks private OrderModificationRequestServiceImpl service;
 
+    @Test
+    void customerRequestRequiresOrderOwnershipAndPersistsAuthenticatedCustomer() {
+        UUID orderId = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        Order order = Order.builder().orderId(orderId).customerId(customerId).orderStatus("PROCESSING").build();
+        when(orderRepository.findByIdForUpdate(orderId)).thenReturn(Optional.of(order));
+        when(deliveries.lockByOrderId(orderId)).thenReturn(List.of());
+        when(requestRepository.existsByOrderIdAndRequestStatusIn(eq(orderId), any())).thenReturn(false);
+        when(requestRepository.save(any(OrderModificationRequest.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(mapper.toResponse(any(OrderModificationRequest.class)))
+                .thenAnswer(invocation -> {
+                    OrderModificationRequest saved = invocation.getArgument(0);
+                    return OrderModificationRequestResponse.builder()
+                            .id(saved.getModificationRequestId())
+                            .orderId(saved.getOrderId())
+                            .customerId(saved.getCustomerId())
+                            .requestType(saved.getRequestType())
+                            .requestStatus(saved.getRequestStatus())
+                            .customerReason(saved.getCustomerReason())
+                            .createdAt(saved.getCreatedAt())
+                            .build();
+                });
+
+        var response = service.createForCustomer(CreateOrderModificationRequest.builder()
+                        .orderId(orderId)
+                        .requestType("ADDRESS_CHANGE")
+                        .customerReason("Update delivery location")
+                        .requestedDeliveryAddress("New delivery address")
+                        .build(),
+                userId, customerId);
+
+        assertEquals(orderId, response.getOrderId());
+        assertEquals(customerId, response.getCustomerId());
+        assertEquals(OrderModificationRequestType.ADDRESS_CHANGE, response.getRequestType());
+        assertEquals(OrderModificationRequestStatus.PENDING_REVIEW, response.getRequestStatus());
+        verify(requestRepository).save(any(OrderModificationRequest.class));
+    }
+
+    @Test
+    void customerCannotSubmitModificationRequestForAnotherCustomersOrder() {
+        UUID orderId = UUID.randomUUID();
+        Order order = Order.builder().orderId(orderId).customerId(UUID.randomUUID())
+                .orderStatus("PROCESSING").build();
+        when(orderRepository.findByIdForUpdate(orderId)).thenReturn(Optional.of(order));
+
+        AppException exception = assertThrows(AppException.class, () -> service.createForCustomer(
+                CreateOrderModificationRequest.builder()
+                        .orderId(orderId)
+                        .requestType("FULL_CANCELLATION")
+                        .customerReason("Cancel this order")
+                        .build(),
+                UUID.randomUUID(), UUID.randomUUID()));
+
+        assertEquals(CommonErrorCode.ACCESS_DENIED, exception.getErrorCode());
+        verify(requestRepository, never()).save(any(OrderModificationRequest.class));
+        verify(deliveries, never()).lockByOrderId(any());
+    }
+
     // =============================== REJECT ===============================
 
     @Test

@@ -5,7 +5,9 @@ import com.aquasuite.ims.dto.iam.response.UserSummaryDto;
 import com.aquasuite.ims.security.AccessAuthenticationConverter;
 import com.aquasuite.ims.security.AuthSecurityConfig;
 import com.aquasuite.ims.dto.sales.request.CreateOrderModificationRequest;
+import com.aquasuite.ims.dto.sales.request.CreateCustomerOrderModificationRequest;
 import com.aquasuite.ims.dto.sales.request.ReviewOrderModificationRequest;
+import com.aquasuite.ims.dto.sales.response.CustomerOrderModificationRequestResponse;
 import com.aquasuite.ims.dto.sales.response.OrderModificationRequestResponse;
 import com.aquasuite.ims.enums.sales.OrderModificationRequestStatus;
 import com.aquasuite.ims.service.sales.SalesOrderService;
@@ -48,6 +50,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import({GlobalExceptionHandler.class, OrderModificationRequestControllerSecurityTest.TestSecurityConfig.class})
 class OrderModificationRequestControllerSecurityTest {
     private static final UUID REQUEST_ID = UUID.fromString("10000000-0000-4000-8000-000000000026");
+    private static final UUID ORDER_ID = UUID.fromString("10000000-0000-4000-8000-000000000027");
 
     @Autowired private MockMvc mockMvc;
     @MockBean private SalesOrderService service;
@@ -181,6 +184,44 @@ class OrderModificationRequestControllerSecurityTest {
                                 + "\"requestType\":\"ADDRESS_CHANGE\","
                                 + "\"customerReason\":\"Change delivery address\","
                                 + "\"requestedDeliveryAddress\":\"New Address\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "CUSTOMER")
+    void customerCanSubmitOwnedOrderModificationRequestWithAuthenticatedActor() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID requestId = UUID.randomUUID();
+        when(iamApi.getCurrentUserId()).thenReturn(userId);
+        when(service.createMyOrderModificationRequest(
+                eq(ORDER_ID), any(CreateCustomerOrderModificationRequest.class), eq(userId)))
+                .thenReturn(new CustomerOrderModificationRequestResponse(
+                        requestId, ORDER_ID,
+                        com.aquasuite.ims.enums.sales.OrderModificationRequestType.ADDRESS_CHANGE,
+                        OrderModificationRequestStatus.PENDING_REVIEW,
+                        "Please update delivery address", java.time.OffsetDateTime.parse("2026-11-28T15:00:00Z")));
+
+        mockMvc.perform(post("/api/v1/sales/orders/me/{orderId}/modification-requests", ORDER_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"requestType\":\"ADDRESS_CHANGE\","
+                                + "\"customerReason\":\"Please update delivery address\","
+                                + "\"requestedDeliveryAddress\":\"New delivery address\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.id").value(requestId.toString()))
+                .andExpect(jsonPath("$.data.orderId").value(ORDER_ID.toString()))
+                .andExpect(jsonPath("$.data.requestStatus").value("PENDING_REVIEW"));
+
+        verify(service).createMyOrderModificationRequest(
+                eq(ORDER_ID), any(CreateCustomerOrderModificationRequest.class), eq(userId));
+    }
+
+    @Test
+    @WithMockUser(roles = "SALES_STAFF")
+    void staffCannotUseCustomerOrderModificationSubmissionRoute() throws Exception {
+        mockMvc.perform(post("/api/v1/sales/orders/me/{orderId}/modification-requests", ORDER_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"requestType\":\"FULL_CANCELLATION\","
+                                + "\"customerReason\":\"Cancel order\"}"))
                 .andExpect(status().isForbidden());
     }
 

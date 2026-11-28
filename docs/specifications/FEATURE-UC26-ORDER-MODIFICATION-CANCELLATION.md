@@ -20,6 +20,7 @@ UC-20 submits a formal request to change or cancel a confirmed, pre-dispatch ord
 ### In Scope
 
 - Search and view requests created by UC-20 or at the sales counter.
+- Accept authenticated customer requests to change address, change items, or cancel their own `PROCESSING` pre-dispatch order from the My Orders flow.
 - Approve or reject `FULL_CANCELLATION`, `ADDRESS_CHANGE`, and `ITEM_CHANGE` requests for eligible Processing orders.
 - Persist requested line removals, quantity reductions, and swaps in the two shared sales tables.
 - Apply store-only changes atomically to the order, its reservations, and its Draft store invoice.
@@ -29,7 +30,7 @@ UC-20 submits a formal request to change or cancel a confirmed, pre-dispatch ord
 
 ### Out of Scope
 
-- Customer request submission endpoint/UI (UC-20), creating or first-confirming a replacement order (UC-21/UC-22), independent reservation management (UC-36), physical delivery (UC-39 to UC-41), returns after acceptance (UC-37), and payment/refund verification (UC-23, UC-64, UC-70).
+- Customer-facing UI implementation, direct cancellation of `PENDING_CONFIRMATION` orders, creating or first-confirming a replacement order (UC-21/UC-22), independent reservation management (UC-36), physical delivery (UC-39 to UC-41), returns after acceptance (UC-37), and payment/refund verification (UC-23, UC-64, UC-70).
 - Direct integration with an electronic-invoice provider in v1.
 - A new receivables, credit-wallet, or refund-approval table.
 
@@ -40,14 +41,14 @@ UC-20 submits a formal request to change or cancel a confirmed, pre-dispatch ord
 | Sales Staff | List/detail; approve address change and unpaid, non-tax cancellation; reject eligible requests; send result email | Cannot approve item change, a partial/fully paid cancellation, a refund, or a tax-linked decision. |
 | Shop Owner | List/detail; approve or reject every request type; release reservations in the approved business flow | Cannot mark an external tax invoice or refund as verified. |
 | Accountant | List/detail only for `PENDING_CANCEL`; record the internal tax-result reference | Does not approve/reject a request, choose a substitute product, or approve a refund. |
-| Customer | Submits through UC-20 only | Has no UC-26 internal endpoint. |
+| Customer | Submit a request for their own eligible `PROCESSING` order | Cannot select another customer/order, directly mutate order data, approve a request, or submit through staff-only endpoints. |
 
 - Every mutation gets the actor ID from `IamApi`; the request payload never supplies it.
 - Customer reasons, decision notes, price differences, prior/new line data, and invoice references are audit data. No payment credential or external-provider secret may be stored in the request or audit payload.
 
 ## 3. Business Rules
 
-1. A request is valid only for an order in `PROCESSING`. A Pending order is cancelled directly by the customer; a Cancelled, Completed, Dispatched, In_Transit, or Delivered order is outside UC-26.
+1. A request is valid only for an order in `PROCESSING`. `PENDING_CONFIRMATION` orders are not accepted by the customer modification-request endpoint; direct customer cancellation for that state is deferred. A Cancelled, Completed, Dispatched, In_Transit, or Delivered order is outside this request flow.
 2. Delivery is checked before payment and tax linkage. Any dispatched/in-transit/delivered delivery blocks approval. Returns after acceptance belong to UC-37; partial acceptance at the door belongs to UC-39 to UC-41.
 3. Request types are `FULL_CANCELLATION`, `ADDRESS_CHANGE`, and `ITEM_CHANGE`. Line remove/reduce without a replacement is an `ITEM_CHANGE`, not a separate partial-cancellation type.
 4. `PENDING_CANCEL` belongs to `order_modification_requests.request_status`, not to `orders.order_status`. The old order stays `PROCESSING` and is locked from direct mutation until the tax/refund result is final. It becomes `CANCELLED` only after the required tax/refund completion.
@@ -67,7 +68,7 @@ UC-20 submits a formal request to change or cancel a confirmed, pre-dispatch ord
 ## 4. Data and Migration Decisions
 
 - Add forward-only `V5__add_order_modification_requests.sql`; V1 through V4 remain immutable.
-- Add `order_modification_requests`, owned by the `sales` module and shared by UC-20/UC-26. UC-20 will create it through a future caller; UC-26 owns review state transitions and execution fields. UC-26 does not expose the UC-20 submission endpoint/UI.
+- Add `order_modification_requests`, owned by the `sales` module and shared by UC-20/UC-26. The approved customer API submits eligible My Orders requests to this table; UC-26 owns review state transitions and execution fields. The customer-facing UI remains out of scope.
 - Add `order_modification_request_items`, the immutable requested line snapshot for `ITEM_CHANGE`.
 - Header stores scalar IDs for request/order/customer/requested-by/reviewed-by/replacement-order/original-invoice/replacement-or-adjustment-invoice; request type/status; customer reason; decision note; tax-result reference; calculated difference; timestamps.
 - Item stores scalar IDs for request/original order item/original variant/requested replacement variant; action (`REMOVE`, `REDUCE`, `SWAP`); original/requested quantity and unit-price snapshot.
@@ -86,6 +87,7 @@ UC-20 submits a formal request to change or cancel a confirmed, pre-dispatch ord
 | `POST /api/v1/order-modification-requests/{requestId}/reject` | Sales Staff / Shop Owner | Rejected result | State conflict |
 | `POST /api/v1/order-modification-requests/{requestId}/tax-result` | Accountant | Updated pending/final result | State or invoice-reference conflict |
 | `POST /api/v1/order-modification-requests/{requestId}/send-result-email` | Sales Staff / Shop Owner | Email accepted for delivery | Notification failure is logged; committed request is not rolled back |
+| `POST /api/v1/sales/orders/me/{orderId}/modification-requests` | Customer | Submit `ADDRESS_CHANGE`, `ITEM_CHANGE`, or `FULL_CANCELLATION`; order/customer identity derived and verified server-side | 401/403, order ownership, state, duplicate-request, or validation errors |
 
 ### Inter-Module Java API
 
@@ -121,6 +123,8 @@ UC-20 submits a formal request to change or cancel a confirmed, pre-dispatch ord
 | AC-04 | Tax-linked change stays `PENDING_CANCEL` until recorded result plus applicable finance outcome | State-transition test |
 | AC-05 | Two concurrent approvals of the same request/order yield one transition | PostgreSQL concurrency test |
 | AC-06 | Migration is forward-only and preserves V1-V4 history | Flyway Testcontainers test |
+| AC-07 | A customer can submit a request only for their own `PROCESSING` pre-dispatch order; staff and unauthenticated callers cannot use the customer route | Controller security and service ownership tests |
+| AC-08 | Customer request payload cannot choose `orderId`, `customerId`, or requester identity; response contains only customer-facing request fields | Request/response contract and controller tests |
 
 ## 8. Open Decisions
 
@@ -130,3 +134,4 @@ UC-20 submits a formal request to change or cancel a confirmed, pre-dispatch ord
 | `PENDING_CANCEL` is a request state, not an order status | Product Owner | APPROVED |
 | Tax result is recorded manually by Accountant in v1; no provider API | Product Owner | APPROVED |
 | UC-64 owns refund approval/execution; UC-26 only creates/observes the pending refund | Product Owner | APPROVED |
+| Customer submits change/cancel requests only for owned `PROCESSING` orders; direct `PENDING_CONFIRMATION` cancellation remains out of scope | Project Owner | APPROVED — 2026-11-28 |

@@ -62,6 +62,7 @@ class CreditControlApiPostgresLockIT {
                 @Override public com.aquasuite.ims.dto.finance.response.CustomerDebtPageResponse list(String keyword, String customerType, String debtStatus, String sortBy, String direction, int page, int size) { throw new UnsupportedOperationException(); }
                 @Override public com.aquasuite.ims.dto.finance.response.DebtDashboardStatsResponse stats() { throw new UnsupportedOperationException(); }
                 @Override public com.aquasuite.ims.dto.finance.response.CustomerDebtDetailResponse detail(UUID customerId) { throw new UnsupportedOperationException(); }
+                @Override public com.aquasuite.ims.dto.finance.response.CustomerDebtSelfServiceResponse myDebtDetail(UUID userId) { throw new UnsupportedOperationException(); }
                 @Override public com.aquasuite.ims.dto.finance.response.CustomerCreditSummaryResponse creditSummary(UUID customerId) { throw new UnsupportedOperationException(); }
                 @Override public com.aquasuite.ims.dto.finance.response.BlacklistStatusResponse blacklistStatus(UUID customerId) { throw new UnsupportedOperationException(); }
                 @Override public void approveOverride(UUID orderId, com.aquasuite.ims.dto.finance.request.ReasonRequest request, UUID actorId) { throw new UnsupportedOperationException(); }

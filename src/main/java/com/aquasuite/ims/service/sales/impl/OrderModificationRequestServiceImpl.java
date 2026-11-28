@@ -92,10 +92,29 @@ public class OrderModificationRequestServiceImpl {
     }
     @Transactional
     public OrderModificationRequestResponse create(CreateOrderModificationRequest body, UUID actorId) {
+        return create(body, actorId, null);
+    }
+
+    @Transactional
+    public OrderModificationRequestResponse createForCustomer(
+            CreateOrderModificationRequest body, UUID actorId, UUID customerId) {
+        if (actorId == null || customerId == null) {
+            throw new AppException(CommonErrorCode.ACCESS_DENIED);
+        }
+        return create(body, actorId, customerId);
+    }
+
+    private OrderModificationRequestResponse create(
+            CreateOrderModificationRequest body, UUID actorId, UUID expectedCustomerId) {
         OrderModificationRequestType requestType = parseRequestType(body.getRequestType());
 
         Order order = orderRepository.findByIdForUpdate(body.getOrderId())
-                .orElseThrow(() -> new AppException(OrderModificationErrorCode.ORDER_NOT_ELIGIBLE));
+                .orElseThrow(() -> expectedCustomerId == null
+                        ? new AppException(OrderModificationErrorCode.ORDER_NOT_ELIGIBLE)
+                        : new AppException(CommonErrorCode.ACCESS_DENIED));
+        if (expectedCustomerId != null && !expectedCustomerId.equals(order.getCustomerId())) {
+            throw new AppException(CommonErrorCode.ACCESS_DENIED);
+        }
 
         // Check order eligibility: PROCESSING and no dispatched deliveries
         boolean dispatched = deliveries.lockByOrderId(order.getOrderId()).stream()
