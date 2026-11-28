@@ -957,6 +957,21 @@ public class SalesOrderServiceImpl implements SalesOrderService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<CustomerOrderModificationRequestResponse> getMyActiveOrderModificationRequests() {
+        if (modificationService == null) {
+            throw new IllegalStateException("Order modification service is not configured");
+        }
+        UUID userId = iamApi.getCurrentUserId();
+        CustomerSummaryDto customer = userId == null
+                ? null
+                : crmApi.getCustomerByUserId(userId).orElse(null);
+        return customer == null
+                ? List.of()
+                : modificationService.listActiveForCustomer(customer.customerId());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public SalesOrderDetailResponse getMyCustomerOrderDetail(UUID orderId) {
         UUID userId = iamApi.getCurrentUserId();
         CustomerSummaryDto customer = userId == null ? null

@@ -22,6 +22,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
+import java.util.List;
 
 /**
  * Controller Quản lý Đơn hàng Bán hàng (Sales Orders) và Yêu cầu Chỉnh sửa / Đổi trả đơn.
@@ -200,6 +201,14 @@ public class SalesOrderController {
         return ResponseEntity.ok(ApiResponse.ok(
                 salesOrderService.getMyCustomerOrderDetail(orderId),
                 "Lấy chi tiết đơn hàng thành công"));
+    }
+
+    @GetMapping("/api/v1/sales/orders/me/modification-requests/active")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<ApiResponse<List<CustomerOrderModificationRequestResponse>>> getMyActiveOrderModificationRequests() {
+        return ResponseEntity.ok(ApiResponse.ok(
+                salesOrderService.getMyActiveOrderModificationRequests(),
+                "Lấy danh sách yêu cầu đơn hàng đang chờ xử lý thành công"));
     }
 
     @PostMapping("/api/v1/sales/orders/me/{orderId}/modification-requests")

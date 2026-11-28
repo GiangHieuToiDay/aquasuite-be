@@ -43,6 +43,7 @@ import com.aquasuite.ims.dto.sales.request.UpdateOrderFulfillmentRequest;
 import com.aquasuite.ims.dto.sales.response.SalesOrderDetailResponse;
 import com.aquasuite.ims.dto.sales.response.SalesOrderSummaryResponse;
 import com.aquasuite.ims.dto.sales.response.OrderModificationRequestResponse;
+import com.aquasuite.ims.dto.sales.response.CustomerOrderModificationRequestResponse;
 import com.aquasuite.ims.repository.sales.OnlinePayosPaymentRepository;
 import com.aquasuite.ims.repository.sales.OrderItemRepository;
 import com.aquasuite.ims.repository.sales.OrderPaymentMilestoneRepository;
@@ -1283,5 +1284,28 @@ class SalesOrderServiceTest {
         assertThatThrownBy(() -> salesOrderService.getMyCustomerOrderDetail(foreignOrderId))
                 .isInstanceOf(AppException.class)
                 .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(SalesErrorCode.ORDER_NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("Khách chỉ nhận trạng thái yêu cầu gắn với CRM profile của tài khoản hiện tại")
+    void getMyActiveOrderModificationRequests_UsesCurrentCustomersProfile() {
+        UUID userId = UUID.randomUUID();
+        CustomerOrderModificationRequestResponse activeRequest =
+                new CustomerOrderModificationRequestResponse(
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        OrderModificationRequestType.ADDRESS_CHANGE,
+                        OrderModificationRequestStatus.PENDING_REVIEW,
+                        "Update delivery address",
+                        OffsetDateTime.now());
+        when(iamApi.getCurrentUserId()).thenReturn(userId);
+        when(crmApi.getCustomerByUserId(userId)).thenReturn(Optional.of(customerDto));
+        when(modificationService.listActiveForCustomer(customerId)).thenReturn(List.of(activeRequest));
+
+        List<CustomerOrderModificationRequestResponse> result =
+                salesOrderService.getMyActiveOrderModificationRequests();
+
+        assertThat(result).containsExactly(activeRequest);
+        verify(modificationService).listActiveForCustomer(customerId);
     }
 }

@@ -74,7 +74,7 @@ UC-20 submits a formal request to change or cancel a confirmed, pre-dispatch ord
 ## 4. Data and Migration Decisions
 
 - Add forward-only `V5__add_order_modification_requests.sql`; V1 through V4 remain immutable.
-- Add `order_modification_requests`, owned by the `sales` module and shared by UC-20/UC-26. The approved customer API submits eligible My Orders requests to this table; UC-26 owns review state transitions and execution fields. The customer-facing UI remains out of scope.
+- Add `order_modification_requests`, owned by the `sales` module and shared by UC-20/UC-26. The approved customer API submits eligible My Orders requests to this table; UC-26 owns review state transitions and execution fields. The customer UI displays active request status and suppresses duplicate submission.
 - Add `order_modification_request_items`, the immutable requested line snapshot for `ITEM_CHANGE`.
 - Header stores scalar IDs for request/order/customer/requested-by/reviewed-by/replacement-order/original-invoice/replacement-or-adjustment-invoice; request type/status; customer reason; decision note; tax-result reference; calculated difference; timestamps.
 - Item stores scalar IDs for request/original order item/original variant/requested replacement variant; action (`REMOVE`, `REDUCE`, `SWAP`); original/requested quantity and unit-price snapshot.
@@ -94,6 +94,7 @@ UC-20 submits a formal request to change or cancel a confirmed, pre-dispatch ord
 | `POST /api/v1/order-modification-requests/{requestId}/tax-result` | Accountant | Updated pending/final result | State or invoice-reference conflict |
 | `POST /api/v1/order-modification-requests/{requestId}/send-result-email` | Sales Staff / Shop Owner | Email accepted for delivery | Notification failure is logged; committed request is not rolled back |
 | `POST /api/v1/sales/orders/me/{orderId}/modification-requests` | Customer | Submit `ADDRESS_CHANGE`, `ITEM_CHANGE`, or `FULL_CANCELLATION`; order/customer identity derived and verified server-side | 401/403, order ownership, state, payment-method, duplicate-request, or validation errors |
+| `GET /api/v1/sales/orders/me/modification-requests/active` | Customer | Active requests (`PENDING_REVIEW` / `PENDING_CANCEL`) for the authenticated customer's orders | 401/403 |
 
 ### Inter-Module Java API
 
@@ -135,6 +136,7 @@ UC-20 submits a formal request to change or cancel a confirmed, pre-dispatch ord
 | AC-09 | A customer can submit address/item/cancellation requests for an owned `PENDING_CONFIRMATION` order; item changes are rejected for paid, verified, or bank-transfer orders | Service tests |
 | AC-10 | Staff approval applies a pending-order address/item change; an approved pending-order cancellation uses UC-22 payment/refund handling | Service tests |
 | AC-11 | UC-22 confirmation/rejection checks active requests after locking the order and conflicts while one awaits staff review | Service test and verification of shared order-lock paths |
+| AC-12 | My Orders shows active-request status instead of the submit action; the action returns after a request reaches a terminal state and the customer refreshes | Customer API, frontend contract, and UI tests |
 
 ## 8. Open Decisions
 

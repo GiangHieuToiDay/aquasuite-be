@@ -23,6 +23,7 @@ import com.aquasuite.ims.dto.sales.request.CreateOrderModificationRequest;
 import com.aquasuite.ims.dto.sales.request.RecordOrderModificationTaxResultRequest;
 import com.aquasuite.ims.dto.sales.request.ReviewOrderModificationRequest;
 import com.aquasuite.ims.dto.sales.response.OrderModificationRequestResponse;
+import com.aquasuite.ims.dto.sales.response.CustomerOrderModificationRequestResponse;
 import com.aquasuite.ims.repository.sales.OrderItemRepository;
 import com.aquasuite.ims.repository.sales.OrderModificationRequestItemRepository;
 import com.aquasuite.ims.repository.sales.OrderModificationRequestRepository;
@@ -70,6 +71,34 @@ class OrderModificationRequestServiceImplTest {
     @Mock private StockReservationService reservations;
     @Mock private ApplicationEventPublisher events;
     @InjectMocks private OrderModificationRequestServiceImpl service;
+
+    @Test
+    void listActiveForCustomerReturnsOnlyRequestsInActiveStatuses() {
+        UUID customerId = UUID.randomUUID();
+        UUID orderId = UUID.randomUUID();
+        UUID requestId = UUID.randomUUID();
+        OrderModificationRequest activeRequest = OrderModificationRequest.builder()
+                .modificationRequestId(requestId)
+                .orderId(orderId)
+                .customerId(customerId)
+                .requestType(OrderModificationRequestType.ADDRESS_CHANGE)
+                .requestStatus(OrderModificationRequestStatus.PENDING_REVIEW)
+                .customerReason("Update delivery address")
+                .createdAt(java.time.OffsetDateTime.parse("2026-11-29T00:00:00Z"))
+                .build();
+        when(requestRepository.findByCustomerIdAndRequestStatusInOrderByCreatedAtDesc(
+                eq(customerId), eq(List.of(
+                        OrderModificationRequestStatus.PENDING_REVIEW,
+                        OrderModificationRequestStatus.PENDING_CANCEL))))
+                .thenReturn(List.of(activeRequest));
+
+        List<CustomerOrderModificationRequestResponse> result = service.listActiveForCustomer(customerId);
+
+        assertEquals(1, result.size());
+        assertEquals(requestId, result.getFirst().id());
+        assertEquals(orderId, result.getFirst().orderId());
+        assertEquals(OrderModificationRequestStatus.PENDING_REVIEW, result.getFirst().requestStatus());
+    }
 
     @Test
     void customerRequestRequiresOrderOwnershipAndPersistsAuthenticatedCustomer() {

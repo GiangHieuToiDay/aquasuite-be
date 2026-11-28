@@ -216,6 +216,33 @@ class OrderModificationRequestControllerSecurityTest {
     }
 
     @Test
+    @WithMockUser(roles = "CUSTOMER")
+    void customerCanReadActiveRequestsAndStaffCannotUseCustomerRoute() throws Exception {
+        when(service.getMyActiveOrderModificationRequests()).thenReturn(List.of(
+                new CustomerOrderModificationRequestResponse(
+                        REQUEST_ID,
+                        ORDER_ID,
+                        com.aquasuite.ims.enums.sales.OrderModificationRequestType.ADDRESS_CHANGE,
+                        OrderModificationRequestStatus.PENDING_REVIEW,
+                        "Please update delivery address",
+                        java.time.OffsetDateTime.parse("2026-11-28T15:00:00Z"))));
+
+        mockMvc.perform(get("/api/v1/sales/orders/me/modification-requests/active"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].orderId").value(ORDER_ID.toString()))
+                .andExpect(jsonPath("$.data[0].requestStatus").value("PENDING_REVIEW"));
+
+        verify(service).getMyActiveOrderModificationRequests();
+    }
+
+    @Test
+    @WithMockUser(roles = "SALES_STAFF")
+    void staffCannotReadCustomerActiveRequestsRoute() throws Exception {
+        mockMvc.perform(get("/api/v1/sales/orders/me/modification-requests/active"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @WithMockUser(roles = "SALES_STAFF")
     void staffCannotUseCustomerOrderModificationSubmissionRoute() throws Exception {
         mockMvc.perform(post("/api/v1/sales/orders/me/{orderId}/modification-requests", ORDER_ID)

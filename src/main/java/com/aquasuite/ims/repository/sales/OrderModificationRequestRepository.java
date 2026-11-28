@@ -20,6 +20,9 @@ public interface OrderModificationRequestRepository extends JpaRepository<OrderM
 
     boolean existsByOrderIdAndRequestStatusIn(UUID orderId, Collection<OrderModificationRequestStatus> statuses);
 
+    java.util.List<OrderModificationRequest> findByCustomerIdAndRequestStatusInOrderByCreatedAtDesc(
+            UUID customerId, Collection<OrderModificationRequestStatus> statuses);
+
     Page<OrderModificationRequest> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
     Page<OrderModificationRequest> findByRequestStatusOrderByCreatedAtDesc(OrderModificationRequestStatus status, Pageable pageable);

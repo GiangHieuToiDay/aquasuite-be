@@ -90,6 +90,8 @@ public interface SalesOrderService {
     CustomerOrderModificationRequestResponse createMyOrderModificationRequest(
             UUID orderId, CreateCustomerOrderModificationRequest request, UUID userId);
 
+    List<CustomerOrderModificationRequestResponse> getMyActiveOrderModificationRequests();
+
     OrderModificationRequestResponse reject(UUID requestId, ReviewOrderModificationRequest request, UUID actorId);
 
     OrderModificationRequestResponse approve(UUID requestId, ApproveOrderModificationRequest request, UUID actorId, boolean shopOwner);

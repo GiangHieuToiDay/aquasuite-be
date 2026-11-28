@@ -30,6 +30,7 @@ import com.aquasuite.ims.dto.sales.request.CreateOrderModificationRequest;
 import com.aquasuite.ims.dto.sales.request.RecordOrderModificationTaxResultRequest;
 import com.aquasuite.ims.dto.sales.request.ReviewOrderModificationRequest;
 import com.aquasuite.ims.dto.sales.response.OrderModificationRequestResponse;
+import com.aquasuite.ims.dto.sales.response.CustomerOrderModificationRequestResponse;
 import com.aquasuite.ims.repository.sales.OrderItemRepository;
 import com.aquasuite.ims.repository.sales.OrderModificationRequestItemRepository;
 import com.aquasuite.ims.repository.sales.OrderModificationRequestRepository;
@@ -92,6 +93,25 @@ public class OrderModificationRequestServiceImpl {
         }
         return toResponse(request);
     }
+
+    @Transactional(readOnly = true)
+    public List<CustomerOrderModificationRequestResponse> listActiveForCustomer(UUID customerId) {
+        List<OrderModificationRequestStatus> activeStatuses = List.of(
+                OrderModificationRequestStatus.PENDING_REVIEW,
+                OrderModificationRequestStatus.PENDING_CANCEL);
+        return requestRepository
+                .findByCustomerIdAndRequestStatusInOrderByCreatedAtDesc(customerId, activeStatuses)
+                .stream()
+                .map(request -> new CustomerOrderModificationRequestResponse(
+                        request.getModificationRequestId(),
+                        request.getOrderId(),
+                        request.getRequestType(),
+                        request.getRequestStatus(),
+                        request.getCustomerReason(),
+                        request.getCreatedAt()))
+                .toList();
+    }
+
     @Transactional
     public OrderModificationRequestResponse create(CreateOrderModificationRequest body, UUID actorId) {
         return create(body, actorId, null);
