@@ -84,6 +84,7 @@ public class CatalogLookupServiceImpl implements CatalogLookupService {
                                     .variantName(item.name())
                                     .quantity(item.quantity())
                                     .sellingPrice(item.sellingPrice())
+                                    .sellable(item.sellable())
                                     .build())
                             .toList();
 
@@ -93,12 +94,43 @@ public class CatalogLookupServiceImpl implements CatalogLookupService {
                     .bundleName(bundle.name())
                     .packagePrice(bundle.packagePrice())
                     .status(bundle.productStatus())
+                    .publicationStatus(bundle.publicationStatus())
+                    .validFrom(bundle.validFrom())
+                    .validUntil(bundle.validUntil())
+                    .imageUrl(resolveBundleImageUrl(bundle.bundleId(), items))
                     .items(items)
                     .build());
         } catch (Exception ex) {
             log.warn("Bundle {} not found or error retrieving bundle: {}", bundleId, ex.getMessage());
             return Optional.empty();
         }
+    }
+
+    private String resolveBundleImageUrl(
+            UUID bundleId,
+            List<CatalogBundleSummaryDto.CatalogBundleItemDto> items
+    ) {
+        Optional<String> bundleImage = pickPrimaryImageUrl(productImageRepository.findByProductId(bundleId));
+        if (bundleImage.isPresent()) {
+            return bundleImage.get();
+        }
+        for (CatalogBundleSummaryDto.CatalogBundleItemDto item : items) {
+            if (item.variantId() == null) continue;
+            Optional<String> variantImage = pickPrimaryImageUrl(
+                    productImageRepository.findByVariantId(item.variantId()));
+            if (variantImage.isPresent()) {
+                return variantImage.get();
+            }
+            Optional<ProductVariant> vOpt = productVariantRepository.findById(item.variantId());
+            if (vOpt.isPresent() && vOpt.get().getProductId() != null) {
+                Optional<String> parentImage = pickPrimaryImageUrl(
+                        productImageRepository.findByProductId(vOpt.get().getProductId()));
+                if (parentImage.isPresent()) {
+                    return parentImage.get();
+                }
+            }
+        }
+        return null;
     }
 
     @Override

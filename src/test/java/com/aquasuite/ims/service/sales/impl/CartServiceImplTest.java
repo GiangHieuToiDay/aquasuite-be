@@ -1,6 +1,7 @@
 package com.aquasuite.ims.service.sales.impl;
 
 import com.aquasuite.ims.service.catalog.CatalogLookupService;
+import com.aquasuite.ims.dto.catalog.response.CatalogBundleSummaryDto;
 import com.aquasuite.ims.dto.catalog.response.CatalogSkuSummaryDto;
 import com.aquasuite.ims.service.crm.CustomerService;
 import com.aquasuite.ims.dto.crm.response.CustomerSummaryDto;
@@ -295,6 +296,111 @@ class CartServiceImplTest {
         verify(cartItemRepository).save(captor.capture());
         assertThat(captor.getValue().getVariantId()).isEqualTo(variantId);
         assertThat(captor.getValue().getQuantity()).isEqualByComparingTo("4");
+    }
+
+    @Test
+    void addItem_comboSuccess_computesComboStockAndReturnsComboCartLine() {
+        mockAuthenticatedCustomer();
+        UUID comboId = UUID.randomUUID();
+        UUID comp2Id = UUID.randomUUID();
+
+        CatalogBundleSummaryDto bundle = CatalogBundleSummaryDto.builder()
+                .bundleId(comboId)
+                .bundleCode("CB-HOTEL-4STAR")
+                .bundleName("Combo Khách sạn 4 Sao")
+                .packagePrice(new BigDecimal("18500000"))
+                .status("ACTIVE")
+                .publicationStatus("PUBLISHED")
+                .imageUrl("https://example.com/combo.jpg")
+                .items(List.of(
+                        CatalogBundleSummaryDto.CatalogBundleItemDto.builder()
+                                .variantId(variantId)
+                                .sku("TOTO-LT4706-W")
+                                .variantName("Chậu rửa TOTO")
+                                .quantity(1)
+                                .sellingPrice(new BigDecimal("3200000"))
+                                .sellable(true)
+                                .build(),
+                        CatalogBundleSummaryDto.CatalogBundleItemDto.builder()
+                                .variantId(comp2Id)
+                                .sku("TOTO-CS886-B")
+                                .variantName("Bồn cầu TOTO")
+                                .quantity(2)
+                                .sellingPrice(new BigDecimal("17500000"))
+                                .sellable(true)
+                                .build()
+                ))
+                .build();
+
+        when(catalogApi.getBundleSummary(comboId)).thenReturn(Optional.of(bundle));
+        when(catalogApi.getBundleSummaries(any())).thenReturn(Map.of(comboId, bundle));
+        when(cartItemRepository.findByCustomerIdAndComboId(customerId, comboId)).thenReturn(Optional.empty());
+        when(inventoryApi.getStockSummaries(any())).thenReturn(Map.of(
+                variantId, StockSummaryDto.builder().variantId(variantId).availableQty(new BigDecimal("10")).build(),
+                comp2Id, StockSummaryDto.builder().variantId(comp2Id).availableQty(new BigDecimal("5")).build()
+        ));
+
+        CartItem savedCombo = CartItem.builder()
+                .cartItemId(UUID.randomUUID())
+                .customerId(customerId)
+                .comboId(comboId)
+                .quantity(new BigDecimal("2"))
+                .unitPrice(new BigDecimal("18500000"))
+                .updatedAt(OffsetDateTime.now())
+                .build();
+        when(cartItemRepository.findAllByCustomerIdOrderByUpdatedAtDesc(customerId)).thenReturn(List.of(savedCombo));
+
+        CartResponse response = cartService.addItem(AddCartItemRequest.builder()
+                .comboId(comboId)
+                .quantity(new BigDecimal("2"))
+                .build());
+
+        assertThat(response.getItems()).hasSize(1);
+        assertThat(response.getItems().get(0).isCombo()).isTrue();
+        assertThat(response.getItems().get(0).getComboId()).isEqualTo(comboId);
+        assertThat(response.getItems().get(0).getVariantId()).isNull();
+        assertThat(response.getItems().get(0).getAvailableQty()).isEqualByComparingTo("2");
+        assertThat(response.getItems().get(0).getUnit()).isEqualTo("Gói");
+        assertThat(response.getItems().get(0).getComponents()).hasSize(2);
+        assertThat(response.getSubtotal()).isEqualByComparingTo("37000000.00");
+    }
+
+    @Test
+    void addItem_comboInsufficientComponentStock_throwsInsufficientStock() {
+        mockAuthenticatedCustomer();
+        UUID comboId = UUID.randomUUID();
+        CatalogBundleSummaryDto bundle = CatalogBundleSummaryDto.builder()
+                .bundleId(comboId)
+                .bundleCode("CB-HOTEL-4STAR")
+                .bundleName("Combo Khách sạn 4 Sao")
+                .packagePrice(new BigDecimal("18500000"))
+                .status("ACTIVE")
+                .publicationStatus("PUBLISHED")
+                .items(List.of(
+                        CatalogBundleSummaryDto.CatalogBundleItemDto.builder()
+                                .variantId(variantId)
+                                .sku("TOTO-LT4706-W")
+                                .variantName("Chậu rửa TOTO")
+                                .quantity(1)
+                                .sellingPrice(new BigDecimal("3200000"))
+                                .sellable(true)
+                                .build()
+                ))
+                .build();
+
+        when(catalogApi.getBundleSummary(comboId)).thenReturn(Optional.of(bundle));
+        when(cartItemRepository.findByCustomerIdAndComboId(customerId, comboId)).thenReturn(Optional.empty());
+        when(inventoryApi.getStockSummaries(any())).thenReturn(Map.of(
+                variantId, StockSummaryDto.builder().variantId(variantId).availableQty(BigDecimal.ZERO).build()
+        ));
+
+        assertThatThrownBy(() -> cartService.addItem(AddCartItemRequest.builder()
+                .comboId(comboId)
+                .quantity(BigDecimal.ONE)
+                .build()))
+                .isInstanceOf(AppException.class)
+                .extracting(ex -> ((AppException) ex).getErrorCode())
+                .isEqualTo(SalesErrorCode.INSUFFICIENT_STOCK);
     }
 }
 

@@ -25,4 +25,7 @@ public interface QuotationRepository extends JpaRepository<Quotation, UUID>, Jpa
     boolean existsByQuotationCodeAndStatusIn(String quotationCode, Collection<QuotationStatus> statuses);
 
     List<Quotation> findByQuotationCodeAndQuotationIdNot(String quotationCode, UUID quotationId);
+
+    List<Quotation> findByCustomerIdAndStatusNotInOrderByCreatedAtDesc(
+            UUID customerId, Collection<QuotationStatus> excludedStatuses);
 }

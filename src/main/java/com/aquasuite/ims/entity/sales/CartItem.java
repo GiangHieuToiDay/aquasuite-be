@@ -29,7 +29,8 @@ import java.util.UUID;
         },
         indexes = {
                 @Index(name = "idx_cart_items_customer_id", columnList = "customer_id"),
-                @Index(name = "idx_cart_items_variant_id", columnList = "variant_id")
+                @Index(name = "idx_cart_items_variant_id", columnList = "variant_id"),
+                @Index(name = "idx_cart_items_combo_id", columnList = "combo_id")
         }
 )
 @Getter
@@ -46,8 +47,11 @@ public class CartItem {
     @Column(name = "customer_id", nullable = false)
     private UUID customerId;
 
-    @Column(name = "variant_id", nullable = false)
+    @Column(name = "variant_id")
     private UUID variantId;
+
+    @Column(name = "combo_id")
+    private UUID comboId;
 
     @Column(name = "quantity", nullable = false, precision = 12, scale = 2)
     private BigDecimal quantity;

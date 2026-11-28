@@ -119,4 +119,10 @@ public class CustomerDebtController {
     public ApiResponse<CustomerCreditSummaryResponse> customerSummary(@PathVariable UUID customerId) {
         return ApiResponse.ok(service.creditSummary(customerId));
     }
+
+    @GetMapping("/api/v1/finance/customer-debts/me")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ApiResponse<CustomerDebtDetailResponse> myDebtDetail() {
+        return ApiResponse.ok(service.myDebtDetail(iamApi.getCurrentUserId()));
+    }
 }

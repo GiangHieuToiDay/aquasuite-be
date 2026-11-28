@@ -30,6 +30,18 @@ public interface CatalogLookupService {
     /** Tra cứu thông tin combo/bundle theo bundleId */
     Optional<CatalogBundleSummaryDto> getBundleSummary(UUID bundleId);
 
+    /** Tra cứu hàng loạt thông tin combo/bundle theo tập hợp bundleIds */
+    default Map<UUID, CatalogBundleSummaryDto> getBundleSummaries(Collection<UUID> bundleIds) {
+        if (bundleIds == null || bundleIds.isEmpty()) return Map.of();
+        Map<UUID, CatalogBundleSummaryDto> map = new java.util.LinkedHashMap<>();
+        for (UUID bundleId : bundleIds) {
+            if (bundleId != null) {
+                getBundleSummary(bundleId).ifPresent(dto -> map.put(bundleId, dto));
+            }
+        }
+        return map;
+    }
+
     /** Tra cứu danh sách SKU active thuộc tập hợp productIds */
     List<CatalogSkuSummaryDto> getSkusByProductIds(Collection<UUID> productIds);
 

@@ -56,6 +56,8 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
 
     List<Order> findByCustomerIdAndOrderChannelOrderByCreatedAtDesc(UUID customerId, String orderChannel);
 
+    List<Order> findByCustomerIdOrderByOrderDateDesc(UUID customerId);
+
     long countByCustomerIdAndOrderStatusAndPaymentStatus(UUID customerId, String orderStatus, String paymentStatus);
 
     List<Order> findByCreditRequestId(UUID creditRequestId);

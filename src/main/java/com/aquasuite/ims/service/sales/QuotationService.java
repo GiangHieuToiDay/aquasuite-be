@@ -150,4 +150,14 @@ public interface QuotationService {
      * @return trang danh sách báo giá
      */
     PageResponse<QuotationListItemResponse> listQuotations(QuotationFilterRequest filterRequest);
+
+    /** Khách hàng tự xem danh sách báo giá đã phát hành cho hồ sơ của mình. */
+    default List<QuotationListItemResponse> getMyQuotations() {
+        throw new UnsupportedOperationException("getMyQuotations is not implemented");
+    }
+
+    /** Khách hàng tự xem chi tiết một báo giá đã phát hành cho hồ sơ của mình. */
+    default QuotationResponse getMyQuotationDetail(UUID quotationId) {
+        throw new UnsupportedOperationException("getMyQuotationDetail is not implemented");
+    }
 }

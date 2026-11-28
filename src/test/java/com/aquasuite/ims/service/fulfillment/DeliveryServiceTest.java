@@ -208,4 +208,55 @@ class DeliveryServiceTest {
         assertThatThrownBy(() -> service.complete(d.getDeliveryId(), List.of())).isInstanceOf(AppException.class);
         verifyNoInteractions(storage);
     }
+
+    @Test void customerDeliveriesFiltersDraftAndMapsCustomerPhotoUrl() {
+        UUID userId = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
+        UUID photoId = UUID.randomUUID();
+        login(userId, "CUSTOMER");
+        var crm = mock(com.aquasuite.ims.service.crm.CustomerService.class);
+        var salesQuery = mock(com.aquasuite.ims.service.sales.SalesQueryService.class);
+        var customerService = new DeliveryService(repo, items, iam, catalog, storage, manager, crm, salesQuery);
+
+        when(crm.getCustomerByUserId(userId)).thenReturn(Optional.of(
+                com.aquasuite.ims.dto.crm.response.CustomerSummaryDto.builder()
+                        .customerId(customerId).userId(userId).customerName("Khách A").status("ACTIVE").build()));
+        when(salesQuery.findOrdersByCustomerIds(java.util.Set.of(customerId))).thenReturn(List.of(
+                new com.aquasuite.ims.dto.sales.response.SalesOrderDebtDto(
+                        d.getOrderId(), customerId, "ORD-CUST-01", "ONLINE", "PROCESSING", "PAID",
+                        java.math.BigDecimal.TEN, java.math.BigDecimal.ZERO, java.math.BigDecimal.TEN, null)));
+
+        d.setProofPhotos(List.of(new Delivery.Photo(photoId, "proof/key", "image/png", 10L)));
+        Delivery draft = Delivery.builder().deliveryId(UUID.randomUUID()).orderId(d.getOrderId())
+                .deliveryCode("DLV-DRAFT").deliveryStatus("DRAFT").build();
+        when(repo.findByOrderIdInOrderByUpdatedAtDesc(any())).thenReturn(List.of(d, draft));
+        when(items.findByDeliveryIdOrderByDeliveryItemId(d.getDeliveryId())).thenReturn(List.of());
+        when(catalog.getSkuSummaries(any())).thenReturn(java.util.Map.of());
+
+        var result = customerService.myCustomerDeliveries();
+
+        assertThat(result).hasSize(1);
+        assertThat(result.getFirst().orderCode()).isEqualTo("ORD-CUST-01");
+        assertThat(result.getFirst().photos()).hasSize(1);
+        assertThat(result.getFirst().photos().getFirst().contentUrl())
+                .isEqualTo("/api/v1/fulfillment/customer/deliveries/" + d.getDeliveryId() + "/photos/" + photoId);
+    }
+
+    @Test void customerCannotReadOtherCustomerDeliveryPhoto() {
+        UUID userId = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
+        login(userId, "CUSTOMER");
+        var crm = mock(com.aquasuite.ims.service.crm.CustomerService.class);
+        var salesQuery = mock(com.aquasuite.ims.service.sales.SalesQueryService.class);
+        var customerService = new DeliveryService(repo, items, iam, catalog, storage, manager, crm, salesQuery);
+
+        when(crm.getCustomerByUserId(userId)).thenReturn(Optional.of(
+                com.aquasuite.ims.dto.crm.response.CustomerSummaryDto.builder()
+                        .customerId(customerId).userId(userId).customerName("Khách A").status("ACTIVE").build()));
+        when(salesQuery.findOrdersByCustomerIds(java.util.Set.of(customerId))).thenReturn(List.of());
+
+        assertThatThrownBy(() -> customerService.readCustomerPhoto(d.getDeliveryId(), UUID.randomUUID()))
+                .isInstanceOf(AppException.class);
+        verifyNoInteractions(storage);
+    }
 }

@@ -5,6 +5,7 @@ import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 import java.util.Optional;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -18,4 +19,6 @@ public interface DeliveryRepository extends JpaRepository<Delivery, UUID>, JpaSp
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select d from Delivery d where d.orderId = :orderId order by d.createdAt asc")
     List<Delivery> lockByOrderId(@Param("orderId") UUID orderId);
+
+    List<Delivery> findByOrderIdInOrderByUpdatedAtDesc(Collection<UUID> orderIds);
 }

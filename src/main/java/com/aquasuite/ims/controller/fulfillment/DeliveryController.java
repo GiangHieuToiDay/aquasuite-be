@@ -109,4 +109,18 @@ public class DeliveryController {
             @Valid @RequestBody DeliveryRequests.Fail request) {
         return ApiResponse.ok(service.fail(id, request));
     }
+
+    @GetMapping("/customer/deliveries")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ApiResponse<List<DeliveryView.CustomerTracking>> customerDeliveries() {
+        return ApiResponse.ok(service.myCustomerDeliveries());
+    }
+
+    @GetMapping("/customer/deliveries/{id}/photos/{photoId}")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<byte[]> customerPhoto(@PathVariable UUID id, @PathVariable UUID photoId) {
+        var photo = service.readCustomerPhoto(id, photoId);
+        return ResponseEntity.ok().contentType(MediaType.parseMediaType(photo.mimeType()))
+                .cacheControl(CacheControl.noStore()).body(photo.bytes());
+    }
 }

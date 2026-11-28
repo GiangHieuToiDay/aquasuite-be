@@ -17,6 +17,7 @@ import com.aquasuite.ims.entity.servicedesk.WarrantyRecord;
 import com.aquasuite.ims.enums.servicedesk.WarrantyDisplayStatus;
 import com.aquasuite.ims.enums.servicedesk.WarrantyStatus;
 import com.aquasuite.ims.exception.servicedesk.ServicedeskErrorCode;
+import com.aquasuite.ims.dto.servicedesk.request.AutoIssueWarrantyCommand;
 import com.aquasuite.ims.dto.servicedesk.request.CreateAdHocWarrantyRequest;
 import com.aquasuite.ims.dto.servicedesk.request.CreateDeliveryWarrantyCommand;
 import com.aquasuite.ims.dto.servicedesk.request.CreateWarrantyFromOrderRequest;
@@ -376,6 +377,96 @@ class WarrantyRecordServiceTest {
                 .isInstanceOf(AppException.class)
                 .extracting("errorCode")
                 .isEqualTo(ServicedeskErrorCode.WARRANTY_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("autoIssueIfEligible: đơn COMPLETED không có delivery, SKU không quản lý serial -> tự động cấp thẻ ACTIVE")
+    void autoIssueCompletedPickupOrderSuccess() {
+        UUID walkInCustomerId = UUID.randomUUID();
+        LocalDate orderDate = LocalDate.of(2026, 11, 10);
+        var snapshot = SalesOrderItemWarrantySnapshotDto.builder()
+                .orderItemId(orderItemId).orderId(orderId).orderStatus("COMPLETED")
+                .customerId(walkInCustomerId).variantId(variantId).quantity(BigDecimal.ONE).build();
+        var policy = CatalogWarrantyPolicyDto.builder()
+                .variantId(variantId).warrantyPolicyId(policyId).warrantyMonths(24)
+                .serialTracking(false).policyStatus("ACTIVE").warrantyTerms("24 tháng").build();
+
+        when(salesWarrantyApi.lockOrderItemForWarranty(orderItemId)).thenReturn(Optional.of(snapshot));
+        when(catalogWarrantyApi.getWarrantyInfoByVariantId(variantId)).thenReturn(Optional.of(policy));
+        when(warrantyRecordRepository.existsByOrderItemId(orderItemId)).thenReturn(false);
+        when(warrantyRecordRepository.countByOrderItemIdAndStatus(orderItemId, WarrantyStatus.ACTIVE)).thenReturn(0L);
+        when(warrantyCodeGenerator.nextCode(orderDate)).thenReturn("WAR-202611-0100");
+
+        boolean issued = service.autoIssueIfEligible(new AutoIssueWarrantyCommand(
+                null, orderItemId, null, orderDate, null));
+
+        assertThat(issued).isTrue();
+        verify(warrantyRecordRepository).saveAndFlush(any(WarrantyRecord.class));
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    @DisplayName("autoIssueIfEligible: đơn chưa COMPLETED (khi không có delivery) -> bỏ qua")
+    void autoIssueSkipsNonCompletedPickupOrder() {
+        var snapshot = SalesOrderItemWarrantySnapshotDto.builder()
+                .orderItemId(orderItemId).orderId(orderId).orderStatus("PROCESSING")
+                .customerId(customerId).variantId(variantId).quantity(BigDecimal.ONE).build();
+        when(salesWarrantyApi.lockOrderItemForWarranty(orderItemId)).thenReturn(Optional.of(snapshot));
+
+        boolean issued = service.autoIssueIfEligible(new AutoIssueWarrantyCommand(
+                null, orderItemId, null, LocalDate.of(2026, 11, 12), null));
+
+        assertThat(issued).isFalse();
+        verify(warrantyRecordRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("autoIssueIfEligible: đã từng có thẻ (kể cả VOIDED) cho orderItem/delivery -> không cấp lại")
+    void autoIssueDoesNotResurrectExistingOrVoidedCard() {
+        UUID deliveryId = UUID.randomUUID();
+        var snapshot = SalesOrderItemWarrantySnapshotDto.builder()
+                .orderItemId(orderItemId).orderId(orderId).orderStatus("COMPLETED")
+                .customerId(customerId).variantId(variantId).quantity(BigDecimal.ONE).build();
+        var policy = CatalogWarrantyPolicyDto.builder()
+                .variantId(variantId).warrantyPolicyId(policyId).warrantyMonths(12)
+                .serialTracking(false).policyStatus("ACTIVE").build();
+
+        when(salesWarrantyApi.lockOrderItemForWarranty(orderItemId)).thenReturn(Optional.of(snapshot));
+        when(catalogWarrantyApi.getWarrantyInfoByVariantId(variantId)).thenReturn(Optional.of(policy));
+        when(warrantyRecordRepository.existsByOrderItemId(orderItemId)).thenReturn(true);
+        when(warrantyRecordRepository.existsByOrderItemIdAndDeliveryIdAndSerialNumberIsNull(orderItemId, deliveryId))
+                .thenReturn(true);
+
+        assertThat(service.autoIssueIfEligible(new AutoIssueWarrantyCommand(
+                null, orderItemId, null, LocalDate.of(2026, 11, 12), null))).isFalse();
+        assertThat(service.autoIssueIfEligible(new AutoIssueWarrantyCommand(
+                deliveryId, orderItemId, null, LocalDate.of(2026, 11, 12), null))).isFalse();
+        verify(warrantyRecordRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("autoIssueIfEligible: đã đạt đủ số lượng ACTIVE theo order_item (manual trước đó) -> không vượt số lượng")
+    void autoIssueRespectsOrderedQuantityCap() {
+        UUID deliveryId = UUID.randomUUID();
+        var snapshot = SalesOrderItemWarrantySnapshotDto.builder()
+                .orderItemId(orderItemId).orderId(orderId).orderStatus("PROCESSING")
+                .customerId(customerId).variantId(variantId).quantity(BigDecimal.ONE).build();
+        var policy = CatalogWarrantyPolicyDto.builder()
+                .variantId(variantId).warrantyPolicyId(policyId).warrantyMonths(12)
+                .serialTracking(false).policyStatus("ACTIVE").build();
+
+        when(salesWarrantyApi.lockOrderItemForWarranty(orderItemId)).thenReturn(Optional.of(snapshot));
+        when(catalogWarrantyApi.getWarrantyInfoByVariantId(variantId)).thenReturn(Optional.of(policy));
+        when(warrantyRecordRepository.existsByOrderItemIdAndDeliveryIdAndSerialNumberIsNull(orderItemId, deliveryId))
+                .thenReturn(false);
+        when(warrantyRecordRepository.countByOrderItemIdAndStatus(orderItemId, WarrantyStatus.ACTIVE))
+                .thenReturn(1L);
+
+        boolean issued = service.autoIssueIfEligible(new AutoIssueWarrantyCommand(
+                deliveryId, orderItemId, null, LocalDate.of(2026, 11, 12), null));
+
+        assertThat(issued).isFalse();
+        verify(warrantyRecordRepository, never()).saveAndFlush(any());
     }
 }
 

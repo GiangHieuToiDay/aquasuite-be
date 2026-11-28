@@ -1,22 +1,24 @@
 package com.aquasuite.ims.service.sales.impl;
 
-import com.aquasuite.ims.service.catalog.CatalogLookupService;
+import com.aquasuite.ims.dto.catalog.response.CatalogBundleSummaryDto;
 import com.aquasuite.ims.dto.catalog.response.CatalogSkuSummaryDto;
-import com.aquasuite.ims.service.crm.CustomerService;
 import com.aquasuite.ims.dto.crm.response.CustomerSummaryDto;
-import com.aquasuite.ims.service.iam.IamQueryService;
-import com.aquasuite.ims.service.inventory.InventoryService;
 import com.aquasuite.ims.dto.inventory.response.StockSummaryDto;
-import com.aquasuite.ims.entity.sales.CartItem;
-import com.aquasuite.ims.exception.sales.SalesErrorCode;
-import com.aquasuite.ims.mapper.sales.CartMapper;
 import com.aquasuite.ims.dto.sales.request.AddCartItemRequest;
 import com.aquasuite.ims.dto.sales.request.MergeCartItemsRequest;
 import com.aquasuite.ims.dto.sales.request.UpdateCartItemQuantityRequest;
 import com.aquasuite.ims.dto.sales.response.CartItemResponse;
 import com.aquasuite.ims.dto.sales.response.CartResponse;
-import com.aquasuite.ims.repository.sales.CartItemRepository;
+import com.aquasuite.ims.entity.sales.CartItem;
 import com.aquasuite.ims.exception.AppException;
+import com.aquasuite.ims.exception.sales.SalesErrorCode;
+import com.aquasuite.ims.mapper.sales.CartMapper;
+import com.aquasuite.ims.repository.sales.CartItemRepository;
+import com.aquasuite.ims.service.catalog.CatalogLookupService;
+import com.aquasuite.ims.service.crm.CustomerService;
+import com.aquasuite.ims.service.iam.IamQueryService;
+import com.aquasuite.ims.service.inventory.InventoryService;
+import com.aquasuite.ims.service.sales.helper.CartComboSupport;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -25,9 +27,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -37,7 +41,7 @@ import java.util.stream.Collectors;
 
 /**
  * Triển khai nghiệp vụ quản lý giỏ hàng của khách hàng (UC-17).
- * Giao tiếp liên module thông qua các public contract: IamQueryService, CustomerService, CatalogLookupService, InventoryService.
+ * Hỗ trợ đầy đủ cả biến thể SKU đơn lẻ và gói Combo đồng bộ.
  */
 @Slf4j
 @Service
@@ -52,16 +56,35 @@ public class CartServiceImpl {
     private final CustomerService crmApi;
     private final CatalogLookupService catalogApi;
     private final InventoryService inventoryApi;
+
     @Transactional(readOnly = true)
     public CartResponse getCurrentCart() {
         UUID customerId = resolveCurrentCustomerId();
         return buildCartResponse(customerId);
     }
+
     @Transactional
     public CartResponse addItem(AddCartItemRequest request) {
         validatePositiveQuantity(request.getQuantity());
         UUID customerId = resolveCurrentCustomerId();
+
+        if (request.getComboId() != null) {
+            validateIntegerQuantity(request.getQuantity());
+            UUID comboId = request.getComboId();
+            CatalogBundleSummaryDto bundleSummary = catalogApi.getBundleSummary(comboId)
+                    .orElseThrow(() -> new AppException(SalesErrorCode.COMBO_NOT_FOUND, comboId));
+            ensureComboSellable(bundleSummary, Instant.now());
+
+            BigDecimal targetQuantity = saveOrAccumulateComboCartItem(customerId, bundleSummary, request.getQuantity());
+            log.info("Updated combo cart item for customerId={}, comboId={}, quantity={}",
+                    customerId, comboId, targetQuantity);
+            return buildCartResponse(customerId);
+        }
+
         UUID variantId = request.getVariantId();
+        if (variantId == null) {
+            throw new AppException(SalesErrorCode.SKU_NOT_FOUND, "");
+        }
 
         CatalogSkuSummaryDto skuSummary = catalogApi.getSkuSummary(variantId)
                 .orElseThrow(() -> new AppException(SalesErrorCode.SKU_NOT_FOUND, variantId));
@@ -74,26 +97,45 @@ public class CartServiceImpl {
                 customerId, variantId, targetQuantity);
         return buildCartResponse(customerId);
     }
+
     @Transactional
     public CartResponse mergeGuestItems(MergeCartItemsRequest request) {
         UUID customerId = resolveCurrentCustomerId();
-        Map<UUID, BigDecimal> aggregated = new LinkedHashMap<>();
+        Map<UUID, BigDecimal> aggregatedVariants = new LinkedHashMap<>();
+        Map<UUID, BigDecimal> aggregatedCombos = new LinkedHashMap<>();
+
         for (AddCartItemRequest reqItem : request.getItems()) {
-            if (reqItem == null || reqItem.getVariantId() == null || reqItem.getQuantity() == null
+            if (reqItem == null || reqItem.getQuantity() == null
                     || reqItem.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
                 continue;
             }
-            aggregated.merge(reqItem.getVariantId(), reqItem.getQuantity(), BigDecimal::add);
+            if (reqItem.getComboId() != null && reqItem.getVariantId() == null) {
+                if (reqItem.getQuantity().stripTrailingZeros().scale() <= 0) {
+                    aggregatedCombos.merge(reqItem.getComboId(), reqItem.getQuantity(), BigDecimal::add);
+                }
+            } else if (reqItem.getVariantId() != null && reqItem.getComboId() == null) {
+                aggregatedVariants.merge(reqItem.getVariantId(), reqItem.getQuantity(), BigDecimal::add);
+            }
         }
 
-        if (aggregated.isEmpty()) {
+        if (aggregatedVariants.isEmpty() && aggregatedCombos.isEmpty()) {
             return buildCartResponse(customerId);
         }
 
-        Map<UUID, CatalogSkuSummaryDto> skuMap = catalogApi.getSkuSummaries(aggregated.keySet());
-        Map<UUID, StockSummaryDto> stockMap = inventoryApi.getStockSummaries(aggregated.keySet());
+        Map<UUID, CatalogSkuSummaryDto> skuMap = aggregatedVariants.isEmpty()
+                ? Collections.emptyMap()
+                : catalogApi.getSkuSummaries(aggregatedVariants.keySet());
+        Map<UUID, CatalogBundleSummaryDto> bundleMap = aggregatedCombos.isEmpty()
+                ? Collections.emptyMap()
+                : catalogApi.getBundleSummaries(aggregatedCombos.keySet());
 
-        for (Map.Entry<UUID, BigDecimal> entry : aggregated.entrySet()) {
+        Set<UUID> stockVariantIds = new LinkedHashSet<>(aggregatedVariants.keySet());
+        collectBundleComponentVariantIds(bundleMap.values(), stockVariantIds);
+        Map<UUID, StockSummaryDto> stockMap = stockVariantIds.isEmpty()
+                ? Collections.emptyMap()
+                : inventoryApi.getStockSummaries(stockVariantIds);
+
+        for (Map.Entry<UUID, BigDecimal> entry : aggregatedVariants.entrySet()) {
             UUID variantId = entry.getKey();
             CatalogSkuSummaryDto skuSummary = skuMap.get(variantId);
             if (!isSkuAndProductActive(skuSummary)) {
@@ -127,9 +169,44 @@ public class CartServiceImpl {
             cartItemRepository.save(cartItem);
         }
 
-        log.info("Merged {} distinct guest cart items for customerId={}", aggregated.size(), customerId);
+        Instant now = Instant.now();
+        for (Map.Entry<UUID, BigDecimal> entry : aggregatedCombos.entrySet()) {
+            UUID comboId = entry.getKey();
+            CatalogBundleSummaryDto bundle = bundleMap.get(comboId);
+            if (!CartComboSupport.isComboActiveAndPublished(bundle, now)) {
+                continue;
+            }
+
+            BigDecimal availableCombos = CartComboSupport.computeComboAvailableQty(bundle, stockMap);
+            if (availableCombos.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+
+            Optional<CartItem> existingOpt = cartItemRepository.findByCustomerIdAndComboId(customerId, comboId);
+            BigDecimal currentQty = existingOpt.map(CartItem::getQuantity).orElse(BigDecimal.ZERO);
+            BigDecimal desiredTotal = currentQty.add(entry.getValue());
+            BigDecimal cappedQty = desiredTotal.min(availableCombos);
+            if (cappedQty.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+
+            BigDecimal currentPrice = defaultAmount(bundle.packagePrice());
+            CartItem cartItem = existingOpt.orElseGet(() -> CartItem.builder()
+                    .customerId(customerId)
+                    .comboId(comboId)
+                    .quantity(BigDecimal.ZERO)
+                    .unitPrice(currentPrice)
+                    .build());
+            cartItem.setQuantity(cappedQty);
+            cartItem.setUnitPrice(currentPrice);
+            cartItemRepository.save(cartItem);
+        }
+
+        log.info("Merged {} distinct variant items and {} combo items for customerId={}",
+                aggregatedVariants.size(), aggregatedCombos.size(), customerId);
         return buildCartResponse(customerId);
     }
+
     @Transactional
     public CartResponse updateItemQuantity(UUID cartItemId, UpdateCartItemQuantityRequest request) {
         validatePositiveQuantity(request.getQuantity());
@@ -137,6 +214,24 @@ public class CartServiceImpl {
 
         CartItem cartItem = cartItemRepository.findByCartItemIdAndCustomerId(cartItemId, customerId)
                 .orElseThrow(() -> new AppException(SalesErrorCode.CART_ITEM_NOT_FOUND));
+
+        if (cartItem.getComboId() != null) {
+            validateIntegerQuantity(request.getQuantity());
+            UUID comboId = cartItem.getComboId();
+            CatalogBundleSummaryDto bundleSummary = catalogApi.getBundleSummary(comboId)
+                    .orElseThrow(() -> new AppException(SalesErrorCode.COMBO_NOT_FOUND, comboId));
+            ensureComboSellable(bundleSummary, Instant.now());
+
+            validateComboStockAvailability(bundleSummary, request.getQuantity());
+
+            cartItem.setQuantity(request.getQuantity());
+            cartItem.setUnitPrice(defaultAmount(bundleSummary.packagePrice()));
+            cartItemRepository.save(cartItem);
+
+            log.info("Updated combo cartItemId={} quantity={} for customerId={}",
+                    cartItemId, request.getQuantity(), customerId);
+            return buildCartResponse(customerId);
+        }
 
         UUID variantId = cartItem.getVariantId();
         CatalogSkuSummaryDto skuSummary = catalogApi.getSkuSummary(variantId)
@@ -154,6 +249,7 @@ public class CartServiceImpl {
                 cartItemId, request.getQuantity(), customerId);
         return buildCartResponse(customerId);
     }
+
     @Transactional
     public CartResponse removeItem(UUID cartItemId) {
         UUID customerId = resolveCurrentCustomerId();
@@ -165,6 +261,7 @@ public class CartServiceImpl {
         log.info("Removed cartItemId={} for customerId={}", cartItemId, customerId);
         return buildCartResponse(customerId);
     }
+
     @Transactional
     public CartResponse clearCart() {
         UUID customerId = resolveCurrentCustomerId();
@@ -182,6 +279,13 @@ public class CartServiceImpl {
 
     private void validatePositiveQuantity(BigDecimal quantity) {
         if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new AppException(SalesErrorCode.INVALID_CART_QUANTITY);
+        }
+    }
+
+    private void validateIntegerQuantity(BigDecimal quantity) {
+        if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0
+                || quantity.stripTrailingZeros().scale() > 0) {
             throw new AppException(SalesErrorCode.INVALID_CART_QUANTITY);
         }
     }
@@ -226,10 +330,58 @@ public class CartServiceImpl {
         }
     }
 
+    private BigDecimal saveOrAccumulateComboCartItem(
+            UUID customerId,
+            CatalogBundleSummaryDto bundleSummary,
+            BigDecimal addQuantity
+    ) {
+        UUID comboId = bundleSummary.bundleId();
+        BigDecimal currentPrice = defaultAmount(bundleSummary.packagePrice());
+
+        Optional<CartItem> existingOpt = cartItemRepository.findByCustomerIdAndComboId(customerId, comboId);
+        BigDecimal targetQuantity = existingOpt
+                .map(existing -> existing.getQuantity().add(addQuantity))
+                .orElse(addQuantity);
+
+        validateComboStockAvailability(bundleSummary, targetQuantity);
+
+        CartItem cartItem = existingOpt.orElseGet(() -> CartItem.builder()
+                .customerId(customerId)
+                .comboId(comboId)
+                .quantity(BigDecimal.ZERO)
+                .unitPrice(currentPrice)
+                .build());
+        cartItem.setQuantity(targetQuantity);
+        cartItem.setUnitPrice(currentPrice);
+
+        try {
+            cartItemRepository.save(cartItem);
+            return targetQuantity;
+        } catch (DataIntegrityViolationException ex) {
+            CartItem concurrentExisting = cartItemRepository.findByCustomerIdAndComboId(customerId, comboId)
+                    .orElseThrow(() -> ex);
+            BigDecimal retryTarget = concurrentExisting.getQuantity().add(addQuantity);
+            validateComboStockAvailability(bundleSummary, retryTarget);
+            concurrentExisting.setQuantity(retryTarget);
+            concurrentExisting.setUnitPrice(currentPrice);
+            cartItemRepository.save(concurrentExisting);
+            return retryTarget;
+        }
+    }
+
     private void ensureSkuActive(CatalogSkuSummaryDto skuSummary) {
         if (!isSkuAndProductActive(skuSummary)) {
             throw new AppException(SalesErrorCode.SKU_NOT_ACTIVE,
                     skuSummary != null ? skuSummary.sku() : "");
+        }
+    }
+
+    private void ensureComboSellable(CatalogBundleSummaryDto bundleSummary, Instant now) {
+        if (!CartComboSupport.isComboActiveAndPublished(bundleSummary, now)) {
+            String ref = bundleSummary != null && bundleSummary.bundleName() != null
+                    ? bundleSummary.bundleName()
+                    : "";
+            throw new AppException(SalesErrorCode.INVALID_COMBO, ref);
         }
     }
 
@@ -252,6 +404,37 @@ public class CartServiceImpl {
         }
     }
 
+    private void validateComboStockAvailability(CatalogBundleSummaryDto bundle, BigDecimal requiredComboQty) {
+        Set<UUID> compVariantIds = new LinkedHashSet<>();
+        collectBundleComponentVariantIds(List.of(bundle), compVariantIds);
+        Map<UUID, StockSummaryDto> stockMap = compVariantIds.isEmpty()
+                ? Collections.emptyMap()
+                : inventoryApi.getStockSummaries(compVariantIds);
+        BigDecimal availableCombos = CartComboSupport.computeComboAvailableQty(bundle, stockMap);
+        if (availableCombos.compareTo(requiredComboQty) < 0) {
+            String code = bundle.bundleCode() != null ? bundle.bundleCode() : bundle.bundleName();
+            throw new AppException(
+                    SalesErrorCode.INSUFFICIENT_STOCK,
+                    code + " (tồn khả dụng: " + availableCombos.stripTrailingZeros().toPlainString() + " gói)"
+            );
+        }
+    }
+
+    private void collectBundleComponentVariantIds(
+            Iterable<CatalogBundleSummaryDto> bundles,
+            Set<UUID> target
+    ) {
+        if (bundles == null) return;
+        for (CatalogBundleSummaryDto bundle : bundles) {
+            if (bundle == null || bundle.items() == null) continue;
+            for (CatalogBundleSummaryDto.CatalogBundleItemDto item : bundle.items()) {
+                if (item != null && item.variantId() != null) {
+                    target.add(item.variantId());
+                }
+            }
+        }
+    }
+
     private CartResponse buildCartResponse(UUID customerId) {
         List<CartItem> cartItems = cartItemRepository.findAllByCustomerIdOrderByUpdatedAtDesc(customerId);
         if (cartItems.isEmpty()) {
@@ -267,17 +450,85 @@ public class CartServiceImpl {
 
         Set<UUID> variantIds = cartItems.stream()
                 .map(CartItem::getVariantId)
+                .filter(id -> id != null)
+                .collect(Collectors.toSet());
+        Set<UUID> comboIds = cartItems.stream()
+                .map(CartItem::getComboId)
+                .filter(id -> id != null)
                 .collect(Collectors.toSet());
 
-        Map<UUID, CatalogSkuSummaryDto> skuMap = catalogApi.getSkuSummaries(variantIds);
-        Map<UUID, StockSummaryDto> stockMap = inventoryApi.getStockSummaries(variantIds);
+        Map<UUID, CatalogSkuSummaryDto> skuMap = variantIds.isEmpty()
+                ? Collections.emptyMap()
+                : catalogApi.getSkuSummaries(variantIds);
+        Map<UUID, CatalogBundleSummaryDto> bundleMap = comboIds.isEmpty()
+                ? Collections.emptyMap()
+                : catalogApi.getBundleSummaries(comboIds);
+
+        Set<UUID> stockVariantIds = new LinkedHashSet<>(variantIds);
+        collectBundleComponentVariantIds(bundleMap.values(), stockVariantIds);
+        Map<UUID, StockSummaryDto> stockMap = stockVariantIds.isEmpty()
+                ? Collections.emptyMap()
+                : inventoryApi.getStockSummaries(stockVariantIds);
 
         List<CartItemResponse> itemResponses = new ArrayList<>(cartItems.size());
         BigDecimal totalQuantity = BigDecimal.ZERO;
         BigDecimal subtotal = BigDecimal.ZERO;
         boolean hasInvalidItems = false;
+        Instant now = Instant.now();
 
         for (CartItem item : cartItems) {
+            if (item.getComboId() != null) {
+                CatalogBundleSummaryDto bundle = bundleMap.get(item.getComboId());
+                String skuCode = bundle != null && bundle.bundleCode() != null ? bundle.bundleCode() : "N/A";
+                String productName = bundle != null && bundle.bundleName() != null
+                        ? bundle.bundleName()
+                        : "Combo không còn tồn tại";
+                int componentCount = bundle != null && bundle.items() != null ? bundle.items().size() : 0;
+                String variantName = componentCount > 0
+                        ? "Combo trọn bộ (" + componentCount + " thiết bị)"
+                        : "Combo trọn bộ";
+                String imageUrl = bundle != null ? bundle.imageUrl() : null;
+                List<String> components = CartComboSupport.formatComponents(bundle);
+
+                BigDecimal storedUnitPrice = defaultAmount(item.getUnitPrice());
+                BigDecimal currentSellingPrice = bundle != null && bundle.packagePrice() != null
+                        ? bundle.packagePrice()
+                        : storedUnitPrice;
+                BigDecimal quantity = defaultAmount(item.getQuantity());
+                BigDecimal lineTotal = currentSellingPrice.multiply(quantity).setScale(2, RoundingMode.HALF_UP);
+
+                BigDecimal availableQty = CartComboSupport.computeComboAvailableQty(bundle, stockMap);
+                boolean isComboActive = CartComboSupport.isComboActiveAndPublished(bundle, now);
+                boolean inStock = isComboActive && availableQty.compareTo(quantity) >= 0;
+                boolean priceChanged = currentSellingPrice.compareTo(storedUnitPrice) != 0;
+
+                if (!inStock || !isComboActive) {
+                    hasInvalidItems = true;
+                }
+
+                totalQuantity = totalQuantity.add(quantity);
+                subtotal = subtotal.add(lineTotal);
+
+                itemResponses.add(cartMapper.toItemResponse(
+                        item,
+                        item.getComboId(),
+                        skuCode,
+                        productName,
+                        variantName,
+                        imageUrl,
+                        "Gói",
+                        currentSellingPrice,
+                        lineTotal,
+                        availableQty,
+                        isComboActive ? ACTIVE_STATUS : "INACTIVE",
+                        inStock,
+                        priceChanged,
+                        true,
+                        components
+                ));
+                continue;
+            }
+
             CatalogSkuSummaryDto sku = skuMap.get(item.getVariantId());
             StockSummaryDto stock = stockMap.get(item.getVariantId());
 
@@ -324,7 +575,9 @@ public class CartServiceImpl {
                     availableQty,
                     isVariantActive ? variantStatus : "INACTIVE",
                     inStock,
-                    priceChanged
+                    priceChanged,
+                    false,
+                    null
             ));
         }
 
@@ -342,4 +595,3 @@ public class CartServiceImpl {
         return value != null ? value : BigDecimal.ZERO;
     }
 }
-

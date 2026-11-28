@@ -3,6 +3,7 @@ package com.aquasuite.ims.dto.catalog.response;
 import lombok.Builder;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -13,6 +14,10 @@ public record CatalogBundleSummaryDto(
         String bundleName,
         BigDecimal packagePrice,
         String status,
+        String publicationStatus,
+        Instant validFrom,
+        Instant validUntil,
+        String imageUrl,
         List<CatalogBundleItemDto> items
 ) {
     @Builder
@@ -21,6 +26,7 @@ public record CatalogBundleSummaryDto(
             String sku,
             String variantName,
             int quantity,
-            BigDecimal sellingPrice
+            BigDecimal sellingPrice,
+            Boolean sellable
     ) {}
 }
